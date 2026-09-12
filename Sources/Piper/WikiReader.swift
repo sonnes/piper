@@ -1,6 +1,12 @@
 import AppKit
 import SwiftUI
 
+enum WikiStyle {
+    static let paper = PiperTheme.page
+    static let sidebar = PiperTheme.surface
+    static let hairline = PiperTheme.rule
+}
+
 struct WikiReader: View {
     let model: AppModel
     let document: WikiDocument

@@ -1,12 +1,6 @@
 import AppKit
 import SwiftUI
 
-enum WikiStyle {
-    static let paper = PiperTheme.page
-    static let sidebar = PiperTheme.surface
-    static let hairline = PiperTheme.rule
-}
-
 struct LibraryView: View {
     @Bindable var model: AppModel
     @State private var showSidebar = true
@@ -16,6 +10,7 @@ struct LibraryView: View {
     @State private var initializedTree = false
     @State private var monitor: Any?
     @State private var window: NSWindow?
+    @State private var showReading = false
     @AppStorage("wikiReaderSize") private var readerSize = 18.0
     @AppStorage("wikiReaderTheme") private var readerTheme = WikiReadingTheme.paper
     @AppStorage("wikiReaderFont") private var readerFont = WikiReadingFont.mono
@@ -26,31 +21,36 @@ struct LibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                if showSidebar && !focused { sidebar.frame(width: 234); Divider() }
+                if !focused { ribbon; Rule(vertical: true) }
+                if showSidebar && !focused { sidebar.frame(width: 230); Rule(vertical: true) }
                 VStack(spacing: 0) {
-                    toolbar
-                    Divider()
-                    if model.route == "settings" { SettingsView(model: model).frame(maxWidth: .infinity, maxHeight: .infinity) }
-                    else { workspace }
+                    if !focused {
+                        tabStrip
+                        Rule()
+                        if let document = model.currentDocument { crumbs(document) }
+                    }
+                    workspace
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
-                if showInspector && !focused && model.route == "wiki", let document = model.currentDocument {
-                    Divider()
-                    WikiInspector(model: model, document: document, theme: $readerTheme, font: $readerFont,
-                                  fontSize: $readerSize, appearance: $readerAppearance,
-                                  focus: { focused = true }, close: { showInspector = false })
-                        .frame(width: 274)
+                if showInspector && !focused, let document = model.currentDocument {
+                    Rule(vertical: true)
+                    WikiInspector(model: model, document: document, focus: { focused = true })
+                        .frame(width: 250)
                 }
             }
-            Divider()
+            Rule()
             statusBar
         }
-        .background(WikiStyle.paper)
+        .id(model.style)
+        .background(PiperTheme.page)
         .foregroundStyle(PiperTheme.ink)
         .tint(PiperTheme.accent)
         .accentColor(PiperTheme.accent)
         .preferredColorScheme(readerAppearance.colorScheme)
         .frame(minWidth: 850, minHeight: 600)
         .background(WindowReference { window = $0; $0?.isDocumentEdited = model.wikiEdit?.hasChanges == true })
+        .sheet(isPresented: Binding(get: { model.route == "settings" }, set: { if !$0 { model.route = "wiki" } })) {
+            SettingsView(model: model)
+        }
         .alert("Piper", isPresented: Binding(get: { model.store.errorMessage != nil }, set: { if !$0 { model.store.errorMessage = nil } })) {
             Button("OK") { model.store.errorMessage = nil }
         } message: { Text(model.store.errorMessage ?? "") }
@@ -66,77 +66,85 @@ struct LibraryView: View {
         }
     }
 
+    // MARK: Ribbon and sidebar
+
+    private var ribbon: some View {
+        VStack(spacing: 6) {
+            IconButton(title: "Files", icon: "doc.text", active: showSidebar) { showSidebar.toggle() }
+            IconButton(title: "Search Wiki · ⌘O", icon: "magnifyingglass") { focusSearch() }
+            IconButton(title: "Open Capture Panel · ⌘1", icon: "square.and.pencil") { model.openPanel?() }
+            Spacer()
+            IconButton(title: "Settings · ⌘,", icon: "gearshape") { model.route = "settings" }
+        }
+        .padding(.top, 48).padding(.bottom, 10)
+        .frame(width: 42)
+        .background(PiperTheme.surface)
+    }
+
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 9) {
-                if let mark = PiperTheme.mark {
-                    Image(nsImage: mark).renderingMode(.template).resizable().scaledToFit()
-                        .foregroundStyle(PiperTheme.accent).frame(width: 28, height: 25).accessibilityHidden(true)
-                }
-                Text("Wiki").font(.system(size: 18, weight: .medium))
+            HStack(spacing: 2) {
+                Text(model.wikiQuery.isEmpty ? "FILES" : "\(model.filteredDocuments.count) RESULTS")
+                    .font(PiperTheme.ui(10.5, weight: .semibold)).tracking(0.4).foregroundStyle(PiperTheme.secondary)
                 Spacer()
-                Button { model.openPanel?() } label: { Image(systemName: "square.and.pencil") }
-                    .buttonStyle(.plain).help("Open Capture Panel · ⌘1").accessibilityLabel("Open Capture Panel")
-            }.padding(.horizontal, 20).frame(height: 58)
+                if model.wikiQuery.isEmpty {
+                    IconButton(title: expanded.isEmpty ? "Expand Folders" : "Collapse Folders", icon: "list.bullet.indent") {
+                        expanded = expanded.isEmpty ? allFolders : []
+                    }
+                }
+                IconButton(title: "Refresh Wiki · ⌘R", icon: "arrow.clockwise") { model.reload() }.disabled(model.loading)
+            }
+            .padding(.leading, 14).padding(.trailing, 6).frame(height: 30).padding(.top, 44)
             HStack(spacing: 7) {
-                Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(PiperTheme.secondary)
-                TextField("Search Wiki", text: $model.wikiQuery).textFieldStyle(.plain).font(.system(size: 12))
+                Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(PiperTheme.secondary)
+                TextField("Search", text: $model.wikiQuery).textFieldStyle(.plain).font(PiperTheme.ui(12))
                     .focused($searching).accessibilityLabel("Search Wiki")
                     .onSubmit { if let first = model.filteredDocuments.first { model.openDocument(first.id) } }
                 if !model.wikiQuery.isEmpty {
                     Button { model.wikiQuery = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(PiperTheme.secondary) }
                         .buttonStyle(.plain).accessibilityLabel("Clear Wiki Search")
-                } else { Text("⌘O").font(.system(size: 10)).foregroundStyle(PiperTheme.secondary) }
-            }.padding(.horizontal, 10).frame(height: 32)
-                .overlay(alignment: .bottom) { Rectangle().fill(PiperTheme.control).frame(height: 1) }
-                .padding(.horizontal, 14).padding(.bottom, 19)
-            HStack {
-                Text(model.wikiQuery.isEmpty ? "FILES" : "\(model.filteredDocuments.count) RESULTS")
-                    .font(.system(size: 10, weight: .semibold)).tracking(0.8).foregroundStyle(PiperTheme.secondary)
-                Spacer()
-                if model.wikiQuery.isEmpty {
-                    Button { expanded = expanded.isEmpty ? allFolders : [] } label: { Image(systemName: "arrow.up.and.down.text.horizontal") }
-                        .help(expanded.isEmpty ? "Expand Folders" : "Collapse Folders").accessibilityLabel("Toggle Folders")
-                }
-                Button { model.reload() } label: { Image(systemName: "arrow.clockwise") }
-                    .disabled(model.loading).help("Refresh Wiki · ⌘R").accessibilityLabel("Refresh Wiki")
-            }.buttonStyle(.plain).font(.system(size: 11)).padding(.horizontal, 20).padding(.bottom, 9)
+                } else { Text("⌘O").font(PiperTheme.ui(10)).foregroundStyle(PiperTheme.faint) }
+            }
+            .padding(.horizontal, 8).frame(height: 28)
+            .overlay(alignment: .bottom) { Rectangle().fill(searching ? PiperTheme.accent : PiperTheme.rule).frame(height: 1) }
+            .padding(.horizontal, 12).padding(.bottom, 8)
             ScrollView {
                 if model.wikiQuery.isEmpty {
                     WikiTreeRows(nodes: WikiTreeNode.build(model.documents), expanded: $expanded, model: model)
-                        .padding(.horizontal, 9)
+                        .padding(.horizontal, 8)
                 } else if model.filteredDocuments.isEmpty {
-                    VStack(alignment: .leading, spacing: 7) {
-                        Text("No matching notes").font(.system(size: 13, weight: .medium))
-                        Text("Try a title, phrase, or folder name.").font(.system(size: 12)).foregroundStyle(PiperTheme.secondary)
-                    }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("No matching notes").font(PiperTheme.ui(12, weight: .medium))
+                        Text("Try a title, phrase, or folder name.").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
                 } else {
-                    LazyVStack(spacing: 4) {
+                    LazyVStack(spacing: 2) {
                         ForEach(model.filteredDocuments) { document in
-                            Button { openFromExplorer(document.id) } label: {
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(document.title).font(.system(size: 12, weight: .medium)).lineLimit(2)
-                                    Text(searchExcerpt(document)).font(.system(size: 11)).foregroundStyle(PiperTheme.secondary).lineLimit(3)
-                                    Text(document.folder.isEmpty ? "Wiki" : document.folder).font(.system(size: 10)).foregroundStyle(PiperTheme.secondary)
-                                }.frame(maxWidth: .infinity, alignment: .leading).padding(10)
-                                    .background(model.selectedDocument == document.id ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: 3))
-                                    .overlay(alignment: .leading) { if model.selectedDocument == document.id { Rectangle().fill(PiperTheme.accent).frame(width: 2) } }
+                            let selected = model.selectedDocument == document.id
+                            Button { model.openDocument(document.id) } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(document.title).font(PiperTheme.ui(12, weight: .medium)).lineLimit(2)
+                                    Text(searchExcerpt(document)).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary).lineLimit(3)
+                                    Text(document.folder.isEmpty ? "Wiki" : document.folder).font(PiperTheme.ui(10)).foregroundStyle(PiperTheme.faint)
+                                }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
+                                    .background(selected ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+                                    .contentShape(Rectangle())
                             }.buttonStyle(.plain)
                         }
-                    }.padding(.horizontal, 9)
+                    }.padding(.horizontal, 8)
                 }
             }.scrollIndicators(.automatic)
             if !model.wikiProblems.isEmpty {
                 DisclosureGroup("\(model.wikiProblems.count) file warnings") {
-                    Text(model.wikiProblems.joined(separator: "\n")).textSelection(.enabled).font(.system(size: 10)).padding(.top, 5)
-                }.font(.system(size: 11)).foregroundStyle(.orange).padding(14)
+                    Text(model.wikiProblems.joined(separator: "\n")).textSelection(.enabled).font(PiperTheme.ui(10)).padding(.top, 5)
+                }.font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.warning).padding(12)
             }
-            Divider().padding(.horizontal, 14)
+            Rule()
             HStack(spacing: 9) {
-                Image(systemName: "externaldrive").font(.system(size: 16)).foregroundStyle(PiperTheme.secondary)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(model.repository.root.lastPathComponent).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                    Text("Local Wiki").font(.system(size: 10)).foregroundStyle(PiperTheme.secondary)
+                Image(systemName: "externaldrive").font(.system(size: 14)).foregroundStyle(PiperTheme.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.repository.root.lastPathComponent).font(PiperTheme.ui(12, weight: .medium)).lineLimit(1)
+                    Text((model.wikiPath as NSString).abbreviatingWithTildeInPath).font(PiperTheme.ui(10.5)).foregroundStyle(PiperTheme.secondary).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer()
                 Menu {
@@ -144,37 +152,80 @@ struct LibraryView: View {
                     Button("Reveal Wiki in Finder") { NSWorkspace.shared.open(model.repository.root) }
                     Divider()
                     Button("Settings…") { model.route = "settings" }
-                } label: { Image(systemName: "chevron.up.chevron.down").font(.system(size: 10)) }
-                    .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Wiki Folder Options")
-            }.padding(.horizontal, 19).frame(height: 64)
-        }.background(WikiStyle.sidebar)
+                } label: { Image(systemName: "chevron.up.chevron.down").font(.system(size: 10)).foregroundStyle(PiperTheme.secondary) }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().accessibilityLabel("Wiki Folder Options")
+            }.padding(.horizontal, 14).frame(height: 52)
+        }.background(PiperTheme.surface)
     }
 
-    private var toolbar: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 4) {
-                iconButton("Toggle File Sidebar", icon: "sidebar.left", active: showSidebar && !focused) {
-                    if focused { focused = false; showSidebar = true } else { showSidebar.toggle() }
+    // MARK: Tab strip, crumbs, status
+
+    private var tabStrip: some View {
+        HStack(spacing: 4) {
+            if !showSidebar { Color.clear.frame(width: 28, height: 1) }
+            if let document = model.currentDocument {
+                HStack(spacing: 8) {
+                    if model.wikiEdit?.hasChanges == true { Circle().fill(PiperTheme.accent).frame(width: 6, height: 6) }
+                    Text(document.title).font(PiperTheme.ui(12, weight: .medium)).lineLimit(1)
                 }
-                iconButton("Back · ⌘[", icon: "chevron.left") { model.navigate(-1) }.disabled(!model.workspace.canGoBack)
-                iconButton("Forward · ⌘]", icon: "chevron.right") { model.navigate(1) }.disabled(!model.workspace.canGoForward)
-            }.frame(width: 120, alignment: .leading)
+                .padding(.horizontal, 16).frame(height: 38)
+                .background(PiperTheme.page)
+                .overlay(alignment: .trailing) { Rule(vertical: true) }
+                .help(document.id)
+            } else {
+                Text("Wiki").font(PiperTheme.ui(12, weight: .medium)).foregroundStyle(PiperTheme.secondary).padding(.horizontal, 16)
+            }
             Spacer(minLength: 0)
-            Text(model.route == "settings" ? "Settings" : model.currentDocument?.title ?? "Wiki")
-                .font(.system(size: 13, weight: .medium)).lineLimit(1)
-                .help(model.currentDocument?.id ?? "Wiki")
-            Spacer(minLength: 0)
-            HStack(spacing: 12) {
-                if model.route == "settings" {
-                    Button("Done") { model.route = "wiki" }.buttonStyle(.plain)
-                } else if model.currentDocument != nil {
-                    iconButton("Document Sidebar", icon: "sidebar.right", active: showInspector && !focused) {
-                        if focused { focused = false; showInspector = true } else { showInspector.toggle() }
-                    }
+            IconButton(title: "Back · ⌘[", icon: "chevron.left") { model.navigate(-1) }.disabled(!model.workspace.canGoBack)
+            IconButton(title: "Forward · ⌘]", icon: "chevron.right") { model.navigate(1) }.disabled(!model.workspace.canGoForward)
+            Button { showReading.toggle() } label: {
+                Text("Aa").font(PiperTheme.ui(11, weight: .medium)).foregroundStyle(showReading ? PiperTheme.ink : PiperTheme.secondary)
+                    .frame(width: 30, height: 26).contentShape(Rectangle())
+            }.buttonStyle(.plain).help("Reading Preferences").accessibilityLabel("Reading Preferences")
+                .popover(isPresented: $showReading, arrowEdge: .bottom) {
+                    ReadingPreferencesView().padding(16).frame(width: 300)
                 }
-            }.frame(width: 120, alignment: .trailing)
-        }.padding(.horizontal, 18).frame(height: 48)
+            if model.currentDocument != nil {
+                IconButton(title: "Document Sidebar", icon: "sidebar.right", active: showInspector) { showInspector.toggle() }
+            }
+        }
+        .padding(.trailing, 8).frame(height: 38)
+        .background(PiperTheme.surface)
     }
+
+    private func crumbs(_ document: WikiDocument) -> some View {
+        HStack(spacing: 5) {
+            Text("Wiki")
+            ForEach(Array(document.id.split(separator: "/").enumerated()), id: \.offset) { _, part in
+                Text("›").foregroundStyle(PiperTheme.faint)
+                Text(String(part)).lineLimit(1)
+            }
+            Spacer()
+        }
+        .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+        .padding(.horizontal, 18).frame(height: 28)
+    }
+
+    private var statusBar: some View {
+        HStack(spacing: 12) {
+            Text("Local Wiki")
+            Text("\(model.documents.count) files")
+            Spacer()
+            if focused {
+                Text("Focus")
+                Text("Esc to exit")
+            } else if let document = model.currentDocument {
+                let words = (model.wikiEdit?.markdown ?? document.body).split { $0.isWhitespace || $0.isNewline }.count
+                Text("\(words.formatted()) words")
+                if let edit = model.wikiEdit { Text(edit.hasChanges ? "Unsaved" : "Saved") }
+            }
+        }
+        .font(PiperTheme.ui(10.5)).foregroundStyle(PiperTheme.secondary)
+        .padding(.horizontal, 12).frame(height: 24)
+        .background(PiperTheme.surface)
+    }
+
+    // MARK: Workspace
 
     private var workspace: some View {
         VStack(spacing: 0) {
@@ -182,9 +233,9 @@ struct LibraryView: View {
                 ContentUnavailableView {
                     Label("Wiki Unavailable", systemImage: "folder.badge.questionmark")
                 } description: { Text(error) } actions: {
-                    Button("Create Wiki Here") { model.createWiki() }
-                    Button("Choose Wiki Folder") { model.chooseWiki() }
-                    Button("Retry") { model.reload() }
+                    Button("Create Wiki Here") { model.createWiki() }.buttonStyle(PiperButtonStyle(prominent: true))
+                    Button("Choose Wiki Folder") { model.chooseWiki() }.buttonStyle(PiperButtonStyle())
+                    Button("Retry") { model.reload() }.buttonStyle(PiperButtonStyle())
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let document = model.currentDocument {
                 WikiEditor(model: model, document: document, fontSize: readerSize,
@@ -199,39 +250,16 @@ struct LibraryView: View {
                     Text(model.documents.isEmpty ? "Add Markdown files to this folder, or send captures to your Wiki." : "Choose a file from the sidebar, or search your Wiki.")
                 } actions: {
                     if model.documents.isEmpty {
-                        Button("Create Wiki") { model.createWiki() }
-                        Button("Open Capture Panel") { model.openPanel?() }
+                        Button("Create Wiki") { model.createWiki() }.buttonStyle(PiperButtonStyle(prominent: true))
+                        Button("Open Capture Panel") { model.openPanel?() }.buttonStyle(PiperButtonStyle())
                     }
-                    else { Button("Search Wiki") { focusSearch() } }
+                    else { Button("Search Wiki") { focusSearch() }.buttonStyle(PiperButtonStyle()) }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
 
     private var readingPaper: Color { Color(nsColor: readerTheme.background(dark: (readerAppearance.colorScheme ?? colorScheme) == .dark)) }
-
-    private var statusBar: some View {
-        HStack(spacing: 6) {
-            Image(systemName: model.loading ? "arrow.triangle.2.circlepath" : "internaldrive").font(.system(size: 10))
-            Text("Local Wiki")
-            Text("·").foregroundStyle(PiperTheme.secondary)
-            Text("\(model.documents.count) files")
-            Spacer()
-            if focused { Text("Focus"); Text("·").foregroundStyle(PiperTheme.secondary) }
-            if let document = model.currentDocument {
-                let words = (model.wikiEdit?.markdown ?? document.body).split { $0.isWhitespace || $0.isNewline }.count
-                Text("\(words.formatted()) words")
-                Text("·").foregroundStyle(PiperTheme.secondary)
-                if let edit = model.wikiEdit { Text(edit.hasChanges ? "Unsaved changes" : "Saved") }
-                else { Text("\(max(1, Int(ceil(Double(words) / 220)))) min read") }
-            }
-        }.font(.system(size: 10)).foregroundStyle(PiperTheme.secondary).padding(.horizontal, 17).frame(height: 27)
-    }
-
-    private func iconButton(_ title: String, icon: String, active: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: icon).font(.system(size: 13)).frame(width: 26, height: 28).contentShape(Rectangle()) }
-            .buttonStyle(.plain).foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary).help(title).accessibilityLabel(title)
-    }
 
     private var allFolders: Set<String> {
         var result: Set<String> = []
@@ -246,10 +274,6 @@ struct LibraryView: View {
         guard !initializedTree, !model.documents.isEmpty else { return }
         expanded = allFolders
         initializedTree = true
-    }
-
-    private func openFromExplorer(_ path: String) {
-        model.openDocument(path)
     }
 
     private func searchExcerpt(_ document: WikiDocument) -> String {
@@ -301,34 +325,36 @@ private struct WikiTreeRows: View {
     var depth = 0
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 1) {
             ForEach(nodes) { node in
+                let selected = !node.isFolder && model.selectedDocument == node.id
+                let open = expanded.contains(node.id)
                 Button {
                     if node.isFolder {
-                        if expanded.contains(node.id) { expanded.remove(node.id) } else { expanded.insert(node.id) }
+                        if open { expanded.remove(node.id) } else { expanded.insert(node.id) }
                     } else { model.openDocument(node.id) }
                 } label: {
-                    HStack(spacing: 7) {
+                    HStack(spacing: 6) {
                         if node.isFolder {
-                            Image(systemName: expanded.contains(node.id) ? "chevron.down" : "chevron.right").font(.system(size: 8, weight: .semibold)).frame(width: 9)
-                            Image(systemName: expanded.contains(node.id) ? "folder.fill" : "folder").font(.system(size: 12)).foregroundStyle(PiperTheme.secondary)
-                        } else {
-                            Image(systemName: "doc.text").font(.system(size: 11)).foregroundStyle(PiperTheme.secondary).frame(width: 13)
+                            Image(systemName: open ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 8, weight: .semibold)).foregroundStyle(PiperTheme.secondary).frame(width: 10)
                         }
-                        Text(node.title).font(.system(size: 12, weight: node.isFolder ? .medium : .regular)).lineLimit(1)
+                        Text(node.title).font(PiperTheme.ui(12, weight: node.isFolder ? .medium : .regular)).lineLimit(1)
+                            .foregroundStyle(node.isFolder || selected ? PiperTheme.ink : PiperTheme.secondary)
                         Spacer(minLength: 0)
-                        if node.isFolder { Text("\(node.count)").font(.system(size: 10)).foregroundStyle(PiperTheme.secondary) }
-                    }.padding(.leading, CGFloat(depth) * 13 + 10).padding(.trailing, 10).frame(height: 30)
-                        .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-                        .background(!node.isFolder && model.selectedDocument == node.id ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: 3))
-                        .overlay(alignment: .leading) { if !node.isFolder && model.selectedDocument == node.id { Rectangle().fill(PiperTheme.accent).frame(width: 2) } }
+                        if node.isFolder { Text("\(node.count)").font(PiperTheme.ui(10.5)).foregroundStyle(PiperTheme.faint) }
+                    }
+                    .padding(.leading, CGFloat(depth) * 14 + (node.isFolder ? 8 : 24)).padding(.trailing, 8).frame(height: 26)
+                    .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                    .background(selected ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+                    .overlay(alignment: .leading) { if selected && PiperTheme.isPage { Rectangle().fill(PiperTheme.accent).frame(width: 2) } }
                 }.buttonStyle(.plain).help(node.id).accessibilityLabel(node.isFolder ? "\(node.title) folder" : node.title)
                     .contextMenu {
                         Button("Reveal in Finder") {
                             if let url = try? model.repository.containedURL(node.id) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                         }
                     }
-                if let children = node.children, expanded.contains(node.id) {
+                if let children = node.children, open {
                     WikiTreeRows(nodes: children, expanded: $expanded, model: model, depth: depth + 1)
                 }
             }

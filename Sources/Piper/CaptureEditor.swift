@@ -16,7 +16,7 @@ struct CaptureEditor: NSViewRepresentable {
         scroll.autohidesScrollers = true
         scroll.scrollerStyle = .overlay
         scroll.verticalScroller?.controlSize = .small
-        scroll.scrollerInsets = NSEdgeInsets(top: 14, left: 0, bottom: 14, right: 6)
+        scroll.scrollerInsets = NSEdgeInsets(top: 10, left: 0, bottom: 10, right: 6)
         scroll.horizontalScrollElasticity = .none
         scroll.automaticallyAdjustsContentInsets = false
 
@@ -24,7 +24,7 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isRichText = false
         editor.importsGraphics = false
         editor.drawsBackground = false
-        editor.font = PiperTheme.manuscript(size: 15)
+        editor.font = PiperTheme.manuscript(size: 14)
         editor.textColor = PiperTheme.inkNS
         editor.insertionPointColor = PiperTheme.accentNS
         editor.selectedTextAttributes = [.backgroundColor: PiperTheme.selectionNS, .foregroundColor: PiperTheme.inkNS]
@@ -44,11 +44,11 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isAutomaticSpellingCorrectionEnabled = false
 
         let paragraph = NSMutableParagraphStyle()
-        paragraph.minimumLineHeight = 25
-        paragraph.maximumLineHeight = 25
+        paragraph.minimumLineHeight = 23
+        paragraph.maximumLineHeight = 23
         editor.defaultParagraphStyle = paragraph
         editor.typingAttributes = [
-            .font: PiperTheme.manuscript(size: 15),
+            .font: PiperTheme.manuscript(size: 14),
             .foregroundColor: PiperTheme.inkNS,
             .paragraphStyle: paragraph
         ]
@@ -98,7 +98,7 @@ struct CaptureEditor: NSViewRepresentable {
 private final class CaptureScrollView: NSScrollView {
     override func tile() {
         super.tile()
-        contentView.frame = bounds.insetBy(dx: 0, dy: 20)
+        contentView.frame = bounds.insetBy(dx: 0, dy: 14)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -133,8 +133,8 @@ private final class CaptureTextView: NSTextView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         guard string.isEmpty else { return }
-        let placeholder = NSAttributedString(string: "Add a note or a prompt…", attributes: [
-            .font: font ?? PiperTheme.manuscript(size: 15),
+        let placeholder = NSAttributedString(string: "New note…", attributes: [
+            .font: font ?? PiperTheme.manuscript(size: 14),
             .foregroundColor: PiperTheme.secondaryNS,
             .paragraphStyle: defaultParagraphStyle ?? NSParagraphStyle.default
         ])

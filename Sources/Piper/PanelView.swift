@@ -12,20 +12,6 @@ private enum PanelSheet: Identifiable {
     }
 }
 
-private struct LargeButtonStyle: ButtonStyle {
-    var prominent = false
-    @Environment(\.isEnabled) private var enabled
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .frame(maxWidth: .infinity, minHeight: 38)
-            .padding(.horizontal, 12)
-            .foregroundStyle(enabled ? (prominent ? PiperTheme.page : PiperTheme.ink) : PiperTheme.secondary)
-            .background(prominent && enabled ? PiperTheme.accent : PiperTheme.surface, in: RoundedRectangle(cornerRadius: 3))
-            .opacity(configuration.isPressed ? 0.75 : 1)
-    }
-}
-
 struct PanelView: View {
     @Bindable var store: AppStore
     let model: AppModel
@@ -42,9 +28,13 @@ struct PanelView: View {
     @FocusState private var searching: Bool
     @State private var composing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorSchemeContrast) private var contrast
 
-    private var matchingNotes: [Note] { store.sections.flatMap { store.visibleNotes(in: $0) } }
+    /// Search shows every section. Otherwise the active section tab filters the list.
+    private var searchMode: Bool { searching || !store.query.isEmpty }
+    private var displayedSections: [String] {
+        searchMode ? store.sections.filter { !store.visibleNotes(in: $0).isEmpty } : [store.activeSection]
+    }
+    private var matchingNotes: [Note] { displayedSections.flatMap { store.visibleNotes(in: $0) } }
     private var clipboardEntries: [ClipboardEntry] {
         model.clipboard.entries.filter {
             store.query.isEmpty || ($0.text + " Clipboard " + store.activeSection).localizedCaseInsensitiveContains(store.query)
@@ -56,13 +46,14 @@ struct PanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            Rule()
             if !model.accessibilityEnabled { capturePermission }
             noteList
             if !store.selection.isEmpty { selectionBar }
             composer
-                .padding(.horizontal, 18)
             footer
         }
+        .id(model.style)
         .background(PiperTheme.page)
         .foregroundStyle(PiperTheme.ink)
         .tint(PiperTheme.accent)
@@ -70,7 +61,7 @@ struct PanelView: View {
         .sheet(item: $sheet) { item in
             switch item {
             case .sections(let moving):
-                SectionPicker(sections: store.sections, moving: moving) { section in
+                SectionPicker(sections: store.sections, current: store.activeSection, moving: moving) { section in
                     if moving { store.move(to: section) }
                     else if !store.chooseSection(section) { return }
                     store.status = "Capturing to \(store.activeSection)"
@@ -90,6 +81,10 @@ struct PanelView: View {
             store.selection.removeAll()
             selectionAnchor = nil
         }
+        .onChange(of: store.activeSection) { _, _ in
+            store.selection.removeAll()
+            selectionAnchor = nil
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             guard let window = notification.object as? CapturePanel, window.attachedSheet == nil else { return }
             if store.selection.isEmpty && store.query.isEmpty { composing = true }
@@ -104,157 +99,143 @@ struct PanelView: View {
         }
     }
 
-    private var capturePermission: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "cursorarrow.click").foregroundStyle(PiperTheme.secondary).padding(.top, 2)
-            VStack(alignment: .leading, spacing: 7) {
-                Text("Capture text from other apps").font(.system(size: 12, weight: .medium))
-                Text("Enable Accessibility to save a selection with \(model.captureShortcut).").font(.system(size: 11)).foregroundStyle(PiperTheme.secondary)
-                Button("Enable Selection Capture") { model.requestAccessibility() }
-                    .buttonStyle(.bordered).controlSize(.small)
-            }
-            Spacer(minLength: 0)
-        }.padding(14).background(PiperTheme.surface, in: RoundedRectangle(cornerRadius: 3))
-            .padding(.horizontal, 22).padding(.bottom, 16)
-    }
+    // MARK: Header
 
     private var header: some View {
-        HStack(spacing: 9) {
-            HStack(spacing: 7) {
-                Image(systemName: "magnifyingglass").foregroundStyle(PiperTheme.secondary)
-                TextField("Search", text: $store.query)
-                    .textFieldStyle(.plain).focused($searching)
-                    .accessibilityLabel("Search notes and sections")
-                if store.query.isEmpty {
-                    Text("⌘F").font(.system(size: 10)).foregroundStyle(PiperTheme.secondary).accessibilityHidden(true)
-                } else {
-                    Button { store.query = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(PiperTheme.secondary)
-                    }.buttonStyle(.plain).accessibilityLabel("Clear search")
-                }
+        HStack(spacing: 4) {
+            if searchMode { searchBar } else { sectionTabs }
+            IconButton(title: "Search · ⌘F", icon: "magnifyingglass", active: searchMode) {
+                if searchMode { store.query = ""; searching = false; composing = true } else { searching = true }
             }
-            .font(.system(size: 13))
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-            .background(PiperTheme.surface, in: RoundedRectangle(cornerRadius: 3))
-            .overlay(alignment: .bottom) { Rectangle().fill(contrast == .increased ? PiperTheme.ink : PiperTheme.control).frame(height: 1) }
-            Button { model.route = "wiki"; model.openLibrary?() } label: {
-                Label("Wiki", systemImage: "books.vertical")
-                    .font(.system(size: 12, weight: .medium))
-                    .padding(.horizontal, 11)
-                    .frame(height: 34)
-                    .background(PiperTheme.surface, in: RoundedRectangle(cornerRadius: 3))
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Browse Wiki · ⌘2")
-            .accessibilityLabel("Browse Wiki")
             Menu {
                 Button("Capture Clipboard", systemImage: "doc.on.clipboard") { store.captureClipboard() }
                 Button("Choose Section…", systemImage: "tray") { sheet = .sections(moving: false) }
+                Button("Browse Wiki", systemImage: "books.vertical") { model.route = "wiki"; model.openLibrary?() }
                 Divider()
                 Button("Settings…", systemImage: "gearshape") { model.route = "settings"; model.openLibrary?() }
                 Divider()
                 Button("Undo Last Change", systemImage: "arrow.uturn.backward") { store.undo() }.disabled(!store.canUndo)
                 Button("Close Capture") { (NSApp.keyWindow as? CapturePanel)?.orderOut(nil) }
-            } label: { Image(systemName: "ellipsis") }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden)
-                .fixedSize().frame(width: 34, height: 34)
-                .background(PiperTheme.surface, in: RoundedRectangle(cornerRadius: 3))
-                .help("More Actions").accessibilityLabel("More Actions")
+            } label: {
+                Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium)).foregroundStyle(PiperTheme.secondary)
+                    .frame(width: 26, height: 26).contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .help("More Actions").accessibilityLabel("More Actions")
         }
-        .padding(.horizontal, 22)
-        .padding(.top, 22)
-        .padding(.bottom, 24)
+        .padding(.leading, 12).padding(.trailing, 8)
+        .frame(height: 44)
     }
 
-    private var noteList: some View {
-        let sections = store.sections.filter { !store.visibleNotes(in: $0).isEmpty }
-        return ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 23) {
-                    if !clipboardEntries.isEmpty {
-                        VStack(spacing: 0) {
-                            HStack(spacing: 9) {
-                                Text("CLIPBOARD").font(.system(size: 10, weight: .medium)).tracking(0.8)
-                                    .accessibilityAddTraits(.isHeader)
-                                Rectangle().fill(PiperTheme.ink.opacity(0.1)).frame(height: 1)
-                                Text("Click to save").font(.system(size: 10))
-                            }.foregroundStyle(PiperTheme.secondary).padding(.horizontal, 12).padding(.bottom, 12)
-                            ForEach(clipboardEntries) { entry in
-                                ClipboardGhostCard(entry: entry, section: store.activeSection) {
-                                    withAnimation(motion) {
-                                        if model.clipboard.save(entry.id) {
-                                            store.selection.removeAll()
-                                            selectionAnchor = nil
-                                        }
-                                    }
-                                }.id(entry.id).transition(.opacity)
+    private var sectionTabs: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 2) {
+                ForEach(store.sections, id: \.self) { section in
+                    let active = section == store.activeSection
+                    Button { store.activeSection = section } label: {
+                        HStack(spacing: 5) {
+                            Text(section).lineLimit(1)
+                            let open = store.notes.filter { $0.section == section && !$0.isDone }.count
+                            if open > 0 { Text("\(open)").foregroundStyle(PiperTheme.faint).monospacedDigit() }
+                        }
+                        .font(PiperTheme.ui(12, weight: .medium))
+                        .foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary)
+                        .padding(.horizontal, 8)
+                        .frame(height: 44)
+                        .overlay(alignment: .bottom) {
+                            if active && !PiperTheme.isPage {
+                                Rectangle().fill(PiperTheme.accent).frame(height: 2).padding(.horizontal, 8)
                             }
                         }
+                        .contentShape(Rectangle())
                     }
-                    ForEach(sections, id: \.self) { section in
-                        VStack(spacing: 0) {
-                            HStack(spacing: 9) {
-                                Text(section.uppercased())
-                                    .font(.system(size: 10, weight: .medium))
-                                    .tracking(0.8)
-                                    .foregroundStyle(PiperTheme.secondary)
-                                    .lineLimit(1)
-                                    .accessibilityAddTraits(.isHeader)
-                                Rectangle().fill(PiperTheme.ink.opacity(0.1)).frame(height: 1)
-                            }
-                            .padding(.horizontal, 12).padding(.bottom, 8)
-                            ForEach(store.visibleNotes(in: section)) { note in
-                                CaptureNoteCard(note: note, selected: store.selection.contains(note.id),
-                                    select: { selectNote(note.id) },
-                                    complete: { store.toggleDone(note.id) },
-                                    edit: { sheet = .edit(model.editCapture(note)) },
-                                    newWindow: { model.openNoteEditor?(note) },
-                                    copy: { asList in
-                                        if !store.selection.contains(note.id) { store.selection = [note.id] }
-                                        store.copy(asList: asList)
-                                    },
-                                    prepareActions: {
-                                        if !store.selection.contains(note.id) { store.selection = [note.id] }
-                                    },
-                                    merge: { store.merge() },
-                                    move: { sheet = .sections(moving: true) },
-                                    canMerge: store.selection.contains(note.id) && store.selection.count > 1)
-                                .id(note.id)
-                            }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(section) section")
+                    .accessibilityAddTraits(active ? .isSelected : [])
+                }
+                Button { sheet = .sections(moving: false) } label: {
+                    Image(systemName: "plus").font(.system(size: 11, weight: .medium)).foregroundStyle(PiperTheme.secondary)
+                        .frame(width: 26, height: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).help("New Section · ⌘K").accessibilityLabel("New Section")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(PiperTheme.secondary)
+            TextField("Search notes", text: $store.query)
+                .textFieldStyle(.plain).focused($searching)
+                .font(Font(PiperTheme.manuscript(size: 13)))
+                .accessibilityLabel("Search notes and sections")
+            Text(matchingNotes.count == 1 ? "1 match · Esc" : "\(matchingNotes.count) matches · Esc")
+                .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+        }
+        .padding(.leading, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var capturePermission: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Capture text from other apps").font(PiperTheme.ui(12, weight: .semibold))
+            Text("Enable Accessibility to save a selection with \(model.captureShortcut).")
+                .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+            Button("Enable Selection Capture") { model.requestAccessibility() }
+                .buttonStyle(PiperButtonStyle()).padding(.top, 6)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .overlay(RoundedRectangle(cornerRadius: PiperTheme.radius + 1).strokeBorder(PiperTheme.rule, lineWidth: 1))
+        .padding(.horizontal, 18).padding(.top, 12)
+    }
+
+    // MARK: List
+
+    private var noteList: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if !clipboardEntries.isEmpty {
+                        listLabel("Clipboard")
+                        ForEach(clipboardEntries) { entry in
+                            ClipboardRow(entry: entry, section: store.activeSection) {
+                                withAnimation(motion) {
+                                    if model.clipboard.save(entry.id) {
+                                        store.selection.removeAll()
+                                        selectionAnchor = nil
+                                    }
+                                }
+                            }.id(entry.id).transition(.opacity)
+                        }
+                    }
+                    ForEach(displayedSections, id: \.self) { section in
+                        if searchMode || !clipboardEntries.isEmpty { listLabel(section) }
+                        ForEach(store.visibleNotes(in: section)) { note in
+                            NoteRow(note: note, selected: store.selection.contains(note.id),
+                                select: { selectNote(note.id) },
+                                complete: { store.toggleDone(note.id) },
+                                edit: { sheet = .edit(model.editCapture(note)) },
+                                newWindow: { model.openNoteEditor?(note) },
+                                copy: { asList in
+                                    if !store.selection.contains(note.id) { store.selection = [note.id] }
+                                    store.copy(asList: asList)
+                                },
+                                prepareActions: {
+                                    if !store.selection.contains(note.id) { store.selection = [note.id] }
+                                },
+                                merge: { store.merge() },
+                                move: { sheet = .sections(moving: true) },
+                                canMerge: store.selection.contains(note.id) && store.selection.count > 1)
+                            .id(note.id)
                         }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 18)
+                .padding(.bottom, 12)
             }
             .overlay {
-                if sections.isEmpty && clipboardEntries.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: store.query.isEmpty ? "text.cursor" : "magnifyingglass")
-                            .font(.system(size: 26, weight: .light)).foregroundStyle(PiperTheme.secondary)
-                        Text(store.query.isEmpty ? "Keep the useful parts" : "No matching notes")
-                            .font(.system(size: 15, weight: .medium))
-                        if store.query.isEmpty {
-                            Text("Select text in another app, then press")
-                                .font(.system(size: 12)).foregroundStyle(PiperTheme.secondary)
-                            Text(model.captureShortcut == "Shift, Shift" ? "⇧  ⇧" : "⌃ ⌥ C")
-                                .font(.system(size: 17, weight: .medium, design: .rounded))
-                                .padding(.horizontal, 14).padding(.vertical, 8)
-                                .background(PiperTheme.surface, in: RoundedRectangle(cornerRadius: 3))
-                                .accessibilityLabel(model.captureShortcut)
-                            Text("Or add a note below.")
-                                .font(.system(size: 12)).foregroundStyle(PiperTheme.secondary).padding(.top, 3)
-                        } else {
-                            Text("Try another word or section name.")
-                                .font(.system(size: 12)).foregroundStyle(PiperTheme.secondary)
-                        }
-                    }
-                    .multilineTextAlignment(.center)
-                    .padding(24)
-                    .allowsHitTesting(false)
-                }
+                if matchingNotes.isEmpty && clipboardEntries.isEmpty { emptyState }
             }
             .onChange(of: store.notes.count) { oldCount, newCount in
                 if newCount > oldCount, let note = store.notes.last {
@@ -268,68 +249,105 @@ struct PanelView: View {
         .frame(maxHeight: .infinity)
     }
 
-    private var selectionBar: some View {
-        HStack(spacing: 10) {
-            Button { store.selection.removeAll() } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "xmark.circle.fill")
-                    Text("\(store.selection.count) selected")
-                }.foregroundStyle(PiperTheme.secondary)
-            }.buttonStyle(.plain).accessibilityLabel("Clear selection")
-            Spacer(minLength: 0)
-            Menu {
-                Button("Copy", action: { store.copy(asList: false) })
-                Button("Mark as Done / Reopen") { store.completeSelection() }
-                Button("Merge Notes") { store.merge() }.disabled(store.selection.count < 2)
-                Button("Move to Section…") { sheet = .sections(moving: true) }
-                Button("Send to Wiki") { model.prepareExport(); sheet = .export }
-                Divider()
-                Button("Delete Notes", role: .destructive) { store.deleteSelection() }
-            } label: { Image(systemName: "ellipsis") }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .frame(width: 26, height: 28).accessibilityLabel("Selected note actions")
-            Button { store.copy(asList: true) } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "list.number")
-                    Text("Copy as List")
-                }
-            }.buttonStyle(.borderedProminent).foregroundStyle(PiperTheme.page).controlSize(.small)
-                .help("Copy as List · ⇧⌘C")
+    private func listLabel(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(PiperTheme.ui(10.5, weight: .semibold)).tracking(0.4)
+            .foregroundStyle(PiperTheme.secondary)
+            .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 4)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            if store.query.isEmpty {
+                Text(store.notes.isEmpty ? "Keep the useful parts" : "Nothing in \(store.activeSection)")
+                    .font(PiperTheme.ui(14, weight: .medium))
+                Text("Select text in another app, then press")
+                    .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                Text(model.captureShortcut == "Shift, Shift" ? "⇧ ⇧" : "⌃ ⌥ C")
+                    .font(.system(size: 17, weight: .medium, design: .rounded))
+                    .padding(.horizontal, 14).padding(.vertical, 6)
+                    .overlay(RoundedRectangle(cornerRadius: PiperTheme.radius + 1).strokeBorder(PiperTheme.rule, lineWidth: 1))
+                    .padding(.vertical, 4)
+                    .accessibilityLabel(model.captureShortcut)
+                Text("Or add a note below.")
+                    .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+            } else {
+                Text("No matching notes").font(PiperTheme.ui(14, weight: .medium))
+                Text("Try another word or section name.")
+                    .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+            }
         }
-        .font(.system(size: 11))
-        .padding(.horizontal, 26)
-        .padding(.bottom, 12)
+        .multilineTextAlignment(.center)
+        .padding(24)
+        .allowsHitTesting(false)
+    }
+
+    // MARK: Selection, composer, footer
+
+    private var selectionBar: some View {
+        VStack(spacing: 0) {
+            Rule()
+            HStack(spacing: 6) {
+                Text("\(store.selection.count) selected").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                Spacer(minLength: 0)
+                Button("Merge") { store.merge() }.buttonStyle(PiperButtonStyle(ghost: true))
+                    .disabled(store.selection.count < 2).help("Merge Notes · ⇧⌘M")
+                Button("Move") { sheet = .sections(moving: true) }.buttonStyle(PiperButtonStyle(ghost: true))
+                Button("Wiki") { model.prepareExport(); sheet = .export }.buttonStyle(PiperButtonStyle(ghost: true))
+                    .help("Send to Wiki")
+                Button("Copy as List") { store.copy(asList: true) }.buttonStyle(PiperButtonStyle(prominent: true))
+                    .help("Copy as List · ⇧⌘C")
+                Menu {
+                    Button("Copy", action: { store.copy(asList: false) })
+                    Button("Mark as Done / Reopen") { store.completeSelection() }
+                    Button("Clear Selection") { store.selection.removeAll() }
+                    Divider()
+                    Button("Delete Notes", role: .destructive) { store.deleteSelection() }
+                } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 13, weight: .medium)).foregroundStyle(PiperTheme.secondary)
+                        .frame(width: 26, height: 26).contentShape(Rectangle())
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .accessibilityLabel("Selected note actions")
+            }
+            .padding(.leading, 18).padding(.trailing, 8).padding(.vertical, 6)
+            .background(PiperTheme.surface)
+        }
     }
 
     private var composer: some View {
-        CaptureEditor(text: $draft, focused: $composing)
-        .frame(height: 104)
-        .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: 3))
-        .clipShape(RoundedRectangle(cornerRadius: 3))
-        .overlay {
-            RoundedRectangle(cornerRadius: 3)
-                .strokeBorder(composing ? PiperTheme.accent : (contrast == .increased ? PiperTheme.ink : PiperTheme.control), lineWidth: composing ? 2 : 1)
+        VStack(spacing: 0) {
+            Rule()
+            CaptureEditor(text: $draft, focused: $composing)
+                .frame(height: 96)
         }
-        .animation(motion, value: composing)
     }
 
     private var footer: some View {
-        HStack(spacing: 6) {
-            if store.status == "Local notes" {
-                Text(model.captureShortcut == "Shift, Shift" ? "⇧ ⇧" : "⌃⌥C")
-                    .fontWeight(.medium).accessibilityLabel(model.captureShortcut)
-                Text("Capture selected text")
-            } else {
-                Text(store.status).lineLimit(1).help(store.status)
+        VStack(spacing: 0) {
+            Rule()
+            HStack(spacing: 6) {
+                if store.status == "Local notes" {
+                    Text("Return saves to \(store.activeSection) · ⌘K change").lineLimit(1)
+                } else {
+                    Text(store.status).lineLimit(1).help(store.status)
+                }
+                Spacer(minLength: 4)
+                if store.canUndo {
+                    Button("Undo") { store.undo() }.buttonStyle(.plain).help("Undo Last Change")
+                } else {
+                    Text(model.captureShortcut == "Shift, Shift" ? "⇧⇧ capture" : "⌃⌥C capture")
+                        .accessibilityLabel("\(model.captureShortcut) captures selected text")
+                }
             }
-            Spacer(minLength: 4)
-            if store.canUndo {
-                Button("Undo") { store.undo() }.buttonStyle(.plain).help("Undo Last Change")
-            }
+            .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+            .padding(.horizontal, 18).frame(height: 30)
+            .background(PiperTheme.surface)
         }
-        .font(.system(size: 10)).foregroundStyle(PiperTheme.secondary)
-        .padding(.horizontal, 32).padding(.top, 12).padding(.bottom, 25)
     }
+
+    // MARK: Behavior
 
     private func selectNote(_ id: UUID) {
         composing = false
@@ -412,7 +430,9 @@ struct PanelView: View {
     }
 }
 
-private struct ClipboardGhostCard: View {
+// MARK: Rows
+
+private struct ClipboardRow: View {
     let entry: ClipboardEntry
     let section: String
     let save: () -> Void
@@ -422,26 +442,30 @@ private struct ClipboardGhostCard: View {
     var body: some View {
         Button(action: save) {
             HStack(alignment: .top, spacing: 10) {
-                ZStack {
-                    Circle().strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [2, 2])).frame(width: 19, height: 19)
-                    Image(systemName: "plus").font(.system(size: 9, weight: .medium))
-                }.frame(width: 24, height: 24)
-                    .foregroundStyle(hovered ? PiperTheme.accent : PiperTheme.secondary)
-                    .accessibilityHidden(true)
                 Text(entry.text)
-                    .font(Font(PiperTheme.manuscript(size: 15))).lineSpacing(5).lineLimit(4)
+                    .font(Font(PiperTheme.manuscript(size: 14))).lineSpacing(5).lineLimit(4)
                     .foregroundStyle(hovered || contrast == .increased ? PiperTheme.ink : PiperTheme.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 2)
+                if PiperTheme.isPage {
+                    Image(systemName: "plus").font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(hovered ? PiperTheme.accent : PiperTheme.faint).padding(.top, 4)
+                } else {
+                    Text("unsaved").font(PiperTheme.ui(10)).foregroundStyle(PiperTheme.secondary)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(PiperTheme.rule, lineWidth: 1))
+                }
             }
-            .padding(16)
-            .background(hovered ? PiperTheme.selection : PiperTheme.surface, in: RoundedRectangle(cornerRadius: 3))
-            .overlay {
-                RoundedRectangle(cornerRadius: 3)
-                    .strokeBorder(hovered ? PiperTheme.accent : (contrast == .increased ? PiperTheme.ink : PiperTheme.control), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            .padding(.leading, PiperTheme.isPage ? 44 : 42).padding(.trailing, 18).padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(hovered ? PiperTheme.hover : .clear)
+            .overlay(alignment: .leading) {
+                if !PiperTheme.isPage {
+                    DashedLine().stroke(hovered ? PiperTheme.accent : PiperTheme.faint, style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
+                        .frame(width: 2)
+                }
             }
+            .overlay(alignment: .bottom) { Rule() }
             .contentShape(Rectangle())
-            .padding(.bottom, 10)
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
@@ -451,7 +475,16 @@ private struct ClipboardGhostCard: View {
     }
 }
 
-private struct CaptureNoteCard: View {
+private struct DashedLine: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        return path
+    }
+}
+
+private struct NoteRow: View {
     let note: Note
     let selected: Bool
     let select: () -> Void
@@ -463,7 +496,6 @@ private struct CaptureNoteCard: View {
     let merge: () -> Void
     let move: () -> Void
     let canMerge: Bool
-    @Environment(\.colorSchemeContrast) private var contrast
 
     private var formattedText: AttributedString {
         (try? AttributedString(markdown: note.text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(note.text)
@@ -472,36 +504,36 @@ private struct CaptureNoteCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Button(action: complete) {
-                Image(systemName: note.isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 19, weight: .light))
-                    .foregroundStyle(note.isDone ? PiperTheme.success : PiperTheme.secondary)
-                    .frame(width: 24, height: 24).contentShape(Rectangle())
+                Circle()
+                    .strokeBorder(note.isDone ? .clear : PiperTheme.faint, lineWidth: 1.5)
+                    .background(Circle().fill(note.isDone ? PiperTheme.faint : .clear))
+                    .frame(width: 14, height: 14)
+                    .frame(width: 20, height: 22)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(note.isDone ? "Reopen note" : "Mark note as done")
             Button(action: select) {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(formattedText)
-                        .font(Font(PiperTheme.manuscript(size: 15))).lineSpacing(5).lineLimit(4)
+                        .font(Font(PiperTheme.manuscript(size: 14))).lineSpacing(5).lineLimit(4)
                         .strikethrough(note.isDone)
                         .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if let source = note.sources.first {
-                        Label(source, systemImage: "arrow.up.right")
-                            .font(.system(size: 10)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+                        Text(source).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
                     }
                 }
-                .padding(.vertical, 2)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityAddTraits(selected ? .isSelected : [])
             .accessibilityHint("Command-click adds to the selection. Return edits the note.")
         }
-        .padding(.horizontal, 12).padding(.vertical, 17)
+        .padding(.horizontal, 18).padding(.vertical, 12)
         .background(selected ? PiperTheme.selection : PiperTheme.page)
-        .overlay(alignment: .bottom) { Rectangle().fill(contrast == .increased ? PiperTheme.control : PiperTheme.rule).frame(height: 1) }
-        .overlay(alignment: .leading) { if selected { Rectangle().fill(PiperTheme.accent).frame(width: 2) } }
+        .overlay(alignment: .bottom) { Rule() }
+        .overlay(alignment: .leading) { if selected && PiperTheme.isPage { Rectangle().fill(PiperTheme.accent).frame(width: 2) } }
         .contextMenu {
             Button("Copy") { copy(false) }
             Button("Copy as List") { copy(true) }
@@ -520,33 +552,84 @@ private struct CaptureNoteCard: View {
     }
 }
 
+// MARK: Sheets
+
+/// A text field with a hairline border in Vault and an underline in Page.
+struct PiperField: View {
+    let title: String
+    @Binding var text: String
+    var hint: String?
+    var lines: ClosedRange<Int>?
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Group {
+                if let lines { TextField(title, text: $text, axis: .vertical).lineLimit(lines) }
+                else { TextField(title, text: $text) }
+            }
+            .textFieldStyle(.plain).focused($focused)
+            .font(PiperTheme.ui(13))
+            if let hint {
+                Text(hint).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary).padding(.top, 1)
+            }
+        }
+        .padding(.horizontal, PiperTheme.isPage ? 0 : 10).padding(.vertical, 7)
+        .overlay {
+            if PiperTheme.isPage {
+                VStack { Spacer(); Rectangle().fill(focused ? PiperTheme.accent : PiperTheme.rule).frame(height: 1) }
+            } else {
+                RoundedRectangle(cornerRadius: PiperTheme.radius).strokeBorder(focused ? PiperTheme.accent : PiperTheme.rule, lineWidth: 1)
+            }
+        }
+        .accessibilityLabel(title)
+    }
+}
+
 private struct SectionPicker: View {
     let sections: [String]
+    let current: String
     let moving: Bool
     let select: (String) -> Void
     @State private var name = ""
     @Environment(\.dismiss) private var dismiss
+
+    private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(moving ? "Move Notes" : "Choose a Section").font(.headline)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(moving ? "Move to" : "Capture to").font(PiperTheme.ui(13, weight: .semibold)).padding(.bottom, 8)
             ForEach(sections, id: \.self) { section in
-                Button { select(section) } label: { Label(section, systemImage: "number") }
+                Button { select(section) } label: {
+                    HStack {
+                        Text(section)
+                        Spacer()
+                        if section == current { Text("current").foregroundStyle(PiperTheme.secondary) }
+                    }
+                    .font(PiperTheme.ui(13))
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(section == current ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+                    .contentShape(Rectangle())
+                }.buttonStyle(.plain)
             }
             if !moving {
-                HStack {
-                    TextField("New section name", text: $name).textFieldStyle(.roundedBorder)
-                    Button("Create") {
-                        let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        select(sections.first { $0.caseInsensitiveCompare(value) == .orderedSame } ?? value)
-                    }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .frame(width: 80)
-                }
+                HStack(spacing: 8) {
+                    PiperField(title: "New section", text: $name, hint: "Return creates")
+                        .onSubmit { if !trimmed.isEmpty { create() } }
+                    Button("Create", action: create).buttonStyle(PiperButtonStyle()).disabled(trimmed.isEmpty)
+                }.padding(.top, 10)
             }
-            Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.buttonStyle(PiperButtonStyle()).keyboardShortcut(.cancelAction)
+            }.padding(.top, 14)
         }
-        .padding(24).frame(width: 390)
-        .buttonStyle(LargeButtonStyle())
+        .padding(22).frame(width: 400)
+        .background(PiperTheme.page).foregroundStyle(PiperTheme.ink)
+    }
+
+    private func create() {
+        select(sections.first { $0.caseInsensitiveCompare(trimmed) == .orderedSame } ?? trimmed)
     }
 }
 
@@ -563,27 +646,37 @@ struct NoteEditor: View {
         self.save = save
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Edit Note").font(.headline)
-            TextEditor(text: $session.text).font(Font(PiperTheme.manuscript(size: 15)))
-                .scrollContentBackground(.hidden).background(PiperTheme.page)
-                .accessibilityLabel("Edit note text").frame(height: 180)
-            if let error = model.store.errorMessage {
-                Text(error).font(.caption).foregroundStyle(PiperTheme.danger).textSelection(.enabled)
+        VStack(spacing: 0) {
+            if cancel == nil {
+                Text("Edit Note").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary).frame(height: 38)
+                Rule()
             }
-            HStack {
-                Button("Cancel") { if let cancel { cancel() } else { dismiss() } }.keyboardShortcut(.cancelAction)
-                Button("Save Changes", action: save).buttonStyle(LargeButtonStyle(prominent: true))
+            TextEditor(text: $session.text).font(Font(PiperTheme.manuscript(size: 14))).lineSpacing(5)
+                .scrollContentBackground(.hidden).background(PiperTheme.page)
+                .padding(.horizontal, 18).padding(.vertical, 14)
+                .accessibilityLabel("Edit note text")
+                .frame(minHeight: 180)
+            Rule()
+            HStack(spacing: 8) {
+                if let error = model.store.errorMessage {
+                    Text(error).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.danger).textSelection(.enabled).lineLimit(2)
+                } else {
+                    Text(session.hasChanges ? "Unsaved changes" : "No changes").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                }
+                Spacer()
+                Button("Cancel") { if let cancel { cancel() } else { dismiss() } }
+                    .buttonStyle(PiperButtonStyle()).keyboardShortcut(.cancelAction)
+                Button("Save Changes", action: save).buttonStyle(PiperButtonStyle(prominent: true))
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(session.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+            .padding(.horizontal, 16).padding(.vertical, 10)
         }
-        .padding(24).frame(width: 430)
+        .frame(width: 480, height: cancel == nil ? 320 : nil)
         .background(PiperTheme.page)
         .foregroundStyle(PiperTheme.ink)
         .tint(PiperTheme.accent)
         .accentColor(PiperTheme.accent)
-        .buttonStyle(LargeButtonStyle())
         .interactiveDismissDisabled(session.hasChanges)
         .onDisappear { model.captureEdits.removeValue(forKey: session.id) }
     }

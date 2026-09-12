@@ -45,6 +45,9 @@ final class AppModel {
             captureShortcutChanged?()
         }
     }
+    var style = PiperStyle.current {
+        didSet { UserDefaults.standard.set(style.rawValue, forKey: PiperStyle.key) }
+    }
 
     init(store: AppStore? = nil, wikiPath: String? = nil) {
         let defaults = UserDefaults.standard

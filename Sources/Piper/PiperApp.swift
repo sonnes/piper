@@ -174,11 +174,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func showToast(_ text: String) {
         toastDismiss?.cancel()
         toast?.close()
-        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 65), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 44), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.level = .floating
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.contentView = NSHostingView(rootView: Text(text).font(.system(size: 13, weight: .medium)).padding(16).frame(maxWidth: .infinity, maxHeight: .infinity).background(.regularMaterial))
+        window.contentView = NSHostingView(rootView: ToastView(text: text))
         if let screen = NSScreen.main { window.setFrameOrigin(NSPoint(x: screen.visibleFrame.maxX - 370, y: screen.visibleFrame.minY + 30)) }
         window.orderFrontRegardless()
         toast = window
@@ -229,4 +232,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) { capture?.stop(); model.clipboard.stop(); refresh?.invalidate() }
+}
+
+private struct ToastView: View {
+    let text: String
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "plus").font(.system(size: 12, weight: .medium)).foregroundStyle(PiperTheme.secondary)
+            Text(text).font(PiperTheme.ui(12.5)).lineLimit(1)
+            Spacer(minLength: 0)
+            Text("⌘1").font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.secondary)
+        }
+        .foregroundStyle(PiperTheme.ink)
+        .padding(.horizontal, 14).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(PiperTheme.surface, in: RoundedRectangle(cornerRadius: 7))
+        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(PiperTheme.rule, lineWidth: 1))
+    }
 }
