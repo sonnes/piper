@@ -38,6 +38,6 @@ Status reflects the local implementation on September 12, 2026. Implemented does
 | Existing Wiki concept editing | Implemented | Same-page editing, preserved scroll position and undo, YAML preservation, alias conversion, and external-change checks |
 | Distribution signing and notarization | Verified locally | Apple accepted the 0.1.0 arm64 DMG; stapling and Gatekeeper checks passed. Clean-Mac installation remains open |
 
-All 48 automated tests pass. [Manual validation](../howto/validate.md) records release checks and application compatibility.
+All 52 automated tests pass. [Manual validation](../howto/validate.md) records release checks and application compatibility.
 
 See [release readiness](../plans/release-readiness.md) for delivery criteria.

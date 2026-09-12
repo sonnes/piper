@@ -24,7 +24,7 @@ Piper keeps capture notes in a local database. The Wiki browser reads and edits 
 
 ## Plan And Validate Changes
 
-- [Plans](plans/README.md): delivery status and the original proposal.
+- [Plans](plans/README.md): delivery status and acceptance criteria.
 - [Release readiness](plans/release-readiness.md): remaining work and acceptance criteria.
 - [Manual validation](howto/validate.md): permission, window, and export checks.
 
@@ -34,4 +34,4 @@ The structure follows pi-go: `layers/`, `howto/`, `concepts/`, and `capabilities
 
 Pages use `title`, `summary`, and `read_when` frontmatter. Plain Markdown works without a documentation site or MDX components.
 
-Current behavior belongs in guides and concepts. Plans label unfinished work explicitly. The archived proposal preserves the original assumptions.
+Current behavior belongs in guides and concepts. Plans label unfinished work explicitly.
