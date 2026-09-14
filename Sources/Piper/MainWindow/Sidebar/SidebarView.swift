@@ -5,101 +5,90 @@ import Vault
 
 /// The source list of the main window.
 ///
-/// The pane holds the search field, the folder tree of the vault, the file
-/// warnings, and the footer that names the vault. A folder row reports its path
-/// through `selectFolder`. A file row opens the document.
+/// The pane holds two groups. The first holds the home page and the capture
+/// inbox, which belong to no folder. The second holds the folder tree of the
+/// vault.
+///
+/// The pane paints no background, so the sidebar material of the split view item
+/// shows through. A row reports its selection upward and touches no other pane.
 struct SidebarView: View {
 
     // MARK: Properties
 
     @Bindable var model: AppModel
     /// The paths of the open folders. The host owns the set, so the expansion
-    /// survives a hidden sidebar and focus mode.
+    /// survives a hidden sidebar.
     @Binding var expanded: Set<String>
-    @FocusState.Binding var searching: Bool
-    /// Called with the path of a folder row when the reader clicks it.
-    let selectFolder: (String) -> Void
+    /// The row that carries the selection fill.
+    let selection: SidebarSelection
+    /// Called with the row the reader clicks.
+    let select: (SidebarSelection) -> Void
 
-    private var tree: [Node] {
-        PathTreeBuilder.tree(paths: model.files.map(\.relativePath)).children
+    /// The whole tree, including the root.
+    ///
+    /// A node holds its parent weakly, so the root has to stay alive. Passing
+    /// only `root.children` releases the root, and every top-level `indexPath`
+    /// then reads as the same value.
+    private var root: Node {
+        PathTreeBuilder.tree(paths: model.files.map(\.relativePath), folders: model.folders)
+    }
+
+    /// The captures that are still open.
+    private var openCaptures: Int {
+        model.store.notes.filter { !$0.isDone }.count
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
-            search
+            groupHeader("Smart Feeds", top: AppDefaults.Sidebar.firstHeaderTopMargin)
+            smartRows
+            groupHeader((model.wikiPath as NSString).abbreviatingWithTildeInPath,
+                        top: AppDefaults.Sidebar.headerTopMargin)
             list
             if !model.wikiProblems.isEmpty { problems }
-            Rule()
-            footer
-        }.background(PiperTheme.surface)
-    }
-
-    // MARK: Header and search
-
-    private var header: some View {
-        HStack(spacing: 2) {
-            Text(model.wikiQuery.isEmpty ? "FILES" : "\(model.filteredFiles.count) RESULTS")
-                .font(PiperTheme.ui(10.5, weight: .semibold)).tracking(0.4).foregroundStyle(PiperTheme.secondary)
-            Spacer()
-            if model.wikiQuery.isEmpty {
-                IconButton(title: expanded.isEmpty ? "Expand Folders" : "Collapse Folders", icon: "list.bullet.indent") {
-                    expanded = expanded.isEmpty ? Self.folders(of: model.files) : []
-                }
-            }
-            IconButton(title: "Refresh Wiki · ⌘R", icon: "arrow.clockwise") { model.reload() }.disabled(model.loading)
         }
-        .padding(.leading, 14).padding(.trailing, 6).frame(height: 30).padding(.top, 44)
     }
 
-    private var search: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(PiperTheme.secondary)
-            TextField("Search", text: $model.wikiQuery).textFieldStyle(.plain).font(PiperTheme.ui(12))
-                .focused($searching).accessibilityLabel("Search Wiki")
-                .onSubmit { if let first = model.filteredFiles.first { model.openDocument(first.id) } }
-            if !model.wikiQuery.isEmpty {
-                Button { model.wikiQuery = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(PiperTheme.secondary) }
-                    .buttonStyle(.plain).accessibilityLabel("Clear Wiki Search")
-            } else { Text("⌘O").font(PiperTheme.ui(10)).foregroundStyle(PiperTheme.faint) }
+    // MARK: Smart rows
+
+    private var smartRows: some View {
+        VStack(spacing: 0) {
+            SmartRow(title: "Home", icon: "house", count: 0,
+                     selected: selection == .home) { select(.home) }
+            SmartRow(title: "Inbox", icon: "tray", count: openCaptures,
+                     selected: selection == .inbox) { select(.inbox) }
         }
-        .padding(.horizontal, 8).frame(height: 28)
-        .overlay(alignment: .bottom) { Rectangle().fill(searching ? PiperTheme.accent : PiperTheme.rule).frame(height: 1) }
-        .padding(.horizontal, 12).padding(.bottom, 8)
+        .padding(.horizontal, AppDefaults.Sidebar.rowInset)
     }
 
-    // MARK: Tree and results
+    // MARK: Header
+
+    /// The group header of the source list. The first one names the
+    /// rows that belong to no folder. The second names the vault, because a
+    /// vault is what a folder belongs to.
+    private func groupHeader(_ title: String, top: CGFloat) -> some View {
+        Text(title)
+            .font(PiperTheme.ui(AppDefaults.Sidebar.headerFontSize, weight: .semibold))
+            .foregroundStyle(PiperTheme.secondary)
+            .lineLimit(1)
+            .truncationMode(.head)
+            .padding(.leading, AppDefaults.Sidebar.rowInset + AppDefaults.Sidebar.disclosureWidth)
+            .padding(.trailing, AppDefaults.Sidebar.rowInset)
+            .padding(.top, top)
+            .padding(.bottom, AppDefaults.Sidebar.headerBottomMargin)
+    }
+
+    // MARK: Tree
 
     private var list: some View {
         ScrollView {
-            if model.wikiQuery.isEmpty {
-                SidebarRows(nodes: tree, expanded: $expanded, model: model, selectFolder: selectFolder)
-                    .padding(.horizontal, 8)
-            } else if model.filteredFiles.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("No matching notes").font(PiperTheme.ui(12, weight: .medium))
-                    Text("Try a title, phrase, or folder name.").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(16)
-            } else {
-                LazyVStack(spacing: 2) {
-                    ForEach(model.filteredFiles) { document in
-                        let selected = model.selectedDocument == document.id
-                        Button { model.openDocument(document.id) } label: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(document.title).font(PiperTheme.ui(12, weight: .medium)).lineLimit(2)
-                                Text(excerpt(document)).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary).lineLimit(3)
-                                Text(document.folder.isEmpty ? "Wiki" : document.folder).font(PiperTheme.ui(10)).foregroundStyle(PiperTheme.faint)
-                            }.frame(maxWidth: .infinity, alignment: .leading).padding(8)
-                                .background(selected ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
-                                .contentShape(Rectangle())
-                        }.buttonStyle(.plain)
-                    }
-                }.padding(.horizontal, 8)
-            }
+            SidebarRows(parent: root, expanded: $expanded, model: model,
+                        selection: selection, select: select)
+                .padding(.horizontal, AppDefaults.Sidebar.rowInset)
         }.scrollIndicators(.automatic)
     }
 
-    // MARK: Problems and footer
+    // MARK: Problems
 
     private var problems: some View {
         DisclosureGroup("\(model.wikiProblems.count) file warnings") {
@@ -107,29 +96,11 @@ struct SidebarView: View {
         }.font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.warning).padding(12)
     }
 
-    private var footer: some View {
-        HStack(spacing: 9) {
-            Image(systemName: "externaldrive").font(.system(size: 14)).foregroundStyle(PiperTheme.secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.vault.root.lastPathComponent).font(PiperTheme.ui(12, weight: .medium)).lineLimit(1)
-                Text((model.wikiPath as NSString).abbreviatingWithTildeInPath).font(PiperTheme.ui(10.5)).foregroundStyle(PiperTheme.secondary).lineLimit(1).truncationMode(.middle)
-            }
-            Spacer()
-            Menu {
-                Button("Choose Wiki Folder…") { model.chooseWiki() }
-                Button("Reveal Wiki in Finder") { NSWorkspace.shared.open(model.vault.root) }
-                Divider()
-                Button("Settings…") { model.route = "settings" }
-            } label: { Image(systemName: "chevron.up.chevron.down").font(.system(size: 10)).foregroundStyle(PiperTheme.secondary) }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().accessibilityLabel("Wiki Folder Options")
-        }.padding(.horizontal, 14).frame(height: 52)
-    }
-
     // MARK: Functions
 
     /// Every folder path in the files, at every level.
-    static func folders(of files: [VaultFile]) -> Set<String> {
-        var result: Set<String> = []
+    static func folders(of files: [VaultFile], including empty: [String] = []) -> Set<String> {
+        var result = Set(empty)
         for document in files {
             var folder = document.folder
             while !folder.isEmpty {
@@ -139,17 +110,64 @@ struct SidebarView: View {
         }
         return result
     }
+}
 
-    /// The text under a search result. The part around the match comes first.
-    private func excerpt(_ document: VaultFile) -> String {
-        let text = document.body.replacingOccurrences(of: "\n", with: " ")
-        let query = model.wikiQuery.trimmingCharacters(in: .whitespaces)
-        if let range = text.range(of: query, options: .caseInsensitive) {
-            let start = text.index(range.lowerBound, offsetBy: -40, limitedBy: text.startIndex) ?? text.startIndex
-            return (start == text.startIndex ? "" : "…") + String(text[start...].prefix(150))
+/// A row that stands for no folder: the home page or the capture inbox.
+private struct SmartRow: View {
+    let title: String
+    let icon: String
+    let count: Int
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 0) {
+                Color.clear.frame(width: AppDefaults.Sidebar.disclosureWidth)
+                Image(systemName: icon)
+                    .font(.system(size: AppDefaults.Sidebar.iconPointSize))
+                    .foregroundStyle(PiperTheme.accent)
+                    .frame(width: AppDefaults.Sidebar.imageSize.width, height: AppDefaults.Sidebar.imageSize.height)
+                    .padding(.trailing, AppDefaults.Sidebar.imageMarginRight)
+                Text(title).font(PiperTheme.ui(AppDefaults.Sidebar.fontSize)).foregroundStyle(PiperTheme.ink)
+                Spacer(minLength: 0)
+                if count > 0 { SidebarBadge(count: count) }
+            }
+            .frame(height: AppDefaults.Sidebar.rowHeight).frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .background(selected ? PiperTheme.rowSelection : .clear,
+                        in: RoundedRectangle(cornerRadius: AppDefaults.Sidebar.rowCornerRadius))
         }
-        return document.summary.isEmpty ? String(text.prefix(130)) : document.summary
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
+}
+
+/// An unread count.
+private struct SidebarBadge: View {
+    let count: Int
+
+    var body: some View {
+        Text(count.formatted())
+            .font(PiperTheme.ui(11, weight: .semibold).monospacedDigit())
+            .foregroundStyle(PiperTheme.badgeText)
+            .padding(.leading, AppDefaults.Sidebar.countPadding.left)
+            .padding(.trailing, AppDefaults.Sidebar.countPadding.right)
+            .padding(.top, AppDefaults.Sidebar.countPadding.top)
+            .padding(.bottom, AppDefaults.Sidebar.countPadding.bottom)
+            .background(PiperTheme.badge, in: RoundedRectangle(cornerRadius: AppDefaults.Sidebar.countCornerRadius))
+            .padding(.leading, AppDefaults.Sidebar.countMarginLeft)
+    }
+}
+
+/// One row of the tree, with the node it draws. The path identifies it, because
+/// a path is unique in one vault.
+private struct SidebarEntry: Identifiable {
+    let node: Node
+    let item: PathItem
+    var id: String { item.path }
 }
 
 /// One level of the folder tree.
@@ -157,21 +175,28 @@ private struct SidebarRows: View {
 
     // MARK: Properties
 
-    let nodes: [Node]
+    /// The node whose children this level draws. Holding the parent keeps that
+    /// branch of the tree alive.
+    let parent: Node
     @Binding var expanded: Set<String>
     let model: AppModel
-    let selectFolder: (String) -> Void
+    let selection: SidebarSelection
+    let select: (SidebarSelection) -> Void
     var depth = 0
 
+    private var entries: [SidebarEntry] {
+        parent.children.compactMap { node in
+            (node.representedObject as? PathItem).map { SidebarEntry(node: node, item: $0) }
+        }
+    }
+
     var body: some View {
-        VStack(spacing: 1) {
-            ForEach(nodes, id: \.indexPath) { node in
-                if let item = node.representedObject as? PathItem {
-                    row(node: node, item: item)
-                    if item.isFolder, expanded.contains(item.path) {
-                        SidebarRows(nodes: node.children, expanded: $expanded, model: model,
-                                    selectFolder: selectFolder, depth: depth + 1)
-                    }
+        VStack(spacing: 0) {
+            ForEach(entries) { entry in
+                row(node: entry.node, item: entry.item)
+                if entry.item.isFolder, expanded.contains(entry.item.path) {
+                    SidebarRows(parent: entry.node, expanded: $expanded, model: model,
+                                selection: selection, select: select, depth: depth + 1)
                 }
             }
         }
@@ -180,54 +205,43 @@ private struct SidebarRows: View {
     // MARK: Functions
 
     private func row(node: Node, item: PathItem) -> some View {
-        let selected = !item.isFolder && model.selectedDocument == item.path
+        let selected = item.isFolder ? selection == .folder(item.path) : model.selectedDocument == item.path
         let open = expanded.contains(item.path)
         return Button {
             if item.isFolder {
                 if open { expanded.remove(item.path) } else { expanded.insert(item.path) }
-                selectFolder(item.path)
+                select(.folder(item.path))
             } else {
                 model.openDocument(item.path)
             }
         } label: {
             HStack(spacing: 0) {
                 Image(systemName: open ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(PiperTheme.secondary)
-                    .opacity(item.isFolder ? 1 : 0).frame(width: 12, alignment: .leading)
+                    .font(.system(size: AppDefaults.Sidebar.disclosurePointSize, weight: .semibold))
+                    .foregroundStyle(PiperTheme.secondary)
+                    .opacity(node.children.isEmpty ? 0 : 1)
+                    .frame(width: AppDefaults.Sidebar.disclosureWidth, alignment: .leading)
                 Image(systemName: item.isFolder ? "folder" : "doc.text")
-                    .font(.system(size: 13))
+                    .font(.system(size: AppDefaults.Sidebar.iconPointSize))
                     .foregroundStyle(item.isFolder ? PiperTheme.accent : PiperTheme.secondary)
                     .frame(width: AppDefaults.Sidebar.imageSize.width, height: AppDefaults.Sidebar.imageSize.height)
                     .padding(.trailing, AppDefaults.Sidebar.imageMarginRight)
-                Text(item.name).font(PiperTheme.ui(13)).lineLimit(1).truncationMode(.middle)
-                    .foregroundStyle(item.isFolder || selected ? PiperTheme.ink : PiperTheme.secondary)
+                Text(item.name).font(PiperTheme.ui(AppDefaults.Sidebar.fontSize)).lineLimit(1).truncationMode(.middle)
+                    .foregroundStyle(PiperTheme.ink)
                 Spacer(minLength: 0)
-                if item.isFolder { badge(item.count) }
+                if item.isFolder { SidebarBadge(count: item.count) }
             }
-            .padding(.leading, CGFloat(depth) * 14 + 6).padding(.trailing, 6)
-            .frame(height: 24).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, CGFloat(depth) * AppDefaults.Sidebar.indent)
+            .frame(height: AppDefaults.Sidebar.rowHeight).frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .background(selected ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
-            .overlay(alignment: .leading) { if selected && PiperTheme.isPage { Rectangle().fill(PiperTheme.accent).frame(width: 2) } }
-        }.buttonStyle(.plain).help(item.path)
+            .background(selected ? PiperTheme.rowSelection : .clear,
+                        in: RoundedRectangle(cornerRadius: AppDefaults.Sidebar.rowCornerRadius))
+        }.buttonStyle(.plain).focusEffectDisabled().help(item.path)
             .accessibilityLabel(item.isFolder ? "\(item.name) folder" : item.name)
             .contextMenu {
                 Button("Reveal in Finder") {
                     if let url = try? model.vault.containedURL(item.path) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                 }
             }
-    }
-
-    /// The count of the files under a folder.
-    private func badge(_ count: Int) -> some View {
-        Text(count.formatted())
-            .font(PiperTheme.ui(11, weight: .semibold).monospacedDigit())
-            .foregroundStyle(PiperTheme.page)
-            .padding(.leading, AppDefaults.Sidebar.countPadding.left)
-            .padding(.trailing, AppDefaults.Sidebar.countPadding.right)
-            .padding(.top, AppDefaults.Sidebar.countPadding.top)
-            .padding(.bottom, AppDefaults.Sidebar.countPadding.bottom)
-            .background(PiperTheme.control, in: RoundedRectangle(cornerRadius: AppDefaults.Sidebar.countCornerRadius))
-            .padding(.leading, AppDefaults.Sidebar.countMarginLeft)
     }
 }

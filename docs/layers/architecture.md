@@ -44,9 +44,17 @@ Each module has one reason to exist. `PiperCore`, `PiperTree`, and `CapturesData
 
 `CapturePanelController` owns the floating panel. `MainWindowController` owns the Wiki window, which holds a split view of four panes: the folder tree, the file list, the file itself, and the inspector.
 
+The panel draws the desktop through a vibrant material and rounds its corners at 22 points. Each note, each clipboard preview, and the composer sit on a card. A selected card carries an accent border, and a clipboard preview carries a dashed one, because no file holds it yet.
+
+The two surfaces are exclusive. `AppDelegate` shows one and takes the other off the screen, so one of them is in front at a time. The panel carries a window button, and the Wiki toolbar carries a capture button. Command-1 and Command-2 do the same from the Window menu. Neither switch closes a window, so an unsaved change and a draft stay as they are.
+
 Each pane is an `NSViewController` whose view is an `NSHostingView`. A pane never calls another pane. It reports upward through a delegate protocol, and `MainWindowController` decides what happens next.
 
-The window opens on the home page. A search result or a sidebar click swaps the content view controller for the split view. The Home toolbar button swaps it back, and the panes keep their state.
+The source list holds two groups. The first holds Home and Inbox, which belong to no folder. The second holds the folder tree of the vault. The row the reader picks decides what the other three panes hold, and the source list stays in place for every row.
+
+Home fills the panes beside the source list, because the search field needs that width. The selection collapses the file list to make the room. Inbox lists the captures, which carry no file details, so that selection collapses the inspector.
+
+One toolbar serves the window. The sidebar toggle and Refresh sit over the source list, and a tracking separator holds them there. Navigation, Home, the capture panel, the folder menu, the commands, and the inspector follow, and the search field sits at the trailing edge.
 
 Note editor windows save changes explicitly. Closing a changed editor prompts to save or discard. Closing the main windows leaves the menu bar application running.
 
@@ -84,11 +92,15 @@ A skill body reaches thousands of lines, so the index reads a bounded prefix of 
 
 Either scope can be a symbolic link to a dotfiles folder. The index resolves that link, because a configuration folder is not vault content.
 
+## Search
+
+The browser toolbar holds the search field. Plain text filters the file list, and the list then reads the whole vault instead of one folder. A leading `/` or a leading `>` belongs to the command parser. The window then shows the home page and gives it the text, because the suggestion list lives there.
+
 ## Reading And Editing
 
 `AppModel` coordinates scans, selection, and export. `WikiWorkspace` owns a single navigation history. `WikiLinks` resolves local links and computes backlinks. `WikiMarkdown` supplies reader blocks, heading anchors, and inline text.
 
-`WikiEditor` embeds SwiftMarkdownEngine 0.12.0 through its AppKit bridge. Reading and editing share one text view and scroll view.
+`WikiEditor` embeds SwiftMarkdownEngine 0.12.0 through its AppKit bridge. Reading and editing share one text view and scroll view. A header over the file names the folder, the file, the size, and the date. A status bar under it shows the path, the length, and whether the editor holds an unsaved change.
 
 Each open file has an editable session. Saving preserves that session. Navigation, window closure, and quit resolve unsaved changes through Save, Discard, or Cancel. A save refuses when the file on disk no longer matches what the editor opened.
 
@@ -104,12 +116,14 @@ Export writes the captures to one Markdown file that the reader names in a save 
 | --- | --- |
 | [PiperApp.swift](../../Sources/Piper/PiperApp.swift) | Menus and application lifecycle |
 | [AppDefaults.swift](../../Sources/Piper/AppDefaults.swift) | Every preference key, size, and metric |
+| [PiperTheme.swift](../../Sources/Piper/PiperTheme.swift) | Every color and font |
 | [AppNotifications.swift](../../Sources/Piper/AppNotifications.swift) | Every notification name |
 | [MainWindow/MainWindowController.swift](../../Sources/Piper/MainWindow/MainWindowController.swift) | Split view, toolbar, and the routing between panes |
 | [MainWindow/PaneViewControllers.swift](../../Sources/Piper/MainWindow/PaneViewControllers.swift) | One hosting view controller per pane |
 | [MainWindow/Home/](../../Sources/Piper/MainWindow/Home) | The search page and its suggestion list |
 | [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | The folder tree |
-| [MainWindow/Browser/](../../Sources/Piper/MainWindow/Browser) | The file list |
+| [MainWindow/Browser/](../../Sources/Piper/MainWindow/Browser) | The file list and the capture list |
+| [MainWindow/Detail/](../../Sources/Piper/MainWindow/Detail) | The header and the status bar around the file |
 | [MainWindow/TimelineCell.swift](../../Sources/Piper/MainWindow/TimelineCell.swift) | The one file row that every list uses |
 | [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | Settings, commands, and the error alert |
 | [CapturePanel/](../../Sources/Piper/CapturePanel) | The floating panel and its window controller |

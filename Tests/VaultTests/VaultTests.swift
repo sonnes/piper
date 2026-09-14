@@ -107,7 +107,18 @@ final class VaultTests: XCTestCase {
         try write("cache\n", to: "__pycache__/thing.pyc")
         let scan = try vault.scan()
         XCTAssertEqual(scan.files.map(\.relativePath), ["keep.md"])
+        XCTAssertEqual(scan.folders, [])
         XCTAssertEqual(scan.problems, [])
+    }
+
+    func testScanListsFoldersThatHoldNoFile() throws {
+        try write("note\n", to: "notes/a.md")
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("decisions"),
+                                                withIntermediateDirectories: true)
+        try write("keep\n", to: "references/skills/.gitkeep")
+        let scan = try vault.scan()
+        XCTAssertEqual(scan.files.map(\.relativePath), ["notes/a.md"])
+        XCTAssertEqual(scan.folders, ["decisions", "notes", "references", "references/skills"])
     }
 
     func testUnreadableFileBecomesAProblemAndTheScanContinues() throws {

@@ -1,10 +1,34 @@
 import SwiftUI
 import Vault
 
+/// Markdown read as one line of text.
+enum SummaryText {
+
+    /// Drops the markup from a body, so that a row shows the words alone.
+    ///
+    /// A link reads as its label. Emphasis, code marks, quote marks, and list
+    /// markers carry nothing in one line, so they go.
+    static func plain(_ markdown: String) -> String {
+        var text = markdown
+        for (pattern, replacement) in [
+            (#"\[\[[^\]|]+\|([^\]]+)\]\]"#, "$1"),
+            (#"\[\[([^\]]+)\]\]"#, "$1"),
+            (#"!?\[([^\]]*)\]\([^)]*\)"#, "$1"),
+            (#"(?m)^\s*[-*+]\s+"#, ""),
+            (#"[*_`>]"#, ""),
+            (#"\s+"#, " ")
+        ] {
+            text = text.replacingOccurrences(of: pattern, with: replacement, options: .regularExpression)
+        }
+        return text.trimmingCharacters(in: .whitespaces)
+    }
+}
+
 /// One file row.
 ///
-/// The metrics come from `AppDefaults.Timeline`. One cell type draws every list
-/// of files, on the home page and in the browser, so the two cannot drift apart.
+/// The metrics come from `AppDefaults.Timeline`. The row shows the unread dot,
+/// then the text, with the date at the trailing edge of the last line. One cell type draws every list of files, on the home page and in
+/// the browser, so the two cannot drift apart.
 struct TimelineCell: View {
 
     // MARK: Properties
@@ -21,15 +45,15 @@ struct TimelineCell: View {
     /// The `description` key of the frontmatter, or the first prose of the file.
     ///
     /// Heading lines drop out, because a heading repeats the title that the row
-    /// already shows.
+    /// already shows. The summary is plain text, so the row shows no markup.
     private var summary: String {
-        guard file.summary.isEmpty else { return file.summary }
+        guard file.summary.isEmpty else { return SummaryText.plain(file.summary) }
         let prose = file.body
             .split(whereSeparator: \.isNewline)
-            .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("#") }
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !$0.hasPrefix("#") }
             .joined(separator: " ")
-            .trimmingCharacters(in: .whitespaces)
-        return String(prose.prefix(240))
+        return String(SummaryText.plain(prose).prefix(240))
     }
 
     private var folder: String {
@@ -41,7 +65,7 @@ struct TimelineCell: View {
         if Date().timeIntervalSince(file.modifiedAt) < 24 * 60 * 60 {
             return file.modifiedAt.formatted(.relative(presentation: .named))
         }
-        return file.modifiedAt.formatted(date: .abbreviated, time: .shortened)
+        return file.modifiedAt.formatted(date: .abbreviated, time: .omitted)
     }
 
     var body: some View {
@@ -50,11 +74,12 @@ struct TimelineCell: View {
             Circle()
                 .fill(showsDot ? PiperTheme.accent : .clear)
                 .frame(width: metrics.unreadCircleDimension, height: metrics.unreadCircleDimension)
-                .padding(.top, 3)
+                .padding(.top, 5)
                 .padding(.trailing, metrics.unreadCircleMarginRight)
             VStack(alignment: .leading, spacing: 0) {
                 Text(file.title)
                     .font(PiperTheme.ui(AppDefaults.FontSize.large, weight: .semibold))
+                    .foregroundStyle(PiperTheme.ink)
                     .lineLimit(metrics.titleNumberOfLines)
                     .padding(.bottom, metrics.titleBottomMargin)
                 if !summary.isEmpty {
@@ -63,14 +88,17 @@ struct TimelineCell: View {
                         .foregroundStyle(PiperTheme.secondary)
                         .lineLimit(2)
                 }
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: metrics.dateMarginLeft) {
                     Text(folder)
                         .font(PiperTheme.ui(AppDefaults.FontSize.small, weight: .bold))
                         .foregroundStyle(PiperTheme.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: metrics.dateMarginLeft)
                     Text(date)
                         .font(PiperTheme.ui(AppDefaults.FontSize.small, weight: .bold))
-                        .foregroundStyle(PiperTheme.faint)
-                        .padding(.leading, metrics.dateMarginLeft)
+                        .foregroundStyle(PiperTheme.secondary)
+                        .lineLimit(1)
                 }
                 .padding(.top, 3)
             }
@@ -83,6 +111,7 @@ struct TimelineCell: View {
         .padding(.trailing, metrics.cellPadding.right)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .background(isSelected ? PiperTheme.selection : .clear)
+        .background(isSelected ? PiperTheme.rowSelection : .clear,
+                    in: RoundedRectangle(cornerRadius: 6))
     }
 }

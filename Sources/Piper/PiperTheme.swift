@@ -32,16 +32,25 @@ enum PiperTheme {
     static var style: PiperStyle { PiperStyle.current }
     static var isPage: Bool { style == .page }
 
-    static let pageNS = color(vault: (0xFFFFFF, 0x1E1E1E), page: (0xFCFCFA, 0x18191A))
-    static let surfaceNS = color(vault: (0xF7F7F5, 0x262626), page: (0xFCFCFA, 0x18191A))
-    static let hoverNS = color(vault: (0xF1F1EE, 0x2C2C2C), page: (0xF1F1ED, 0x212224))
-    static let inkNS = color(vault: (0x222222, 0xDCDDDD), page: (0x232323, 0xEDEDE9))
-    static let secondaryNS = color(vault: (0x6F6F6B, 0x9A9A97), page: (0x686867, 0x8E8F8C))
-    static let faintNS = color(vault: (0xB5B5B0, 0x5A5A58), page: (0xB4B4AE, 0x5C5D5B))
-    static let accentNS = color(vault: (0x2455F5, 0x6D9BFF), page: (0x2455F5, 0x6D9BFF))
+    // Vault takes the system colors. They carry the dark appearance and the
+    // reader's contrast settings at no cost. Page keeps its own flat palette.
+    static let pageNS = system(.textBackgroundColor, page: (0xFCFCFA, 0x18191A))
+    static let surfaceNS = system(.windowBackgroundColor, page: (0xFCFCFA, 0x18191A))
+    static let hoverNS = color(vault: (0xECECEE, 0x2C2C2C), page: (0xF1F1ED, 0x212224))
+    static let inkNS = system(.labelColor, page: (0x232323, 0xEDEDE9))
+    static let secondaryNS = system(.secondaryLabelColor, page: (0x686867, 0x8E8F8C))
+    static let faintNS = system(.tertiaryLabelColor, page: (0xB4B4AE, 0x5C5D5B))
+    /// The accent color: srgb 0.031 0.416 0.933, and 0.369 0.620 0.957 in the dark.
+    static let accentNS = color(vault: (0x086AEE, 0x5E9EF4), page: (0x086AEE, 0x5E9EF4))
     static let selectionNS = color(vault: (0xEEF1FA, 0x2A3245), page: (0xEEF2FF, 0x1F2636))
-    static let ruleNS = color(vault: (0xE8E8E4, 0x333333), page: (0xE6E6E1, 0x2A2B2C))
+    /// The row separator: white 0.9 in gray gamma 2.2.
+    static let ruleNS = color(vault: (0xE5E5E5, 0x333333), page: (0xE5E5E5, 0x2A2B2C))
     static let controlNS = color(vault: (0x868680, 0x838781), page: (0x868680, 0x838781))
+    /// The status bar background: srgb 0.94 in all three channels.
+    static let statusBarNS = color(vault: (0xF0F0F0, 0x2A2A2A), page: (0xF0F0F0, 0x232323))
+    /// `rgba(255,0,0,.6)`, darkened so that a
+    /// 12-point bold label keeps its contrast.
+    static let feedLinkNS = color(vault: (0xC23C3C, 0xE07C7C), page: (0xC23C3C, 0xE07C7C))
     static let successNS = color(vault: (0x49654B, 0xA3C39F), page: (0x49654B, 0xA3C39F))
     static let dangerNS = color(vault: (0xA03432, 0xEFA5A0), page: (0xA03432, 0xEFA5A0))
     static let warningNS = color(vault: (0xE0A125, 0xE0A125), page: (0xE0A125, 0xE0A125))
@@ -56,22 +65,54 @@ enum PiperTheme {
     static let selection = Color(nsColor: selectionNS)
     static let rule = Color(nsColor: ruleNS)
     static let control = Color(nsColor: controlNS)
+    static let statusBar = Color(nsColor: statusBarNS)
+    static let feedLink = Color(nsColor: feedLinkNS)
     static let success = Color(nsColor: successNS)
     static let danger = Color(nsColor: dangerNS)
     static let warning = Color(nsColor: warningNS)
+
+    /// The fill of a card on the capture panel.
+    ///
+    /// The panel draws over the desktop through a vibrant material, so a card
+    /// carries a translucent fill and reads as a sheet of paper on top of it.
+    static let card = Color(nsColor: system(.textBackgroundColor, page: (0xFFFFFF, 0x202124))).opacity(0.7)
+
+    /// The corner radius of a card and of the panel itself.
+    static let cardRadius: CGFloat = 14
+
+    /// The fill behind a selected row in the source list and the timeline.
+    ///
+    /// The fill is the system selection, not the accent color. A pane that
+    /// does not hold the keyboard focus keeps the gray fill, which is what every
+    /// row of a SwiftUI pane does here.
+    static let rowSelection = Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+
+    /// The unread count badge and its text color.
+    static let badge = Color(white: 0, opacity: 0.5)
+    static let badgeText = Color(white: 1, opacity: 0.9)
 
     /// Corner radius for controls and selection backgrounds.
     static var radius: CGFloat { isPage ? 3 : 5 }
 
     private static func color(vault: (UInt32, UInt32), page: (UInt32, UInt32)) -> NSColor {
         NSColor(name: nil) { appearance in
-            let dark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             let pair = isPage ? page : vault
-            let value = dark ? pair.1 : pair.0
-            return NSColor(srgbRed: CGFloat((value >> 16) & 255) / 255,
-                           green: CGFloat((value >> 8) & 255) / 255,
-                           blue: CGFloat(value & 255) / 255, alpha: 1)
+            return hex(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? pair.1 : pair.0)
         }
+    }
+
+    /// A system color in Vault, and a flat color in Page.
+    private static func system(_ color: NSColor, page: (UInt32, UInt32)) -> NSColor {
+        NSColor(name: nil) { appearance in
+            guard isPage else { return color }
+            return hex(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? page.1 : page.0)
+        }
+    }
+
+    private static func hex(_ value: UInt32) -> NSColor {
+        NSColor(srgbRed: CGFloat((value >> 16) & 255) / 255,
+                green: CGFloat((value >> 8) & 255) / 255,
+                blue: CGFloat(value & 255) / 255, alpha: 1)
     }
 
     private static let registeredFonts: Void = {

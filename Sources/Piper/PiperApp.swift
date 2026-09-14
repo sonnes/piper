@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.captureShortcutChanged = { [weak capture] in capture?.start() }
         capture.start()
         model.clipboard.start()
+        model.initialDocument = MainWindowState.restore().selectedFile
         model.reload()
         refresh = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -94,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
-        windowMenu.addItem(withTitle: "Browse Wiki", action: #selector(showLibrary), keyEquivalent: "2").target = self
+        windowMenu.addItem(withTitle: "Browse Wiki", action: #selector(showBrowser), keyEquivalent: "2").target = self
         windowMenu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "0").target = self
         let windowItem = NSMenuItem(title: "Window", action: nil, keyEquivalent: "")
         windowItem.submenu = windowMenu
@@ -109,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         let menu = NSMenu()
         menu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Browse Wiki", action: #selector(showLibrary), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Browse Wiki", action: #selector(showBrowser), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Capture Clipboard", action: #selector(clipboard), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings...", action: #selector(settings), keyEquivalent: "").target = self
@@ -135,23 +136,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         editors[note.id] = window
     }
 
+    /// Shows the capture panel and takes the Wiki window off the screen.
+    ///
+    /// The two surfaces are exclusive. One of them is in front at a time, and
+    /// the toolbar button of each one switches to the other.
     @objc func showPanel() {
         if panelController == nil { panelController = CapturePanelController(model: model) }
+        mainWindowController?.hide()
         panelController?.show()
     }
 
+    /// Shows the Wiki window and takes the capture panel off the screen.
     @objc func showLibrary() {
         if mainWindowController == nil {
             let controller = MainWindowController(model: model)
             controller.window?.delegate = self
             mainWindowController = controller
         }
+        panelController?.hide()
         mainWindowController?.show()
     }
 
     @objc func showHome() {
         showLibrary()
         mainWindowController?.showHome()
+    }
+
+    /// Shows the window and its browser. Showing the window alone leaves the
+    /// home page in front, which is not what the menu item names.
+    @objc func showBrowser() {
+        showLibrary()
+        mainWindowController?.showBrowser()
     }
 
     @objc private func saveFile() { model.saveWikiEdit() }

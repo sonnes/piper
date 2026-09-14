@@ -13,6 +13,12 @@ struct HomeView: View {
     // MARK: Properties
 
     @Bindable var model: AppModel
+    /// The text the browser toolbar left behind. Empty when the window opens here.
+    var initialText = ""
+    /// Opens a file. The window leaves the home page for the browser.
+    let openFile: (String) -> Void
+    /// Leaves the home page without opening a file.
+    let showBrowser: () -> Void
 
     @State private var text = ""
     @State private var selection = 0
@@ -98,6 +104,7 @@ struct HomeView: View {
         .background(PiperTheme.page)
         .foregroundStyle(PiperTheme.ink)
         .onAppear {
+            text = initialText
             focused = true
             installKeys()
             loadExtensions()
@@ -172,20 +179,27 @@ private extension HomeView {
             }
         }
         .buttonStyle(PiperButtonStyle())
+        .focusEffectDisabled()
         .accessibilityLabel(title)
     }
 
     var recentList: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Recent")
-                .font(PiperTheme.ui(11, weight: .bold).smallCaps())
-                .tracking(0.3)
-                .foregroundStyle(PiperTheme.secondary)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 6)
-            ForEach(Array(recent.enumerated()), id: \.element.id) { index, file in
-                if index > 0 { Rule() }
-                Button { model.openDocument(file.id) } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text("Recent")
+                    .font(PiperTheme.ui(11, weight: .bold).smallCaps())
+                    .tracking(0.3)
+                    .foregroundStyle(PiperTheme.secondary)
+                Spacer()
+                Button("Show All", action: showBrowser)
+                    .buttonStyle(.plain)
+                    .font(PiperTheme.ui(11))
+                    .foregroundStyle(PiperTheme.accent)
+            }
+            .padding(.horizontal, 4)
+            .padding(.bottom, 6)
+            ForEach(recent) { file in
+                Button { openFile(file.id) } label: {
                     TimelineCell(
                         file: file,
                         rootName: model.vault.root.lastPathComponent,
@@ -298,7 +312,7 @@ private extension HomeView {
     func run(_ suggestion: CommandSuggestion) {
         switch suggestion.target {
         case .file(let file):
-            model.openDocument(file.path)
+            openFile(file.path)
         case .command(let command, let arguments):
             start(.command(command), arguments: arguments)
         case .skill(let skill, let arguments):
@@ -325,6 +339,6 @@ private extension HomeView {
 
     func browseFiles() {
         model.route = "wiki"
-        model.openLibrary?()
+        showBrowser()
     }
 }

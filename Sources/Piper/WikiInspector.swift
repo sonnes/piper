@@ -48,7 +48,7 @@ enum WikiReadingAppearance: String, CaseIterable {
 struct ReadingPreferencesView: View {
     @AppStorage("wikiReaderSize") private var fontSize = 18.0
     @AppStorage("wikiReaderTheme") private var theme = WikiReadingTheme.paper
-    @AppStorage("wikiReaderFont") private var font = WikiReadingFont.mono
+    @AppStorage("wikiReaderFont") private var font = WikiReadingFont.sans
     @AppStorage("wikiReaderAppearance") private var appearance = WikiReadingAppearance.system
 
     var body: some View {

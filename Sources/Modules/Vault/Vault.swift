@@ -6,11 +6,15 @@ public struct VaultScan {
 
     /// Every regular file below the root, sorted by path.
     public let files: [VaultFile]
+    /// Every folder below the root, sorted by path. A folder that holds no file
+    /// is here, because the browser shows it.
+    public let folders: [String]
     /// The files that Piper could not read, with the reason for each one.
     public let problems: [String]
 
-    public init(files: [VaultFile], problems: [String]) {
+    public init(files: [VaultFile], folders: [String] = [], problems: [String]) {
         self.files = files
+        self.folders = folders
         self.problems = problems
     }
 }
@@ -85,14 +89,16 @@ public struct Vault {
     ///
     /// The scan skips hidden files, symbolic links, and the folders in
     /// `skippedFolders`. A file that Piper cannot read goes into `problems`, and
-    /// the scan continues.
+    /// the scan continues. The scan lists the folders as well as the files,
+    /// because a folder that holds no file is still a place to put one.
     public func scan() throws -> VaultScan {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             throw PiperError("The vault folder is unavailable. Choose a folder in Settings.")
         }
         var problems: [String] = []
-        let keys: [URLResourceKey] = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey,
+                                      .fileSizeKey, .contentModificationDateKey]
         guard let enumerator = FileManager.default.enumerator(
             at: root,
             includingPropertiesForKeys: keys,
@@ -104,6 +110,7 @@ public struct Vault {
         ) else { throw PiperError("Cannot read the vault folder.") }
 
         var files: [VaultFile] = []
+        var folders: [String] = []
         for case let url as URL in enumerator {
             if Self.skippedFolders.contains(url.lastPathComponent) {
                 enumerator.skipDescendants()
@@ -119,13 +126,18 @@ public struct Vault {
                 enumerator.skipDescendants()
                 continue
             }
+            if values.isDirectory == true {
+                folders.append(relativePath(of: url))
+                continue
+            }
             guard values.isRegularFile == true else { continue }
             let path = relativePath(of: url)
             do { files.append(try file(at: url, path: path, values: values)) }
             catch { problems.append("\(path): \(error.localizedDescription)") }
         }
         let sorted = files.sorted { $0.relativePath.localizedStandardCompare($1.relativePath) == .orderedAscending }
-        return VaultScan(files: sorted, problems: problems)
+        let sortedFolders = folders.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        return VaultScan(files: sorted, folders: sortedFolders, problems: problems)
     }
 
     /// Reads one file at a path inside the vault.

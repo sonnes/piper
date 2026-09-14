@@ -9,7 +9,8 @@ struct CaptureEditor: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scroll = CaptureScrollView(frame: NSRect(x: 0, y: 0, width: 394, height: 80))
+        let metrics = AppDefaults.Composer.self
+        let scroll = CaptureScrollView(frame: NSRect(x: 0, y: 0, width: metrics.width, height: metrics.height))
         scroll.borderType = .noBorder
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
@@ -17,7 +18,8 @@ struct CaptureEditor: NSViewRepresentable {
         scroll.autohidesScrollers = true
         scroll.scrollerStyle = .overlay
         scroll.verticalScroller?.controlSize = .small
-        scroll.scrollerInsets = NSEdgeInsets(top: 10, left: 0, bottom: 10, right: 6)
+        scroll.scrollerInsets = NSEdgeInsets(top: metrics.textInset.height, left: 0,
+                                             bottom: metrics.textInset.height, right: metrics.scrollerInset)
         scroll.horizontalScrollElasticity = .none
         scroll.automaticallyAdjustsContentInsets = false
 
@@ -25,18 +27,18 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isRichText = false
         editor.importsGraphics = false
         editor.drawsBackground = false
-        editor.font = PiperTheme.manuscript(size: 14)
+        editor.font = PiperTheme.uiNS(AppDefaults.FontSize.large)
         editor.textColor = PiperTheme.inkNS
         editor.insertionPointColor = PiperTheme.accentNS
         editor.selectedTextAttributes = [.backgroundColor: PiperTheme.selectionNS, .foregroundColor: PiperTheme.inkNS]
-        editor.textContainerInset = NSSize(width: 18, height: 0)
+        editor.textContainerInset = metrics.textInset
         editor.textContainer?.lineFragmentPadding = 0
         editor.textContainer?.widthTracksTextView = true
-        editor.textContainer?.containerSize = NSSize(width: 358, height: CGFloat.greatestFiniteMagnitude)
+        editor.textContainer?.containerSize = NSSize(width: metrics.textWidth, height: CGFloat.greatestFiniteMagnitude)
         editor.isVerticallyResizable = true
         editor.isHorizontallyResizable = false
         editor.autoresizingMask = [.width]
-        editor.minSize = NSSize(width: 0, height: 40)
+        editor.minSize = NSSize(width: 0, height: metrics.textHeight)
         editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         editor.allowsUndo = true
         editor.isAutomaticQuoteSubstitutionEnabled = false
@@ -45,11 +47,11 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isAutomaticSpellingCorrectionEnabled = false
 
         let paragraph = NSMutableParagraphStyle()
-        paragraph.minimumLineHeight = 23
-        paragraph.maximumLineHeight = 23
+        paragraph.minimumLineHeight = metrics.lineHeight
+        paragraph.maximumLineHeight = metrics.lineHeight
         editor.defaultParagraphStyle = paragraph
         editor.typingAttributes = [
-            .font: PiperTheme.manuscript(size: 14),
+            .font: PiperTheme.uiNS(AppDefaults.FontSize.large),
             .foregroundColor: PiperTheme.inkNS,
             .paragraphStyle: paragraph
         ]
@@ -99,7 +101,7 @@ struct CaptureEditor: NSViewRepresentable {
 private final class CaptureScrollView: NSScrollView {
     override func tile() {
         super.tile()
-        contentView.frame = bounds.insetBy(dx: 0, dy: 14)
+        contentView.frame = bounds.insetBy(dx: 0, dy: AppDefaults.Composer.regionInset)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -131,15 +133,17 @@ private final class CaptureTextView: NSTextView {
         needsDisplay = true
     }
 
+    /// Draws the placeholder with the attributes of the text that replaces it.
+    ///
+    /// The typing attributes carry the font and the paragraph style of a real
+    /// line, so the placeholder sits on the same baseline.
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        guard string.isEmpty else { return }
-        let placeholder = NSAttributedString(string: "New note…", attributes: [
-            .font: font ?? PiperTheme.manuscript(size: 14),
-            .foregroundColor: PiperTheme.secondaryNS,
-            .paragraphStyle: defaultParagraphStyle ?? NSParagraphStyle.default
-        ])
+        guard string.isEmpty, let container = textContainer else { return }
+        var attributes = typingAttributes
+        attributes[.foregroundColor] = PiperTheme.secondaryNS
+        let placeholder = NSAttributedString(string: "Add a note or a prompt", attributes: attributes)
         placeholder.draw(in: NSRect(origin: textContainerOrigin,
-            size: NSSize(width: bounds.width - textContainerInset.width * 2, height: 25)))
+            size: NSSize(width: container.size.width, height: AppDefaults.Composer.lineHeight)))
     }
 }

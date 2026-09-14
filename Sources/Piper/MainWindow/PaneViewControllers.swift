@@ -19,6 +19,10 @@ class HostingPaneViewController: NSViewController {
     override func loadView() {
         let hosting = NSHostingView(rootView: AnyView(Color.clear))
         hosting.translatesAutoresizingMaskIntoConstraints = false
+        // A hosting view reports the fitting size of its content by default. A
+        // window that takes a content view controller then resizes to that size,
+        // which collapses this window to the height of one pane.
+        hosting.sizingOptions = []
         hostingView = hosting
         view = hosting
     }
@@ -37,12 +41,8 @@ class HostingPaneViewController: NSViewController {
 final class SidebarViewController: HostingPaneViewController {
     weak var delegate: SidebarViewControllerDelegate?
 
-    func selectFolder(_ folder: String) {
-        delegate?.sidebarViewController(self, didSelectFolder: folder)
-    }
-
-    func requestHome() {
-        delegate?.sidebarViewControllerDidRequestHome(self)
+    func select(_ selection: SidebarSelection) {
+        delegate?.sidebarViewController(self, didSelect: selection)
     }
 }
 
@@ -54,18 +54,13 @@ final class FileListViewController: HostingPaneViewController {
     func selectFile(_ path: String) {
         delegate?.fileListViewController(self, didSelectFile: path)
     }
+
+    func selectNote(_ id: UUID) {
+        delegate?.fileListViewController(self, didSelectNote: id)
+    }
 }
 
 /// The content of the selected file.
 @MainActor
 final class DetailViewController: HostingPaneViewController {}
 
-/// The search page that the window opens on.
-@MainActor
-final class HomeViewController: HostingPaneViewController {
-    weak var delegate: HomeViewControllerDelegate?
-
-    func openFile(_ path: String) {
-        delegate?.homeViewController(self, didOpenFile: path)
-    }
-}

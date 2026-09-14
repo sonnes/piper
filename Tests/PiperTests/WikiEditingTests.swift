@@ -15,6 +15,16 @@ final class WikiEditingTests: XCTestCase {
     }
     override func tearDownWithError() throws { try FileManager.default.removeItem(at: root) }
 
+    func testSummaryTextDropsMarkupAndKeepsLinkLabels() {
+        let markdown = "* **Update**: [A Graph-Based Firebase](/sources/a.md) verified\n- [[topics/Reading|Read more]] and `code`\n> quoted"
+        XCTAssertEqual(SummaryText.plain(markdown),
+                       "Update: A Graph-Based Firebase verified Read more and code quoted")
+    }
+
+    func testSummaryTextLeavesPlainProseAlone() {
+        XCTAssertEqual(SummaryText.plain("Standing orders for any agent."), "Standing orders for any agent.")
+    }
+
     func testNativeEngineRoundtripPreservesWikiAliasesAndCode() {
         let markdown = "[[topics/Reading#A heading|Read more]] [[Plain]] [[研究/🍵|Tea]]\n`[[Code|example]]`\n```md\n[[Code|sample]]\n```\n![[image.png|200]]\n"
         let encoded = WikiEditorLinks.encode(markdown)

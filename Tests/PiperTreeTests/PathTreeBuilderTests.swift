@@ -18,11 +18,34 @@ final class PathTreeBuilderTests: XCTestCase {
         XCTAssertEqual(maya.indexPath, IndexPath(indexes: [0, 0, 0, 0]))
     }
 
+    /// A node holds its parent weakly. A caller that keeps only the children
+    /// releases the root, and every top-level `indexPath` then reads as the
+    /// same value, which makes the nodes indistinguishable.
+    func testIndexPathsAreDistinctWhileTheRootLivesAndCollapseWhenItDoes() throws {
+        var root: Node? = PathTreeBuilder.tree(paths: ["alpha/a.md", "beta/b.md", "gamma/c.md"])
+        let children = try XCTUnwrap(root).children
+        XCTAssertEqual(Set(children.map(\.indexPath)).count, 3)
+        root = nil
+        XCTAssertNil(children[0].parent)
+        XCTAssertEqual(Set(children.map(\.indexPath)).count, 1)
+    }
+
     func testFoldersSortBeforeFilesAndBothSortInOrder() throws {
         let root = PathTreeBuilder.tree(paths: ["page10.md", "page2.md", "Zeta/a.md", "alpha/b.md"])
         XCTAssertEqual(try paths(of: root.children), ["alpha", "Zeta", "page2.md", "page10.md"])
         XCTAssertTrue(try item(XCTUnwrap(root.childAtIndex(0))).isFolder)
         XCTAssertFalse(try item(XCTUnwrap(root.childAtIndex(2))).isFolder)
+    }
+
+    func testFolderWithoutFilesGetsANodeWithACountOfZero() throws {
+        let root = PathTreeBuilder.tree(paths: ["notes/a.md"],
+                                        folders: ["notes", "decisions", "references", "references/skills"])
+        XCTAssertEqual(try paths(of: root.children), ["decisions", "notes", "references"])
+        let decisions = try XCTUnwrap(root.childAtIndex(0))
+        XCTAssertEqual(try item(decisions), PathItem(path: "decisions", name: "decisions", isFolder: true, count: 0))
+        XCTAssertTrue(decisions.children.isEmpty)
+        let references = try XCTUnwrap(root.childAtIndex(2))
+        XCTAssertEqual(try paths(of: references.children), ["references/skills"])
     }
 
     func testFileAtRootHasNoFolderParent() throws {

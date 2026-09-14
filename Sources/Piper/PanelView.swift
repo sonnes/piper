@@ -48,7 +48,6 @@ struct PanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Rule()
             if !model.accessibilityEnabled { capturePermission }
             noteList
             if !store.selection.isEmpty { selectionBar }
@@ -56,7 +55,6 @@ struct PanelView: View {
             footer
         }
         .id(model.style)
-        .background(PiperTheme.page)
         .foregroundStyle(PiperTheme.ink)
         .tint(PiperTheme.accent)
         .accentColor(PiperTheme.accent)
@@ -109,10 +107,13 @@ struct PanelView: View {
             IconButton(title: "Search · ⌘F", icon: "magnifyingglass", active: searchMode) {
                 if searchMode { store.query = ""; searching = false; composing = true } else { searching = true }
             }
+            IconButton(title: "Wiki Window · ⌘2", icon: "macwindow") {
+                model.route = "wiki"
+                model.openLibrary?()
+            }
             Menu {
                 Button("Capture Clipboard", systemImage: "doc.on.clipboard") { store.captureClipboard() }
                 Button("Choose Section…", systemImage: "tray") { sheet = .sections(moving: false) }
-                Button("Browse Wiki", systemImage: "books.vertical") { model.route = "wiki"; model.openLibrary?() }
                 Divider()
                 Button("Settings…", systemImage: "gearshape") { model.route = "settings"; model.openLibrary?() }
                 Divider()
@@ -152,6 +153,7 @@ struct PanelView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .focusEffectDisabled()
                     .accessibilityLabel("\(section) section")
                     .accessibilityAddTraits(active ? .isSelected : [])
                 }
@@ -188,9 +190,9 @@ struct PanelView: View {
                 .buttonStyle(PiperButtonStyle()).padding(.top, 6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.radius + 1).strokeBorder(PiperTheme.rule, lineWidth: 1))
-        .padding(.horizontal, 18).padding(.top, 12)
+        .padding(14)
+        .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+        .padding(.horizontal, 10).padding(.top, 8)
     }
 
     // MARK: List
@@ -198,18 +200,14 @@ struct PanelView: View {
     private var noteList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 8) {
                     if !clipboardEntries.isEmpty {
                         listLabel("Clipboard")
                         ForEach(clipboardEntries) { entry in
-                            ClipboardRow(entry: entry, section: store.activeSection) {
-                                withAnimation(motion) {
-                                    if model.clipboard.save(entry.id) {
-                                        store.selection.removeAll()
-                                        selectionAnchor = nil
-                                    }
-                                }
-                            }.id(entry.id).transition(.opacity)
+                            ClipboardRow(entry: entry, section: store.activeSection,
+                                         paste: { paste(entry) },
+                                         save: { save(entry) })
+                                .id(entry.id).transition(.opacity)
                         }
                     }
                     ForEach(displayedSections, id: \.self) { section in
@@ -234,6 +232,8 @@ struct PanelView: View {
                         }
                     }
                 }
+                .padding(.horizontal, 10)
+                .padding(.top, 4)
                 .padding(.bottom, 12)
             }
             .overlay {
@@ -251,11 +251,30 @@ struct PanelView: View {
         .frame(maxHeight: .infinity)
     }
 
+    /// Sends a clipboard entry to the application the reader came from.
+    ///
+    /// The panel goes off the screen first, because the paste arrives in
+    /// whichever application is in front.
+    private func paste(_ entry: ClipboardEntry) {
+        (NSApp.keyWindow as? CapturePanel)?.orderOut(nil)
+        if !ClipboardPaster.paste(entry.text) { store.status = "Copied. Press Command-V to paste it." }
+    }
+
+    /// Keeps a clipboard entry as a note in the active section.
+    private func save(_ entry: ClipboardEntry) {
+        withAnimation(motion) {
+            if model.clipboard.save(entry.id) {
+                store.selection.removeAll()
+                selectionAnchor = nil
+            }
+        }
+    }
+
     private func listLabel(_ title: String) -> some View {
         Text(title.uppercased())
             .font(PiperTheme.ui(10.5, weight: .semibold)).tracking(0.4)
             .foregroundStyle(PiperTheme.secondary)
-            .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 4)
+            .padding(.horizontal, 8).padding(.top, 10).padding(.bottom, 0)
             .accessibilityAddTraits(.isHeader)
     }
 
@@ -314,16 +333,20 @@ struct PanelView: View {
                 .accessibilityLabel("Selected note actions")
             }
             .padding(.leading, 18).padding(.trailing, 8).padding(.vertical, 6)
-            .background(PiperTheme.surface)
         }
     }
 
     private var composer: some View {
-        VStack(spacing: 0) {
-            Rule()
-            CaptureEditor(text: $draft, focused: $composing)
-                .frame(height: 96)
-        }
+        CaptureEditor(text: $draft, focused: $composing)
+            .frame(height: AppDefaults.Composer.height)
+            .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+            .overlay {
+                RoundedRectangle(cornerRadius: PiperTheme.cardRadius)
+                    .strokeBorder(composing ? PiperTheme.accent : .clear, lineWidth: 2)
+            }
+            .padding(.horizontal, AppDefaults.Composer.margin)
+            .padding(.top, 4)
+            .padding(.bottom, 6)
     }
 
     private var footer: some View {
@@ -345,7 +368,6 @@ struct PanelView: View {
             }
             .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
             .padding(.horizontal, 18).frame(height: 30)
-            .background(PiperTheme.surface)
         }
     }
 
@@ -437,19 +459,25 @@ struct PanelView: View {
 private struct ClipboardRow: View {
     let entry: ClipboardEntry
     let section: String
+    let paste: () -> Void
     let save: () -> Void
     @State private var hovered = false
     @Environment(\.colorSchemeContrast) private var contrast
 
+    /// A click pastes. A Command-click keeps the entry as a note.
+    private func activate() {
+        if NSEvent.modifierFlags.contains(.command) { save() } else { paste() }
+    }
+
     var body: some View {
-        Button(action: save) {
+        Button(action: activate) {
             HStack(alignment: .top, spacing: 10) {
                 Text(entry.text)
-                    .font(Font(PiperTheme.manuscript(size: 14))).lineSpacing(5).lineLimit(4)
+                    .font(PiperTheme.ui(AppDefaults.FontSize.large)).lineSpacing(4).lineLimit(4)
                     .foregroundStyle(hovered || contrast == .increased ? PiperTheme.ink : PiperTheme.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if PiperTheme.isPage {
-                    Image(systemName: "plus").font(.system(size: 11, weight: .medium))
+                    Image(systemName: "doc.on.clipboard").font(.system(size: 11, weight: .medium))
                         .foregroundStyle(hovered ? PiperTheme.accent : PiperTheme.faint).padding(.top, 4)
                 } else {
                     Text("unsaved").font(PiperTheme.ui(10)).foregroundStyle(PiperTheme.secondary)
@@ -457,32 +485,27 @@ private struct ClipboardRow: View {
                         .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(PiperTheme.rule, lineWidth: 1))
                 }
             }
-            .padding(.leading, PiperTheme.isPage ? 44 : 42).padding(.trailing, 18).padding(.vertical, 12)
+            .padding(.horizontal, 14).padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(hovered ? PiperTheme.hover : .clear)
-            .overlay(alignment: .leading) {
-                if !PiperTheme.isPage {
-                    DashedLine().stroke(hovered ? PiperTheme.accent : PiperTheme.faint, style: StrokeStyle(lineWidth: 2, dash: [3, 3]))
-                        .frame(width: 2)
-                }
+            .background(PiperTheme.card.opacity(hovered ? 1 : 0.55),
+                        in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+            .overlay {
+                // A dashed border marks the card as a draft that no file holds yet.
+                RoundedRectangle(cornerRadius: PiperTheme.cardRadius)
+                    .strokeBorder(hovered ? PiperTheme.accent : PiperTheme.faint,
+                                  style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
-            .overlay(alignment: .bottom) { Rule() }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
-        .help("Save to \(section)")
-        .accessibilityLabel("Save clipboard item: \(String(entry.text.prefix(240)))")
-        .accessibilityHint("Saves this item to \(section). Clipboard previews are unsaved.")
-    }
-}
-
-private struct DashedLine: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
-        return path
+        .contextMenu {
+            Button("Paste", systemImage: "doc.on.clipboard", action: paste)
+            Button("Save To \(section)", systemImage: "plus", action: save)
+        }
+        .help("Paste into the app in front. Command-click saves to \(section).")
+        .accessibilityLabel("Paste clipboard item: \(String(entry.text.prefix(240)))")
+        .accessibilityHint("Pastes this item into the application in front. Command-click saves it to \(section).")
     }
 }
 
@@ -518,7 +541,7 @@ private struct NoteRow: View {
             Button(action: select) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(formattedText)
-                        .font(Font(PiperTheme.manuscript(size: 14))).lineSpacing(5).lineLimit(4)
+                        .font(PiperTheme.ui(AppDefaults.FontSize.large)).lineSpacing(4).lineLimit(4)
                         .strikethrough(note.isDone)
                         .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -532,10 +555,12 @@ private struct NoteRow: View {
             .accessibilityAddTraits(selected ? .isSelected : [])
             .accessibilityHint("Command-click adds to the selection. Return edits the note.")
         }
-        .padding(.horizontal, 18).padding(.vertical, 12)
-        .background(selected ? PiperTheme.selection : PiperTheme.page)
-        .overlay(alignment: .bottom) { Rule() }
-        .overlay(alignment: .leading) { if selected && PiperTheme.isPage { Rectangle().fill(PiperTheme.accent).frame(width: 2) } }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: PiperTheme.cardRadius)
+                .strokeBorder(selected ? PiperTheme.accent : .clear, lineWidth: 2)
+        }
         .contextMenu {
             Button("Copy") { copy(false) }
             Button("Copy as List") { copy(true) }

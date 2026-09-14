@@ -23,6 +23,7 @@ final class AppDefaults {
         static let readerTheme = "wikiReaderTheme"
         static let readerFont = "wikiReaderFont"
         static let readerAppearance = "wikiReaderAppearance"
+        static let fileSort = "wikiFileSort"
 
         /// Keys carried over when the bundle identifier changed to `com.piper`.
         static let migrated = [
@@ -36,6 +37,7 @@ final class AppDefaults {
     enum WindowName {
         static let capturePanel = "PiperCapturePanel"
         static let mainWindow = "PiperLibrary"
+        static let mainSplitView = "PiperMainSplitView"
     }
 
     // MARK: Sizes
@@ -56,13 +58,36 @@ final class AppDefaults {
     }
 
     /// Sidebar cell metrics.
+    ///
+    /// The row values below the cell metrics come from the macOS source list:
+    /// a 32-point row, a selection fill that is inset from both edges, and a
+    /// group header over each section.
     enum Sidebar {
         static let imageSize = NSSize(width: 19, height: 19)
         static let imageMarginRight: CGFloat = 4
         static let countMarginLeft: CGFloat = 10
         static let countCornerRadius: CGFloat = 8
         static let countPadding = NSEdgeInsets(top: 1, left: 7, bottom: 1, right: 7)
-        static let minimumThickness: CGFloat = 96
+        static let minimumThickness: CGFloat = 180
+
+        static let rowHeight: CGFloat = 32
+        static let rowCornerRadius: CGFloat = 6
+        /// The inset of the selection fill from each edge of the sidebar.
+        static let rowInset: CGFloat = 12
+        /// The gutter that holds the disclosure triangle. A file reserves it, so
+        /// that every icon of one level starts at the same place.
+        static let disclosureWidth: CGFloat = 10
+        static let indent: CGFloat = 14
+        static let fontSize: CGFloat = 13
+        static let iconPointSize: CGFloat = 14
+        static let disclosurePointSize: CGFloat = 9
+
+        static let headerFontSize: CGFloat = 11
+        /// The space over a group header. The first header needs less, because
+        /// the toolbar is already over it.
+        static let headerTopMargin: CGFloat = 14
+        static let firstHeaderTopMargin: CGFloat = 8
+        static let headerBottomMargin: CGFloat = 4
     }
 
     enum Window {
@@ -70,6 +95,32 @@ final class AppDefaults {
         static let mainMinimumSize = NSSize(width: 850, height: 620)
         static let detailMinimumThickness: CGFloat = 384
         static let capturePanelSize = NSSize(width: 430, height: 932)
+    }
+
+    /// Composer metrics.
+    ///
+    /// The height of the card follows from the line height. A whole number of
+    /// lines is therefore visible, and no line is cut at the bottom edge.
+    enum Composer {
+        static let lineHeight: CGFloat = 23
+        static let visibleLines = 2
+        /// The space between the edge of the text region and the first line.
+        static let textInset = NSSize(width: 14, height: 7)
+        /// The space between the edge of the card and the text region.
+        static let regionInset: CGFloat = 14
+        /// The space between the edge of the panel and the card.
+        static let margin: CGFloat = 10
+        /// The space that holds the overlay scroller off the text.
+        static let scrollerInset: CGFloat = 6
+
+        /// The height of the text region that scrolls.
+        static let textHeight = textInset.height * 2 + lineHeight * CGFloat(visibleLines)
+        /// The height of the whole card.
+        static let height = textHeight + regionInset * 2
+        /// The width the panel gives the card.
+        static let width = Window.capturePanelSize.width - margin * 2
+        /// The width available to the text.
+        static let textWidth = width - textInset.width * 2
     }
 
     // MARK: Type

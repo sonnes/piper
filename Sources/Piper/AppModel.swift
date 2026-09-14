@@ -12,6 +12,11 @@ final class AppModel {
     let clipboard: ClipboardInbox
     let agent = WikiAgent()
     var files: [VaultFile] = []
+    /// Every folder of the vault, including the ones that hold no file.
+    var folders: [String] = []
+    /// The file the main window had open when it last closed. The first scan
+    /// opens it, so that the window comes back to the file the reader left.
+    var initialDocument: String?
     var wikiProblems: [String] = []
     var wikiError: String?
     var loading = false
@@ -119,16 +124,22 @@ final class AppModel {
                 wikiError = nil
                 let firstLoad = files.isEmpty && workspace.history.isEmpty
                 files = scan.files
+                folders = scan.folders
                 let previousLocation = workspace.location
                 workspace.reconcile(paths: Set(files.map(\.id)))
                 if currentDocument?.id != wikiEdit?.document.id || currentDocument?.raw != wikiEdit?.document.raw { wikiEdit = nil }
                 beginWikiEdit()
                 if previousLocation != workspace.location { jump(to: workspace.location?.anchor) }
-                if firstLoad, let first = files.first(where: { $0.id == "Start Here.md" }) ?? files.first(where: { $0.id == "index.md" }) ?? files.first {
+                if firstLoad,
+                   let first = files.first(where: { $0.id == initialDocument })
+                       ?? files.first(where: { $0.id == "Start Here.md" })
+                       ?? files.first(where: { $0.id == "index.md" })
+                       ?? files.first {
                     openDocument(first.id)
                 }
             case .failure(let error):
                 files = []
+                folders = []
                 wikiEdit = nil
                 wikiError = error.localizedDescription
             }
@@ -146,6 +157,7 @@ final class AppModel {
         wikiPath = url.path
         workspace = WikiWorkspace()
         files = []
+        folders = []
         wikiQuery = ""
         route = "wiki"
         reload()
