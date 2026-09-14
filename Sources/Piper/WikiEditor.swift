@@ -2,15 +2,17 @@ import AppKit
 import MarkdownEngine
 import Observation
 import SwiftUI
+import PiperCore
+import Vault
 
 @MainActor @Observable
 final class WikiEditSession {
-    var document: WikiDocument
+    var document: VaultFile
     var text: String
     var markdown: String { WikiEditorLinks.decode(text) }
     var hasChanges: Bool { markdown != document.editableBody }
 
-    init(document: WikiDocument) {
+    init(document: VaultFile) {
         self.document = document
         text = WikiEditorLinks.encode(document.editableBody)
     }
@@ -75,7 +77,7 @@ enum WikiEditorLinks {
 
 struct WikiEditor: View {
     let model: AppModel
-    let document: WikiDocument
+    let document: VaultFile
     let fontSize: Double
     let fontName: String
     let paper: Color
@@ -98,7 +100,7 @@ struct WikiEditor: View {
                     guard let document = model.currentDocument else { return }
                     let target = WikiEditorLinks.target(for: identifier) ?? identifier
                     do {
-                        let location = try WikiLinks.resolve(target, from: document, documents: model.documents, repository: model.repository, wikiStyle: true)
+                        let location = try WikiLinks.resolve(target, from: document, files: model.files, vault: model.vault, wikiStyle: true)
                         model.openDocument(location.path, anchor: location.anchor)
                     } catch { model.store.report(error) }
                 },
@@ -120,7 +122,7 @@ struct WikiEditor: View {
     private var configuration: MarkdownEditorConfiguration {
         var config = MarkdownEditorConfiguration.default
         let targets = WikiLinks.targets(in: model.wikiEdit?.markdown ?? document.body).filter { link in
-            (try? WikiLinks.resolve(link.target, from: document, documents: model.documents, repository: model.repository, wikiStyle: link.wikiStyle)) != nil
+            (try? WikiLinks.resolve(link.target, from: document, files: model.files, vault: model.vault, wikiStyle: link.wikiStyle)) != nil
         }.flatMap { [$0.target, WikiEditorLinks.prefix + Data($0.target.utf8).base64EncodedString()] }
         config.services.wikiLinks = EditorLinkResolver(targets: Set(targets))
         config.readingWidth = nil

@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Carbon
+import PiperCore
 
 struct ShiftGesture {
     var pressTime: TimeInterval?
@@ -48,7 +49,7 @@ final class CaptureService {
         guard monitoredShortcut != model.captureShortcut else { return }
         stop()
         monitoredShortcut = model.captureShortcut
-        if model.captureShortcut == "Control-Option-C" {
+        if model.captureShortcut == "Control-Option-Space" {
             registerHotKey()
             return
         }
@@ -89,9 +90,9 @@ final class CaptureService {
             model.store.report(PiperError("Cannot register the capture shortcut. Choose Shift, Shift in Settings."))
             return
         }
-        let registered = RegisterEventHotKey(8, UInt32(controlKey | optionKey), EventHotKeyID(signature: 0x50697072, id: 1), GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &hotKey)
+        let registered = RegisterEventHotKey(49, UInt32(controlKey | optionKey), EventHotKeyID(signature: 0x50697072, id: 1), GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &hotKey)
         if registered != noErr {
-            model.store.report(PiperError("Control-Option-C is unavailable. Choose Shift, Shift or release the shortcut in the other application."))
+            model.store.report(PiperError("Control-Option-Space is unavailable. Choose Shift, Shift or release the shortcut in the other application."))
         }
     }
 

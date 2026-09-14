@@ -1,0 +1,42 @@
+import Foundation
+import Captures
+
+/// Every notification name the application posts.
+///
+/// State changes inside a module travel through `Observation`. State changes
+/// that cross a module boundary travel through `NotificationCenter`, and every
+/// name for them is declared here. Post each one on the main queue.
+extension Notification.Name {
+
+    /// The vault finished a scan. The object is the `VaultScan`.
+    static let vaultDidScan = Notification.Name("VaultDidScanNotification")
+
+    /// The reader chose a different vault folder.
+    static let vaultPathDidChange = Notification.Name("VaultPathDidChangeNotification")
+
+    /// A file on disk under the vault root changed.
+    static let vaultFilesDidChange = Notification.Name("VaultFilesDidChangeNotification")
+
+    /// The command or skill index finished a rescan.
+    static let commandsDidChange = Notification.Name("CommandsDidChangeNotification")
+
+    /// A capture was saved. The object is the `Note`.
+    static let captureDidSave = Notification.Name("CaptureDidSaveNotification")
+
+    /// The set of captures changed for any reason, including undo.
+    static let capturesDidChange = Notification.Name("CapturesDidChangeNotification")
+
+    /// The unsaved state of the open file changed. The object is a `Bool`.
+    static let editedStateDidChange = Notification.Name("EditedStateDidChangeNotification")
+
+    /// The reader changed the application style.
+    static let styleDidChange = Notification.Name("StyleDidChangeNotification")
+}
+
+/// Keys for the `userInfo` dictionary of the notifications above.
+enum UserInfoKey {
+    static let path = "path"
+    static let anchor = "anchor"
+    static let note = "note"
+    static let scan = "scan"
+}

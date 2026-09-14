@@ -1,82 +1,123 @@
 ---
 title: "Architecture"
-summary: "Window ownership and the flow between captures and Wiki files"
+summary: "Modules, window ownership, and the flow between captures and Wiki files"
 read_when:
   - Changing window behavior
-  - Tracing capture persistence or Wiki export
+  - Deciding which module new code belongs in
+  - Tracing capture persistence or file export
 ---
 
 # Architecture
 
-AppKit owns the windows and system integrations. SwiftUI provides their content. AppStore owns capture state, and WikiRepository reads and writes Wiki files.
+Piper is layered into modules under `Sources/Modules`, with a thin application target above them. AppKit owns the windows. SwiftUI draws the content of each pane. The rules that govern the code are in [Coding guidelines](coding-guidelines.md).
 
 ```mermaid
 flowchart LR
-    A[Selection or explicit clipboard capture] --> S[AppStore]
-    P[Separate capture panel] --> S
+    A[Selection or explicit clipboard capture] --> S[CaptureStore]
+    P[Capture panel] --> S
     S --> D[(Local SQLite database)]
-    P --> R[Export review sheet]
-    R --> W[WikiRepository]
-    W --> F[Wiki Markdown files]
-    F --> B[Separate Wiki browser]
+    P --> R[Export sheet]
+    R --> W[One Markdown file]
+    V[Vault] --> F[Every file in the folder]
+    F --> B[Wiki browser]
 ```
+
+## Modules
+
+Each module has one reason to exist. `PiperCore`, `PiperTree`, and `CapturesDatabase` add no dependency on another Piper module, which keeps them at the bottom of the graph.
+
+| Module | Responsibility | Depends on |
+| --- | --- | --- |
+| `PiperCore` | `PiperError` and the frontmatter parser | Yams |
+| `PiperTree` | `Node`, `TreeController`, and the path tree builder | nothing |
+| `CapturesDatabase` | One versioned blob in SQLite, with compare-and-swap | CSQLite |
+| `Captures` | `Note`, `CaptureStore`, `ClipboardInbox`, edit sessions | `PiperCore`, `CapturesDatabase` |
+| `Vault` | One folder: scan, read, write, and watch | `PiperCore` |
+| `PiperCommands` | Commands, skills, the search parser, and the agent | `PiperCore` |
+| `Piper` | Windows, panes, and the views | all of them |
+
+`PiperCore` holds the frontmatter parser because `Vault` and `PiperCommands` both read a YAML block, and neither has a reason to depend on the other.
 
 ## Window Ownership
 
-`AppDelegate` creates a floating `NSPanel` and a separate Wiki `NSWindow`. Each window saves its frame independently.
+`AppDelegate` creates two window controllers. Each one owns its window, its frame autosave name, and its toolbar.
 
-The export review sheet belongs to the capture panel. Read in Wiki explicitly opens the browser after export. Settings appears inside the browser.
+`CapturePanelController` owns the floating panel. `MainWindowController` owns the Wiki window, which holds a split view of four panes: the folder tree, the file list, the file itself, and the inspector.
+
+Each pane is an `NSViewController` whose view is an `NSHostingView`. A pane never calls another pane. It reports upward through a delegate protocol, and `MainWindowController` decides what happens next.
+
+The window opens on the home page. A search result or a sidebar click swaps the content view controller for the split view. The Home toolbar button swaps it back, and the panes keep their state.
 
 Note editor windows save changes explicitly. Closing a changed editor prompts to save or discard. Closing the main windows leaves the menu bar application running.
 
 ## Capture And Persistence
 
-CaptureService detects double-Shift through NSEvent monitors. Control-Option-C uses a registered system hotkey so the source editor does not receive the keystroke.
+`CaptureService` detects double-Shift through NSEvent monitors. Control-Option-Space uses a registered system hotkey so the source editor does not receive the keystroke.
 
 The service records the source application and active section before reading Accessibility text. Shortcut changes update registration immediately.
 
 A serial queue reads the focused element with a bounded timeout. Selected-range lookup provides a fallback. Secure text fields and empty selections produce no note.
 
-Capture monitors start after Accessibility approval and stop when permission is revoked. Launch opens the capture panel. A second launch reopens the existing instance.
+`CaptureStore` saves a candidate state before replacing the current state. Database errors and stale snapshot conflicts leave the current notes intact. `Database` stores an opaque blob and compares it against the stored blob on every save, so a second Piper instance cannot overwrite the first.
 
-AppStore saves a candidate state before replacing the current state. Database errors and stale snapshot conflicts leave the current notes intact.
+`ClipboardInbox` observes pasteboard changes and keeps a temporary text buffer. Clicking a ghost card saves through `CaptureStore`.
 
-ClipboardInbox observes pasteboard changes and keeps a temporary text buffer. Clicking a ghost card saves through AppStore. Clipboard previews use no Accessibility permission.
+## The Vault
 
-## Wiki Access
+`Vault` lists every regular file in the folder. It applies no rule about names, folders, or metadata. A file needs no frontmatter, and a file that has none produces no problem to report.
 
-AppModel coordinates scans, selection, and export. Visible Wiki documents refresh every four seconds while the current note has no unsaved changes. WikiRepository parses YAML through Yams.
+Frontmatter, where a file has it, becomes optional metadata that the inspector shows. It never changes how the browser sorts or groups files.
 
-WikiWorkspace owns a single navigation history. WikiLinks resolves local links and computes backlinks. WikiMarkdown supplies reader blocks, heading anchors, and inline text.
+The scan refuses to follow symbolic links, refuses a path that leaves the folder, and skips `node_modules`, `venv`, `__pycache__`, and hidden files. A per-file read error joins a list of problems, and the scan continues.
 
-The browser uses native SwiftUI controls. WikiEditor embeds SwiftMarkdownEngine 0.12.0 through its AppKit bridge. Reading and editing share one text view and scroll view.
+`VaultWatcher` wraps `FSEventStream`. The stream runs on a private queue and calls back on the main queue.
 
-Each open note has an editable session. Saving preserves that session. Navigation and window closure resolve unsaved changes through Save, Discard, or Cancel. Outline navigation uses character ranges in the displayed text. Focus mode hides navigation panes.
+`Frontmatter` splits the original text, never a normalized copy, so a file written with CRLF keeps its CRLF bytes through a save.
 
-WikiInspector holds manual save controls, document actions, reading preferences, and note navigation in the right column. A bounded SwiftUI frame lets the native text view reflow when either sidebar changes.
+## Commands And Skills
+
+Claude Code reads two kinds of extension, and Piper lists both. A command is `.claude/commands/<name>.md`. A skill is `.claude/skills/<name>/SKILL.md`, and its name comes from the `name` key in the frontmatter.
+
+Two scopes hold them. `claude` reads the folder's `.claude` and the home folder's `.claude`, so Piper reads both and tags a personal row. A name in both scopes resolves to the folder one.
+
+A skill body reaches thousands of lines, so the index reads a bounded prefix of each file and parses the block out of that. A skill `description` runs to several sentences, so a row shows the first sentence.
+
+Either scope can be a symbolic link to a dotfiles folder. The index resolves that link, because a configuration folder is not vault content.
+
+## Reading And Editing
+
+`AppModel` coordinates scans, selection, and export. `WikiWorkspace` owns a single navigation history. `WikiLinks` resolves local links and computes backlinks. `WikiMarkdown` supplies reader blocks, heading anchors, and inline text.
+
+`WikiEditor` embeds SwiftMarkdownEngine 0.12.0 through its AppKit bridge. Reading and editing share one text view and scroll view.
+
+Each open file has an editable session. Saving preserves that session. Navigation, window closure, and quit resolve unsaved changes through Save, Discard, or Cancel. A save refuses when the file on disk no longer matches what the editor opened.
 
 The reader does not use a web view or fetch remote content.
 
-Export creates a draft, regenerates indexes, and appends a log entry. Existing concept files remain unchanged.
+## Export
+
+Export writes the captures to one Markdown file that the reader names in a save panel. It writes that file and nothing else. It builds no index, and it appends to no log.
 
 ## Source Map
 
 | Source | Responsibility |
 | --- | --- |
-| [PiperApp.swift](../../Sources/Piper/PiperApp.swift) | Windows, menus, and application lifecycle |
+| [PiperApp.swift](../../Sources/Piper/PiperApp.swift) | Menus and application lifecycle |
+| [AppDefaults.swift](../../Sources/Piper/AppDefaults.swift) | Every preference key, size, and metric |
+| [AppNotifications.swift](../../Sources/Piper/AppNotifications.swift) | Every notification name |
+| [MainWindow/MainWindowController.swift](../../Sources/Piper/MainWindow/MainWindowController.swift) | Split view, toolbar, and the routing between panes |
+| [MainWindow/PaneViewControllers.swift](../../Sources/Piper/MainWindow/PaneViewControllers.swift) | One hosting view controller per pane |
+| [MainWindow/Home/](../../Sources/Piper/MainWindow/Home) | The search page and its suggestion list |
+| [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | The folder tree |
+| [MainWindow/Browser/](../../Sources/Piper/MainWindow/Browser) | The file list |
+| [MainWindow/TimelineCell.swift](../../Sources/Piper/MainWindow/TimelineCell.swift) | The one file row that every list uses |
+| [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | Settings, commands, and the error alert |
+| [CapturePanel/](../../Sources/Piper/CapturePanel) | The floating panel and its window controller |
 | [CaptureService.swift](../../Sources/Piper/CaptureService.swift) | Global gesture and Accessibility selection |
-| [ClipboardInbox.swift](../../Sources/Piper/ClipboardInbox.swift) | Temporary clipboard previews and explicit saving |
-| [AppStore.swift](../../Sources/Piper/AppStore.swift) | Capture state, edit sessions, and note operations |
-| [Database.swift](../../Sources/Piper/Database.swift) | SQLite snapshot persistence |
+| [AppModel.swift](../../Sources/Piper/AppModel.swift) | Navigation, edit sessions, and coordination |
+| [Wiki.swift](../../Sources/Piper/Wiki.swift) | Export text, file name, and the guarded body write |
 | [PanelView.swift](../../Sources/Piper/PanelView.swift) | Capture panel, note actions, and editor |
-| [CaptureEditor.swift](../../Sources/Piper/CaptureEditor.swift) | Native composer text, focus, and scrollbar |
-| [AppModel.swift](../../Sources/Piper/AppModel.swift) | Wiki navigation and application coordination |
-| [Wiki.swift](../../Sources/Piper/Wiki.swift) | Files, metadata, and export |
-| [WikiLibraryView.swift](../../Sources/Piper/WikiLibraryView.swift) | File tree, search, header, and reading controls |
-| [WikiWorkspace.swift](../../Sources/Piper/WikiWorkspace.swift) | Navigation history, file tree, and link resolution |
-| [WikiEditor.swift](../../Sources/Piper/WikiEditor.swift) | Shared reading and editing page, typography, and link conversion |
-| [WikiInspector.swift](../../Sources/Piper/WikiInspector.swift) | Manual save, document actions, reading preferences, outline, backlinks, and note details |
-| [WikiReader.swift](../../Sources/Piper/WikiReader.swift) | Markdown block rendering |
-| [WikiMarkdown.swift](../../Sources/Piper/WikiMarkdown.swift) | Reader blocks and inline Markdown |
-| [LibraryView.swift](../../Sources/Piper/LibraryView.swift) | Export review and settings |
-| [MarkdownView.swift](../../Sources/Piper/MarkdownView.swift) | Capture Markdown rendering |
+| [WikiEditor.swift](../../Sources/Piper/WikiEditor.swift) | Shared reading and editing page |
+| [WikiInspector.swift](../../Sources/Piper/WikiInspector.swift) | Save controls, file details, outline, and backlinks |
+| [WikiWorkspace.swift](../../Sources/Piper/WikiWorkspace.swift) | Navigation history and link resolution |
+| [LibraryView.swift](../../Sources/Piper/LibraryView.swift) | Export sheet and settings |

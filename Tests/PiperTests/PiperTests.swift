@@ -2,6 +2,10 @@ import XCTest
 import Yams
 import CSQLite
 @testable import Piper
+import PiperCore
+import Captures
+import CapturesDatabase
+import Vault
 
 final class PiperTests: XCTestCase {
     private var folder: URL!
@@ -27,7 +31,7 @@ final class PiperTests: XCTestCase {
 
     @MainActor func testPersistenceMergeUndoAndExactText() throws {
         let url = folder.appendingPathComponent("notes.sqlite")
-        let store = AppStore(url: url)
+        let store = CaptureStore(url: url)
         let text = "  αβ\n\t`code`\n"
         XCTAssertTrue(store.add(text, interpretSection: false))
         XCTAssertTrue(store.add("second", source: "TextEdit"))
@@ -38,9 +42,9 @@ final class PiperTests: XCTestCase {
         XCTAssertEqual(store.notes[0].text, text + "\n\nsecond")
         store.undo()
         XCTAssertEqual(store.notes.count, 2)
-        XCTAssertEqual(AppStore(url: url).notes[0].text, text)
+        XCTAssertEqual(CaptureStore(url: url).notes[0].text, text)
         XCTAssertTrue(store.add("# Research"))
-        XCTAssertEqual(AppStore(url: url).activeSection, "Research")
+        XCTAssertEqual(CaptureStore(url: url).activeSection, "Research")
         XCTAssertTrue(store.add("# literal heading", to: "Inbox", interpretSection: false))
         XCTAssertEqual(store.notes.last?.text, "# literal heading")
     }
@@ -52,92 +56,95 @@ final class PiperTests: XCTestCase {
         sqlite3_exec(db, "CREATE TABLE state(id INTEGER PRIMARY KEY, version INTEGER, data BLOB); INSERT INTO state VALUES(1,99,'future');", nil, nil, nil)
         sqlite3_close(db)
         let before = try Data(contentsOf: url)
-        let store = AppStore(url: url)
+        let store = CaptureStore(url: url)
         XCTAssertNotNil(store.errorMessage)
         XCTAssertFalse(store.add("overwrite"))
         XCTAssertEqual(try Data(contentsOf: url), before)
     }
 
-    func testFrontmatterTrustAndUnknownFields() {
-        let raw = "---\ntype: Custom\ntitle: Test\nverified: {by: 'human:ravi', at: '2026-01-01T00:00:00Z'}\nstale_after: '2020-01-01T00:00:00Z'\ncustom: [a, b]\n---\nBody\n"
-        let doc = WikiDocument.parse(raw, path: "topics/test.md")
+    // MARK: Frontmatter is optional
+
+    func testFrontmatterIsReadWhenPresentAndAbsenceIsNotAProblem() {
+        let raw = "---\ntype: Custom\ntitle: Test\ncustom: [a, b]\n---\nBody\n"
+        let doc = makeFile(raw, path: "topics/test.md")
         XCTAssertNil(doc.problem)
-        XCTAssertEqual(doc.verification, "Human-reviewed")
-        XCTAssertTrue(doc.isStale)
+        XCTAssertEqual(doc.title, "Test")
         XCTAssertEqual(doc.body, "Body\n")
         XCTAssertNotNil(doc.metadata["custom"])
-        XCTAssertNotNil(WikiDocument.parse("---\ntitle: [broken\n---\ntext", path: "bad.md").problem)
+
+        // The headline change: a plain file is a file, not a problem.
+        let plain = makeFile("Just text, no block.\n", path: "notes.md")
+        XCTAssertNil(plain.problem)
+        XCTAssertTrue(plain.metadata.isEmpty)
+        XCTAssertEqual(plain.body, "Just text, no block.\n")
+        XCTAssertEqual(plain.title, "notes")
+
+        XCTAssertNotNil(makeFile("---\ntitle: [broken\n---\ntext", path: "bad.md").problem)
     }
 
-    private func wiki() throws -> WikiRepository {
-        try Data("---\nokf_version: \"0.2\"\n---\n\n# Wiki\n".utf8).write(to: folder.appendingPathComponent("index.md"))
-        return WikiRepository(root: folder)
-    }
+    // MARK: Export writes one file and nothing else
 
-    func testExportPreservesOriginalsAndIsIdempotent() throws {
-        let repo = try wiki()
+    func testExportWritesOneFileAndLeavesEveryOtherFileAlone() throws {
+        let vault = Vault(root: folder)
         try FileManager.default.createDirectory(at: folder.appendingPathComponent("topics"), withIntermediateDirectories: true)
-        let original = "---\ntype: Topic\ntitle: Existing\nverified: [{by: 'human:ravi', at: '2026-01-01T00:00:00Z'}]\ncustom: keep\n---\nKeep exactly.\n"
+        let original = "---\ntype: Topic\ntitle: Existing\ncustom: keep\n---\nKeep exactly.\n"
         let originalURL = folder.appendingPathComponent("topics/existing.md")
         try Data(original.utf8).write(to: originalURL)
+
         let note = Note(text: "  exact\n# heading\n---\n你好", section: "Inbox")
-        let doc = try repo.export(notes: [note], title: "Title: \"quoted\"", description: "A multiline\ndescription", destination: "sources", sourceURL: "https://example.com/page")
-        XCTAssertEqual(doc.metadata["title"] as? String, "Title: \"quoted\"")
-        XCTAssertEqual(doc.metadata["status"] as? String, "draft")
-        XCTAssertNil(doc.metadata["verified"])
-        XCTAssertTrue(doc.body.contains(note.text))
-        XCTAssertEqual(doc.sources[0]["resource"] as? String, "https://example.com/page")
-        XCTAssertEqual(try String(contentsOf: originalURL), original)
-        let again = try repo.export(notes: [note], title: "Other title", description: "Other", destination: "topics", sourceURL: "")
-        XCTAssertEqual(doc.id, again.id)
-        let log = try String(contentsOf: folder.appendingPathComponent("log.md"))
-        XCTAssertEqual(log.components(separatedBy: "**Creation**").count, 2)
-        let index = try String(contentsOf: folder.appendingPathComponent("index.md"))
-        XCTAssertTrue(index.contains("/sources/"))
-        XCTAssertTrue(index.contains("/topics/existing.md"))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent(".raw").path))
+        let markdown = try WikiExport.markdown(notes: [note], title: "Title: \"quoted\"", sourceURL: "https://example.com/page")
+        let destination = folder.appendingPathComponent(WikiExport.fileName("Title: \"quoted\""))
+        try Data(markdown.utf8).write(to: destination, options: .withoutOverwriting)
+
+        let written = try vault.read(destination.lastPathComponent)
+        XCTAssertEqual(written.metadata["title"] as? String, "Title: \"quoted\"")
+        XCTAssertTrue(written.body.contains(note.text), "The capture text reaches the file unchanged")
+        XCTAssertEqual(written.metadata["sources"] as? [String], ["https://example.com/page"])
+
+        XCTAssertEqual(try String(contentsOf: originalURL, encoding: .utf8), original, "Export must not touch another file")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("index.md").path), "Export builds no index")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("log.md").path), "Export appends to no log")
     }
 
-    func testExportRejectsTraversalAndEscapingSymlinks() throws {
-        let repo = try wiki()
-        XCTAssertThrowsError(try repo.containedURL("../../outside.md"))
-        try FileManager.default.createSymbolicLink(at: folder.appendingPathComponent("sources"), withDestinationURL: folder.deletingLastPathComponent())
-        XCTAssertThrowsError(try repo.export(notes: [Note(text: "note", section: "Inbox")], title: "Title", description: "Description", destination: "sources", sourceURL: ""))
+    func testExportRefusesEmptyInputAndABadSourceURL() throws {
+        let note = Note(text: "one", section: "Inbox")
+        XCTAssertThrowsError(try WikiExport.markdown(notes: [], title: "Title", sourceURL: ""))
+        XCTAssertThrowsError(try WikiExport.markdown(notes: [note], title: "   ", sourceURL: ""))
+        XCTAssertThrowsError(try WikiExport.markdown(notes: [note], title: "Title", sourceURL: "javascript:alert(1)"))
+        XCTAssertNoThrow(try WikiExport.markdown(notes: [note], title: "Title", sourceURL: ""))
+        XCTAssertNoThrow(try WikiExport.markdown(notes: [note], title: "Title", sourceURL: "https://example.com"))
     }
 
-    func testScanSkipsHiddenAndReportsMalformedConcepts() throws {
-        let repo = try wiki()
-        try FileManager.default.createDirectory(at: folder.appendingPathComponent(".raw"), withIntermediateDirectories: true)
-        try Data("raw".utf8).write(to: folder.appendingPathComponent(".raw/original.md"))
-        try Data("invalid".utf8).write(to: folder.appendingPathComponent("broken.md"))
-        let scan = try repo.scan()
-        XCTAssertEqual(scan.documents.count, 1)
-        XCTAssertEqual(scan.problems.count, 1)
-        XCTAssertThrowsError(try repo.export(notes: [Note(text: "text", section: "Inbox")], title: "T", description: "D", destination: "sources", sourceURL: ""))
+    func testTheProposedFileNameIsSafeForAnyTitle() {
+        XCTAssertEqual(WikiExport.fileName("Title: \"quoted\""), "title-quoted.md")
+        XCTAssertEqual(WikiExport.fileName("../../etc/passwd"), "etc-passwd.md")
+        XCTAssertEqual(WikiExport.fileName("你好"), "capture.md")
+        XCTAssertEqual(WikiExport.fileName(""), "capture.md")
     }
 
-    func testExportCollisionAndInvalidSource() throws {
-        let repo = try wiki()
-        let first = try repo.export(notes: [Note(text: "one", section: "Inbox")], title: "Repeated", description: "D", destination: "sources", sourceURL: "")
-        let second = try repo.export(notes: [Note(text: "two", section: "Inbox")], title: "Repeated", description: "D", destination: "sources", sourceURL: "")
-        XCTAssertNotEqual(first.id, second.id)
-        XCTAssertEqual(second.id, "sources/repeated-2.md")
-        XCTAssertThrowsError(try repo.export(notes: [Note(text: "bad", section: "Inbox")], title: "Title", description: "D", destination: "sources", sourceURL: "javascript:alert(1)"))
-    }
-    func testRetryRepairsAnExportAfterIndexFailure() throws {
-        let repo = try wiki()
-        let sources = folder.appendingPathComponent("sources")
-        try FileManager.default.createDirectory(at: sources, withIntermediateDirectories: true)
-        let index = sources.appendingPathComponent("index.md")
-        try FileManager.default.createSymbolicLink(at: index, withDestinationURL: folder.deletingLastPathComponent().appendingPathComponent("outside.md"))
-        let note = Note(text: "preserve this excerpt", section: "Inbox")
-        XCTAssertThrowsError(try repo.export(notes: [note], title: "Recovery", description: "D", destination: "sources", sourceURL: ""))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: sources.appendingPathComponent("recovery.md").path))
-        try FileManager.default.removeItem(at: index)
-        let repaired = try repo.export(notes: [note], title: "Recovery", description: "D", destination: "sources", sourceURL: "")
-        XCTAssertEqual(repaired.id, "sources/recovery.md")
-        XCTAssertTrue(try String(contentsOf: index).contains("recovery.md"))
-        XCTAssertEqual(try repo.scan().documents.count, 1)
+    func testAPathThatLeavesTheVaultThrows() throws {
+        let vault = Vault(root: folder)
+        XCTAssertThrowsError(try vault.containedURL("../../outside.md"))
     }
 
+    // MARK: Saving a body
+
+    func testSavingKeepsFrontmatterAndRefusesAnExternalChange() throws {
+        let vault = Vault(root: folder)
+        let url = folder.appendingPathComponent("note.md")
+        let raw = "---\ntitle: A note\ncustom: keep\n---\n\nOriginal body.\n"
+        try Data(raw.utf8).write(to: url)
+        let file = try vault.read("note.md")
+
+        let saved = try WikiSave.body("\nA new body.\n", of: file, in: vault)
+        let onDisk = try String(contentsOf: url, encoding: .utf8)
+        XCTAssertTrue(onDisk.hasPrefix("---\ntitle: A note\ncustom: keep\n---\n"), "Frontmatter survives byte for byte")
+        XCTAssertTrue(onDisk.contains("A new body."))
+        XCTAssertEqual(saved.body, "\nA new body.\n")
+
+        // Another editor writes, so the stale session must refuse.
+        try Data("---\ntitle: A note\n---\n\nSomeone else wrote.\n".utf8).write(to: url)
+        XCTAssertThrowsError(try WikiSave.body("\nMy edit.\n", of: file, in: vault))
+        XCTAssertTrue(try String(contentsOf: url, encoding: .utf8).contains("Someone else wrote."))
+    }
 }

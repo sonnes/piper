@@ -1,19 +1,22 @@
 import AppKit
 import XCTest
 @testable import Piper
+import PiperCore
+import Captures
+import CapturesDatabase
 
 @MainActor
 final class ClipboardInboxTests: XCTestCase {
     private var folder: URL!
     private var pasteboard: NSPasteboard!
-    private var store: AppStore!
+    private var store: CaptureStore!
     private var inbox: ClipboardInbox!
 
     override func setUp() async throws {
         folder = FileManager.default.temporaryDirectory.appendingPathComponent("piper-clipboard-tests-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         pasteboard = NSPasteboard(name: NSPasteboard.Name("com.piper.test." + UUID().uuidString))
-        store = AppStore(url: folder.appendingPathComponent("notes.sqlite"))
+        store = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
         inbox = ClipboardInbox(store: store, pasteboard: pasteboard)
     }
 
@@ -36,14 +39,14 @@ final class ClipboardInboxTests: XCTestCase {
         copy(text)
         XCTAssertEqual(inbox.entries.map(\.text), [text])
         XCTAssertTrue(store.notes.isEmpty)
-        XCTAssertTrue(AppStore(url: folder.appendingPathComponent("notes.sqlite")).notes.isEmpty)
+        XCTAssertTrue(CaptureStore(url: folder.appendingPathComponent("notes.sqlite")).notes.isEmpty)
         let id = inbox.entries[0].id
         XCTAssertTrue(inbox.save(id))
         XCTAssertTrue(inbox.entries.isEmpty)
         XCTAssertEqual(store.notes.first?.text, text)
         XCTAssertEqual(store.notes.first?.section, "Inbox")
         XCTAssertEqual(store.notes.first?.sources, ["Clipboard"])
-        XCTAssertEqual(AppStore(url: folder.appendingPathComponent("notes.sqlite")).notes.first?.text, text)
+        XCTAssertEqual(CaptureStore(url: folder.appendingPathComponent("notes.sqlite")).notes.first?.text, text)
         XCTAssertFalse(inbox.save(id))
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(pasteboard.string(forType: .string), text)
@@ -111,7 +114,7 @@ final class ClipboardInboxTests: XCTestCase {
     }
 
     func testFailedSaveKeepsTheGhostAvailable() {
-        let failed = AppStore(url: folder)
+        let failed = CaptureStore(url: folder)
         let previews = ClipboardInbox(store: failed, pasteboard: pasteboard)
         previews.receive(["keep until saved"])
         let id = previews.entries[0].id

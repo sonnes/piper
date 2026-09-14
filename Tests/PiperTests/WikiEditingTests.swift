@@ -2,6 +2,10 @@ import AppKit
 import MarkdownEngine
 import XCTest
 @testable import Piper
+import PiperCore
+import Captures
+import CapturesDatabase
+import Vault
 
 final class WikiEditingTests: XCTestCase {
     private var root: URL!
@@ -51,9 +55,9 @@ final class WikiEditingTests: XCTestCase {
         let raw = "# Note\n\n## Details\nOriginal.\n"
         let path = root.appendingPathComponent("Note.md")
         try Data(raw.utf8).write(to: path)
-        let document = WikiDocument.parse(raw, path: "Note.md")
-        let model = AppModel(store: AppStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.documents = [document]
+        let document = makeFile(raw, path: "Note.md")
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        model.files = [document]
         model.openDocument(document.id)
         let session = model.wikiEdit
         session?.text += "Unsaved thought.\n"
@@ -71,24 +75,24 @@ final class WikiEditingTests: XCTestCase {
         try Data(raw.utf8).write(to: url)
         let neighbor = root.appendingPathComponent("Other.md")
         try Data("untouched".utf8).write(to: neighbor)
-        let document = WikiDocument.parse(raw, path: "Tea.md")
+        let document = makeFile(raw, path: "Tea.md")
         XCTAssertEqual(document.frontmatterPrefix, prefix)
         let body = document.editableBody.replacingOccurrences(of: "Original.", with: "Updated **text** and [[Other|other note]].")
-        let saved = try WikiRepository(root: root).saveBody(body, of: document)
+        let saved = try WikiSave.body(body, of: document, in: Vault(root: root))
         XCTAssertEqual(try Data(contentsOf: url), Data((prefix + body).utf8))
         XCTAssertEqual(saved.metadata["custom"] as? [String], ["one", "two"])
         XCTAssertEqual(try String(contentsOf: neighbor), "untouched")
     }
 
     func testSavingRefusesExternalChangesAndDeletedFiles() throws {
-        let document = WikiDocument.parse("# Original\n", path: "Note.md")
+        let document = makeFile("# Original\n", path: "Note.md")
         let url = root.appendingPathComponent("Note.md")
         try Data("# External edit\n".utf8).write(to: url)
-        let repository = WikiRepository(root: root)
-        XCTAssertThrowsError(try repository.saveBody("# My edit\n", of: document))
+        let vault = Vault(root: root)
+        XCTAssertThrowsError(try WikiSave.body("# My edit\n", of: document, in: vault))
         XCTAssertEqual(try String(contentsOf: url), "# External edit\n")
         try FileManager.default.removeItem(at: url)
-        XCTAssertThrowsError(try repository.saveBody("# My edit\n", of: document))
+        XCTAssertThrowsError(try WikiSave.body("# My edit\n", of: document, in: vault))
         XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
     }
 
@@ -96,9 +100,9 @@ final class WikiEditingTests: XCTestCase {
         let path = root.appendingPathComponent("Note.md")
         let raw = "# Note\nOriginal.\n"
         try Data(raw.utf8).write(to: path)
-        let document = WikiDocument.parse(raw, path: "Note.md")
-        let model = AppModel(store: AppStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.documents = [document]
+        let document = makeFile(raw, path: "Note.md")
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        model.files = [document]
         model.openDocument(document.id)
         let session = try XCTUnwrap(model.wikiEdit)
         XCTAssertFalse(session.hasChanges)
@@ -119,10 +123,10 @@ final class WikiEditingTests: XCTestCase {
             let path = root.appendingPathComponent("First.md")
             let raw = "---\ntitle: First\n---\n\nOriginal.\n"
             try Data(raw.utf8).write(to: path)
-            let first = WikiDocument.parse(raw, path: "First.md")
-            let second = WikiDocument.parse("# Second", path: "Second.md")
-            let model = AppModel(store: AppStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-            model.documents = [first, second]
+            let first = makeFile(raw, path: "First.md")
+            let second = makeFile("# Second", path: "Second.md")
+            let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+            model.files = [first, second]
             var prompts = 0
             model.confirmWikiChanges = { document in
                 XCTAssertEqual(document.id, first.id)
@@ -149,11 +153,11 @@ final class WikiEditingTests: XCTestCase {
 
     @MainActor func testFailedSaveKeepsDraftOpen() throws {
         let path = root.appendingPathComponent("First.md")
-        let first = WikiDocument.parse("# First\n", path: "First.md")
+        let first = makeFile("# First\n", path: "First.md")
         try Data(first.raw.utf8).write(to: path)
-        let second = WikiDocument.parse("# Second", path: "Second.md")
-        let model = AppModel(store: AppStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.documents = [first, second]
+        let second = makeFile("# Second", path: "Second.md")
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        model.files = [first, second]
         model.confirmWikiChanges = { _ in .alertFirstButtonReturn }
         model.openDocument(first.id)
         model.wikiEdit?.text = "My newer edit."
@@ -170,10 +174,10 @@ final class WikiEditingTests: XCTestCase {
 
     @MainActor func testCloseCanCancelAndDiscardWithoutSaving() throws {
         let path = root.appendingPathComponent("Note.md")
-        let document = WikiDocument.parse("# Note\n", path: "Note.md")
+        let document = makeFile("# Note\n", path: "Note.md")
         try Data(document.raw.utf8).write(to: path)
-        let model = AppModel(store: AppStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.documents = [document]
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        model.files = [document]
         model.openDocument(document.id)
         model.wikiEdit?.text += "Unsaved."
         model.confirmWikiChanges = { _ in .alertThirdButtonReturn }
@@ -189,10 +193,10 @@ final class WikiEditingTests: XCTestCase {
 
     @MainActor func testRefreshUpdatesCleanEditorAndPreservesUnchangedSession() async throws {
         let path = root.appendingPathComponent("Note.md")
-        let document = WikiDocument.parse("# Note\n", path: "Note.md")
+        let document = makeFile("# Note\n", path: "Note.md")
         try Data(document.raw.utf8).write(to: path)
-        let model = AppModel(store: AppStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.documents = [document]
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        model.files = [document]
         model.openDocument(document.id)
         let session = try XCTUnwrap(model.wikiEdit)
         model.reload()

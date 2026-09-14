@@ -1,5 +1,7 @@
 import AppKit
 import SwiftUI
+import PiperCore
+import Captures
 
 private enum PanelSheet: Identifiable {
     case sections(moving: Bool), edit(CaptureEditSession), export
@@ -13,7 +15,7 @@ private enum PanelSheet: Identifiable {
 }
 
 struct PanelView: View {
-    @Bindable var store: AppStore
+    @Bindable var store: CaptureStore
     let model: AppModel
 
     init(model: AppModel) {
@@ -264,7 +266,7 @@ struct PanelView: View {
                     .font(PiperTheme.ui(14, weight: .medium))
                 Text("Select text in another app, then press")
                     .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
-                Text(model.captureShortcut == "Shift, Shift" ? "⇧ ⇧" : "⌃ ⌥ C")
+                Text(model.captureShortcut == "Shift, Shift" ? "⇧ ⇧" : "⌃ ⌥ ␣")
                     .font(.system(size: 17, weight: .medium, design: .rounded))
                     .padding(.horizontal, 14).padding(.vertical, 6)
                     .overlay(RoundedRectangle(cornerRadius: PiperTheme.radius + 1).strokeBorder(PiperTheme.rule, lineWidth: 1))
@@ -337,7 +339,7 @@ struct PanelView: View {
                 if store.canUndo {
                     Button("Undo") { store.undo() }.buttonStyle(.plain).help("Undo Last Change")
                 } else {
-                    Text(model.captureShortcut == "Shift, Shift" ? "⇧⇧ capture" : "⌃⌥C capture")
+                    Text(model.captureShortcut == "Shift, Shift" ? "⇧⇧ capture" : "⌃⌥␣ capture")
                         .accessibilityLabel("\(model.captureShortcut) captures selected text")
                 }
             }

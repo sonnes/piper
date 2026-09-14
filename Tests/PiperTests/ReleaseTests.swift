@@ -2,6 +2,10 @@ import AppKit
 import CSQLite
 import XCTest
 @testable import Piper
+import PiperCore
+import Captures
+import CapturesDatabase
+import Vault
 
 @MainActor
 final class ReleaseTests: XCTestCase {
@@ -16,12 +20,12 @@ final class ReleaseTests: XCTestCase {
     override func tearDown() async throws { try FileManager.default.removeItem(at: folder) }
 
     func testFreshAppHasOnlyInboxAndNoSeededContent() {
-        let store = AppStore(url: databaseURL)
+        let store = CaptureStore(url: databaseURL)
         let model = AppModel(store: store, wikiPath: folder.appendingPathComponent("Wiki").path)
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
         XCTAssertTrue(store.notes.isEmpty)
-        XCTAssertTrue(model.documents.isEmpty)
+        XCTAssertTrue(model.files.isEmpty)
         XCTAssertTrue(model.clipboard.entries.isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: model.wikiPath))
     }
@@ -29,7 +33,7 @@ final class ReleaseTests: XCTestCase {
     func testExplicitClipboardCapturePreservesTextAndPasteboard() {
         let pasteboard = NSPasteboard(name: .init("com.piper.release-test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
-        let store = AppStore(url: databaseURL)
+        let store = CaptureStore(url: databaseURL)
         let text = "# Literal heading\n  你好 👋🏽\n\tlet x = 1\n"
         pasteboard.setString(text, forType: .string)
         let version = pasteboard.changeCount
@@ -54,7 +58,7 @@ final class ReleaseTests: XCTestCase {
     }
 
     func testCaptureRecordsOnlyWebSourceURLs() {
-        let store = AppStore(url: databaseURL)
+        let store = CaptureStore(url: databaseURL)
         XCTAssertTrue(store.add("selected text", source: "Safari", sourceURL: "https://example.com/article", interpretSection: false))
         XCTAssertEqual(store.notes.last?.sourceURLs, ["https://example.com/article"])
         XCTAssertTrue(store.add("https://example.com/article", sourceURL: "https://example.com/article", interpretSection: false))
@@ -64,7 +68,7 @@ final class ReleaseTests: XCTestCase {
     }
 
     func testSectionsRejectInvalidNamesAndOrphanCaptures() {
-        let store = AppStore(url: databaseURL)
+        let store = CaptureStore(url: databaseURL)
         XCTAssertFalse(store.chooseSection(" \n "))
         XCTAssertFalse(store.chooseSection("First\nSecond"))
         XCTAssertFalse(store.chooseSection(String(repeating: "a", count: 81)))
@@ -82,7 +86,7 @@ final class ReleaseTests: XCTestCase {
     }
 
     func testSectionNavigationAndUnchangedEditPreserveUndo() {
-        let store = AppStore(url: databaseURL)
+        let store = CaptureStore(url: databaseURL)
         XCTAssertTrue(store.chooseSection("Research"))
         XCTAssertTrue(store.add("keep"))
         XCTAssertTrue(store.update(store.notes[0].id, text: "keep"))
@@ -94,29 +98,29 @@ final class ReleaseTests: XCTestCase {
     }
 
     func testConcurrentFirstSaveCannotReplaceAnotherInstance() {
-        let first = AppStore(url: databaseURL)
-        let second = AppStore(url: databaseURL)
+        let first = CaptureStore(url: databaseURL)
+        let second = CaptureStore(url: databaseURL)
         XCTAssertTrue(first.add("first writer"))
         XCTAssertFalse(second.add("stale writer"))
         XCTAssertTrue(second.notes.isEmpty)
         XCTAssertFalse(second.canUndo)
         XCTAssertNotNil(second.errorMessage)
-        XCTAssertEqual(AppStore(url: databaseURL).notes.map(\.text), ["first writer"])
+        XCTAssertEqual(CaptureStore(url: databaseURL).notes.map(\.text), ["first writer"])
     }
 
     func testStaleUpdateAndUndoLeaveSavedNotesIntact() {
-        let first = AppStore(url: databaseURL)
+        let first = CaptureStore(url: databaseURL)
         XCTAssertTrue(first.add("baseline"))
-        let second = AppStore(url: databaseURL)
+        let second = CaptureStore(url: databaseURL)
         XCTAssertTrue(second.add("newer note"))
         XCTAssertFalse(first.update(first.notes[0].id, text: "stale edit"))
         first.undo()
         XCTAssertEqual(first.notes.map(\.text), ["baseline"])
-        XCTAssertEqual(AppStore(url: databaseURL).notes.map(\.text), ["baseline", "newer note"])
+        XCTAssertEqual(CaptureStore(url: databaseURL).notes.map(\.text), ["baseline", "newer note"])
     }
 
     func testLockedDatabaseRetainsNotesAndUndoUntilRetry() throws {
-        let store = AppStore(url: databaseURL)
+        let store = CaptureStore(url: databaseURL)
         XCTAssertTrue(store.add("saved"))
         var lock: OpaquePointer?
         XCTAssertEqual(sqlite3_open(databaseURL.path, &lock), SQLITE_OK)
@@ -127,7 +131,7 @@ final class ReleaseTests: XCTestCase {
         XCTAssertTrue(store.canUndo)
         XCTAssertEqual(sqlite3_exec(lock, "ROLLBACK", nil, nil, nil), SQLITE_OK)
         XCTAssertTrue(store.add("retry me"))
-        XCTAssertEqual(AppStore(url: databaseURL).notes.map(\.text), ["saved", "retry me"])
+        XCTAssertEqual(CaptureStore(url: databaseURL).notes.map(\.text), ["saved", "retry me"])
         store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["saved"])
     }
@@ -135,16 +139,18 @@ final class ReleaseTests: XCTestCase {
     func testInvalidStoredSectionsBlockWrites() throws {
         let database = try Database(url: databaseURL)
         _ = try database.load()
-        try database.save(SavedState(notes: [Note(text: "preserve", section: "Missing")]))
+        // `Database` now stores an opaque blob, so the test encodes the invalid
+        // state the way `CaptureStore` does.
+        try database.save(JSONEncoder().encode(SavedState(notes: [Note(text: "preserve", section: "Missing")])))
         let before = try Data(contentsOf: databaseURL)
-        let store = AppStore(url: databaseURL)
+        let store = CaptureStore(url: databaseURL)
         XCTAssertNotNil(store.errorMessage)
         XCTAssertFalse(store.add("overwrite"))
         XCTAssertEqual(try Data(contentsOf: databaseURL), before)
     }
 
     func testCaptureEditorConflictPreservesDraft() {
-        let store = AppStore(url: databaseURL)
+        let store = CaptureStore(url: databaseURL)
         XCTAssertTrue(store.add("original"))
         let model = AppModel(store: store, wikiPath: folder.path)
         let first = model.editCapture(store.notes[0])
@@ -165,23 +171,28 @@ final class ReleaseTests: XCTestCase {
 
     func testCreateWikiStartsEmptyAndSupportsRealExport() throws {
         let root = folder.appendingPathComponent("Wiki")
-        let repository = WikiRepository(root: root)
-        try repository.create()
-        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), ["index.md"])
-        XCTAssertTrue(try repository.scan().documents.isEmpty)
-        XCTAssertThrowsError(try repository.create())
+        let vault = Vault(root: root)
+        try vault.create()
+        // A new vault is an empty folder. Piper writes no starter file, because
+        // it has no opinion about what belongs in the folder.
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty)
+        XCTAssertTrue(try vault.scan().files.isEmpty)
         let note = Note(text: "A captured thought", section: "Inbox")
-        let document = try repository.export(notes: [note], title: "First capture", description: "An exported note", destination: "sources", sourceURL: "")
-        XCTAssertTrue(document.body.contains(note.text))
-        XCTAssertEqual(document.metadata["status"] as? String, "draft")
-        XCTAssertNil(document.metadata["verified"])
-        XCTAssertTrue(try repository.scan().documents.contains { $0.id == document.id })
+        let markdown = try WikiExport.markdown(notes: [note], title: "First capture", sourceURL: "")
+        try Data(markdown.utf8).write(to: root.appendingPathComponent(WikiExport.fileName("First capture")))
+        let scan = try vault.scan()
+        XCTAssertEqual(scan.files.map(\.id), ["first-capture.md"])
+        XCTAssertTrue(scan.files[0].body.contains(note.text))
+        XCTAssertTrue(scan.problems.isEmpty)
+
+        // Creating over a folder that now holds a file must refuse.
+        XCTAssertThrowsError(try vault.create())
     }
 
     func testCreateWikiRefusesAnExistingFolderWithUserFiles() throws {
         let existing = folder.appendingPathComponent("personal.md")
         try Data("keep exactly\n".utf8).write(to: existing)
-        XCTAssertThrowsError(try WikiRepository(root: folder).create())
+        XCTAssertThrowsError(try Vault(root: folder).create())
         XCTAssertEqual(try String(contentsOf: existing), "keep exactly\n")
         XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("index.md").path))
     }

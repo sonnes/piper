@@ -18,6 +18,7 @@ Piper keeps capture notes in a local database. The Wiki browser reads and edits 
 ## Understand The Implementation
 
 - [Architecture](layers/architecture.md): window ownership and data flow.
+- [Coding guidelines](layers/coding-guidelines.md): values, composition, threading, and state changes.
 - [Local storage](concepts/storage.md): persistence, preferences, and undo.
 - [Wiki files](concepts/wiki.md): metadata, links, exports, and recovery limits.
 - [Capabilities](capabilities/README.md): implementation status and evidence.

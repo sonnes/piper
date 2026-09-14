@@ -1,5 +1,7 @@
 import AppKit
 import SwiftUI
+import PiperCore
+import Vault
 
 enum WikiStyle {
     static let paper = PiperTheme.page
@@ -9,7 +11,7 @@ enum WikiStyle {
 
 struct WikiReader: View {
     let model: AppModel
-    let document: WikiDocument
+    let document: VaultFile
     let showSource: Bool
     let fontSize: Double
     var paper = WikiStyle.paper
@@ -34,8 +36,8 @@ struct WikiReader: View {
                             VStack(alignment: .leading, spacing: 15) {
                                 Text(WikiMarkdown.inline(heading)).font(Font(PiperTheme.manuscript(size: fontSize * 1.34, weight: .medium))).tracking(-0.8)
                                     .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
-                                if !document.description.isEmpty {
-                                    Text(document.description).font(.system(size: 14)).foregroundStyle(PiperTheme.secondary).lineSpacing(5)
+                                if !document.summary.isEmpty {
+                                    Text(document.summary).font(.system(size: 14)).foregroundStyle(PiperTheme.secondary).lineSpacing(5)
                                         .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                                 }
                             }.padding(.bottom, 35)

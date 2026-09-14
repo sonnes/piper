@@ -22,7 +22,7 @@ Accessibility approval succeeded on the test Mac. The user skipped global-shortc
 
 - [ ] Run the [application matrix](../howto/validate.md) after permission approval.
 - [ ] Record double-Shift behavior during normal typing and held modifiers.
-- [ ] Verify the Control-Option-C alternative.
+- [ ] Verify the Control-Option-Space alternative.
 - [ ] Verify empty selections, secure fields, and the clipboard fallback.
 - [ ] Fix observed capture defects and add regression tests where reproducible.
 

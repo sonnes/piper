@@ -10,7 +10,9 @@ read_when:
 
 Piper is a native macOS application for capturing text. It saves selected text and clipboard entries as local notes in a floating panel beside the application you work in. A separate window browses and edits a folder of Markdown files. You can export a capture into that folder as a draft.
 
-Piper needs no account, cloud service, telemetry, or network connection. Notes stay in a local SQLite database. Wiki documents stay as Markdown files on disk.
+Capture and Wiki browsing need no account, cloud service, telemetry, or network connection. Notes stay in a local SQLite database. Wiki documents stay as Markdown files on disk.
+
+Wiki Commands is the one exception. It starts Claude Code, and Claude Code contacts the Anthropic API.
 
 ## Status
 
@@ -23,6 +25,7 @@ Selection capture works. Its compatibility across applications is unverified. Ma
 - macOS 14 or later
 - A Swift 5.9 toolchain with the macOS SDK
 - Make
+- Claude Code, for Wiki Commands only
 
 ## Quick Start
 
@@ -38,7 +41,7 @@ The first build downloads the pinned Yams and SwiftMarkdownEngine dependencies. 
 
 Piper opens the capture panel with Inbox as the first section. Clipboard text appears as an unsaved preview. Click a preview to save it.
 
-To capture a selection with double-Shift or Control-Option-C, enable Accessibility for Piper in System Settings. Selection capture keeps the clipboard and the focus of the source application.
+To capture a selection with double-Shift or Control-Option-Space, enable Accessibility for Piper in System Settings. Selection capture keeps the clipboard and the focus of the source application.
 
 The Wiki folder defaults to `~/Desktop/Wiki`. Create Wiki makes an empty folder. Settings has a folder picker and the capture permission controls.
 
@@ -53,6 +56,19 @@ The Wiki folder defaults to `~/Desktop/Wiki`. Create Wiki makes an empty folder.
 The capture panel is separate from the Wiki browser. After you save a draft, Piper offers Read in Wiki and does not open the browser for you.
 
 Piper uses Graphite surfaces, Cobalt accents, and bundled IBM Plex Mono text. Colors follow the system appearance. The Wiki reader keeps its own font and paper preferences.
+
+## Wiki Commands
+
+A Wiki folder can define its own Claude Code slash commands in `.claude/commands`. Piper reads that folder and runs the commands in place. It carries no copy of them.
+
+1. Open the Wiki window.
+2. Select the terminal button in the left ribbon.
+3. Select a command, then enter its arguments.
+4. Select Run.
+
+Piper starts `claude --print` with the command as the prompt and the Wiki folder as the working directory. Output appears in the sheet as it arrives. Piper rescans the Wiki when the command stops.
+
+The run accepts file edits without a prompt. It permits Read, Write, Edit, Glob, Grep, WebFetch, and `python3` through Bash. Every other tool stops the run.
 
 ## Documentation
 
@@ -92,3 +108,9 @@ The application bundles the components below. Their license texts are in [`Licen
 | [HighlighterSwift](https://github.com/smittytone/HighlighterSwift) | MIT and BSD 3-Clause |
 | [SwiftMath](https://github.com/mgriebling/SwiftMath) | MIT |
 | [IBM Plex Mono](https://github.com/IBM/plex) | SIL Open Font License 1.1 |
+
+## Attribution
+
+Piper adapts its coding guidelines, window architecture, and interface values from [NetNewsWire](https://github.com/Ranchero-Software/NetNewsWire), by Brent Simmons and the NetNewsWire contributors. NetNewsWire is Copyright (c) 2002-2025 Brent Simmons and uses the MIT license. Piper ships no NetNewsWire code. The license text is in [`Licenses/NetNewsWire.txt`](Licenses/NetNewsWire.txt).
+
+NetNewsWire does not endorse Piper and has no connection to this project.

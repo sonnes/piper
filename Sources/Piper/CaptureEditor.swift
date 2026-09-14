@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Captures
 
 struct CaptureEditor: NSViewRepresentable {
     @Binding var text: String

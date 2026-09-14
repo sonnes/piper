@@ -79,9 +79,9 @@ The observer reads plain text. It skips images, text larger than 500 KB, and cli
 4. Select text in another application.
 5. Press and release Shift twice in quick succession.
 
-Settings also offers Control-Option-C. Piper checks permission changes every four seconds. It does not simulate Copy or replace the clipboard during selection capture.
+Settings also offers Control-Option-Space. Piper checks permission changes every four seconds. It does not simulate Copy or replace the clipboard during selection capture.
 
-Control-Option-C registers with macOS. If another application reserves it, Piper reports the conflict. Choose double-Shift or release the conflicting shortcut.
+Control-Option-Space registers with macOS. If another application reserves it, Piper reports the conflict. Choose double-Shift or release the conflicting shortcut.
 
 The capture stores the source application. It also stores an HTTP or HTTPS document URL when the source application exposes one through Accessibility.
 

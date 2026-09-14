@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Captures
 
 @main
 struct PiperApp {
@@ -17,15 +18,10 @@ struct PiperApp {
     }
 }
 
-final class CapturePanel: NSPanel {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
-}
-
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    private var panel: NSPanel?
-    private var library: NSWindow?
+    private var panelController: CapturePanelController?
+    private var mainWindowController: MainWindowController?
     private var editors: [UUID: NSWindow] = [:]
     private var editorSessions: [ObjectIdentifier: CaptureEditSession] = [:]
     private var statusItem: NSStatusItem?
@@ -51,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         refresh = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.capture?.start()
-                if self?.library?.isVisible == true { self?.model.reload() }
+                if self?.mainWindowController?.window?.isVisible == true { self?.model.reload() }
             }
         }
         showPanel()
@@ -75,9 +71,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
         editItem.submenu = edit
         main.addItem(editItem)
+        // Keys that the Wiki window used to handle through an event monitor.
+        // A menu item puts them on the responder chain instead, which is where
+        // AppKit expects them and which shows them to the reader.
+        let fileMenu = NSMenu(title: "File")
+        fileMenu.addItem(withTitle: "Save", action: #selector(saveFile), keyEquivalent: "s").target = self
+        fileMenu.addItem(withTitle: "Refresh", action: #selector(refreshVault), keyEquivalent: "r").target = self
+        fileMenu.addItem(.separator())
+        fileMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let fileItem = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
+        fileItem.submenu = fileMenu
+        main.addItem(fileItem)
+
+        let goMenu = NSMenu(title: "Go")
+        goMenu.addItem(withTitle: "Back", action: #selector(goBack), keyEquivalent: "[").target = self
+        goMenu.addItem(withTitle: "Forward", action: #selector(goForward), keyEquivalent: "]").target = self
+        goMenu.addItem(.separator())
+        goMenu.addItem(withTitle: "Search Wiki", action: #selector(searchWiki), keyEquivalent: "o").target = self
+        let goItem = NSMenuItem(title: "Go", action: nil, keyEquivalent: "")
+        goItem.submenu = goMenu
+        main.addItem(goItem)
+
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
         windowMenu.addItem(withTitle: "Browse Wiki", action: #selector(showLibrary), keyEquivalent: "2").target = self
+        windowMenu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "0").target = self
         let windowItem = NSMenuItem(title: "Window", action: nil, keyEquivalent: "")
         windowItem.submenu = windowMenu
         main.addItem(windowItem)
@@ -92,6 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Browse Wiki", action: #selector(showLibrary), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Capture Clipboard", action: #selector(clipboard), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings...", action: #selector(settings), keyEquivalent: "").target = self
         menu.addItem(.separator())
@@ -117,56 +136,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func showPanel() {
-        if panel == nil {
-            let scale = min(1, ((NSScreen.main?.visibleFrame.height ?? 964) - 32) / 932)
-            let size = NSSize(width: 430 * scale, height: 932 * scale)
-            let panel = CapturePanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-            panel.title = "Piper"
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = true
-            panel.isMovableByWindowBackground = true
-            panel.isFloatingPanel = true
-            panel.level = .floating
-            panel.hidesOnDeactivate = false
-            panel.isReleasedWhenClosed = false
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            let content = NSHostingView(rootView: PanelView(model: model))
-            content.wantsLayer = true
-            content.layer?.cornerRadius = 12 * scale
-            content.layer?.cornerCurve = .continuous
-            content.layer?.masksToBounds = true
-            panel.contentView = content
-            if !panel.setFrameUsingName("PiperCapturePanel"), let screen = NSScreen.main {
-                panel.setFrameOrigin(NSPoint(x: screen.visibleFrame.maxX - size.width - 30, y: screen.visibleFrame.midY - size.height / 2))
-            }
-            panel.setContentSize(size)
-            panel.setFrameAutosaveName("PiperCapturePanel")
-            self.panel = panel
-        }
-        panel?.makeKeyAndOrderFront(nil)
+        if panelController == nil { panelController = CapturePanelController(model: model) }
+        panelController?.show()
     }
 
     @objc func showLibrary() {
-        if library == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            window.title = "Piper Wiki"
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            window.tabbingMode = .disallowed
-            window.delegate = self
-            window.backgroundColor = PiperTheme.pageNS
-            window.minSize = NSSize(width: 850, height: 620)
-            window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView: LibraryView(model: model))
-            if !window.setFrameUsingName("PiperLibrary") { window.center() }
-            window.setFrameAutosaveName("PiperLibrary")
-            library = window
+        if mainWindowController == nil {
+            let controller = MainWindowController(model: model)
+            controller.window?.delegate = self
+            mainWindowController = controller
         }
-        library?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        model.reload()
+        mainWindowController?.show()
     }
+
+    @objc func showHome() {
+        showLibrary()
+        mainWindowController?.showHome()
+    }
+
+    @objc private func saveFile() { model.saveWikiEdit() }
+    @objc private func refreshVault() { model.reload(); mainWindowController?.refreshPanes() }
+    @objc private func goBack() { model.navigate(-1); mainWindowController?.refreshPanes() }
+    @objc private func goForward() { model.navigate(1); mainWindowController?.refreshPanes() }
+    @objc private func searchWiki() { showHome() }
 
     @objc private func settings() { model.route = "settings"; showLibrary() }
     @objc private func clipboard() { model.store.captureClipboard(); showToast(model.store.status) }
@@ -193,7 +185,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showPanel(); return true }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if sender === library { return model.finishWikiEdit() }
+        if sender === mainWindowController?.window { return model.finishWikiEdit() }
         if let session = editorSessions[ObjectIdentifier(sender)] { return resolveCaptureEdit(session) }
         return true
     }
@@ -222,6 +214,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // A running command owns the Wiki folder, so quitting during one can
+        // leave a half-written file. Show the transcript instead.
+        guard !model.agent.isRunning else { showLibrary(); return .terminateCancel }
+        // The guards below ask through a modal alert, and an attached sheet
+        // stops that alert from appearing. Quit then does nothing at all, so
+        // close the sheet first.
+        dismissAttachedSheet()
         guard !model.exporting else { showPanel(); return .terminateCancel }
         for session in Array(model.captureEdits.values) {
             if !resolveCaptureEdit(session) { return .terminateCancel }
@@ -229,6 +228,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if model.finishWikiEdit() { return .terminateNow }
         showLibrary()
         return .terminateCancel
+    }
+
+    /// Closes a sheet on any window, so that a modal alert can appear.
+    private func dismissAttachedSheet() {
+        mainWindowController?.dismissAttachedSheet()
+        panelController?.dismissAttachedSheet()
+        model.route = "wiki"
     }
 
     func applicationWillTerminate(_ notification: Notification) { capture?.stop(); model.clipboard.stop(); refresh?.invalidate() }

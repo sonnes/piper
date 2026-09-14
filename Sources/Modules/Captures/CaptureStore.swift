@@ -1,46 +1,29 @@
 import AppKit
+import CapturesDatabase
 import Foundation
 import Observation
+import PiperCore
 
-struct Note: Identifiable, Equatable, Codable {
-    var id = UUID()
-    var text: String
-    var section: String
-    var sources: [String] = []
-    var sourceURLs: [String] = []
-    var isDone = false
-    var createdAt = Date()
-    var modifiedAt = Date()
-}
-
-struct SavedState: Codable, Equatable {
-    var notes: [Note] = []
-    var sections = ["Inbox"]
-    var activeSection = "Inbox"
-}
-
+/// The capture state and every change a reader can make to it.
+///
+/// Each change writes to the database first. The in-memory state moves only
+/// after that write succeeds, so a failed write leaves the notes untouched.
 @MainActor @Observable
-final class CaptureEditSession: Identifiable {
-    let id = UUID()
-    var note: Note
-    var text: String
-    var hasChanges: Bool { text != note.text }
-    init(note: Note) { self.note = note; text = note.text }
-}
+public final class CaptureStore {
 
-@MainActor @Observable
-final class AppStore {
-    private(set) var state = SavedState()
-    var query = ""
-    var selection: Set<UUID> = []
-    var status = "Local notes"
-    var errorMessage: String?
+    // MARK: - Properties
+
+    public private(set) var state = SavedState()
+    public var query = ""
+    public var selection: Set<UUID> = []
+    public var status = "Local notes"
+    public var errorMessage: String?
     private var database: Database?
     private var undoState: SavedState?
-    var notes: [Note] { state.notes }
-    var sections: [String] { state.sections }
-    var canUndo: Bool { undoState != nil }
-    var activeSection: String {
+    public var notes: [Note] { state.notes }
+    public var sections: [String] { state.sections }
+    public var canUndo: Bool { undoState != nil }
+    public var activeSection: String {
         get { state.activeSection }
         set {
             guard sections.contains(newValue), newValue != activeSection else { return }
@@ -48,47 +31,42 @@ final class AppStore {
         }
     }
 
-    init(url: URL? = nil) {
+    public var selectedNotes: [Note] {
+        sections.flatMap { section in notes.filter { $0.section == section && selection.contains($0.id) } }
+    }
+
+    // MARK: - Initialization
+
+    public init(url: URL? = nil) {
         do {
             let location = url ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Piper/notes.sqlite")
             let db = try Database(url: location)
-            state = try db.load()
+            state = try Self.decode(db.load())
             database = db
         } catch { report(error) }
     }
 
-    func report(_ error: Error) { errorMessage = error.localizedDescription; status = error.localizedDescription }
+    // MARK: - Errors
 
-    @discardableResult private func change(recordUndo: Bool = true, _ update: (inout SavedState) -> Void) -> Bool {
-        guard let database else { report(PiperError("The note database is unavailable. Restart Piper after resolving the database error.")); return false }
-        var candidate = state
-        update(&candidate)
-        guard candidate != state else { return true }
-        do {
-            try database.save(candidate)
-            if recordUndo { undoState = state }
-            state = candidate
-            return true
-        } catch { report(error); return false }
-    }
+    public func report(_ error: Error) { errorMessage = error.localizedDescription; status = error.localizedDescription }
 
-    var selectedNotes: [Note] {
-        sections.flatMap { section in notes.filter { $0.section == section && selection.contains($0.id) } }
-    }
+    // MARK: - Reading
 
-    func visibleNotes(in section: String) -> [Note] {
+    public func visibleNotes(in section: String) -> [Note] {
         notes.filter { $0.section == section && (query.isEmpty || ($0.text + section).localizedCaseInsensitiveContains(query)) }
     }
 
-    func toggleSelection(_ id: UUID) {
+    public func toggleSelection(_ id: UUID) {
         if selection.contains(id) { selection.remove(id) } else { selection.insert(id) }
     }
 
-    func undo() {
+    // MARK: - Undo
+
+    public func undo() {
         guard var previous = undoState, let database else { return }
         if previous.sections.contains(activeSection) { previous.activeSection = activeSection }
         do {
-            try database.save(previous)
+            try database.save(JSONEncoder().encode(previous))
             state = previous
             undoState = nil
             selection = selection.intersection(Set(notes.map(\.id)))
@@ -96,7 +74,9 @@ final class AppStore {
         } catch { report(error) }
     }
 
-    @discardableResult func add(_ text: String, source: String? = nil, sourceURL: String? = nil, to section: String? = nil, interpretSection: Bool = true) -> Bool {
+    // MARK: - Changing Notes
+
+    @discardableResult public func add(_ text: String, source: String? = nil, sourceURL: String? = nil, to section: String? = nil, interpretSection: Bool = true) -> Bool {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         if interpretSection, text.hasPrefix("# "), !text.contains("\n") {
             let name = String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces)
@@ -115,7 +95,7 @@ final class AppStore {
         return saved
     }
 
-    @discardableResult func chooseSection(_ name: String) -> Bool {
+    @discardableResult public func chooseSection(_ name: String) -> Bool {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, !name.contains(where: \.isNewline), name.count <= 80 else {
             report(PiperError("Use a section name with 1 to 80 characters on one line."))
@@ -127,7 +107,7 @@ final class AppStore {
         return change { $0.sections.append(name); $0.activeSection = name }
     }
 
-    @discardableResult func update(_ id: UUID, text: String, sourceURL: String? = nil, originalText: String? = nil) -> Bool {
+    @discardableResult public func update(_ id: UUID, text: String, sourceURL: String? = nil, originalText: String? = nil) -> Bool {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         guard let current = notes.first(where: { $0.id == id }) else { report(PiperError("This note was removed. Copy your changes into a new note.")); return false }
         if let originalText, originalText != current.text {
@@ -143,7 +123,7 @@ final class AppStore {
         }
     }
 
-    func toggleDone(_ id: UUID) {
+    public func toggleDone(_ id: UUID) {
         _ = change { state in
             guard let i = state.notes.firstIndex(where: { $0.id == id }) else { return }
             state.notes[i].isDone.toggle()
@@ -151,21 +131,21 @@ final class AppStore {
         }
     }
 
-    func completeSelection() {
+    public func completeSelection() {
         let done = !selectedNotes.allSatisfy(\.isDone)
         _ = change { state in
             for i in state.notes.indices where selection.contains(state.notes[i].id) { state.notes[i].isDone = done; state.notes[i].modifiedAt = Date() }
         }
     }
 
-    func move(to section: String) {
+    public func move(to section: String) {
         guard sections.contains(section), !selection.isEmpty else { return }
         _ = change { state in
             for i in state.notes.indices where selection.contains(state.notes[i].id) { state.notes[i].section = section; state.notes[i].modifiedAt = Date() }
         }
     }
 
-    func merge() {
+    public func merge() {
         let selected = selectedNotes
         guard selected.count > 1, let first = selected.first else { return }
         if change({ state in
@@ -179,17 +159,19 @@ final class AppStore {
         }) { selection = [first.id]; status = "Notes merged · Undo available" }
     }
 
-    func deleteSelection() {
+    public func deleteSelection() {
         if change({ $0.notes.removeAll { selection.contains($0.id) } }) { selection.removeAll() }
     }
 
-    func copyText(asList: Bool) -> String {
+    // MARK: - Clipboard
+
+    public func copyText(asList: Bool) -> String {
         selectedNotes.enumerated().map { index, note in
             asList ? "\(index + 1). \(note.text.replacingOccurrences(of: "\n", with: "\n   "))" : note.text
         }.joined(separator: "\n\n")
     }
 
-    func copy(asList: Bool) {
+    public func copy(asList: Bool) {
         guard !selection.isEmpty else { return }
         NSPasteboard.general.clearContents()
         if NSPasteboard.general.setString(copyText(asList: asList), forType: .string) {
@@ -199,8 +181,38 @@ final class AppStore {
         else { report(PiperError("Cannot write to the clipboard.")) }
     }
 
-    @discardableResult func captureClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
+    @discardableResult public func captureClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
         guard let text = pasteboard.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { status = "The clipboard has no text"; return false }
         return add(text, source: "Clipboard", interpretSection: false)
+    }
+}
+
+// MARK: - Private
+
+private extension CaptureStore {
+
+    /// Reads the stored blob. An empty database starts a new state.
+    static func decode(_ data: Data?) throws -> SavedState {
+        guard let data else { return SavedState() }
+        let state = try JSONDecoder().decode(SavedState.self, from: data)
+        guard !state.sections.isEmpty, Set(state.sections).count == state.sections.count,
+              state.sections.contains(state.activeSection), Set(state.notes.map(\.id)).count == state.notes.count,
+              state.notes.allSatisfy({ state.sections.contains($0.section) }) else {
+            throw PiperError("The note database contains invalid records. Restore a backup before adding notes.")
+        }
+        return state
+    }
+
+    @discardableResult func change(recordUndo: Bool = true, _ update: (inout SavedState) -> Void) -> Bool {
+        guard let database else { report(PiperError("The note database is unavailable. Restart Piper after resolving the database error.")); return false }
+        var candidate = state
+        update(&candidate)
+        guard candidate != state else { return true }
+        do {
+            try database.save(JSONEncoder().encode(candidate))
+            if recordUndo { undoState = state }
+            state = candidate
+            return true
+        } catch { report(error); return false }
     }
 }

@@ -69,3 +69,11 @@ The export is not one atomic transaction across all files. An error after draft 
 An exclusive `.piper-export.lock` serializes Piper exports. Content comparisons detect changes before derived writes. Other editors do not share this lock.
 
 A race remains possible between comparison and replacement. Release validation must cover external edits and interrupted exports.
+
+## Commands
+
+Piper runs the slash commands that the Wiki folder defines in `.claude/commands`. It reads the name, description, and argument hint from each file's frontmatter. It holds no command definitions of its own.
+
+A command runs as a `claude --print` subprocess with the Wiki folder as the working directory. Piper saves an open edit first, and rescans the folder when the subprocess stops.
+
+The subprocess writes outside the boundaries in this document. The export lock does not hold it back. The metadata checks do not apply to it. Hooks in the Wiki folder run with it.

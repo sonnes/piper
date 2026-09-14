@@ -11,10 +11,29 @@ let package = Package(
     ],
     targets: [
         .systemLibrary(name: "CSQLite", pkgConfig: "sqlite3"),
+
+        // Bottom modules. These add no dependency on another Piper module.
+        .target(name: "PiperCore", dependencies: ["Yams"], path: "Sources/Modules/PiperCore"),
+        .target(name: "PiperTree", path: "Sources/Modules/PiperTree"),
+        .target(name: "CapturesDatabase", dependencies: ["CSQLite"], path: "Sources/Modules/CapturesDatabase"),
+
+        // Middle modules.
+        .target(name: "Captures", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Captures"),
+        .target(name: "Vault", dependencies: ["PiperCore", "Yams"], path: "Sources/Modules/Vault"),
+        .target(name: "PiperCommands", dependencies: ["PiperCore"], path: "Sources/Modules/PiperCommands"),
+
+        // Application target.
         .executableTarget(name: "Piper", dependencies: [
             "CSQLite", "Yams",
+            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "PiperCommands",
             .product(name: "MarkdownEngine", package: "swift-markdown-engine")
         ], resources: [.process("Resources")]),
-        .testTarget(name: "PiperTests", dependencies: ["Piper"])
+
+        .testTarget(name: "PiperTests", dependencies: ["Piper"]),
+        .testTarget(name: "PiperTreeTests", dependencies: ["PiperTree"], path: "Tests/PiperTreeTests"),
+        .testTarget(name: "CapturesTests", dependencies: ["Captures"], path: "Tests/CapturesTests"),
+        .testTarget(name: "VaultTests", dependencies: ["Vault"], path: "Tests/VaultTests"),
+        .testTarget(name: "PiperCommandsTests", dependencies: ["PiperCommands"], path: "Tests/PiperCommandsTests"),
+        .testTarget(name: "PiperCoreTests", dependencies: ["PiperCore"], path: "Tests/PiperCoreTests")
     ]
 )

@@ -1,4 +1,5 @@
 import SwiftUI
+import Captures
 
 struct MarkdownView: View {
     let text: String

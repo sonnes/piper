@@ -1,6 +1,7 @@
 import AppKit
 import CoreText
 import SwiftUI
+import Captures
 
 /// The visual style of the whole application. Vault is the default. Page is the switchable alternative.
 enum PiperStyle: String, CaseIterable {

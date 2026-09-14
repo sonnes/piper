@@ -93,7 +93,26 @@ Destinations are `sources`, `topics`, `projects`, and `decisions`. Export requir
 
 Export creates a draft with capture IDs and provenance. It regenerates root and folder indexes, then appends a creation entry to `log.md`.
 
-Existing captures remain in Piper. Existing concepts and `.raw` archives remain unchanged. Piper does not run Wiki scripts or create Git commits.
+Existing captures remain in Piper. Existing concepts and `.raw` archives remain unchanged. Send to Wiki runs no Wiki scripts and creates no Git commits.
+
+## Run A Wiki Command
+
+1. Open the Wiki window.
+2. Select the terminal button in the left ribbon.
+3. Select a command from the menu.
+4. If the command takes arguments, enter them in the field below the menu.
+5. Select Run.
+6. To stop a command before it finishes, select Stop.
+
+Piper reads the command list from `.claude/commands` in the Wiki folder. A folder without that directory offers no commands.
+
+Piper starts `claude --print` with the Wiki folder as the working directory. The command runs as Claude Code. It contacts the Anthropic API, and it can reach the network.
+
+The run accepts file edits without a prompt. It permits Read, Write, Edit, Glob, Grep, WebFetch, and `python3` through Bash. Every other tool stops the run.
+
+Piper saves an open edit before the command starts, and rescans the Wiki when the command stops. A command writes files outside the checks that Send to Wiki applies. Hooks in the Wiki folder still run, including a hook that creates Git commits.
+
+Claude Code must be installed. Piper looks in `~/.local/bin`, `~/.claude/local`, `/opt/homebrew/bin`, and `/usr/local/bin`.
 
 ## Retry An Incomplete Export
 

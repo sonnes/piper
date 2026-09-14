@@ -20,7 +20,7 @@ Status reflects the local implementation on September 12, 2026. Implemented does
 | Global selection capture | Implemented; manual check skipped | Accessibility enabled; gesture tests pass; cross-app compatibility remains unverified |
 | Capture Clipboard | Implemented | Exact text and unchanged pasteboard tests |
 | Clipboard ghost cards | Implemented | Temporary buffer, click-to-save, deduplication, failure recovery, and Undo tests |
-| Custom capture shortcut | Partial | Double-Shift or Control-Option-C presets |
+| Custom capture shortcut | Partial | Double-Shift or Control-Option-Space presets |
 | Local SQLite persistence | Implemented | Restart, locked database, invalid records, unsupported versions, and stale writer tests |
 | Wiki folders, search, and reading | Implemented | Nested tree, search, and file-scan tests |
 | Single-document navigation | Implemented | Back/Forward history and missing-file tests |
@@ -32,6 +32,7 @@ Status reflects the local implementation on September 12, 2026. Implemented does
 | Empty Wiki creation | Implemented | Creates only an index; existing files remain unchanged |
 | Wiki export | Implemented | Draft, collision, retry, and path tests |
 | OKF validation | Partial | Selected metadata checks; no full validator integration |
+| Wiki commands through Claude Code | Implemented | Reads `.claude/commands` in the Wiki folder; `/stale` run manually against Desktop/Wiki; no automated tests |
 | Concurrent external edits | Partial | Comparisons detect changes; no shared transaction |
 | Automatic document source URL | Partial | HTTP/HTTPS AXDocument value when the source application provides it |
 | Image and file attachments | Deferred | Text captures only |

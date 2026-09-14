@@ -1,4 +1,6 @@
 import Foundation
+import PiperCore
+import Vault
 
 struct WikiLocation: Equatable {
     let path: String
@@ -31,45 +33,21 @@ struct WikiWorkspace {
     }
 }
 
-struct WikiTreeNode: Identifiable {
-    let id: String
-    let title: String
-    var children: [WikiTreeNode]?
-    var isFolder: Bool { children != nil }
-    var count: Int { children?.reduce(0) { $0 + $1.count } ?? 1 }
-
-    static func build(_ documents: [WikiDocument], parent: String = "") -> [WikiTreeNode] {
-        let prefix = parent.isEmpty ? "" : parent + "/"
-        let descendants = documents.filter { $0.relativePath.hasPrefix(prefix) }
-        let folders = Set(descendants.compactMap { doc -> String? in
-            let parts = doc.relativePath.dropFirst(prefix.count).split(separator: "/")
-            return parts.count > 1 ? String(parts[0]) : nil
-        })
-        let branches = folders.sorted { $0.localizedStandardCompare($1) == .orderedAscending }.map {
-            WikiTreeNode(id: prefix + $0, title: $0, children: build(descendants, parent: prefix + $0))
-        }
-        let leaves = descendants.filter { $0.folder == parent }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }.map {
-            WikiTreeNode(id: $0.id, title: $0.title, children: nil)
-        }
-        return branches + leaves
-    }
-}
-
 enum WikiLinks {
-    static func resolve(_ target: String, from document: WikiDocument, documents: [WikiDocument], repository: WikiRepository, wikiStyle: Bool = false) throws -> WikiLocation {
+    static func resolve(_ target: String, from document: VaultFile, files: [VaultFile], vault: Vault, wikiStyle: Bool = false) throws -> WikiLocation {
         let parts = target.components(separatedBy: "#")
         let path = (parts.first ?? "").removingPercentEncoding ?? parts.first ?? ""
         let anchor = parts.count > 1 ? parts.dropFirst().joined(separator: "#").removingPercentEncoding : nil
         if path.isEmpty { return WikiLocation(path: document.id, anchor: anchor) }
         let file = (path as NSString).pathExtension.isEmpty ? path + ".md" : path
-        let relative = try repository.containedURL(file, relativeTo: document.relativePath)
-        let relativePath = String(relative.path.dropFirst(repository.root.path.count + 1))
-        if documents.contains(where: { $0.id == relativePath }) { return WikiLocation(path: relativePath, anchor: anchor) }
+        let relative = try vault.containedURL(file, relativeTo: document.relativePath)
+        let relativePath = String(relative.path.dropFirst(vault.root.path.count + 1))
+        if files.contains(where: { $0.id == relativePath }) { return WikiLocation(path: relativePath, anchor: anchor) }
         if wikiStyle {
-            let rooted = try repository.containedURL("/" + file.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
-            let rootedPath = String(rooted.path.dropFirst(repository.root.path.count + 1))
-            if documents.contains(where: { $0.id == rootedPath }) { return WikiLocation(path: rootedPath, anchor: anchor) }
-            let candidates = documents.filter {
+            let rooted = try vault.containedURL("/" + file.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+            let rootedPath = String(rooted.path.dropFirst(vault.root.path.count + 1))
+            if files.contains(where: { $0.id == rootedPath }) { return WikiLocation(path: rootedPath, anchor: anchor) }
+            let candidates = files.filter {
                 $0.title.caseInsensitiveCompare(path) == .orderedSame ||
                 URL(fileURLWithPath: $0.id).deletingPathExtension().lastPathComponent.caseInsensitiveCompare(path) == .orderedSame
             }
@@ -91,11 +69,11 @@ enum WikiLinks {
         }
     }
 
-    static func backlinks(to document: WikiDocument, in documents: [WikiDocument], repository: WikiRepository) -> [WikiDocument] {
-        documents.filter { source in
+    static func backlinks(to document: VaultFile, in files: [VaultFile], vault: Vault) -> [VaultFile] {
+        files.filter { source in
             source.id != document.id && targets(in: source.body).contains { link in
                 guard URL(string: link.target)?.scheme == nil else { return false }
-                return (try? resolve(link.target, from: source, documents: documents, repository: repository, wikiStyle: link.wikiStyle))?.path == document.id
+                return (try? resolve(link.target, from: source, files: files, vault: vault, wikiStyle: link.wikiStyle))?.path == document.id
             }
         }
     }

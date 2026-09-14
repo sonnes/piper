@@ -1,28 +1,30 @@
 import AppKit
 import SwiftUI
 import ApplicationServices
+import Captures
+import PiperCore
+import Vault
 
 struct ExportView: View {
     @Bindable var model: AppModel
     @State private var title = ""
-    @State private var description = ""
-    @State private var destination = "sources"
     @State private var sourceURL = ""
+    @State private var savedPath = ""
     @State private var error: String?
     @State private var saved = false
     @Environment(\.dismiss) private var dismiss
 
     private var canSave: Bool {
-        !model.exporting && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !model.exporting && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if saved {
-                Text("Draft saved").font(PiperTheme.ui(13, weight: .semibold))
+                Text("File saved").font(PiperTheme.ui(13, weight: .semibold))
                 Text(title).font(PiperTheme.ui(13))
-                Text(model.selectedDocument ?? "").font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.secondary).textSelection(.enabled)
-                Text("Captures stay in Piper. The draft is unverified.").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary).padding(.top, 4)
+                Text(savedPath).font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.secondary).textSelection(.enabled)
+                Text("The captures stay in Piper. Only this file was written.").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary).padding(.top, 4)
                 HStack {
                     Spacer()
                     Button("Done") { dismiss() }.buttonStyle(PiperButtonStyle())
@@ -31,15 +33,13 @@ struct ExportView: View {
             } else {
                 HStack(spacing: 6) {
                     Text("Send to Wiki").font(PiperTheme.ui(13, weight: .semibold))
-                    Text("· \(model.exportNotes.count) captures · one draft").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                    Text("· \(model.exportNotes.count) captures · one file").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
                 }.padding(.bottom, 4)
                 PiperField(title: "Title", text: $title)
-                PiperField(title: "Description", text: $description, lines: 1...4)
-                Picker("Destination", selection: $destination) {
-                    ForEach(WikiRepository.destinations, id: \.self) { Text($0.capitalized).tag($0) }
-                }.pickerStyle(.segmented).labelsHidden().controlSize(.small).accessibilityLabel("Destination")
                 PiperField(title: "Source URL", text: $sourceURL, hint: "optional")
-                Text("\(destination)/\(WikiRepository.slug(title)).md").font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.secondary)
+                Text("Save writes one Markdown file where you choose. Piper builds no index and changes no other file.")
+                    .font(PiperTheme.ui(11.5)).foregroundStyle(PiperTheme.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(WikiExport.fileName(title)).font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.secondary)
                 ScrollView {
                     Text(model.exportNotes.map(\.text).joined(separator: "\n\n"))
                         .font(Font(PiperTheme.manuscript(size: 12))).lineSpacing(4).foregroundStyle(PiperTheme.secondary)
@@ -52,12 +52,8 @@ struct ExportView: View {
                     Spacer()
                     if model.exporting { ProgressView().controlSize(.small) }
                     Button("Cancel") { dismiss() }.buttonStyle(PiperButtonStyle()).keyboardShortcut(.cancelAction).disabled(model.exporting)
-                    Button("Save Draft") {
-                        Task {
-                            error = await model.export(title: title, description: description, destination: destination, sourceURL: sourceURL)
-                            saved = error == nil
-                        }
-                    }.buttonStyle(PiperButtonStyle(prominent: true)).disabled(!canSave)
+                    Button("Save…") { chooseDestinationAndSave() }
+                        .buttonStyle(PiperButtonStyle(prominent: true)).disabled(!canSave)
                 }.padding(.top, 6)
             }
         }
@@ -68,6 +64,25 @@ struct ExportView: View {
             let first = model.exportNotes.first?.text.components(separatedBy: .newlines).first ?? ""
             title = String(first.prefix(80))
             sourceURL = model.exportNotes.flatMap(\.sourceURLs).first ?? ""
+        }
+    }
+
+    /// Asks where to write the file, then writes it.
+    ///
+    /// The reader picks the folder. Piper proposes the current Wiki folder and
+    /// a file name built from the title, and accepts any other choice.
+    private func chooseDestinationAndSave() {
+        let proposed = model.exportDestination(title: title)
+        let panel = NSSavePanel()
+        panel.message = "Choose where to write this file."
+        panel.nameFieldStringValue = proposed.lastPathComponent
+        panel.directoryURL = proposed.deletingLastPathComponent()
+        panel.allowedContentTypes = [.init(filenameExtension: "md") ?? .plainText]
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        Task {
+            error = await model.export(title: title, sourceURL: sourceURL, destination: destination)
+            savedPath = (destination.path as NSString).abbreviatingWithTildeInPath
+            saved = error == nil
         }
     }
 }
@@ -139,7 +154,7 @@ struct SettingsView: View {
             item("Shortcut", "Press it to capture the selected text from another app.") {
                 Picker("Capture Shortcut", selection: $model.captureShortcut) {
                     Text("Shift, Shift").tag("Shift, Shift")
-                    Text("Control-Option-C").tag("Control-Option-C")
+                    Text("Control-Option-Space").tag("Control-Option-Space")
                 }.labelsHidden().controlSize(.small).frame(width: 150)
             }
             item("Accessibility", model.accessibilityEnabled ? "Enabled. Piper can read a selection." : "Not enabled. Piper cannot read a selection.") {
