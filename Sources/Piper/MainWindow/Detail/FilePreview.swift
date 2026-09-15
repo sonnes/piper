@@ -20,6 +20,13 @@ enum FilePresentation {
         }
     }
 
+    static func sourceText(for document: VaultFile, markdown: String? = nil) -> String? {
+        let ext = (document.name as NSString).pathExtension.lowercased()
+        guard document.isText, document.isMarkdown || ["html", "htm"].contains(ext) else { return nil }
+        if document.isMarkdown, let markdown { return document.frontmatterPrefix + markdown }
+        return document.text
+    }
+
     static func typeName(for document: VaultFile) -> String {
         UTType(filenameExtension: (document.name as NSString).pathExtension)?.localizedDescription ?? "File"
     }
@@ -66,7 +73,7 @@ struct FilePreview: View {
     }
 }
 
-private struct PlainTextPreview: NSViewRepresentable {
+struct PlainTextPreview: NSViewRepresentable {
     let text: String
 
     func makeNSView(context: Context) -> NSScrollView {

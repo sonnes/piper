@@ -37,7 +37,7 @@ final class AppDefaults {
     enum WindowName {
         static let capturePanel = "PiperCapturePanel"
         static let mainWindow = "PiperLibrary"
-        static let mainSplitView = "PiperMainSplitView"
+        static let mainSplitView = "PiperMainSplitViewThreePane"
     }
 
     // MARK: Sizes

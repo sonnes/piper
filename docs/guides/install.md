@@ -16,7 +16,6 @@ No signed build is available for download. You build Piper from source.
 - macOS 14 or later
 - A Swift 5.9 toolchain with the macOS SDK
 - Make
-- Claude Code, for [commands and skills](commands.md) only
 
 ## Build And Open
 

@@ -33,13 +33,12 @@ A file is text if it is UTF-8, has no NUL bytes, and is 4 MiB or less. Only a Ma
 
 ## Frontmatter
 
-For a Markdown file, Piper reads a YAML block at the top of the file. The frontmatter changes three things:
+For a Markdown file, Piper reads a YAML block at the top of the file. Piper uses these frontmatter keys:
 
 - `title` sets the title in the file list. Without it, Piper uses the first heading, then the file name.
 - `description` sets the summary in the file list, and search matches it.
-- The inspector Info tab shows every key.
 
-Frontmatter never changes how Piper sorts or groups files. If the YAML is not valid, the Info tab shows the problem, and the file text stays as it is.
+Frontmatter never changes how Piper sorts or groups files. Raw view shows the original frontmatter text, including invalid YAML.
 
 ## Links
 
@@ -54,10 +53,6 @@ Frontmatter never changes how Piper sorts or groups files. If the YAML is not va
 A link without an extension gets `.md`. If a title matches more than one file, the link fails, and you must add the folder path. Repeated headings get the anchors `heading-1`, `heading-2`, and so on.
 
 Piper refuses a path that leaves the Wiki root or goes through a symbolic link.
-
-## Backlinks
-
-The Links tab lists the Markdown files that link to the current file. Piper finds them in the last scan. Links in code, image references, links with a URL scheme, and links from a file to itself do not count. Each source file shows once.
 
 ## Navigation History
 

@@ -23,7 +23,7 @@ Send to Wiki writes selected captures to one Markdown file. You choose the name 
 
 The sheet fills the title from the first line of the first note, up to 80 characters. It fills Source URL from the first note that has one. The proposed file name comes from the title, and the proposed folder is the Wiki root.
 
-If you save the file inside the Wiki folder, the Wiki window opens it. If you save it outside, Piper writes it and does not show it.
+If you save the file inside the Wiki folder, Piper opens it after the folder scan. The browser selects its folder and clears the previous search. Select Read in Wiki to show the window. If you save it outside, Piper writes it and does not show it.
 
 The captures stay in Piper after the export. While an export runs, Piper does not quit.
 

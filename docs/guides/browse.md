@@ -24,20 +24,21 @@ The default folder is `~/Desktop/Wiki`.
 
 The folder menu also has Reveal Wiki in Finder and Settings. Settings > Wiki has the same folder choice.
 
+After you choose a folder, the sidebar selects its root and the file list shows its top-level files. Piper clears the previous search.
+
 ## Find Your Way Around
 
-The window has four panes:
+The window has three panes:
 
 | Pane | Content |
 | --- | --- |
 | Sidebar | Library (Home and Inbox) and Folders (the vault root and its folder tree) |
 | File list | The files of the selected folder, or the captures in Inbox |
 | Detail | The selected file, Home, or the selected capture |
-| Inspector | Outline, Links, and Info for the selected file |
 
 Select the vault root to see the files at the top level. The folder tree shows nested and empty folders. Files show only in the file list.
 
-The toggle button at the left of the toolbar hides the sidebar. The Inspector button at the right shows or hides the inspector. Piper remembers the inspector choice. Home hides the file list and the inspector, and Inbox hides the inspector.
+The toggle button at the left of the toolbar hides the sidebar. Home hides the file list.
 
 The window restores its frame, the pane widths, the selection, the open folders, and the last file.
 
@@ -50,15 +51,15 @@ Home has one search field and a list of the six most recent files.
 3. Use the Up and Down keys to select a result.
 4. Press Return.
 
-Plain text lists files that match by name, then files that match by text. Then it lists the commands, skills, and actions that match. If nothing matches, the last row searches every file for the text.
+Plain text lists files that match by name, then files that match by text. Then it lists matching local app actions. If nothing matches, the last row searches every file for the text.
 
-Type `/` to list commands and skills. Type `>` to list app actions: New Capture, Browse Files, Choose Wiki Folder, Reveal in Finder, Capture Clipboard, and Settings. See [Run commands and skills](commands.md).
+Type `>` to list app actions: New Capture, Browse Files, Choose Wiki Folder, Reveal in Finder, Capture Clipboard, and Settings.
 
 ## Search From The Toolbar
 
 The search field at the right of the toolbar filters the file list. The filter reads the whole vault, not only the selected folder. Each word must match a title, a path, a description, or the body text.
 
-If the text starts with `/` or `>`, the window shows Home and gives it the text. If Inbox is selected, the field filters captures.
+If the text starts with `>`, the window shows Home and gives it the text. If Inbox is selected, the field filters captures.
 
 ## Track Unread Files
 
@@ -71,16 +72,6 @@ Sidebar counts include unread files in subfolders. A folder with no unread files
 Select a file in the file list. The file list sort menu sorts by Name or by Date.
 
 A Markdown file opens in the editor, in a centered column. The header shows the folder, the file name, and the modification date. The status bar shows the path, the word count, and whether the file has unsaved changes.
-
-The inspector has three tabs:
-
-| Tab | Content |
-| --- | --- |
-| Outline | The headings. Select one to scroll to it. |
-| Links | The files that link to this file |
-| Info | Size, modification date, every frontmatter key, the path, and actions |
-
-The Info actions are Reveal in Finder and Discard Changes.
 
 Wiki links use `[[Note]]`, `[[folder/Note|Label]]`, and `[[Note#Heading]]`. Relative Markdown links open from the current file. HTTP, HTTPS, and `mailto` links open in your default app.
 
@@ -109,11 +100,17 @@ Piper opens every file in the vault, not only Markdown.
 
 A file larger than 4 MiB, or a file that is not UTF-8 text, uses the Quick Look preview. Piper cannot edit it, even if it is Markdown.
 
+## View The Source
+
+Markdown and HTML files have a Preview / Raw toggle above the page. Raw shows selectable, read-only source text in a monospace font.
+
+For Markdown, Raw includes the frontmatter and your unsaved body edits. Select Preview to continue editing. For HTML, Preview shows the page and Raw shows its markup. Files larger than 4 MiB or without UTF-8 text use Quick Look and have no Raw toggle.
+
 ## Edit A Markdown File
 
 1. Select a Markdown file.
 2. Type in the page.
-3. Press Command-S, or select Save in the inspector.
+3. Press Command-S.
 
 The editor is SwiftMarkdownEngine 0.12.0. Formatting shows as you type, and Markdown markers show near the caret. Paste inserts plain text. Command-Z reverses an edit.
 

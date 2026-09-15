@@ -16,7 +16,6 @@ Piper captures text into a local database and browses a folder of files. Send to
 - [Capture notes](guides/capture.md): the capture panel, clipboard cards, selection capture, and sections.
 - [Browse and edit your Wiki](guides/browse.md): Home, search, unread files, previews, editing, and the Inbox reader.
 - [Export captures](guides/export.md): write selected captures to one Markdown file.
-- [Run commands and skills](guides/commands.md): run Claude Code in your Wiki folder.
 - [Keyboard shortcuts](guides/shortcuts.md): every shortcut in both windows.
 
 ## Understand The Data

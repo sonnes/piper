@@ -32,7 +32,6 @@ final class QuitSafetyTests: XCTestCase {
     /// The real method also shows a window. The decision itself is what must not
     /// change, so the test drives the same three guards in the same order.
     private func shouldTerminate(_ model: AppModel, resolveCapture: (CaptureEditSession) -> Bool) -> Bool {
-        guard !model.agent.isRunning else { return false }
         model.route = "wiki"
         guard !model.exporting else { return false }
         for session in Array(model.captureEdits.values) where !resolveCapture(session) { return false }
@@ -134,7 +133,7 @@ final class QuitSafetyTests: XCTestCase {
 
     func testAnOpenSheetIsClosedSoTheAlertCanAppear() throws {
         let model = try makeWiki()
-        model.route = "commands"
+        model.route = "settings"
         XCTAssertTrue(shouldTerminate(model) { _ in true })
         XCTAssertEqual(model.route, "wiki", "Quit must close a sheet, or the alert below it never appears")
     }

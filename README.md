@@ -2,9 +2,7 @@
 
 Piper is a native macOS application for capturing text. It saves selected text and clipboard entries as local notes in a floating panel beside the application you work in. A separate window browses and edits a folder of files, such as a Markdown wiki. You can export captures into that folder as one Markdown file.
 
-Capture and browsing need no account, cloud service, telemetry, or network connection. Notes stay in a local SQLite database. Wiki files stay on disk as they are.
-
-Commands and skills are the exception. They start Claude Code, and Claude Code contacts the Anthropic API.
+Capture and browsing need no account, cloud service, telemetry, or network connection. Notes stay in a local SQLite database. Wiki files stay on disk as they are. The web reader connects to the pages you open.
 
 ## Status
 
@@ -17,7 +15,6 @@ Selection capture works, but its compatibility across applications is unverified
 - macOS 14 or later
 - A Swift 5.9 toolchain with the macOS SDK
 - Make
-- Claude Code, for commands and skills only
 
 ## Quick Start
 
@@ -40,7 +37,7 @@ To choose another folder, use the folder menu in the Wiki toolbar. To capture a 
 | Window | Purpose |
 | --- | --- |
 | Capture panel | Save, organize, edit, copy, and export notes |
-| Wiki window | Search, read, preview, and edit files, read captures in Inbox, and run commands |
+| Wiki window | Search, read, preview, and edit files, read captures in Inbox, and export captures |
 | Note editor | Edit one capture in a separate window with Save Changes |
 
 The capture panel and the Wiki window take turns on screen. Command-1 shows the panel, and Command-2 shows the Wiki window. Neither closes, so a draft stays open.
@@ -53,7 +50,6 @@ Settings > Style switches between two styles. Vault uses system type and colors.
 - [Capture notes](docs/guides/capture.md)
 - [Browse and edit your Wiki](docs/guides/browse.md)
 - [Export captures](docs/guides/export.md)
-- [Run commands and skills](docs/guides/commands.md)
 - [Keyboard shortcuts](docs/guides/shortcuts.md)
 - [Architecture](docs/internals/architecture.md)
 

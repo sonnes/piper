@@ -229,9 +229,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        // A running command owns the Wiki folder, so quitting during one can
-        // leave a half-written file. Show the transcript instead.
-        guard !model.agent.isRunning else { showLibrary(); return .terminateCancel }
         // The guards below ask through a modal alert, and an attached sheet
         // stops that alert from appearing. Quit then does nothing at all, so
         // close the sheet first.

@@ -38,19 +38,6 @@ final class FrontmatterTests: XCTestCase {
         XCTAssertEqual(file.strings("absent"), [])
     }
 
-    func testFirstSentenceCutsAMultiSentenceDescription() {
-        let long = """
-        Write or rewrite technical text with the rules of ASD-STE100 Simplified
-        Technical English so it is clear, unambiguous, and free of AI slop. Use for
-        documentation, READMEs, and runbooks.
-        """
-        XCTAssertEqual(Frontmatter.firstSentence(long),
-                       "Write or rewrite technical text with the rules of ASD-STE100 Simplified Technical English so it is clear, unambiguous, and free of AI slop.")
-    }
-
-    func testFirstSentenceKeepsATextWithNoTerminator() {
-        XCTAssertEqual(Frontmatter.firstSentence("A summary with no period"), "A summary with no period")
-    }
 }
 
 extension FrontmatterTests {

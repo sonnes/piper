@@ -1,18 +1,18 @@
-import PiperCommands
+import PiperCore
 import SwiftUI
 
 /// The rows under the search field.
 ///
-/// `CommandParser` returns the rows in rank order, grouped by kind. A heading
+/// `HomeSearch` returns the rows in rank order, grouped by kind. A heading
 /// appears wherever the kind changes.
 struct HomeSuggestionList: View {
 
     // MARK: Properties
 
-    let suggestions: [CommandSuggestion]
+    let suggestions: [HomeSuggestion]
     /// The index of the row that Return runs.
     let selection: Int
-    let run: (CommandSuggestion) -> Void
+    let run: (HomeSuggestion) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -40,12 +40,12 @@ struct HomeSuggestionList: View {
     }
 }
 
-/// One suggestion: icon, title, detail, and the scope tag at the trailing edge.
+/// One suggestion: icon, title, detail, and the shortcut at the trailing edge.
 struct HomeSuggestionRow: View {
 
     // MARK: Properties
 
-    let suggestion: CommandSuggestion
+    let suggestion: HomeSuggestion
     let selected: Bool
 
     private var foreground: Color { selected ? .white : PiperTheme.ink }

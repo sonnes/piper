@@ -45,6 +45,12 @@ struct MainWindowState: Codable, Equatable {
 
     private static let key = "mainWindowState"
 
+    mutating func resetForVault() {
+        selection = .folder("")
+        selectedFile = nil
+        expandedFolders = nil
+    }
+
     static func restore() -> MainWindowState {
         guard let data = UserDefaults.standard.data(forKey: key),
               let state = try? JSONDecoder().decode(MainWindowState.self, from: data) else {
@@ -76,4 +82,3 @@ protocol FileListViewControllerDelegate: AnyObject {
     func fileListViewController(_ controller: FileListViewController, didSelectFile path: String)
     func fileListViewController(_ controller: FileListViewController, didSelectNote id: UUID)
 }
-

@@ -32,18 +32,18 @@ This table describes the source on September 15, 2026. Implemented means that th
 | --- | --- | --- |
 | Folder tree with any folder structure | Implemented | `VaultTests`, `PathTreeBuilderTests`, `TreeControllerTests` |
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |
-| Home search with `/` commands and `>` actions | Implemented | `CommandParserTests` |
+| Home file search and `>` actions | Implemented | `HomeSearchTests` |
 | Vault search across titles, paths, descriptions, and text | Implemented | `WikiWorkspaceTests` (multiple words) |
 | Unread state and folder counts | Implemented | `FileReadStateTests` |
 | Back and forward history | Implemented | `WikiWorkspaceTests` |
-| Wiki links, heading anchors, and backlinks | Implemented | `WikiWorkspaceTests`, `WikiEditingTests` |
+| Wiki links and heading anchors | Implemented | `WikiWorkspaceTests`, `WikiEditingTests` |
 | Markdown editing with explicit save | Implemented | `WikiEditingTests`, `QuitSafetyTests` |
 | Frontmatter bytes kept through a save | Implemented | `WikiEditingTests`, `FrontmatterTests` |
 | Refusal to overwrite an external change | Implemented | `WikiEditingTests`, `PiperTests` |
+| Raw source for Markdown and HTML | Implemented | `FilePreviewTests`; source includes unsaved Markdown edits |
 | Previews for non-Markdown files | Implemented | `FilePreviewTests` |
 | Markdown rendering | Partial | SwiftMarkdownEngine 0.12.0 with strikethrough. Not full CommonMark. |
 | Find in the open file | Not implemented | Command-F does nothing in the Wiki window |
-| Focus mode | Not implemented | The Focus action in the inspector does nothing |
 | Create a new Wiki from the UI | Not implemented | `Vault.create()` exists and has tests, but no UI calls it |
 | Concurrent external edits | Partial | A byte compare detects most changes. No shared lock. |
 
@@ -54,12 +54,11 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Web links in captures | Implemented | `CaptureLinksTests`, `ReleaseTests` (source URLs). Manual checks for redirects, history, new-window links, edits, and failed loads. |
 | Capture from a web page | Implemented | Manual checks for selected text, page text, source metadata, empty pages, and the Capture button |
 
-## Export And Commands
+## Export
 
 | Capability | Status | Evidence or limit |
 | --- | --- | --- |
 | Send to Wiki as one Markdown file | Implemented | `PiperTests` (one file, bad input, file names), `QuitSafetyTests` (export blocks quit) |
-| Commands and skills through Claude Code | Implemented | `CommandIndexTests`, `SkillIndexTests`, `SymlinkedScopeTests`, `WikiAgentJobTests`. The `claude` process itself has no automated test. |
 
 ## Distribution
 

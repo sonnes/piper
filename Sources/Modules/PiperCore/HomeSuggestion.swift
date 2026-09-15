@@ -4,13 +4,11 @@ import Foundation
 ///
 /// The row carries what it means, in `target`. The caller reads the target and
 /// acts. It does not parse the title again to find out what the row was.
-public struct CommandSuggestion: Identifiable {
+public struct HomeSuggestion: Identifiable {
     /// The group that a row belongs to. The parser emits the groups in rank order.
     public enum Kind: String, CaseIterable, Hashable, Sendable {
         case file
         case fileText
-        case command
-        case skill
         case action
         case fallback
 
@@ -19,8 +17,6 @@ public struct CommandSuggestion: Identifiable {
             switch self {
             case .file: return "Files"
             case .fileText: return "In File Text"
-            case .command: return "Commands"
-            case .skill: return "Skills"
             case .action: return "Actions"
             case .fallback: return "No Match"
             }
@@ -31,8 +27,6 @@ public struct CommandSuggestion: Identifiable {
             switch self {
             case .file: return "doc.text"
             case .fileText: return "text.magnifyingglass"
-            case .command: return "chevron.right.square"
-            case .skill: return "diamond"
             case .action: return "gearshape"
             case .fallback: return "magnifyingglass"
             }
@@ -41,10 +35,8 @@ public struct CommandSuggestion: Identifiable {
 
     /// What the caller does when the reader picks the row.
     public enum Target {
-        case command(WikiCommand, arguments: String)
-        case skill(WikiSkill, arguments: String)
         case file(FileCandidate)
-        case action(CommandAction)
+        case action(HomeAction)
         /// Search every file for this text.
         case searchEverything(String)
     }
@@ -54,15 +46,13 @@ public struct CommandSuggestion: Identifiable {
     /// The second line of the row.
     public let detail: String
     public let iconName: String
-    /// Where a command or a skill comes from. `nil` for a file, an action, and the fallback.
-    public let scope: CommandScope?
     public let kind: Kind
     public let target: Target
 
     /// The tag a row shows at its trailing edge. Empty when the row shows none.
     public var tag: String {
         if case .action(let action) = target { return action.shortcut }
-        return scope?.tag ?? ""
+        return ""
     }
 
     // MARK: - Life Cycle
@@ -72,14 +62,12 @@ public struct CommandSuggestion: Identifiable {
         title: String,
         detail: String,
         kind: Kind,
-        scope: CommandScope? = nil,
         target: Target
     ) {
         self.id = id
         self.title = title
         self.detail = detail
         self.iconName = kind.iconName
-        self.scope = scope
         self.kind = kind
         self.target = target
     }

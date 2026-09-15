@@ -3,7 +3,6 @@ import ApplicationServices
 import Observation
 import PiperCore
 import Captures
-import PiperCommands
 import Vault
 
 @MainActor @Observable
@@ -11,7 +10,6 @@ final class AppModel {
     let store: CaptureStore
     let clipboard: ClipboardInbox
     let fileReadState: FileReadState
-    let agent = WikiAgent()
     var files: [VaultFile] = []
     /// Every folder of the vault, including the ones that hold no file.
     var folders: [String] = []
@@ -26,6 +24,8 @@ final class AppModel {
     }
     @ObservationIgnored private var vaultWatcher: VaultWatcher?
     @ObservationIgnored private var reloadPending = false
+    @ObservationIgnored private var pendingExport: URL?
+    var exportedDocument: String?
     var route = "wiki"
     var workspace = WikiWorkspace()
     var wikiEdit: WikiEditSession?
@@ -188,6 +188,18 @@ final class AppModel {
                        ?? files.first {
                     openDocument(first.id, markAsRead: false)
                 }
+                if let destination = pendingExport, destination.path.hasPrefix(repo.root.path + "/") {
+                    let path = String(destination.path.dropFirst(repo.root.path.count + 1))
+                    if files.contains(where: { $0.id == path }) {
+                        pendingExport = nil
+                        openDocument(path)
+                        if selectedDocument == path {
+                            wikiQuery = ""
+                            exportedDocument = path
+                            NotificationCenter.default.post(name: .exportedDocumentDidOpen, object: self)
+                        }
+                    }
+                }
             case .failure(let error):
                 files = []
                 folders = []
@@ -204,13 +216,21 @@ final class AppModel {
         panel.allowsMultipleSelection = false
         panel.message = "Choose your Wiki folder."
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        changeWiki(to: url)
+    }
+
+    func changeWiki(to url: URL) {
         guard finishWikiEdit() else { return }
         wikiPath = url.path
         workspace = WikiWorkspace()
+        initialDocument = nil
+        pendingExport = nil
+        exportedDocument = nil
         files = []
         folders = []
         wikiQuery = ""
         route = "wiki"
+        NotificationCenter.default.post(name: .vaultPathDidChange, object: self)
         reload()
     }
 
@@ -239,27 +259,15 @@ final class AppModel {
         } catch { return error.localizedDescription }
         route = "wiki"
         store.status = "Saved to " + destination.lastPathComponent
+        let resolved = destination.standardizedFileURL.resolvingSymlinksInPath()
+        pendingExport = resolved.path.hasPrefix(vault.root.path + "/") ? resolved : nil
         reload()
-        // The file opens when it sits inside the current folder. A file written
-        // elsewhere stays on disk and the browser does not show it.
-        if destination.path.hasPrefix(vault.root.path + "/") {
-            openDocument(String(destination.path.dropFirst(vault.root.path.count + 1)))
-        }
         return nil
     }
 
     /// The file that Send To Wiki proposes in the save panel.
     func exportDestination(title: String) -> URL {
         vault.root.appendingPathComponent(WikiExport.fileName(title))
-    }
-
-    /// Runs a Wiki command, then rescans. The command writes Markdown files
-    /// directly, so an open edit must reach disk before it starts.
-    func runCommand(_ job: WikiAgentJob, arguments: String) async -> String? {
-        guard finishWikiEdit() else { return nil }
-        let error = await agent.run(job, arguments: arguments, root: vault.root)
-        reload()
-        return error
     }
 
     func openLink(_ url: URL, from document: VaultFile) {

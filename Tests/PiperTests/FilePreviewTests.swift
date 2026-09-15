@@ -5,6 +5,24 @@ import XCTest
 @testable import Piper
 
 final class FilePreviewTests: XCTestCase {
+    func testRawMarkdownKeepsFrontmatterAndShowsTheDraft() {
+        let prefix = "---\r\ntitle: 'QA'\r\n---\r\n"
+        let file = makeFile(prefix + "# Original\r\n", path: "note.MD")
+        XCTAssertEqual(FilePresentation.sourceText(for: file), file.raw)
+        XCTAssertEqual(FilePresentation.sourceText(for: file, markdown: "# Draft\r\n[[Target|Label]]\r\n"),
+                       prefix + "# Draft\r\n[[Target|Label]]\r\n")
+    }
+
+    func testRawHTMLKeepsLiteralMarkupAndRejectsUnavailableText() {
+        let html = "<!doctype html>\n<h1>QA &amp; source</h1>\n"
+        for path in ["page.html", "page.HTM"] {
+            XCTAssertEqual(FilePresentation.sourceText(for: makeFile(html, path: path)), html)
+        }
+        XCTAssertNil(FilePresentation.sourceText(for: makeFile("{}", path: "data.json")))
+        let large = VaultFile(relativePath: "large.md", size: 5_000_000, modifiedAt: Date(), text: nil)
+        XCTAssertNil(FilePresentation.sourceText(for: large))
+    }
+
     func testPreviewRoutesTextAndRichFormatsWithoutMarkdownFormatting() {
         for path in ["notes.txt", "config.json", "script.swift", "config.yaml", "README"] {
             XCTAssertEqual(FilePresentation(makeFile("# Literal *text*", path: path)), .text, path)

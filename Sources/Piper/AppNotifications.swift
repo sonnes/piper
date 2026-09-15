@@ -17,11 +17,11 @@ extension Notification.Name {
     /// The reader chose a different vault folder.
     static let vaultPathDidChange = Notification.Name("VaultPathDidChangeNotification")
 
+    /// The export scan opened a file. The object is the application model.
+    static let exportedDocumentDidOpen = Notification.Name("ExportedDocumentDidOpenNotification")
+
     /// A file on disk under the vault root changed.
     static let vaultFilesDidChange = Notification.Name("VaultFilesDidChangeNotification")
-
-    /// The command or skill index finished a rescan.
-    static let commandsDidChange = Notification.Name("CommandsDidChangeNotification")
 
     /// A capture was saved. The object is the `Note`.
     static let captureDidSave = Notification.Name("CaptureDidSaveNotification")

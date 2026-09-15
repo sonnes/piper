@@ -64,7 +64,6 @@ UserDefaults holds these keys:
 | `composerDraft` | The unsaved composer text |
 | `piperStyle` | `Vault` or `Page` |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
-| `wikiInspectorVisible` | Whether the inspector shows |
 | `wikiFileSort` | Name or Date |
 | `mainWindowState` | The sidebar selection, open file, open folders, and pane widths |
 | `wikiReadTimestamps` | Read state |

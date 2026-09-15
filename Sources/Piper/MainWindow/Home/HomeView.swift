@@ -1,13 +1,9 @@
 import AppKit
-import PiperCommands
+import PiperCore
 import SwiftUI
 import Vault
 
-/// The page that the main window opens on.
-///
-/// One search field carries the whole page. `CommandParser` turns its text into
-/// files, commands, skills, and actions, and the list under the field shows the
-/// result. Below it, the most recently changed files appear as timeline cells.
+/// The home page with file search, local actions, and recent files.
 struct HomeView: View {
 
     // MARK: Properties
@@ -22,10 +18,7 @@ struct HomeView: View {
 
     @State private var text = ""
     @State private var selection = 0
-    @State private var commands: [WikiCommand] = []
-    @State private var skills: [WikiSkill] = []
     @State private var candidates: [FileCandidate] = []
-    @State private var runError: String?
     @State private var keyMonitor: Any?
     @FocusState private var focused: Bool
 
@@ -36,11 +29,11 @@ struct HomeView: View {
     /// How many files the Recent list shows.
     private static let recentCount = 6
 
-    private var parser: CommandParser {
-        CommandParser(commands: commands, skills: skills, actions: actions)
+    private var parser: HomeSearch {
+        HomeSearch(actions: actions)
     }
 
-    private var suggestions: [CommandSuggestion] {
+    private var suggestions: [HomeSuggestion] {
         parser.suggestions(for: text, files: candidates)
     }
 
@@ -49,16 +42,16 @@ struct HomeView: View {
     }
 
     /// The actions that `>` lists. Each one runs what the matching menu item runs.
-    private var actions: [CommandAction] {
+    private var actions: [HomeAction] {
         [
-            CommandAction(title: "New Capture", detail: "Open the capture panel", shortcut: "⌘1") { newCapture() },
-            CommandAction(title: "Browse Files", detail: "Open the three-pane browser", shortcut: "⌘2") { browseFiles() },
-            CommandAction(title: "Choose Wiki Folder…", detail: "Pick a different folder") { model.chooseWiki() },
-            CommandAction(title: "Reveal in Finder", detail: "Show " + vaultPath) {
+            HomeAction(title: "New Capture", detail: "Open the capture panel", shortcut: "⌘1") { newCapture() },
+            HomeAction(title: "Browse Files", detail: "Open the three-pane browser", shortcut: "⌘2") { browseFiles() },
+            HomeAction(title: "Choose Wiki Folder…", detail: "Pick a different folder") { model.chooseWiki() },
+            HomeAction(title: "Reveal in Finder", detail: "Show " + vaultPath) {
                 NSWorkspace.shared.activateFileViewerSelecting([model.vault.root])
             },
-            CommandAction(title: "Capture Clipboard", detail: "Save the clipboard as a note") { model.captureClipboard?() },
-            CommandAction(title: "Settings…", detail: "Folder, shortcut, reading, style", shortcut: "⌘,") {
+            HomeAction(title: "Capture Clipboard", detail: "Save the clipboard as a note") { model.captureClipboard?() },
+            HomeAction(title: "Settings…", detail: "Folder, shortcut, reading, style", shortcut: "⌘,") {
                 model.route = "settings"
             }
         ]
@@ -80,13 +73,6 @@ struct HomeView: View {
                             .frame(width: Self.contentWidth)
                             .padding(.top, 5)
                     }
-                    if let runError {
-                        Text(runError)
-                            .font(PiperTheme.ui(11))
-                            .foregroundStyle(PiperTheme.danger)
-                            .frame(width: Self.contentWidth, alignment: .leading)
-                            .padding(.top, 6)
-                    }
                     buttons
                     if !recent.isEmpty { recentList }
                 }
@@ -105,15 +91,12 @@ struct HomeView: View {
             text = initialText
             focused = true
             installKeys()
-            loadExtensions()
             loadCandidates()
         }
         .onDisappear(perform: removeKeys)
-        .onChange(of: model.vault.root) { _, _ in loadExtensions() }
         .onChange(of: model.files) { _, _ in loadCandidates() }
         .onChange(of: text) { _, _ in
             selection = 0
-            runError = nil
         }
     }
 }
@@ -146,7 +129,7 @@ private extension HomeView {
             Image(systemName: "magnifyingglass")
                 .font(PiperTheme.ui(13))
                 .foregroundStyle(PiperTheme.secondary)
-            TextField("Search your wiki, or type / for commands", text: $text)
+            TextField("Search your wiki", text: $text)
                 .textFieldStyle(.plain)
                 .font(PiperTheme.ui(14))
                 .focused($focused)
@@ -162,7 +145,6 @@ private extension HomeView {
     var buttons: some View {
         HStack(spacing: 8) {
             button("New Capture", hint: "⌘1", action: newCapture)
-            button("Commands & Skills", hint: "/") { fill("/") }
             button("Actions", hint: ">") { fill(">") }
             button("Browse Files", hint: "⌘2", action: browseFiles)
         }
@@ -215,22 +197,6 @@ private extension HomeView {
 // MARK: - Content
 
 private extension HomeView {
-
-    /// Reads the commands and the skills that this folder reaches.
-    ///
-    /// The scan reads two directories, so it runs off the main thread and the
-    /// result lands back on it. It runs at appearance and when the folder
-    /// changes, never on a keystroke.
-    func loadExtensions() {
-        let root = model.vault.root
-        Task {
-            let scan = await Task.detached {
-                (CommandIndex.all(wikiRoot: root), SkillIndex.all(wikiRoot: root))
-            }.value
-            commands = scan.0
-            skills = scan.1
-        }
-    }
 
     /// Turns the files of the model into the candidates that the parser reads.
     ///
@@ -307,14 +273,10 @@ private extension HomeView {
     }
 
     /// Runs one row. The row carries what it means, so nothing here reads the title.
-    func run(_ suggestion: CommandSuggestion) {
+    func run(_ suggestion: HomeSuggestion) {
         switch suggestion.target {
         case .file(let file):
             openFile(file.path)
-        case .command(let command, let arguments):
-            start(.command(command), arguments: arguments)
-        case .skill(let skill, let arguments):
-            start(.skill(skill), arguments: arguments)
         case .action(let action):
             action.run()
         case .searchEverything(let query):
@@ -322,13 +284,6 @@ private extension HomeView {
             browseFiles()
         }
         text = ""
-    }
-
-    /// Starts Claude Code and opens the transcript sheet over the browser.
-    func start(_ job: WikiAgentJob, arguments: String) {
-        runError = nil
-        model.route = "commands"
-        Task { runError = await model.runCommand(job, arguments: arguments) }
     }
 
     func newCapture() {

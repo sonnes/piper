@@ -20,14 +20,13 @@ The tests use temporary folders and temporary databases. Each module has a test 
 
 | Target | Covers |
 | --- | --- |
-| `PiperCoreTests` | Frontmatter parsing and line endings |
+| `PiperCoreTests` | Frontmatter parsing, line endings, and Home search |
 | `PiperTreeTests` | Folder trees and counts |
 | `CapturesTests` | The capture store, clipboard entries, and capture links |
 | `VaultTests` | Scans, path safety, reads, writes, and the watcher |
-| `PiperCommandsTests` | Command and skill indexes, the search parser, and prompts |
 | `PiperTests` | The app model: editing, refresh, read state, previews, export, and quit safety |
 
-The tests do not cover the UI, the global shortcut path, or the `claude` process.
+The tests do not cover the UI or the global shortcut path.
 
 ## Capture Checks
 
@@ -67,13 +66,13 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 3. Search from Home and from the toolbar.
 4. Open a file. Make sure that its unread dot goes away.
 5. Follow a Wiki link, then use Command-[ and Command-].
-6. Select a heading in the Outline tab and a file in the Links tab.
+6. Switch Markdown and HTML files between Preview and Raw. Make sure that Raw shows their source text.
 7. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
 
 ## Editing Checks
 
 1. Edit a Markdown file that has frontmatter.
-2. Make sure that the inspector shows Unsaved changes and the file on disk has not changed.
+2. Make sure that the status bar shows Unsaved and the file on disk has not changed.
 3. Press Command-S. Compare the file: the frontmatter and Wiki links must be unchanged.
 4. Make sure that Command-Z still reverses the edit after the save.
 5. Edit again, open another file, and select Cancel. Make sure that the draft stays.
@@ -106,14 +105,6 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 4. Make sure that the frontmatter has `title`, `created`, and `sources`.
 5. Make sure that no other file in the folder changed.
 6. Export again to a folder outside the Wiki. Make sure that only that file is written.
-
-## Command Checks
-
-1. Add `.claude/commands/hello.md` to the disposable Wiki folder.
-2. Open the Commands And Skills sheet and run `hello`.
-3. Make sure that the output streams and the folder scans after the run.
-4. Run a long command and select Stop.
-5. Type `/hello` on Home and press Return.
 
 ## Distribution Checks
 

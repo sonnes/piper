@@ -4,7 +4,7 @@ import Foundation
 ///
 /// The parser holds no user interface code, so the caller supplies the actions
 /// and the closure that each one runs.
-public struct CommandAction: Identifiable {
+public struct HomeAction: Identifiable {
     public let title: String
     /// The second line of the row.
     public let detail: String

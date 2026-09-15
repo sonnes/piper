@@ -12,7 +12,6 @@ struct RouteSheets: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: route("settings")) { SettingsView(model: model) }
-            .sheet(isPresented: route("commands")) { WikiCommandView(model: model) }
             .alert("Piper", isPresented: Binding(
                 get: { model.store.errorMessage != nil },
                 set: { if !$0 { model.store.errorMessage = nil } }
@@ -29,7 +28,7 @@ struct RouteSheets: ViewModifier {
 }
 
 extension View {
-    /// Presents Settings, Commands And Skills, and the error alert.
+    /// Presents Settings and the error alert.
     func routeSheets(_ model: AppModel) -> some View {
         modifier(RouteSheets(model: model))
     }

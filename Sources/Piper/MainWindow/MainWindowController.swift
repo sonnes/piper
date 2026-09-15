@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import Vault
 
-/// Owns the main window and its four panes.
+/// Owns the main window and its three panes.
 ///
 /// The window holds an `NSSplitViewController` with one view controller per
 /// pane. A pane never calls another pane. Each one reports upward through a
@@ -24,9 +24,7 @@ final class MainWindowController: NSWindowController {
     private let sidebarViewController = SidebarViewController()
     private let fileListViewController = FileListViewController()
     private let detailViewController = DetailViewController()
-    private let inspectorViewController = DetailViewController()
     private var listItem: NSSplitViewItem?
-    private var inspectorItem: NSSplitViewItem?
     /// The text the toolbar search field hands to the home page.
     private var homeSeed = ""
     /// Changes with every seed, so that the home page takes the new text.
@@ -47,6 +45,10 @@ final class MainWindowController: NSWindowController {
             defer: false
         )
         super.init(window: window)
+        NotificationCenter.default.addObserver(self, selector: #selector(vaultChanged),
+                                               name: .vaultPathDidChange, object: model)
+        NotificationCenter.default.addObserver(self, selector: #selector(exportedDocumentOpened),
+                                               name: .exportedDocumentDidOpen, object: model)
 
         // The capture panel is also called Piper. Two windows with one name make
         // the Window menu unreadable, so the main window carries the folder name.
@@ -117,8 +119,7 @@ final class MainWindowController: NSWindowController {
 
     /// Shows the home page in the panes beside the sidebar.
     ///
-    /// The toolbar search field passes its text as the seed, so a command that
-    /// starts in the browser finishes in the suggestion list of the home page.
+    /// The toolbar passes its action query to the Home suggestion list.
     func showHome(seed: String = "") {
         homeSeed = seed
         homeIdentity = UUID()
@@ -144,9 +145,21 @@ final class MainWindowController: NSWindowController {
     /// Redraws every pane from the current selection and model.
     ///
     /// The home page needs the width of the window, so its selection collapses
-    /// the file list. The inbox holds captures, which carry no file details, so
-    /// it collapses the inspector.
+    /// the file list.
     func refreshPanes() {
+        if let path = model.exportedDocument {
+            state.selection = .folder((path as NSString).deletingLastPathComponent)
+            state.selectedFile = path
+            state.save()
+            model.exportedDocument = nil
+        }
+        window?.title = "Piper Wiki — " + model.vault.root.lastPathComponent
+        if let search = window?.toolbar?.items.first(where: { $0.itemIdentifier == .search })?.view as? NSSearchField,
+           search.stringValue != model.wikiQuery {
+            let query = model.wikiQuery
+            search.abortEditing()
+            search.stringValue = query
+        }
         sidebarViewController.setContent(SidebarPane(
             model: model,
             selection: state.selection,
@@ -160,7 +173,7 @@ final class MainWindowController: NSWindowController {
                 state.expandedFolders = folders.sorted()
                 state.save()
             }
-        ))
+        ).id(model.vault.root))
 
         switch state.selection {
         case .home:
@@ -179,10 +192,7 @@ final class MainWindowController: NSWindowController {
             detailViewController.setContent(DetailPane(model: model).routeSheets(model))
         }
 
-        inspectorViewController.setContent(InspectorPane(model: model))
         listItem?.isCollapsed = showsHome
-        inspectorItem?.isCollapsed = state.selection != .folder(state.selectedFolder)
-            || !AppDefaults.shared.inspectorVisible
     }
 
     /// The home page, with the seed the toolbar search field left behind.
@@ -230,17 +240,9 @@ private extension MainWindowController {
         let detailItem = NSSplitViewItem(viewController: detailViewController)
         detailItem.minimumThickness = AppDefaults.Window.detailMinimumThickness
 
-        let inspector = NSSplitViewItem(viewController: inspectorViewController)
-        inspector.minimumThickness = 250
-        inspector.maximumThickness = 320
-        inspector.canCollapse = true
-        inspector.isCollapsed = !AppDefaults.shared.inspectorVisible
-        inspectorItem = inspector
-
         splitViewController.addSplitViewItem(sidebarItem)
         splitViewController.addSplitViewItem(list)
         splitViewController.addSplitViewItem(detailItem)
-        splitViewController.addSplitViewItem(inspector)
         refreshPanes()
     }
 
@@ -263,8 +265,6 @@ enum Toolbar {
 extension NSToolbarItem.Identifier {
     static let home = NSToolbarItem.Identifier("home")
     static let navigate = NSToolbarItem.Identifier("navigate")
-    static let commands = NSToolbarItem.Identifier("commands")
-    static let inspector = NSToolbarItem.Identifier("inspector")
     static let capture = NSToolbarItem.Identifier("capture")
     static let settings = NSToolbarItem.Identifier("settings")
     static let search = NSToolbarItem.Identifier("search")
@@ -278,7 +278,7 @@ extension MainWindowController: NSToolbarDelegate {
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         return [.toggleSidebar, .refresh, .sidebarTrackingSeparator,
                 .home, .folder, .flexibleSpace, .readerSeparator,
-                .navigate, .capture, .commands, .inspector, .flexibleSpace, .search]
+                .navigate, .capture, .flexibleSpace, .search]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -296,10 +296,6 @@ extension MainWindowController: NSToolbarDelegate {
             return button(identifier, symbol: "house", label: "Home", action: #selector(goHome))
         case .navigate:
             return navigateItem()
-        case .commands:
-            return button(identifier, symbol: "terminal", label: "Commands And Skills", action: #selector(openCommands))
-        case .inspector:
-            return button(identifier, symbol: "sidebar.right", label: "Inspector", action: #selector(toggleInspector))
         case .capture:
             return button(identifier, symbol: "square.and.pencil",
                           label: "Capture Panel · ⌘1", action: #selector(openCapture))
@@ -318,7 +314,7 @@ extension MainWindowController: NSToolbarDelegate {
 
     /// The search field of the browser toolbar.
     ///
-    /// Plain text filters the file list. A leading `/` or `>` belongs to the command parser, so
+    /// Plain text filters the file list. A leading `>` selects local app actions, so
     /// the window shows the home page and hands the text to its suggestion list.
     ///
     private func searchItem() -> NSToolbarItem {
@@ -334,7 +330,7 @@ extension MainWindowController: NSToolbarDelegate {
         let item = NSToolbarItem(itemIdentifier: .search)
         item.view = field
         item.label = "Search"
-        item.toolTip = "Search; / for commands, > for actions"
+        item.toolTip = "Search; > for actions"
         item.visibilityPriority = .high
         return item
     }
@@ -382,7 +378,6 @@ extension MainWindowController: NSToolbarDelegate {
 
     @objc private func goHome() { showHome() }
 
-    @objc private func openCommands() { model.route = "commands" }
 
     @objc private func openCapture() { model.openPanel?() }
 
@@ -392,23 +387,29 @@ extension MainWindowController: NSToolbarDelegate {
 
     @objc private func chooseFolder() { model.chooseWiki() }
 
+    @objc private func vaultChanged() {
+        state.resetForVault()
+        state.save()
+        homeSeed = ""
+        homeIdentity = UUID()
+        refreshPanes()
+    }
+
+    @objc private func exportedDocumentOpened() {
+        refreshPanes()
+    }
+
     @objc private func revealFolder() { NSWorkspace.shared.open(model.vault.root) }
 
     @objc private func search(_ sender: NSSearchField) {
         let text = sender.stringValue
-        guard !text.hasPrefix("/"), !text.hasPrefix(">") else {
+        guard !text.hasPrefix(">") else {
             sender.stringValue = ""
             model.wikiQuery = ""
             showHome(seed: text)
             return
         }
         model.wikiQuery = text
-    }
-
-    @objc private func toggleInspector() {
-        guard let inspectorItem else { return }
-        inspectorItem.isCollapsed.toggle()
-        AppDefaults.shared.inspectorVisible = !inspectorItem.isCollapsed
     }
 
     @objc private func navigate(_ sender: NSSegmentedControl) {
@@ -432,19 +433,6 @@ private struct NoteDetailPane: View {
                 .foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(PiperTheme.page)
-        }
-    }
-}
-
-/// The right column: file details, outline, and backlinks.
-private struct InspectorPane: View {
-    @Bindable var model: AppModel
-
-    var body: some View {
-        if let document = model.currentDocument {
-            WikiInspector(model: model, document: document, focus: {})
-        } else {
-            Color.clear
         }
     }
 }
@@ -511,6 +499,7 @@ private struct SidebarPane: View {
 /// The detail pane. It holds the reading preferences, which belong to the view.
 private struct DetailPane: View {
     @Bindable var model: AppModel
+    @State private var showsRaw = false
 
     @AppStorage(AppDefaults.Key.readerSize) private var readerSize = 18.0
     @AppStorage(AppDefaults.Key.readerTheme) private var readerTheme = WikiReadingTheme.paper
@@ -521,18 +510,39 @@ private struct DetailPane: View {
     var body: some View {
         Group {
             if let document = model.currentDocument {
-                if FilePresentation(document) != .markdown {
-                    FilePreview(model: model, document: document)
-                } else {
-                    VStack(spacing: 0) {
-                        DetailHeader(file: document, rootName: model.vault.root.lastPathComponent)
-                        WikiEditor(model: model, document: document, fontSize: readerSize,
-                                   fontName: readerFont.font(size: readerSize).fontName, paper: paper)
+                VStack(spacing: 0) {
+                    let source = FilePresentation.sourceText(for: document, markdown: model.wikiEdit?.markdown)
+                    if source != nil {
+                        HStack {
+                            Spacer()
+                            Picker("File View", selection: $showsRaw) {
+                                Text("Preview").tag(false)
+                                Text("Raw").tag(true)
+                            }
+                            .pickerStyle(.segmented)
+                            .fixedSize()
+                            .accessibilityLabel("File View")
+                        }
+                        .padding(AppDefaults.Reader.topInset)
+                        Rule()
+                    }
+                    if showsRaw, let source {
+                        PlainTextPreview(text: source)
                         DetailStatusBar(path: path(of: document), words: words(of: document),
                                         hasChanges: model.wikiEdit?.hasChanges ?? false)
+                    } else if FilePresentation(document) != .markdown {
+                        FilePreview(model: model, document: document)
+                    } else {
+                        VStack(spacing: 0) {
+                            DetailHeader(file: document, rootName: model.vault.root.lastPathComponent)
+                            WikiEditor(model: model, document: document, fontSize: readerSize,
+                                       fontName: readerFont.font(size: readerSize).fontName, paper: paper)
+                            DetailStatusBar(path: path(of: document), words: words(of: document),
+                                            hasChanges: model.wikiEdit?.hasChanges ?? false)
+                        }
+                        .background(paper)
+                        .preferredColorScheme(readerAppearance.colorScheme)
                     }
-                    .background(paper)
-                    .preferredColorScheme(readerAppearance.colorScheme)
                 }
             } else {
                 Text("No Selection")

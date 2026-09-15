@@ -20,12 +20,11 @@ let package = Package(
         // Middle modules.
         .target(name: "Captures", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Captures"),
         .target(name: "Vault", dependencies: ["PiperCore", "Yams"], path: "Sources/Modules/Vault"),
-        .target(name: "PiperCommands", dependencies: ["PiperCore"], path: "Sources/Modules/PiperCommands"),
 
         // Application target.
         .executableTarget(name: "Piper", dependencies: [
             "CSQLite", "Yams",
-            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "PiperCommands",
+            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault",
             .product(name: "MarkdownEngine", package: "swift-markdown-engine")
         ], resources: [.process("Resources")]),
 
@@ -33,7 +32,6 @@ let package = Package(
         .testTarget(name: "PiperTreeTests", dependencies: ["PiperTree"], path: "Tests/PiperTreeTests"),
         .testTarget(name: "CapturesTests", dependencies: ["Captures"], path: "Tests/CapturesTests"),
         .testTarget(name: "VaultTests", dependencies: ["Vault"], path: "Tests/VaultTests"),
-        .testTarget(name: "PiperCommandsTests", dependencies: ["PiperCommands"], path: "Tests/PiperCommandsTests"),
         .testTarget(name: "PiperCoreTests", dependencies: ["PiperCore"], path: "Tests/PiperCoreTests")
     ]
 )

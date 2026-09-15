@@ -55,14 +55,4 @@ public struct Frontmatter {
             return Frontmatter(metadata: [:], body: body, prefix: prefix, problem: error.localizedDescription)
         }
     }
-
-    /// Returns the first sentence of `text`, for a one-line summary.
-    ///
-    /// A skill description runs to several sentences, because Claude Code reads
-    /// it to decide when the skill applies. A suggestion row holds one line.
-    public static func firstSentence(_ text: String) -> String {
-        let collapsed = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        guard let range = collapsed.range(of: #"[.!?](\s|$)"#, options: .regularExpression) else { return collapsed }
-        return String(collapsed[..<range.lowerBound]) + String(collapsed[range.lowerBound])
-    }
 }

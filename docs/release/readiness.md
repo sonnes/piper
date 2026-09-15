@@ -32,20 +32,19 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 ## Wiki Window
 
 - [ ] Run the Wiki window, editing, and reading preference checks.
-- [ ] Remove the Focus action from the inspector, or implement focus mode.
 - [ ] Decide whether the Wiki window needs find in the open file.
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
-- [ ] Make a link from the inspector or the editor update the sidebar and the file list.
+- [ ] Make a link from the editor update the sidebar and the file list.
 
 Acceptance: every visible control does what its label says, and no edit is lost on navigation, close, or quit.
 
-## Export And Commands
+## Export
 
-- [ ] Run the export and command checks.
+- [ ] Run the export checks.
 - [ ] Correct the Settings > Wiki text that still describes unverified drafts.
 - [ ] Connect the Capture Clipboard action on Home. `AppModel.captureClipboard` is never set.
 
-Acceptance: export writes one file and changes nothing else. A command run streams output, can stop, and rescans the folder.
+Acceptance: export writes one file and changes nothing else.
 
 ## Distribution
 
@@ -59,4 +58,4 @@ Acceptance: the downloaded DMG installs and captures text with the documented pe
 
 ## Out Of Scope
 
-These items need a separate scope decision: attachments, URL lookup beyond Accessibility, an arbitrary shortcut recorder, launch at login, and full CommonMark. Sync, AI processing beyond Claude Code commands, and a documentation website are outside this release.
+These items need a separate scope decision: attachments, URL lookup beyond Accessibility, an arbitrary shortcut recorder, launch at login, and full CommonMark. Sync, AI processing, and a documentation website are outside this release.
