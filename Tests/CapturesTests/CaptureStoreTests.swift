@@ -201,6 +201,18 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.errorMessage, "This section no longer exists. Choose another section.")
     }
 
+    func testEmbeddedLinksDoNotBecomeWholeTextSourceURLs() {
+        let store = CaptureStore(url: url())
+        let text = "https://example.com/article This is a note"
+        XCTAssertTrue(store.add(text, interpretSection: false))
+        XCTAssertEqual(store.notes[0].text, text)
+        XCTAssertTrue(store.notes[0].sourceURLs.isEmpty)
+        XCTAssertTrue(store.add(text, sourceURL: "https://source.example/page", interpretSection: false))
+        XCTAssertEqual(store.notes[1].sourceURLs, ["https://source.example/page"])
+        XCTAssertTrue(store.update(store.notes[0].id, text: "https://swift.org"))
+        XCTAssertEqual(CaptureLinks(store.notes[0].text).standaloneURL?.absoluteString, "https://swift.org")
+    }
+
     func testSectionNamesAreLimitedToOneShortLine() {
         let store = CaptureStore(url: url())
         XCTAssertFalse(store.chooseSection("  "))

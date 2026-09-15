@@ -3,6 +3,22 @@ import XCTest
 
 final class PathTreeBuilderTests: XCTestCase {
 
+
+    func testFolderOnlyTreeKeepsCountsAndEmptyFolders() throws {
+        let root = PathTreeBuilder.tree(
+            paths: ["root.json", "notes/a.txt", "notes/images/photo.png"],
+            folders: ["empty", "notes", "notes/images"], includingFiles: false)
+        XCTAssertEqual(try paths(of: root.children), ["empty", "notes"])
+        XCTAssertEqual(try item(root).count, 3)
+        let notes = try XCTUnwrap(root.childAtIndex(1))
+        XCTAssertEqual(try item(notes).count, 2)
+        XCTAssertEqual(try paths(of: notes.children), ["notes/images"])
+        let images = try XCTUnwrap(notes.childAtIndex(0))
+        XCTAssertEqual(try item(images).count, 1)
+        XCTAssertTrue(images.children.isEmpty)
+        XCTAssertEqual(try item(XCTUnwrap(root.childAtIndex(0))).count, 0)
+    }
+
     func testTreePreservesNestedFoldersAndCountsLeaves() throws {
         let root = PathTreeBuilder.tree(paths: ["Start Here.md", "Research/Interviews/Maya.md", "Research/Journal.md", "Topics/Reading.md"])
         XCTAssertEqual(try paths(of: root.children), ["Research", "Topics", "Start Here.md"])

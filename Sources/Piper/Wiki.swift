@@ -73,6 +73,9 @@ enum WikiSave {
     /// opened. A different file means another editor wrote first, and the edits
     /// stay in memory instead of overwriting that work.
     static func body(_ body: String, of file: VaultFile, in vault: Vault) throws -> VaultFile {
+        guard file.isMarkdown, file.isText else {
+            throw PiperError("This file is available as a preview. Open it in another application to edit it.")
+        }
         let prefix = file.frontmatterPrefix
         let separator = prefix.isEmpty || prefix.last?.isNewline == true || body.isEmpty ? "" : "\n"
         let raw = prefix + separator + body

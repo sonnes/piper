@@ -106,7 +106,7 @@ final class WikiEditingTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
     }
 
-    @MainActor func testEditorStartsOnOpenAndSavesOnlyOnRequest() throws {
+    @MainActor func testEditorStartsOnOpenAndSavesOnlyOnRequest() async throws {
         let path = root.appendingPathComponent("Note.md")
         let raw = "# Note\nOriginal.\n"
         try Data(raw.utf8).write(to: path)
@@ -119,6 +119,7 @@ final class WikiEditingTests: XCTestCase {
         session.text += "Unsaved thought.\n"
         model.openDocument(document.id)
         model.reload()
+        for _ in 0..<100 where model.loading { try await Task.sleep(for: .milliseconds(10)) }
         XCTAssertTrue(model.wikiEdit === session)
         XCTAssertFalse(model.loading)
         XCTAssertEqual(try String(contentsOf: path), raw)

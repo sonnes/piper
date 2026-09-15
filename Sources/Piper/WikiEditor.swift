@@ -111,7 +111,7 @@ struct WikiEditor: View {
                     return menu
                 }
             )
-            .frame(width: min(738, geometry.size.width), height: geometry.size.height)
+            .frame(width: min(AppDefaults.Reader.columnWidth + AppDefaults.Reader.horizontalInset * 2, geometry.size.width), height: geometry.size.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityLabel("Wiki Page")
             .background(WikiEditorSetup(model: model, anchorRequest: model.anchorRequest))
@@ -126,10 +126,10 @@ struct WikiEditor: View {
         }.flatMap { [$0.target, WikiEditorLinks.prefix + Data($0.target.utf8).base64EncodedString()] }
         config.services.wikiLinks = EditorLinkResolver(targets: Set(targets))
         config.readingWidth = nil
-        config.textInsets = TextInsets(horizontal: 44, vertical: 36)
+        config.textInsets = TextInsets(horizontal: AppDefaults.Reader.horizontalInset, vertical: AppDefaults.Reader.topInset)
         config.paragraph.lineHeightExtraSpacing = fontSize * 0.3
-        config.paragraph.spacingFactor = 0.65
-        config.headings.fontMultipliers = [1.34, 1.12, 1.05, 1, 1, 1]
+        config.paragraph.spacingFactor = 0
+        config.headings.fontMultipliers = AppDefaults.Reader.headingMultipliers
         config.overscroll.percent = 0.35
         config.theme.link = PiperTheme.accentNS
         config.theme.incompleteLink = PiperTheme.accentNS

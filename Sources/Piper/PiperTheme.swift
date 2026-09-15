@@ -71,20 +71,7 @@ enum PiperTheme {
     static let danger = Color(nsColor: dangerNS)
     static let warning = Color(nsColor: warningNS)
 
-    /// The fill of a card on the capture panel.
-    ///
-    /// The panel draws over the desktop through a vibrant material, so a card
-    /// carries a translucent fill and reads as a sheet of paper on top of it.
-    static let card = Color(nsColor: system(.textBackgroundColor, page: (0xFFFFFF, 0x202124))).opacity(0.7)
-
-    /// The corner radius of a card and of the panel itself.
-    static let cardRadius: CGFloat = 14
-
-    /// The fill behind a selected row in the source list and the timeline.
-    ///
-    /// The fill is the system selection, not the accent color. A pane that
-    /// does not hold the keyboard focus keeps the gray fill, which is what every
-    /// row of a SwiftUI pane does here.
+    /// The system selection fill for a row without keyboard focus.
     static let rowSelection = Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
 
     /// The unread count badge and its text color.

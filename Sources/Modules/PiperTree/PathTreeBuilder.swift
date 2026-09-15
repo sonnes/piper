@@ -30,9 +30,9 @@ public enum PathTreeBuilder {
     ///
     /// A path in `folders` gets a node of its own, so that a folder which holds
     /// no file is still in the tree. Its count is 0.
-    public static func tree(paths: [String], folders: [String] = []) -> Node {
+    public static func tree(paths: [String], folders: [String] = [], includingFiles: Bool = true) -> Node {
         let root = Node.root(representedObject: PathItem(path: "", name: "", isFolder: true, count: paths.count))
-        root.children = childNodes(paths: paths, folders: folders, parent: root, folder: "")
+        root.children = childNodes(paths: paths, folders: folders, parent: root, folder: "", includingFiles: includingFiles)
         return root
     }
 }
@@ -41,7 +41,7 @@ public enum PathTreeBuilder {
 
 private extension PathTreeBuilder {
 
-    static func childNodes(paths: [String], folders: [String], parent: Node, folder: String) -> [Node] {
+    static func childNodes(paths: [String], folders: [String], parent: Node, folder: String, includingFiles: Bool) -> [Node] {
         let prefix = folder.isEmpty ? "" : folder + "/"
         let descendants = paths.filter { $0.hasPrefix(prefix) }
         let folderDescendants = folders.filter { $0.hasPrefix(prefix) }
@@ -60,9 +60,10 @@ private extension PathTreeBuilder {
             let count = descendants.filter { $0.hasPrefix(path + "/") }.count
             let node = Node(representedObject: PathItem(path: path, name: name, isFolder: true, count: count), parent: parent)
             node.canHaveChildren = true
-            node.children = childNodes(paths: descendants, folders: folderDescendants, parent: node, folder: path)
+            node.children = childNodes(paths: descendants, folders: folderDescendants, parent: node, folder: path, includingFiles: includingFiles)
             return node
         }
+        guard includingFiles else { return branches }
         let leaves = descendants.filter { ($0 as NSString).deletingLastPathComponent == folder }
             .sorted { precedes(($0 as NSString).lastPathComponent, ($1 as NSString).lastPathComponent) }
             .map { path -> Node in

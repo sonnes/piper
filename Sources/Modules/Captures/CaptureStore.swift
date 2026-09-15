@@ -85,9 +85,9 @@ public final class CaptureStore {
         }
         let destination = section ?? activeSection
         guard sections.contains(destination) else { report(PiperError("This section no longer exists. Choose another section.")); return false }
-        let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines))
+        let url = CaptureLinks(text).standaloneURL
         let urls = Set([url, sourceURL.flatMap(URL.init(string:))].compactMap { value -> String? in
-            guard let value, ["http", "https"].contains(value.scheme?.lowercased() ?? ""), value.host != nil else { return nil }
+            guard let value, CaptureLinks.isWebURL(value) else { return nil }
             return value.absoluteString
         }).sorted()
         let saved = change { $0.notes.append(Note(text: text, section: destination, sources: source.map { [$0] } ?? [], sourceURLs: urls)) }

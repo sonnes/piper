@@ -1,0 +1,267 @@
+import AppKit
+import PiperTree
+import SwiftUI
+
+/// AppKit owns row geometry, selection, disclosure, and keyboard navigation.
+struct SidebarOutline: NSViewRepresentable {
+    let model: AppModel
+    let unreadCounts: [String: Int]
+    @Binding var expanded: Set<String>
+    let selection: SidebarSelection
+    let select: (SidebarSelection) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let outline = NSOutlineView()
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("source"))
+        column.resizingMask = .autoresizingMask
+        outline.addTableColumn(column)
+        outline.outlineTableColumn = column
+        outline.headerView = nil
+        outline.style = .sourceList
+        outline.rowSizeStyle = .default
+        outline.intercellSpacing = .zero
+        outline.indentationPerLevel = AppDefaults.Sidebar.indent
+        outline.floatsGroupRows = false
+        outline.allowsMultipleSelection = false
+        outline.allowsEmptySelection = true
+        outline.allowsColumnReordering = false
+        outline.backgroundColor = .clear
+        outline.dataSource = context.coordinator
+        outline.delegate = context.coordinator
+        outline.setAccessibilityLabel("Sources")
+
+        let menu = NSMenu()
+        let reveal = menu.addItem(withTitle: "Reveal in Finder", action: #selector(Coordinator.revealInFinder), keyEquivalent: "")
+        reveal.target = context.coordinator
+        outline.menu = menu
+
+        let scroll = NSScrollView()
+        scroll.documentView = outline
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        context.coordinator.outline = outline
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.parent = self
+        context.coordinator.update()
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuItemValidation {
+        var parent: SidebarOutline
+        weak var outline: NSOutlineView?
+        private var root = Node.root(representedObject: "root")
+        private var paths: [String] = []
+        private var folders: [String] = []
+        private var wikiPath = ""
+        private var unreadCounts: [String: Int] = [:]
+        private var style = PiperTheme.style
+        private var updating = false
+
+        init(_ parent: SidebarOutline) {
+            self.parent = parent
+            super.init()
+            DistributedNotificationCenter.default().addObserver(self, selector: #selector(sidebarSizeChanged),
+                                                                name: .appleSideBarDefaultIconSizeChanged, object: nil)
+        }
+
+        deinit { DistributedNotificationCenter.default().removeObserver(self) }
+
+        @objc private func sidebarSizeChanged() {
+            // AppKit applies the new row size after the notification arrives.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.outline?.reloadData()
+                self?.update()
+            }
+        }
+
+        func update() {
+            guard let outline else { return }
+            updating = true
+            defer { updating = false }
+            let newPaths = parent.model.files.map(\.relativePath)
+            if newPaths != paths || folders != parent.model.folders || wikiPath != parent.model.wikiPath || unreadCounts != parent.unreadCounts || style != PiperTheme.style {
+                paths = newPaths
+                folders = parent.model.folders
+                wikiPath = parent.model.wikiPath
+                unreadCounts = parent.unreadCounts
+                style = PiperTheme.style
+                root = Node.root(representedObject: "root")
+                let library = Node(representedObject: "Library", parent: root)
+                library.isGroupItem = true
+                library.children = [SidebarSelection.home, .inbox].map { Node(representedObject: $0, parent: library) }
+                let folderGroup = Node(representedObject: "Folders", parent: root)
+                folderGroup.isGroupItem = true
+                let wiki = PathTreeBuilder.tree(paths: paths, folders: folders, includingFiles: false)
+                wiki.parent = folderGroup
+                folderGroup.children = [wiki]
+                root.children = [library, folderGroup]
+                outline.reloadData()
+            }
+
+            func restore(_ node: Node) {
+                if node.isGroupItem {
+                    outline.expandItem(node)
+                } else if let item = node.representedObject as? PathItem, item.isFolder {
+                    if item.path.isEmpty || parent.expanded.contains(item.path) { outline.expandItem(node) }
+                    else { outline.collapseItem(node) }
+                }
+                node.children.forEach(restore)
+            }
+            root.children.forEach(restore)
+            let node = root.descendantNode { node in
+                if let selection = node.representedObject as? SidebarSelection { return selection == parent.selection }
+                guard !node.isGroupItem, let item = node.representedObject as? PathItem, item.isFolder else { return false }
+                return parent.selection == .folder(item.path)
+            }
+            let row = node.map { outline.row(forItem: $0) } ?? -1
+            if outline.selectedRow != row {
+                if row >= 0 { outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) }
+                else { outline.deselectAll(nil) }
+            }
+        }
+
+        func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+            ((item as? Node) ?? root).children.count
+        }
+
+        func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+            ((item as? Node) ?? root).children[index]
+        }
+
+        func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
+            (item as? Node)?.hasChildNodes == true
+        }
+
+        func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool {
+            (item as? Node)?.isGroupItem == true
+        }
+
+        func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
+            (item as? Node)?.isGroupItem == false
+        }
+
+        func outlineView(_ outlineView: NSOutlineView, shouldCollapseItem item: Any) -> Bool {
+            guard let node = item as? Node else { return false }
+            return !node.isGroupItem && (node.representedObject as? PathItem)?.path != ""
+        }
+
+        func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
+            guard let node = item as? Node else { return nil }
+            if node.isGroupItem {
+                let label = NSTextField(labelWithString: node.representedObject as? String ?? (wikiPath as NSString).abbreviatingWithTildeInPath)
+                label.font = .systemFont(ofSize: AppDefaults.Sidebar.headerFontSize, weight: .bold)
+                label.textColor = .secondaryLabelColor
+                label.lineBreakMode = .byTruncatingHead
+                return label
+            }
+            let identifier = NSUserInterfaceItemIdentifier("sourceCell")
+            let cell = (outlineView.makeView(withIdentifier: identifier, owner: self) as? SidebarCell) ?? SidebarCell()
+            cell.identifier = identifier
+            if let item = node.representedObject as? PathItem {
+                cell.configure(title: item.path.isEmpty ? parent.model.vault.root.lastPathComponent : item.name,
+                               symbol: "folder", count: unreadCounts[item.path, default: 0],
+                               rowSizeStyle: outlineView.effectiveRowSizeStyle)
+                cell.toolTip = item.path.isEmpty ? wikiPath : item.path
+            } else if let selection = node.representedObject as? SidebarSelection {
+                let home = selection == .home
+                cell.configure(title: home ? "Home" : "Inbox", symbol: home ? "house.fill" : "tray.fill",
+                               count: 0, rowSizeStyle: outlineView.effectiveRowSizeStyle)
+                cell.toolTip = nil
+            }
+            return cell
+        }
+
+        func outlineViewSelectionDidChange(_ notification: Notification) {
+            guard !updating, let outline, let node = outline.item(atRow: outline.selectedRow) as? Node else { return }
+            if let selection = node.representedObject as? SidebarSelection {
+                parent.select(selection)
+            } else if let item = node.representedObject as? PathItem {
+                parent.select(.folder(item.path))
+            }
+        }
+
+        func outlineViewItemDidExpand(_ notification: Notification) { recordExpansion(notification, expanded: true) }
+        func outlineViewItemDidCollapse(_ notification: Notification) { recordExpansion(notification, expanded: false) }
+
+        private func recordExpansion(_ notification: Notification, expanded: Bool) {
+            guard !updating, let node = notification.userInfo?["NSObject"] as? Node,
+                  !node.isGroupItem, let item = node.representedObject as? PathItem else { return }
+            if expanded { parent.expanded.insert(item.path) } else { parent.expanded.remove(item.path) }
+        }
+
+        @objc func revealInFinder() {
+            guard let outline, let node = outline.item(atRow: outline.clickedRow) as? Node,
+                  let item = node.representedObject as? PathItem else { return }
+            let url = item.path.isEmpty ? parent.model.vault.root : try? parent.model.vault.containedURL(item.path)
+            if let url { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        }
+
+        func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+            guard let outline, let node = outline.item(atRow: outline.clickedRow) as? Node else { return false }
+            return node.representedObject is PathItem
+        }
+    }
+}
+
+private final class SidebarCell: NSTableCellView {
+    private let title = NSTextField(labelWithString: "")
+    private let icon = NSImageView()
+    private let countLabel = NSTextField(labelWithString: "")
+    private lazy var iconWidth = icon.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.metrics(for: .medium).imageSize)
+    private lazy var iconHeight = icon.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.metrics(for: .medium).imageSize)
+
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet { updateColors() }
+    }
+
+    init() {
+        super.init(frame: .zero)
+        title.lineBreakMode = .byTruncatingTail
+        title.usesSingleLineMode = true
+        title.maximumNumberOfLines = 1
+        title.allowsDefaultTighteningForTruncation = false
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        countLabel.font = .monospacedDigitSystemFont(ofSize: AppDefaults.Sidebar.countFontSize, weight: .regular)
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        for view in [title, icon, countLabel] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+            view.centerYAnchor.constraint(equalTo: centerYAnchor).isActive = true
+        }
+        NSLayoutConstraint.activate([
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            iconWidth,
+            iconHeight,
+            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: AppDefaults.Sidebar.imageMarginRight),
+            title.trailingAnchor.constraint(lessThanOrEqualTo: countLabel.leadingAnchor, constant: -AppDefaults.Sidebar.countMarginLeft),
+            countLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func configure(title: String, symbol: String, count: Int, rowSizeStyle: NSTableView.RowSizeStyle) {
+        let metrics = AppDefaults.Sidebar.metrics(for: rowSizeStyle)
+        self.title.stringValue = title
+        self.title.font = .systemFont(ofSize: metrics.fontSize)
+        iconWidth.constant = metrics.imageSize
+        iconHeight.constant = metrics.imageSize
+        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        countLabel.stringValue = count > 0 ? count.formatted() : ""
+        countLabel.setAccessibilityLabel(count > 0 ? "\(count) unread" : nil)
+        updateColors()
+    }
+
+    private func updateColors() {
+        let emphasized = backgroundStyle == .emphasized
+        title.textColor = emphasized ? .selectedControlTextColor : .labelColor
+        countLabel.textColor = emphasized ? .selectedControlTextColor : .secondaryLabelColor
+        icon.contentTintColor = emphasized ? .selectedControlTextColor : .controlAccentColor
+    }
+}

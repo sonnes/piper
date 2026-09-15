@@ -1,53 +1,87 @@
 ---
 title: "Local Storage"
-summary: "Capture records, preferences, and persistence limits"
+summary: "Where Piper keeps captures, preferences, and read state, and the limits of each store"
 read_when:
   - Locating local data
-  - Changing persistence or undo behavior
+  - Backing up Piper
+  - Changing persistence, preferences, or undo behavior
 ---
 
 # Local Storage
 
+Piper keeps captures in a SQLite database and preferences in UserDefaults. Wiki files stay in their folder. Piper never copies them into the database.
+
 ## Capture Database
 
-Piper stores captures in `~/Library/Application Support/Piper/notes.sqlite`. SQLite holds one versioned JSON snapshot in the `state` table.
+The database is `~/Library/Application Support/Piper/notes.sqlite`. Settings > Local Data > Show in Finder opens its folder.
 
-The snapshot includes notes, sections, and the active section. Notes contain UUIDs, text, source applications, source URLs, completion status, and timestamps.
+The `state` table holds one versioned JSON snapshot. The snapshot contains the notes, the sections, and the active section. Each note has these fields:
 
-State changes save before the UI adopts them. Unsupported database versions produce an error without overwriting the saved state.
+| Field | Content |
+| --- | --- |
+| `id` | A UUID |
+| `text` | The note text |
+| `section` | The section name |
+| `sources` | Source app names, `Clipboard`, or a web page title |
+| `sourceURLs` | HTTP and HTTPS URLs |
+| `isDone` | The done state |
+| `createdAt`, `modifiedAt` | Creation and modification times |
 
-New databases contain Inbox and no notes. Existing databases retain their saved sections and captures.
+A new database has the Inbox section and no notes.
 
-Writes compare the stored snapshot with the last loaded snapshot. A stale app instance cannot replace newer notes. Database locks leave changes unsaved and available for retry.
+### Write Safety
 
-The current schema is version 1. General schema migration is not implemented. The database uses SQLite's default journal behavior.
+Piper writes a new snapshot before the UI shows the change. A save compares the stored snapshot with the snapshot that Piper loaded last. If they differ, the save fails. As a result, a second Piper instance cannot replace newer notes.
 
-## Clipboard Previews
+If the database is locked, Piper waits three seconds. Then the save fails, the current notes stay, and you can try again.
 
-Clipboard previews remain in memory until Piper quits. The buffer holds up to ten recent text entries, each limited to 500,000 UTF-8 bytes.
+The schema is version 1. Piper refuses to open a snapshot with an unknown version, and it does not overwrite that snapshot. Piper has no general schema migration. The database uses the default SQLite journal mode.
 
-Clicking a preview saves a normal capture through the database. Preview text does not enter SQLite or UserDefaults before that click.
+### Undo
 
-Piper checks clipboard changes approximately every 0.6 seconds. Copies replaced between checks are unavailable to the observer.
+Piper keeps one earlier state in memory. Undo saves that state to the database. A restart clears the undo step.
 
-## Preferences And Undo
+Selecting an existing section does not replace the undo step. An editor save with no change adds no undo step.
 
-UserDefaults stores `wikiPath`, `captureShortcut`, and `composerDraft`. Wiki preferences store the theme, font, text size, appearance, and right sidebar visibility.
+## Clipboard Entries
 
-Window frame preferences retain window positions separately. Reading preferences do not change Wiki files.
+Clipboard cards stay in memory until Piper quits. They do not go into SQLite or UserDefaults. A card becomes a note only when you save it.
 
-The release bundle ID is `com.piper`. First launch copies missing preferences from the previous `local.piper` domain. The capture database path stays unchanged.
+Piper checks the clipboard about every 0.6 seconds. If an app replaces the clipboard twice between checks, Piper sees only the last copy. The buffer holds ten entries, each up to 500,000 UTF-8 bytes.
 
-Undo keeps one previous state in memory. Undo saves that restored state to the database. Restarting Piper clears the undo history.
+## Drafts
 
-Selecting an existing section does not replace note undo history. Unchanged editor saves do not create an undo step.
+The composer text is a preference, so it survives a restart. Edits to an existing note and edits to a Wiki file stay in memory until you save or discard them. If you quit with a changed draft, Piper asks what to do.
 
-Capture editor drafts remain in memory until saved or discarded. Conflicting editors cannot overwrite each other's text. Quitting prompts for changed captures and Wiki notes. Wiki edits remain in memory until an explicit save or discard.
+## Preferences
 
-## Wiki Independence
+UserDefaults holds these keys:
 
-Wiki documents remain ordinary Markdown files in the selected folder. Browsing them does not import them into the capture database.
+| Key | Content |
+| --- | --- |
+| `wikiPath` | The Wiki folder |
+| `captureShortcut` | `Shift, Shift` or `Control-Option-Space` |
+| `composerDraft` | The unsaved composer text |
+| `piperStyle` | `Vault` or `Page` |
+| `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
+| `wikiInspectorVisible` | Whether the inspector shows |
+| `wikiFileSort` | Name or Date |
+| `mainWindowState` | The sidebar selection, open file, open folders, and pane widths |
+| `wikiReadTimestamps` | Read state |
+| `NSWindow Frame PiperCapturePanel`, `NSWindow Frame PiperLibrary` | Window frames |
 
-Export copies selected note content into a draft. Deleting a capture does not remove an exported Wiki file.
+### Read State
 
-For a database backup, quit Piper before copying the application support folder. Preferences require a separate backup.
+`wikiReadTimestamps` stores, for each Wiki folder and relative path, the modification time of the file when you last opened it. A file is unread when it has no stored time or its time differs. A change that keeps the modification time does not make a file unread.
+
+### Bundle ID Migration
+
+The release bundle ID is `com.piper`. On the first launch, Piper copies missing keys from the earlier `local.piper` domain. It copies `wikiPath`, `captureShortcut`, `composerDraft`, `wikiReaderSize`, and the two window frames. The database path does not change.
+
+## Back Up Piper
+
+1. Quit Piper.
+2. Copy `~/Library/Application Support/Piper`.
+3. If you want the preferences, copy `~/Library/Preferences/com.piper.plist`.
+
+Deleting a capture does not remove an exported file. See [Export captures](../guides/export.md).

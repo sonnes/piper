@@ -2,17 +2,15 @@ import AppKit
 import Captures
 import SwiftUI
 
-/// The detail pane when the sidebar has the inbox selected.
-///
-/// A capture is short and it carries no file, so the pane shows the text and
-/// the places it came from. Editing opens the note editor, which is the one
-/// place that writes a capture.
+/// The Inbox reader shows captured text or the selected web page.
 struct NoteDetail: View {
 
     // MARK: Properties
 
     @Bindable var model: AppModel
     let note: Note
+    @State private var links = CaptureLinks("")
+    @State private var selectedURL: URL?
 
     private var date: String {
         note.modifiedAt.formatted(date: .long, time: .shortened)
@@ -21,19 +19,39 @@ struct NoteDetail: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            ScrollView {
-                Text(note.text)
-                    .font(PiperTheme.ui(15))
-                    .lineSpacing(5)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: 640, alignment: .leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 24)
+                .padding(.horizontal, AppDefaults.Reader.horizontalInset)
+                .padding(.top, AppDefaults.Reader.topInset)
+            if let selectedURL {
+                NoteWebReader(url: selectedURL, showNote: { self.selectedURL = nil }) { text, title, url in
+                    model.store.add(text, source: title, sourceURL: url.absoluteString,
+                                    to: "Inbox", interpretSection: false)
+                }
+            } else {
+                ScrollView {
+                    Text(links.text)
+                        .font(PiperTheme.ui(18))
+                        .lineSpacing(6)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: AppDefaults.Reader.columnWidth, alignment: .leading)
+                        .padding(.horizontal, AppDefaults.Reader.horizontalInset)
+                        .padding(.top, 20)
+                        .padding(.bottom, 64)
+                        .frame(maxWidth: .infinity)
+                }
             }
-            if !note.sources.isEmpty { sources }
+            if !note.sources.isEmpty || !sourceURLs.isEmpty { sources }
         }
         .background(PiperTheme.page)
+        .onChange(of: note.text, initial: true) {
+            links = CaptureLinks(note.text)
+            selectedURL = links.standaloneURL
+        }
+        .environment(\.openURL, OpenURLAction { url in
+            guard CaptureLinks.isWebURL(url) else { return .discarded }
+            selectedURL = url
+            return .handled
+        })
     }
 
     // MARK: Parts
@@ -44,7 +62,7 @@ struct NoteDetail: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(note.section)
                         .font(PiperTheme.ui(13, weight: .bold))
-                        .foregroundStyle(PiperTheme.feedLink)
+                        .foregroundStyle(PiperTheme.secondary)
                     Text(date)
                         .font(PiperTheme.ui(12))
                         .foregroundStyle(PiperTheme.secondary)
@@ -55,8 +73,7 @@ struct NoteDetail: View {
                 Button("Edit") { model.openNoteEditor?(note) }
                     .buttonStyle(PiperButtonStyle(prominent: true))
             }
-            .padding(.horizontal, 32)
-            .frame(height: 68)
+            .frame(minHeight: AppDefaults.Reader.headerHeight)
             Rule()
         }
     }
@@ -69,9 +86,15 @@ struct NoteDetail: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 8)
-                if let first = note.sourceURLs.first, let url = URL(string: first),
-                   ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
-                    Button("Open Source") { NSWorkspace.shared.open(url) }
+                if sourceURLs.count > 1 {
+                    Menu("Open Source") {
+                        ForEach(sourceURLs, id: \.self) { url in
+                            Button(url.absoluteString) { selectedURL = url }
+                        }
+                    }
+                    .fixedSize()
+                } else if let url = sourceURLs.first {
+                    Button("Open Source") { selectedURL = url }
                         .buttonStyle(.plain)
                         .foregroundStyle(PiperTheme.accent)
                 }
@@ -82,5 +105,9 @@ struct NoteDetail: View {
             .frame(height: 24)
             .background(PiperTheme.statusBar)
         }
+    }
+
+    private var sourceURLs: [URL] {
+        note.sourceURLs.compactMap(URL.init(string:)).filter(CaptureLinks.isWebURL)
     }
 }

@@ -55,6 +55,7 @@ final class MainWindowController: NSWindowController {
         // them pushes the first group out over the file list.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.toolbarStyle = .unified
         window.tabbingMode = .disallowed
         window.backgroundColor = PiperTheme.pageNS
         window.minSize = AppDefaults.Window.mainMinimumSize
@@ -127,6 +128,7 @@ final class MainWindowController: NSWindowController {
     /// Records what the sidebar picked and redraws the panes for it.
     private func select(_ selection: SidebarSelection) {
         state.selection = selection
+        state.selectedFile = model.selectedDocument
         state.save()
         applyDefaultPaneWidths()
         refreshPanes()
@@ -214,9 +216,12 @@ private extension MainWindowController {
         let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarViewController)
         sidebarItem.minimumThickness = AppDefaults.Sidebar.minimumThickness
         sidebarItem.canCollapse = true
+        sidebarItem.holdingPriority = NSLayoutConstraint.Priority(260)
 
         let list = NSSplitViewItem(contentListWithViewController: fileListViewController)
         list.minimumThickness = 240
+        list.holdingPriority = NSLayoutConstraint.Priority(255)
+        if #available(macOS 26.0, *) { list.automaticallyAdjustsSafeAreaInsets = true }
         // The home page takes the width of the window, so its selection
         // collapses this pane instead of squeezing it.
         list.canCollapse = true
@@ -265,15 +270,15 @@ extension NSToolbarItem.Identifier {
     static let search = NSToolbarItem.Identifier("search")
     static let refresh = NSToolbarItem.Identifier("refresh")
     static let folder = NSToolbarItem.Identifier("folder")
+    static let readerSeparator = NSToolbarItem.Identifier("readerSeparator")
 }
 
 extension MainWindowController: NSToolbarDelegate {
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        // Only two items fit over the sidebar, beside the window buttons, so
-        // the folder menu sits with the rest.
         return [.toggleSidebar, .refresh, .sidebarTrackingSeparator,
-                .navigate, .home, .capture, .folder, .commands, .inspector, .flexibleSpace, .search]
+                .home, .folder, .flexibleSpace, .readerSeparator,
+                .navigate, .capture, .commands, .inspector, .flexibleSpace, .search]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -284,6 +289,9 @@ extension MainWindowController: NSToolbarDelegate {
                  itemForItemIdentifier identifier: NSToolbarItem.Identifier,
                  willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         switch identifier {
+        case .readerSeparator:
+            return NSTrackingSeparatorToolbarItem(identifier: identifier,
+                                                  splitView: splitViewController.splitView, dividerIndex: 1)
         case .home:
             return button(identifier, symbol: "house", label: "Home", action: #selector(goHome))
         case .navigate:
@@ -313,23 +321,20 @@ extension MainWindowController: NSToolbarDelegate {
     /// Plain text filters the file list. A leading `/` or `>` belongs to the command parser, so
     /// the window shows the home page and hands the text to its suggestion list.
     ///
-    /// The item holds the field itself. `NSSearchToolbarItem` shrinks to a
-    /// button as soon as the toolbar runs short of room, and a search field that
-    /// disappears is worse than one that stays.
     private func searchItem() -> NSToolbarItem {
         let field = NSSearchField()
-        field.placeholderString = "Search, / for commands, > for actions"
+        field.placeholderString = "Search"
         field.sendsWholeSearchString = false
         field.sendsSearchStringImmediately = true
         field.stringValue = model.wikiQuery
         field.target = self
         field.action = #selector(search(_:))
         field.translatesAutoresizingMaskIntoConstraints = false
-        field.widthAnchor.constraint(equalToConstant: 300).isActive = true
+        field.widthAnchor.constraint(equalToConstant: 220).isActive = true
         let item = NSToolbarItem(itemIdentifier: .search)
         item.view = field
         item.label = "Search"
-        item.toolTip = "Search"
+        item.toolTip = "Search; / for commands, > for actions"
         item.visibilityPriority = .high
         return item
     }
@@ -420,12 +425,13 @@ private struct NoteDetailPane: View {
     var body: some View {
         if let id, let note = model.store.notes.first(where: { $0.id == id }) {
             NoteDetail(model: model, note: note)
+                .id(note.id)
         } else {
-            ContentUnavailableView {
-                Label("Open a Capture", systemImage: "tray")
-            } description: {
-                Text("Choose a capture from the list.")
-            }
+            Text("No Selection")
+                .font(PiperTheme.ui(18))
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(PiperTheme.page)
         }
     }
 }
@@ -513,20 +519,31 @@ private struct DetailPane: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        if let document = model.currentDocument {
-            VStack(spacing: 0) {
-                DetailHeader(file: document, rootName: model.vault.root.lastPathComponent)
-                WikiEditor(model: model, document: document, fontSize: readerSize,
-                           fontName: readerFont.font(size: readerSize).fontName, paper: paper)
-                DetailStatusBar(path: path(of: document), words: words(of: document),
-                                hasChanges: model.wikiEdit?.hasChanges ?? false)
+        Group {
+            if let document = model.currentDocument {
+                if FilePresentation(document) != .markdown {
+                    FilePreview(model: model, document: document)
+                } else {
+                    VStack(spacing: 0) {
+                        DetailHeader(file: document, rootName: model.vault.root.lastPathComponent)
+                        WikiEditor(model: model, document: document, fontSize: readerSize,
+                                   fontName: readerFont.font(size: readerSize).fontName, paper: paper)
+                        DetailStatusBar(path: path(of: document), words: words(of: document),
+                                        hasChanges: model.wikiEdit?.hasChanges ?? false)
+                    }
+                    .background(paper)
+                    .preferredColorScheme(readerAppearance.colorScheme)
+                }
+            } else {
+                Text("No Selection")
+                    .font(PiperTheme.ui(18))
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(PiperTheme.page)
             }
-        } else {
-            ContentUnavailableView {
-                Label("Open a File", systemImage: "doc.text")
-            } description: {
-                Text("Choose a file from the list, or search from the home page.")
-            }
+        }
+        .onChange(of: model.currentDocument?.id, initial: true) { _, _ in
+            model.markCurrentDocumentRead()
         }
     }
 

@@ -1,38 +1,49 @@
 ---
 title: "Documentation"
-summary: "Guides, architecture, concepts, and delivery plans for Piper"
+summary: "Guides, concepts, internals, and release status for Piper"
 read_when:
   - Finding a guide
-  - Choosing between current behavior and planned work
+  - Deciding where a new page belongs
 ---
 
 # Documentation
 
-Piper keeps capture notes in a local database. The Wiki browser reads and edits Markdown files. An explicit export connects these stores.
+Piper captures text into a local database and browses a folder of files. Send to Wiki connects the two by writing captures to one Markdown file.
 
-## Start Here
+## Use Piper
 
-- [Capture notes](howto/capture.md): build the app, enable capture, and organize notes.
-- [Use your Wiki](howto/wiki.md): choose a folder, read documents, and save drafts.
+- [Install Piper](guides/install.md): build from source, allow Accessibility access, and build a signed release.
+- [Capture notes](guides/capture.md): the capture panel, clipboard cards, selection capture, and sections.
+- [Browse and edit your Wiki](guides/browse.md): Home, search, unread files, previews, editing, and the Inbox reader.
+- [Export captures](guides/export.md): write selected captures to one Markdown file.
+- [Run commands and skills](guides/commands.md): run Claude Code in your Wiki folder.
+- [Keyboard shortcuts](guides/shortcuts.md): every shortcut in both windows.
 
-## Understand The Implementation
+## Understand The Data
 
-- [Architecture](layers/architecture.md): window ownership and data flow.
-- [Coding guidelines](layers/coding-guidelines.md): values, composition, threading, and state changes.
-- [Local storage](concepts/storage.md): persistence, preferences, and undo.
-- [Wiki files](concepts/wiki.md): metadata, links, exports, and recovery limits.
-- [Capabilities](capabilities/README.md): implementation status and evidence.
+- [Local storage](concepts/storage.md): the capture database, preferences, read state, and backups.
+- [Wiki files](concepts/files.md): scan rules, links, backlinks, and safe saves.
 
-## Plan And Validate Changes
+## Change The Code
 
-- [Plans](plans/README.md): delivery status and acceptance criteria.
-- [Release readiness](plans/release-readiness.md): remaining work and acceptance criteria.
-- [Manual validation](howto/validate.md): permission, window, and export checks.
+- [Architecture](internals/architecture.md): modules, windows, data flow, and the source map.
+- [Coding guidelines](internals/coding-guidelines.md): values, composition, threading, and state changes.
+
+## Ship A Release
+
+- [Capability status](release/status.md): what exists, its evidence, and the known gaps.
+- [Validate a build](release/validate.md): automated tests and manual checks.
+- [Release readiness](release/readiness.md): open acceptance work.
 
 ## Page Conventions
 
-The structure follows pi-go: `layers/`, `howto/`, `concepts/`, and `capabilities/`. Piper adds `plans/` for delivery work.
+| Folder | Content |
+| --- | --- |
+| `guides/` | Tasks for a person who uses Piper |
+| `concepts/` | How Piper stores and treats data |
+| `internals/` | How the code is built and the rules for changing it |
+| `release/` | Status, validation, and open release work |
 
-Pages use `title`, `summary`, and `read_when` frontmatter. Plain Markdown works without a documentation site or MDX components.
+Each page starts with `title`, `summary`, and `read_when` frontmatter. Pages are plain Markdown and need no documentation site.
 
-Current behavior belongs in guides and concepts. Plans label unfinished work explicitly.
+A guide or a concept page describes current behavior only. Unfinished work goes in [Release readiness](release/readiness.md). Local planning notes go in `docs/plans/archive/`, which Git ignores.

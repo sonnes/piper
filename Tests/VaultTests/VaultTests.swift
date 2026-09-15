@@ -68,6 +68,23 @@ final class VaultTests: XCTestCase {
         XCTAssertEqual(try file("notes.txt", in: scan).text, "plain text\n")
     }
 
+
+    func testOnlyMarkdownUsesFrontmatterAndHeadingTitles() throws {
+        let text = "---\ntitle: Metadata-like text\n---\n# Literal heading\n"
+        for name in ["literal.txt", "literal.json", "literal.html"] {
+            try write(text, to: name)
+            let document = try vault.read(name)
+            XCTAssertFalse(document.isMarkdown)
+            XCTAssertEqual(document.title, name)
+            XCTAssertEqual(document.body, text)
+            XCTAssertTrue(document.metadata.isEmpty)
+            XCTAssertEqual(document.frontmatterPrefix, "")
+        }
+        try write(text, to: "Note.MARKDOWN")
+        XCTAssertTrue(try vault.read("Note.MARKDOWN").isMarkdown)
+        XCTAssertEqual(try vault.read("Note.MARKDOWN").title, "Metadata-like text")
+    }
+
     func testIndexAndLogGetNoSpecialTreatment() throws {
         try write("# Overview text\n", to: "index.md")
         try write("# Log text\n", to: "log.md")
@@ -96,7 +113,7 @@ final class VaultTests: XCTestCase {
         XCTAssertFalse(file.isText)
         XCTAssertNil(file.text)
         XCTAssertEqual(file.size, 4)
-        XCTAssertEqual(file.title, "image")
+        XCTAssertEqual(file.title, "image.bin")
     }
 
     func testScanSkipsHiddenFilesAndBuildFolders() throws {

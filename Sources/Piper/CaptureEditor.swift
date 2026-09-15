@@ -27,7 +27,7 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isRichText = false
         editor.importsGraphics = false
         editor.drawsBackground = false
-        editor.font = PiperTheme.uiNS(AppDefaults.FontSize.large)
+        editor.font = PiperTheme.uiNS(AppDefaults.CaptureItem.fontSize)
         editor.textColor = PiperTheme.inkNS
         editor.insertionPointColor = PiperTheme.accentNS
         editor.selectedTextAttributes = [.backgroundColor: PiperTheme.selectionNS, .foregroundColor: PiperTheme.inkNS]
@@ -51,7 +51,7 @@ struct CaptureEditor: NSViewRepresentable {
         paragraph.maximumLineHeight = metrics.lineHeight
         editor.defaultParagraphStyle = paragraph
         editor.typingAttributes = [
-            .font: PiperTheme.uiNS(AppDefaults.FontSize.large),
+            .font: PiperTheme.uiNS(AppDefaults.CaptureItem.fontSize),
             .foregroundColor: PiperTheme.inkNS,
             .paragraphStyle: paragraph
         ]

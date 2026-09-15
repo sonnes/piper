@@ -1,12 +1,15 @@
 import Foundation
 import Captures
 
-/// Every notification name the application posts.
+/// Every notification name the application uses.
 ///
 /// State changes inside a module travel through `Observation`. State changes
 /// that cross a module boundary travel through `NotificationCenter`, and every
 /// name for them is declared here. Post each one on the main queue.
 extension Notification.Name {
+
+    /// macOS changed the preferred sidebar row size.
+    static let appleSideBarDefaultIconSizeChanged = Notification.Name("AppleSideBarDefaultIconSizeChanged")
 
     /// The vault finished a scan. The object is the `VaultScan`.
     static let vaultDidScan = Notification.Name("VaultDidScanNotification")

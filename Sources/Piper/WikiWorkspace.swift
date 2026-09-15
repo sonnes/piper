@@ -71,7 +71,7 @@ enum WikiLinks {
 
     static func backlinks(to document: VaultFile, in files: [VaultFile], vault: Vault) -> [VaultFile] {
         files.filter { source in
-            source.id != document.id && targets(in: source.body).contains { link in
+            source.isMarkdown && source.id != document.id && targets(in: source.body).contains { link in
                 guard URL(string: link.target)?.scheme == nil else { return false }
                 return (try? resolve(link.target, from: source, files: files, vault: vault, wikiStyle: link.wikiStyle))?.path == document.id
             }

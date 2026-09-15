@@ -1,6 +1,6 @@
 ---
 title: "Coding Guidelines"
-summary: "How Piper code is written: values, composition, threading, and state changes"
+summary: "How Piper code is written: values, composition, threading, and the rules taken from NetNewsWire"
 read_when:
   - Writing new Swift in this repository
   - Reviewing a change
@@ -8,6 +8,8 @@ read_when:
 ---
 
 # Coding Guidelines
+
+This page is adapted from the NetNewsWire coding guidelines. See [Attribution](#attribution) for the source and for every place where Piper differs.
 
 ## Values
 
@@ -87,7 +89,7 @@ Immutable structs come first. A small amount of extra work to reach one is worth
 
 Piper is layered into modules under `Sources/Modules`, with the application target above them. Each module has one reason to exist.
 
-Dependencies between modules stay as few as possible. `PiperCore`, `PiperTree`, and `CapturesDatabase` add no dependencies at all. They sit at the bottom, which keeps them reusable and keeps the build graph simple.
+Dependencies between modules stay as few as possible. `PiperCore`, `PiperTree`, and `CapturesDatabase` add no dependency on another Piper module. They sit at the bottom, which keeps them reusable and keeps the build graph simple.
 
 Do not fight the system frameworks, and do not hide them behind a wrapper.
 
@@ -160,3 +162,27 @@ Piper indents with four spaces.
 Do not show off. Code that looks like kindergarten code is good code.
 
 Points go to whoever does not try to collect points.
+
+## Attribution
+
+This page is adapted from `Technotes/CodingGuidelines.md` in NetNewsWire, by Brent Simmons and the NetNewsWire contributors, retrieved on 2026-09-14.
+
+- Source: <https://github.com/Ranchero-Software/NetNewsWire/blob/main/Technotes/CodingGuidelines.md>
+- Copyright (c) 2002-2025 Brent Simmons
+- License: MIT, reproduced at [Licenses/NetNewsWire.txt](../../Licenses/NetNewsWire.txt)
+
+NetNewsWire does not endorse Piper, and it has no connection to this project.
+
+### Where Piper Differs
+
+| Rule in NetNewsWire | Rule in Piper | Reason |
+| --- | --- | --- |
+| Use AppKit and `.xib` files on macOS. Avoid SwiftUI. | AppKit owns the window chrome. SwiftUI draws the content of each pane. | The Piper target is about 6,000 lines of Swift, most of it SwiftUI. A full AppKit rewrite costs weeks and changes nothing that a reader sees. |
+| Use Auto Layout in `.xib` files, not in code. | No `.xib` files. SwiftUI lays out the pane content. Split view items set minimum thickness in code. | This follows from the rule above. |
+| Prefer storyboards to xibs. | Neither. Window controllers build their split view controllers in code. | Swift Package Manager builds Piper. It has no Interface Builder step. |
+| `NotificationCenter` and `didSet` carry every state change. | `Observation` carries state inside a module. `NotificationCenter` carries it across modules. | `Observation` did not exist when the original rule was written. It gives the same result as `didSet` without the manual wiring, and it is not KVO. |
+| Indent with tabs. | Indent with four spaces. | Every existing Piper source file uses four spaces. |
+| Write new code in Swift 5. | Write new code in Swift, with no version pinned in the guidance. | The Swift version belongs in `Package.swift`, not in prose that goes stale. |
+| Frameworks live in `Modules/` beside an Xcode project. | Modules live in `Sources/Modules` as Swift Package Manager targets. | Piper has no Xcode project. |
+
+Every other rule on this page comes from the original, restated in shorter sentences.

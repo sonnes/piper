@@ -35,8 +35,6 @@ struct HomeView: View {
     private static let recentWidth: CGFloat = 660
     /// How many files the Recent list shows.
     private static let recentCount = 6
-    /// A file younger than this carries the unread dot.
-    private static let unreadAge: TimeInterval = 24 * 60 * 60
 
     private var parser: CommandParser {
         CommandParser(commands: commands, skills: skills, actions: actions)
@@ -136,7 +134,7 @@ private extension HomeView {
             Text("Piper")
                 .font(PiperTheme.ui(34, weight: .semibold))
                 .tracking(-0.6)
-            Text(verbatim: "\(vaultPath) · \(model.files.count) \(model.files.count == 1 ? "file" : "files")")
+            Text(verbatim: "\(vaultPath) · \(model.unreadFolderCounts["", default: 0]) unread")
                 .font(PiperTheme.ui(12))
                 .foregroundStyle(PiperTheme.secondary)
         }
@@ -203,7 +201,7 @@ private extension HomeView {
                     TimelineCell(
                         file: file,
                         rootName: model.vault.root.lastPathComponent,
-                        showsDot: Date().timeIntervalSince(file.modifiedAt) < Self.unreadAge
+                        isUnread: model.isUnread(file)
                     )
                 }
                 .buttonStyle(.plain)

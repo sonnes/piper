@@ -36,17 +36,20 @@ struct TimelineCell: View {
     let file: VaultFile
     /// The name of the Wiki folder. A file in the root shows it in place of a folder.
     let rootName: String
-    /// Draws the dot in the gutter. Piper keeps no read state for a file, so the
-    /// caller decides what the dot means in its list.
-    let showsDot: Bool
-    /// Fills the row, for the file the browser has open.
-    var isSelected = false
+    let isUnread: Bool
 
     /// The `description` key of the frontmatter, or the first prose of the file.
     ///
     /// Heading lines drop out, because a heading repeats the title that the row
     /// already shows. The summary is plain text, so the row shows no markup.
     private var summary: String {
+        if !file.isMarkdown {
+            if FilePresentation(file) == .text {
+                return String(file.body.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).prefix(240))
+            }
+            return FilePresentation.typeName(for: file) + " · " +
+                ByteCountFormatter.string(fromByteCount: Int64(file.size), countStyle: .file)
+        }
         guard file.summary.isEmpty else { return SummaryText.plain(file.summary) }
         let prose = file.body
             .split(whereSeparator: \.isNewline)
@@ -69,40 +72,53 @@ struct TimelineCell: View {
     }
 
     var body: some View {
+        TimelineRow(title: file.title, summary: summary, source: folder, date: date,
+                    showsDot: isUnread, emphasizesTitle: isUnread)
+            .accessibilityValue(isUnread ? "Unread" : "Read")
+    }
+}
+
+/// A fixed-height timeline row. The title and summary share three lines.
+struct TimelineRow: View {
+    let title: String
+    let summary: String
+    let source: String
+    let date: String
+    let showsDot: Bool
+    var emphasizesTitle = true
+    var isDone = false
+
+    private var preview: AttributedString {
+        var heading = AttributedString(title)
+        heading.font = PiperTheme.ui(AppDefaults.FontSize.large, weight: emphasizesTitle ? .semibold : .regular)
+        if isDone { heading.strikethroughStyle = .single }
+        var excerpt = AttributedString(summary.isEmpty ? "" : "\n" + summary)
+        excerpt.font = PiperTheme.ui(AppDefaults.FontSize.large)
+        excerpt.foregroundColor = .secondary
+        return heading + excerpt
+    }
+
+    var body: some View {
         let metrics = AppDefaults.Timeline.self
-        HStack(alignment: .top, spacing: 0) {
+        HStack(alignment: .top, spacing: metrics.unreadCircleMarginRight) {
             Circle()
                 .fill(showsDot ? PiperTheme.accent : .clear)
                 .frame(width: metrics.unreadCircleDimension, height: metrics.unreadCircleDimension)
                 .padding(.top, 5)
-                .padding(.trailing, metrics.unreadCircleMarginRight)
             VStack(alignment: .leading, spacing: 0) {
-                Text(file.title)
-                    .font(PiperTheme.ui(AppDefaults.FontSize.large, weight: .semibold))
-                    .foregroundStyle(PiperTheme.ink)
+                Text(preview)
                     .lineLimit(metrics.titleNumberOfLines)
-                    .padding(.bottom, metrics.titleBottomMargin)
-                if !summary.isEmpty {
-                    Text(summary)
-                        .font(PiperTheme.ui(AppDefaults.FontSize.large))
-                        .foregroundStyle(PiperTheme.secondary)
-                        .lineLimit(2)
-                }
+                    .frame(height: metrics.textHeight, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(alignment: .firstTextBaseline, spacing: metrics.dateMarginLeft) {
-                    Text(folder)
-                        .font(PiperTheme.ui(AppDefaults.FontSize.small, weight: .bold))
-                        .foregroundStyle(PiperTheme.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer(minLength: metrics.dateMarginLeft)
-                    Text(date)
-                        .font(PiperTheme.ui(AppDefaults.FontSize.small, weight: .bold))
-                        .foregroundStyle(PiperTheme.secondary)
-                        .lineLimit(1)
+                    Text(source).truncationMode(.middle)
+                    Spacer(minLength: 0)
+                    Text(date).fixedSize()
                 }
-                .padding(.top, 3)
+                .font(PiperTheme.ui(AppDefaults.FontSize.small, weight: .bold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .multilineTextAlignment(.leading)
         .padding(.top, metrics.cellPadding.top)
@@ -111,7 +127,5 @@ struct TimelineCell: View {
         .padding(.trailing, metrics.cellPadding.right)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .background(isSelected ? PiperTheme.rowSelection : .clear,
-                    in: RoundedRectangle(cornerRadius: 6))
     }
 }

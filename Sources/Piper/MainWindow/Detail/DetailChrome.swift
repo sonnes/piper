@@ -1,50 +1,54 @@
 import SwiftUI
 import Vault
 
-/// The bar over the file.
-///
-/// It is 68 points high, with a one-point bottom border. It shows the folder,
-/// because a folder is what a file belongs to here.
+/// The document's source and title, aligned with the reading column.
 struct DetailHeader: View {
-
-    // MARK: Properties
-
     let file: VaultFile
     let rootName: String
 
-    private static let byteFormatter: ByteCountFormatter = {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter
-    }()
+    private var bodyHasTitle: Bool {
+        file.body.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("# ")
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(file.folder.isEmpty ? rootName : file.folder)
+                    Text(file.folder.isEmpty ? rootName : rootName + " / " + file.folder)
                         .font(PiperTheme.ui(13, weight: .bold))
-                        .foregroundStyle(PiperTheme.feedLink)
-                        .lineLimit(1)
                     Text(file.name)
                         .font(PiperTheme.ui(12))
-                        .foregroundStyle(PiperTheme.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
-                Spacer(minLength: 12)
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(Self.byteFormatter.string(fromByteCount: Int64(file.size)))
-                    Text(file.modifiedAt.formatted(date: .long, time: .omitted))
-                }
-                .font(PiperTheme.ui(12))
                 .foregroundStyle(PiperTheme.secondary)
+                Spacer(minLength: 12)
+                Image(systemName: "doc.text")
+                    .font(.system(size: 26, weight: .light))
+                    .foregroundStyle(PiperTheme.secondary)
+                    .frame(width: 48, height: 48)
+                    .accessibilityHidden(true)
             }
-            .padding(.horizontal, 32)
-            .frame(height: 68)
+            .frame(height: AppDefaults.Reader.headerHeight)
             Rule()
+            if !bodyHasTitle {
+                Text(file.title)
+                    .font(PiperTheme.ui(AppDefaults.Reader.titleSize, weight: .bold))
+                    .foregroundStyle(PiperTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 16)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            Text(file.modifiedAt.formatted(date: .abbreviated, time: .shortened).uppercased())
+                .font(PiperTheme.ui(11, weight: .bold))
+                .tracking(0.5)
+                .foregroundStyle(PiperTheme.secondary)
+                .padding(.top, 6)
         }
-        .background(PiperTheme.page)
+        .frame(maxWidth: AppDefaults.Reader.columnWidth, alignment: .leading)
+        .padding(.horizontal, AppDefaults.Reader.horizontalInset)
+        .padding(.top, AppDefaults.Reader.topInset)
+        .frame(maxWidth: .infinity)
     }
 }
 

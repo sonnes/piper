@@ -39,7 +39,7 @@ struct MainWindowState: Codable, Equatable {
     var expandedFolders: [String]?
     var sidebarWidth: CGFloat = 216
     var listWidth: CGFloat = 340
-    var inspectorVisible = true
+    var inspectorVisible = false
 
     // MARK: - Persistence
 

@@ -1,0 +1,62 @@
+---
+title: "Release Readiness"
+summary: "Open acceptance work before Piper is ready for regular use and distribution"
+read_when:
+  - Planning the next development pass
+  - Deciding whether a build is ready for regular use
+---
+
+# Release Readiness
+
+Release 0.1.0 is notarized, but it is older than the current source. The next release needs the acceptance work below. Each task links to the checks in [Validate a build](validate.md). Change a checkbox only when you record the evidence.
+
+## Capture Compatibility
+
+- [ ] Fill in the selection capture app matrix after Accessibility approval.
+- [ ] Record double Shift behavior during normal typing and with held modifiers.
+- [ ] Test Control-Option-Space.
+- [ ] Test empty selections, secure fields, and the clipboard fallback.
+- [ ] Correct the defects that you find, and add regression tests where possible.
+
+Acceptance: a supported app saves the exact selected text. The clipboard and the focus do not change. An unsupported selection gives a clear fallback message.
+
+## Windows And Persistence
+
+- [ ] Run the capture checks, including a restart.
+- [ ] Test Save Changes and Cancel in a separate note editor.
+- [x] Keep the current notes when a database write fails. `ReleaseTests` covers locked, invalid, and stale databases.
+- [x] Protect capture drafts from conflicting edits and from quit. `ReleaseTests` and `QuitSafetyTests` cover this.
+
+Acceptance: each window restores its own state, saved notes survive a restart, and a failed write keeps the current data.
+
+## Wiki Window
+
+- [ ] Run the Wiki window, editing, and reading preference checks.
+- [ ] Remove the Focus action from the inspector, or implement focus mode.
+- [ ] Decide whether the Wiki window needs find in the open file.
+- [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
+- [ ] Make a link from the inspector or the editor update the sidebar and the file list.
+
+Acceptance: every visible control does what its label says, and no edit is lost on navigation, close, or quit.
+
+## Export And Commands
+
+- [ ] Run the export and command checks.
+- [ ] Correct the Settings > Wiki text that still describes unverified drafts.
+- [ ] Connect the Capture Clipboard action on Home. `AppModel.captureClipboard` is never set.
+
+Acceptance: export writes one file and changes nothing else. A command run streams output, can stop, and rescans the folder.
+
+## Distribution
+
+- [x] Choose the Developer ID identity and a direct-download channel.
+- [x] Add Developer ID signing and notarization for the DMG.
+- [x] Notarize and staple release 0.1.0 for Apple silicon.
+- [ ] Choose the supported macOS versions and the app compatibility list.
+- [ ] Run the distribution checks for the next release, including a clean Mac.
+
+Acceptance: the downloaded DMG installs and captures text with the documented permission steps.
+
+## Out Of Scope
+
+These items need a separate scope decision: attachments, URL lookup beyond Accessibility, an arbitrary shortcut recorder, launch at login, and full CommonMark. Sync, AI processing beyond Claude Code commands, and a documentation website are outside this release.

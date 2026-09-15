@@ -27,12 +27,13 @@ struct PanelView: View {
     @State private var sheet: PanelSheet?
     @State private var keyMonitor: Any?
     @State private var selectionAnchor: UUID?
+    @State private var showingSearch = false
     @FocusState private var searching: Bool
     @State private var composing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Search shows every section. Otherwise the active section tab filters the list.
-    private var searchMode: Bool { searching || !store.query.isEmpty }
+    private var searchMode: Bool { showingSearch || !store.query.isEmpty }
     private var displayedSections: [String] {
         searchMode ? store.sections.filter { !store.visibleNotes(in: $0).isEmpty } : [store.activeSection]
     }
@@ -48,12 +49,14 @@ struct PanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            Rule()
             if !model.accessibilityEnabled { capturePermission }
             noteList
             if !store.selection.isEmpty { selectionBar }
             composer
             footer
         }
+        .background(PiperTheme.statusBar)
         .id(model.style)
         .foregroundStyle(PiperTheme.ink)
         .tint(PiperTheme.accent)
@@ -87,7 +90,7 @@ struct PanelView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             guard let window = notification.object as? CapturePanel, window.attachedSheet == nil else { return }
-            if store.selection.isEmpty && store.query.isEmpty { composing = true }
+            if store.selection.isEmpty && !searchMode { composing = true }
         }
         .onAppear {
             composing = true
@@ -105,7 +108,8 @@ struct PanelView: View {
         HStack(spacing: 4) {
             if searchMode { searchBar } else { sectionTabs }
             IconButton(title: "Search · ⌘F", icon: "magnifyingglass", active: searchMode) {
-                if searchMode { store.query = ""; searching = false; composing = true } else { searching = true }
+                if searchMode { store.query = ""; showingSearch = false; searching = false; composing = true }
+                else { composing = false; showingSearch = true }
             }
             IconButton(title: "Wiki Window · ⌘2", icon: "macwindow") {
                 model.route = "wiki"
@@ -128,6 +132,7 @@ struct PanelView: View {
         }
         .padding(.leading, 12).padding(.trailing, 8)
         .frame(height: 44)
+        .background(PiperTheme.surface)
     }
 
     private var sectionTabs: some View {
@@ -144,12 +149,9 @@ struct PanelView: View {
                         .font(PiperTheme.ui(12, weight: .medium))
                         .foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary)
                         .padding(.horizontal, 8)
-                        .frame(height: 44)
-                        .overlay(alignment: .bottom) {
-                            if active && !PiperTheme.isPage {
-                                Rectangle().fill(PiperTheme.accent).frame(height: 2).padding(.horizontal, 8)
-                            }
-                        }
+                        .frame(height: 28)
+                        .background(active ? PiperTheme.rowSelection : .clear,
+                                    in: RoundedRectangle(cornerRadius: PiperTheme.radius))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -172,8 +174,9 @@ struct PanelView: View {
             Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(PiperTheme.secondary)
             TextField("Search notes", text: $store.query)
                 .textFieldStyle(.plain).focused($searching)
-                .font(Font(PiperTheme.manuscript(size: 13)))
+                .font(PiperTheme.ui(13))
                 .accessibilityLabel("Search notes and sections")
+                .onAppear { DispatchQueue.main.async { searching = true } }
             Text(matchingNotes.count == 1 ? "1 match · Esc" : "\(matchingNotes.count) matches · Esc")
                 .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
         }
@@ -191,7 +194,7 @@ struct PanelView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+        .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: AppDefaults.CaptureItem.cornerRadius))
         .padding(.horizontal, 10).padding(.top, 8)
     }
 
@@ -200,7 +203,7 @@ struct PanelView: View {
     private var noteList: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
+                LazyVStack(alignment: .leading, spacing: AppDefaults.CaptureItem.spacing) {
                     if !clipboardEntries.isEmpty {
                         listLabel("Clipboard")
                         ForEach(clipboardEntries) { entry in
@@ -271,8 +274,8 @@ struct PanelView: View {
     }
 
     private func listLabel(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(PiperTheme.ui(10.5, weight: .semibold)).tracking(0.4)
+        Text(title)
+            .font(PiperTheme.ui(11, weight: .bold))
             .foregroundStyle(PiperTheme.secondary)
             .padding(.horizontal, 8).padding(.top, 10).padding(.bottom, 0)
             .accessibilityAddTraits(.isHeader)
@@ -334,19 +337,28 @@ struct PanelView: View {
             }
             .padding(.leading, 18).padding(.trailing, 8).padding(.vertical, 6)
         }
+        .background(PiperTheme.surface)
     }
 
     private var composer: some View {
-        CaptureEditor(text: $draft, focused: $composing)
-            .frame(height: AppDefaults.Composer.height)
-            .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-            .overlay {
-                RoundedRectangle(cornerRadius: PiperTheme.cardRadius)
-                    .strokeBorder(composing ? PiperTheme.accent : .clear, lineWidth: 2)
-            }
-            .padding(.horizontal, AppDefaults.Composer.margin)
-            .padding(.top, 4)
-            .padding(.bottom, 6)
+        HStack(alignment: .top, spacing: 0) {
+            Circle()
+                .strokeBorder(PiperTheme.faint, lineWidth: 1.5)
+                .frame(width: AppDefaults.CaptureItem.circleSize, height: AppDefaults.CaptureItem.circleSize)
+                .padding(.leading, AppDefaults.CaptureItem.horizontalPadding)
+                .padding(.top, AppDefaults.Composer.regionInset + AppDefaults.Composer.textInset.height + 2)
+                .accessibilityHidden(true)
+            CaptureEditor(text: $draft, focused: $composing)
+                .frame(height: AppDefaults.Composer.height)
+        }
+        .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: AppDefaults.CaptureItem.cornerRadius))
+        .overlay {
+            RoundedRectangle(cornerRadius: AppDefaults.CaptureItem.cornerRadius)
+                .strokeBorder(composing ? PiperTheme.accent : .clear, lineWidth: 2)
+        }
+        .padding(.horizontal, AppDefaults.Composer.margin)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
     }
 
     private var footer: some View {
@@ -369,12 +381,14 @@ struct PanelView: View {
             .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
             .padding(.horizontal, 18).frame(height: 30)
         }
+        .background(PiperTheme.statusBar)
     }
 
     // MARK: Behavior
 
     private func selectNote(_ id: UUID) {
         composing = false
+        showingSearch = false
         searching = false
         let flags = NSEvent.modifierFlags
         if flags.contains(.shift), let anchor = selectionAnchor,
@@ -397,6 +411,7 @@ struct PanelView: View {
             if createsSection { store.status = "Capturing to \(store.activeSection)" }
             draft = ""
             store.query = ""
+            showingSearch = false
             store.selection.removeAll()
             composing = true
         }
@@ -412,7 +427,7 @@ struct PanelView: View {
             let editingText = textView != nil
             if event.keyCode == 53 {
                 if !store.selection.isEmpty { store.selection.removeAll(); composing = true }
-                else if !store.query.isEmpty || searching { store.query = ""; searching = false; composing = true }
+                else if searchMode { store.query = ""; showingSearch = false; searching = false; composing = true }
                 else { window.orderOut(nil) }
                 return nil
             }
@@ -440,7 +455,7 @@ struct PanelView: View {
             guard flags.contains(.command), !flags.contains(.option), !flags.contains(.control) else { return event }
             switch event.charactersIgnoringModifiers?.lowercased() {
             case "k": sheet = .sections(moving: false)
-            case "f": searching = true
+            case "f": composing = false; showingSearch = true; searching = true
             case "n": store.selection.removeAll(); composing = true
             case "a" where !editingText: store.selection = Set(matchingNotes.map(\.id))
             case "c" where !editingText && !store.selection.isEmpty: store.copy(asList: flags.contains(.shift))
@@ -473,7 +488,7 @@ private struct ClipboardRow: View {
         Button(action: activate) {
             HStack(alignment: .top, spacing: 10) {
                 Text(entry.text)
-                    .font(PiperTheme.ui(AppDefaults.FontSize.large)).lineSpacing(4).lineLimit(4)
+                    .font(PiperTheme.ui(AppDefaults.CaptureItem.fontSize)).lineSpacing(AppDefaults.CaptureItem.lineSpacing).lineLimit(3)
                     .foregroundStyle(hovered || contrast == .increased ? PiperTheme.ink : PiperTheme.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if PiperTheme.isPage {
@@ -481,19 +496,14 @@ private struct ClipboardRow: View {
                         .foregroundStyle(hovered ? PiperTheme.accent : PiperTheme.faint).padding(.top, 4)
                 } else {
                     Text("unsaved").font(PiperTheme.ui(10)).foregroundStyle(PiperTheme.secondary)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(PiperTheme.rule, lineWidth: 1))
                 }
             }
-            .padding(.horizontal, 14).padding(.vertical, 12)
+            .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding).padding(.vertical, AppDefaults.CaptureItem.verticalPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(PiperTheme.card.opacity(hovered ? 1 : 0.55),
-                        in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+            .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: AppDefaults.CaptureItem.cornerRadius))
             .overlay {
-                // A dashed border marks the card as a draft that no file holds yet.
-                RoundedRectangle(cornerRadius: PiperTheme.cardRadius)
-                    .strokeBorder(hovered ? PiperTheme.accent : PiperTheme.faint,
-                                  style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                RoundedRectangle(cornerRadius: AppDefaults.CaptureItem.cornerRadius)
+                    .strokeBorder(hovered ? PiperTheme.rule : .clear, lineWidth: 1)
             }
             .contentShape(Rectangle())
         }
@@ -530,35 +540,31 @@ private struct NoteRow: View {
         HStack(alignment: .top, spacing: 10) {
             Button(action: complete) {
                 Circle()
-                    .strokeBorder(note.isDone ? .clear : PiperTheme.faint, lineWidth: 1.5)
+                    .strokeBorder(note.isDone ? .clear : PiperTheme.secondary, lineWidth: 1.5)
                     .background(Circle().fill(note.isDone ? PiperTheme.faint : .clear))
-                    .frame(width: 14, height: 14)
-                    .frame(width: 20, height: 22)
+                    .frame(width: AppDefaults.CaptureItem.circleSize, height: AppDefaults.CaptureItem.circleSize)
+                    .frame(width: 24, height: 24)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(note.isDone ? "Reopen note" : "Mark note as done")
             Button(action: select) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(formattedText)
-                        .font(PiperTheme.ui(AppDefaults.FontSize.large)).lineSpacing(4).lineLimit(4)
-                        .strikethrough(note.isDone)
-                        .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if let source = note.sources.first {
-                        Text(source).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
-                    }
-                }
-                .contentShape(Rectangle())
+                Text(formattedText)
+                    .font(PiperTheme.ui(AppDefaults.CaptureItem.fontSize))
+                    .lineSpacing(AppDefaults.CaptureItem.lineSpacing).lineLimit(3)
+                    .strikethrough(note.isDone)
+                    .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityAddTraits(selected ? .isSelected : [])
             .accessibilityHint("Command-click adds to the selection. Return edits the note.")
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+        .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding).padding(.vertical, AppDefaults.CaptureItem.verticalPadding)
+        .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: AppDefaults.CaptureItem.cornerRadius))
         .overlay {
-            RoundedRectangle(cornerRadius: PiperTheme.cardRadius)
+            RoundedRectangle(cornerRadius: AppDefaults.CaptureItem.cornerRadius)
                 .strokeBorder(selected ? PiperTheme.accent : .clear, lineWidth: 2)
         }
         .contextMenu {
@@ -678,7 +684,7 @@ struct NoteEditor: View {
                 Text("Edit Note").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary).frame(height: 38)
                 Rule()
             }
-            TextEditor(text: $session.text).font(Font(PiperTheme.manuscript(size: 14))).lineSpacing(5)
+            TextEditor(text: $session.text).font(PiperTheme.ui(14)).lineSpacing(5)
                 .scrollContentBackground(.hidden).background(PiperTheme.page)
                 .padding(.horizontal, 18).padding(.vertical, 14)
                 .accessibilityLabel("Edit note text")

@@ -55,30 +55,38 @@ final class AppDefaults {
         static let iconSize = NSSize(width: 48, height: 48)
         static let iconCornerRadius: CGFloat = 4
         static let iconMargin: CGFloat = 8
+        static var textHeight: CGFloat {
+            let font = PiperTheme.uiNS(FontSize.large)
+            return ceil(NSLayoutManager().defaultLineHeight(for: font)) * CGFloat(titleNumberOfLines)
+        }
     }
 
     /// Sidebar cell metrics.
     ///
-    /// The row values below the cell metrics come from the macOS source list:
-    /// a 32-point row, a selection fill that is inset from both edges, and a
-    /// group header over each section.
+    /// The source list follows the macOS sidebar size preference.
     enum Sidebar {
-        static let imageSize = NSSize(width: 19, height: 19)
+        static func metrics(for style: NSTableView.RowSizeStyle) -> (fontSize: CGFloat, imageSize: CGFloat) {
+            switch style {
+            case .small: return (11, 16)
+            case .large: return (15, 22)
+            default: return (13, 19)
+            }
+        }
+
         static let imageMarginRight: CGFloat = 4
         static let countMarginLeft: CGFloat = 10
         static let countCornerRadius: CGFloat = 8
         static let countPadding = NSEdgeInsets(top: 1, left: 7, bottom: 1, right: 7)
         static let minimumThickness: CGFloat = 180
 
-        static let rowHeight: CGFloat = 32
         static let rowCornerRadius: CGFloat = 6
         /// The inset of the selection fill from each edge of the sidebar.
         static let rowInset: CGFloat = 12
         /// The gutter that holds the disclosure triangle. A file reserves it, so
         /// that every icon of one level starts at the same place.
         static let disclosureWidth: CGFloat = 10
-        static let indent: CGFloat = 14
-        static let fontSize: CGFloat = 13
+        static let indent: CGFloat = 13
+        static let countFontSize: CGFloat = 13
         static let iconPointSize: CGFloat = 14
         static let disclosurePointSize: CGFloat = 9
 
@@ -95,6 +103,30 @@ final class AppDefaults {
         static let mainMinimumSize = NSSize(width: 850, height: 620)
         static let detailMinimumThickness: CGFloat = 384
         static let capturePanelSize = NSSize(width: 430, height: 932)
+        static let captureCornerRadius: CGFloat = 22
+    }
+
+    enum Reader {
+        static let horizontalInset: CGFloat = 48
+        static let topInset: CGFloat = 20
+        static let floatingActionInset: CGFloat = 20
+        static let floatingActionSpacing: CGFloat = 8
+        static let floatingActionShadow: CGFloat = 6
+        static let headerHeight: CGFloat = 68
+        static let titleSize: CGFloat = 29.6
+        static let headingMultipliers: [CGFloat] = [1.65, 1.4, 1.2, 1, 1, 1]
+
+        static let columnWidth: CGFloat = 44 * 16
+    }
+
+    enum CaptureItem {
+        static let cornerRadius: CGFloat = 20
+        static let fontSize: CGFloat = 16
+        static let lineSpacing: CGFloat = 5
+        static let spacing: CGFloat = 12
+        static let circleSize: CGFloat = 18
+        static let horizontalPadding: CGFloat = 16
+        static let verticalPadding: CGFloat = 12
     }
 
     /// Composer metrics.
@@ -161,7 +193,7 @@ final class AppDefaults {
     }
 
     var inspectorVisible: Bool {
-        get { defaults.object(forKey: Key.inspectorVisible) as? Bool ?? true }
+        get { defaults.object(forKey: Key.inspectorVisible) as? Bool ?? false }
         set { defaults.set(newValue, forKey: Key.inspectorVisible) }
     }
 

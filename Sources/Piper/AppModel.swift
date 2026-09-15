@@ -10,6 +10,7 @@ import Vault
 final class AppModel {
     let store: CaptureStore
     let clipboard: ClipboardInbox
+    let fileReadState: FileReadState
     let agent = WikiAgent()
     var files: [VaultFile] = []
     /// Every folder of the vault, including the ones that hold no file.
@@ -20,7 +21,11 @@ final class AppModel {
     var wikiProblems: [String] = []
     var wikiError: String?
     var loading = false
-    var exporting = false
+    var exporting = false {
+        didSet { if !exporting, reloadPending { reload() } }
+    }
+    @ObservationIgnored private var vaultWatcher: VaultWatcher?
+    @ObservationIgnored private var reloadPending = false
     var route = "wiki"
     var workspace = WikiWorkspace()
     var wikiEdit: WikiEditSession?
@@ -35,7 +40,10 @@ final class AppModel {
     }
     var captureEdits: [UUID: CaptureEditSession] = [:]
     var selectedDocument: String? { workspace.location?.path }
-    var currentDocument: VaultFile? { files.first { $0.id == selectedDocument } }
+    var currentDocument: VaultFile? {
+        if let edit = wikiEdit, edit.hasChanges, edit.document.id == selectedDocument { return edit.document }
+        return files.first { $0.id == selectedDocument }
+    }
     var wikiQuery = ""
     var requestedAnchor: String?
     var anchorRequest = UUID()
@@ -47,7 +55,10 @@ final class AppModel {
     var captureClipboard: (() -> Void)?
     var captureShortcutChanged: (() -> Void)?
     var wikiPath: String {
-        didSet { UserDefaults.standard.set(wikiPath, forKey: "wikiPath") }
+        didSet {
+            UserDefaults.standard.set(wikiPath, forKey: "wikiPath")
+            if let vaultWatcher, vaultWatcher.root != vault.root { reload() }
+        }
     }
     var captureShortcut: String {
         didSet {
@@ -59,7 +70,7 @@ final class AppModel {
         didSet { UserDefaults.standard.set(style.rawValue, forKey: PiperStyle.key) }
     }
 
-    init(store: CaptureStore? = nil, wikiPath: String? = nil) {
+    init(store: CaptureStore? = nil, wikiPath: String? = nil, fileReadState: FileReadState? = nil) {
         let defaults = UserDefaults.standard
         if Bundle.main.bundleIdentifier == "com.piper", !defaults.bool(forKey: "migratedLocalPreferences") {
             let previous = defaults.persistentDomain(forName: "local.piper") ?? [:]
@@ -71,6 +82,7 @@ final class AppModel {
         let store = store ?? CaptureStore()
         self.store = store
         clipboard = ClipboardInbox(store: store)
+        self.fileReadState = fileReadState ?? FileReadState()
         self.wikiPath = wikiPath ?? UserDefaults.standard.string(forKey: "wikiPath") ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Wiki").path
         // Control-Option-C was the earlier alternative. A stored value that no
         // longer matches a preset leaves the capture shortcut dead.
@@ -99,6 +111,27 @@ final class AppModel {
     }
 
     var vault: Vault { Vault(root: URL(fileURLWithPath: (wikiPath as NSString).expandingTildeInPath).standardizedFileURL) }
+
+    func isUnread(_ file: VaultFile) -> Bool { fileReadState.isUnread(file, in: vault.root) }
+
+    var unreadFolderCounts: [String: Int] {
+        var counts: [String: Int] = [:]
+        for file in files where isUnread(file) {
+            counts["", default: 0] += 1
+            var folder = file.folder
+            while !folder.isEmpty {
+                counts[folder, default: 0] += 1
+                folder = (folder as NSString).deletingLastPathComponent
+            }
+        }
+        return counts
+    }
+
+    func markCurrentDocumentRead() {
+        guard let document = currentDocument else { return }
+        fileReadState.markRead(document, in: vault.root)
+    }
+
     var filteredFiles: [VaultFile] {
         files.filter { document in
             wikiQuery.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").allSatisfy { word in
@@ -108,16 +141,29 @@ final class AppModel {
     }
 
     func reload() {
-        guard !loading, !exporting, wikiEdit?.hasChanges != true else { return }
-        loading = true
         let repo = vault
+        if vaultWatcher?.root != repo.root {
+            vaultWatcher?.stop()
+            let watcher = VaultWatcher(root: repo.root) { [weak self] in self?.reload() }
+            vaultWatcher = watcher
+            watcher.start()
+        }
+        guard !loading, !exporting else { reloadPending = true; return }
+        reloadPending = false
+        loading = true
         let edit = wikiEdit
         let original = edit?.document.raw
         Task {
+            defer {
+                loading = false
+                if reloadPending { reload() }
+            }
             let result = await Task.detached { Result { try repo.scan() } }.value
-            loading = false
-            guard repo.root == vault.root else { reload(); return }
-            guard wikiEdit === edit, wikiEdit?.hasChanges != true, wikiEdit?.document.raw == original else { return }
+            guard repo.root == vault.root, wikiEdit === edit, wikiEdit?.document.raw == original else {
+                reloadPending = true
+                return
+            }
+            let hasDraft = wikiEdit?.hasChanges == true
             switch result {
             case .success(let scan):
                 wikiProblems = scan.problems
@@ -126,21 +172,26 @@ final class AppModel {
                 files = scan.files
                 folders = scan.folders
                 let previousLocation = workspace.location
-                workspace.reconcile(paths: Set(files.map(\.id)))
-                if currentDocument?.id != wikiEdit?.document.id || currentDocument?.raw != wikiEdit?.document.raw { wikiEdit = nil }
-                beginWikiEdit()
+                var paths = Set(files.map(\.id))
+                // A deleted file can still have an unsaved draft in the editor.
+                if hasDraft, let edit = wikiEdit { paths.insert(edit.document.id) }
+                workspace.reconcile(paths: paths)
+                if !hasDraft {
+                    if currentDocument?.id != wikiEdit?.document.id || currentDocument?.raw != wikiEdit?.document.raw { wikiEdit = nil }
+                    beginWikiEdit()
+                }
                 if previousLocation != workspace.location { jump(to: workspace.location?.anchor) }
                 if firstLoad,
                    let first = files.first(where: { $0.id == initialDocument })
                        ?? files.first(where: { $0.id == "Start Here.md" })
                        ?? files.first(where: { $0.id == "index.md" })
                        ?? files.first {
-                    openDocument(first.id)
+                    openDocument(first.id, markAsRead: false)
                 }
             case .failure(let error):
                 files = []
                 folders = []
-                wikiEdit = nil
+                if !hasDraft { wikiEdit = nil }
                 wikiError = error.localizedDescription
             }
         }
@@ -230,10 +281,11 @@ final class AppModel {
         }
     }
 
-    func openDocument(_ path: String, anchor: String? = nil) {
+    func openDocument(_ path: String, anchor: String? = nil, markAsRead: Bool = true) {
         if path == selectedDocument {
             route = "wiki"
             beginWikiEdit()
+            if markAsRead { markCurrentDocumentRead() }
             if let anchor { jump(to: anchor) }
             return
         }
@@ -242,6 +294,7 @@ final class AppModel {
         workspace.open(WikiLocation(path: path, anchor: anchor))
         beginWikiEdit()
         jump(to: anchor)
+        if markAsRead { markCurrentDocumentRead() }
     }
 
     func navigate(_ offset: Int) {
@@ -251,10 +304,11 @@ final class AppModel {
         workspace.move(offset)
         beginWikiEdit()
         jump(to: workspace.location?.anchor)
+        markCurrentDocumentRead()
     }
 
     func beginWikiEdit() {
-        guard wikiEdit == nil, let document = currentDocument else { return }
+        guard wikiEdit == nil, let document = currentDocument, document.isMarkdown, document.isText else { return }
         wikiEdit = WikiEditSession(document: document)
     }
 
@@ -264,6 +318,7 @@ final class AppModel {
             let saved = try WikiSave.body(edit.markdown, of: edit.document, in: vault)
             if let index = files.firstIndex(where: { $0.id == saved.id }) { files[index] = saved }
             edit.document = saved
+            fileReadState.markRead(saved, in: vault.root)
             return true
         } catch {
             store.report(error)

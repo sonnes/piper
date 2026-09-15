@@ -27,6 +27,9 @@ public struct VaultFile: Identifiable {
     private let frontmatter: Frontmatter?
 
     public var id: String { relativePath }
+    public var isMarkdown: Bool { Self.markdownExtensions.contains((name as NSString).pathExtension.lowercased()) }
+
+    private static let markdownExtensions: Set<String> = ["md", "markdown", "mdown", "mkd", "mkdn"]
 
     /// The keys of the frontmatter block. Empty when the file has no block.
     public var metadata: [String: Any] { frontmatter?.metadata ?? [:] }
@@ -42,11 +45,12 @@ public struct VaultFile: Identifiable {
     /// A file without a block has no problem. Only broken YAML gives a value here.
     public var frontmatterProblem: String? { frontmatter?.problem }
 
-    /// The name to show in a list.
+    /// The name to show in a list. Non-Markdown files keep their extension.
     ///
     /// The frontmatter `title` key comes first. Then the first Markdown heading
     /// of the body. Then the file name without its extension.
     public var title: String {
+        guard isMarkdown else { return name }
         if let value = frontmatter?.string("title"), !value.trimmingCharacters(in: .whitespaces).isEmpty {
             return value
         }
@@ -64,7 +68,8 @@ public struct VaultFile: Identifiable {
         self.modifiedAt = modifiedAt
         self.isText = text != nil
         self.text = text
-        self.frontmatter = text.map(Frontmatter.parse)
+        self.frontmatter = Self.markdownExtensions.contains((relativePath as NSString).pathExtension.lowercased())
+            ? text.map(Frontmatter.parse) : nil
     }
 }
 

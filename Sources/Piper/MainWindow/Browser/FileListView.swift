@@ -44,23 +44,30 @@ struct FileListView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            ScrollView {
-                if files.isEmpty {
-                    Text(searching ? "No matching files." : "No files in this folder.")
-                        .font(PiperTheme.ui(AppDefaults.FontSize.small))
-                        .foregroundStyle(PiperTheme.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(16)
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(files) { file in
-                            cell(file)
-                        }
-                    }
-                    .padding(.horizontal, 8)
+            List(selection: Binding<String?>(get: { model.selectedDocument }, set: { path in
+                if let file = files.first(where: { $0.id == path }) { selectFile(file) }
+            })) {
+                ForEach(files) { file in
+                    TimelineCell(file: file, rootName: model.vault.root.lastPathComponent, isUnread: model.isUnread(file))
+                        .tag(file.id)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets())
+                        .help(file.relativePath)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(file.title)
+                        .accessibilityValue(model.isUnread(file) ? "Unread" : "Read")
                 }
             }
-            .scrollIndicators(.automatic)
+            .listStyle(.inset)
+            .scrollContentBackground(.hidden)
+            .overlay {
+                if files.isEmpty {
+                    Text(searching ? "No matching files" : "No files in this folder")
+                        .font(PiperTheme.ui(AppDefaults.FontSize.small))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .accessibilityLabel("Files")
         }
         .background(PiperTheme.page)
     }
@@ -76,7 +83,7 @@ struct FileListView: View {
                     .foregroundStyle(PiperTheme.ink)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text("\(files.count) \(files.count == 1 ? "file" : "files")")
+                Text("\(files.filter { model.isUnread($0) }.count) unread")
                     .font(PiperTheme.ui(11))
                     .foregroundStyle(PiperTheme.secondary)
             }
@@ -107,17 +114,4 @@ struct FileListView: View {
         return folder.isEmpty ? model.vault.root.lastPathComponent : (folder as NSString).lastPathComponent
     }
 
-    private func cell(_ file: VaultFile) -> some View {
-        let selected = model.selectedDocument == file.id
-        return Button { selectFile(file) } label: {
-            TimelineCell(file: file,
-                         rootName: model.vault.root.lastPathComponent,
-                         showsDot: false,
-                         isSelected: selected)
-        }
-        .buttonStyle(.plain)
-        .focusEffectDisabled()
-        .help(file.relativePath)
-        .accessibilityLabel(file.title)
-    }
 }

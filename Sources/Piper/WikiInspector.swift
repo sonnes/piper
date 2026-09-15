@@ -80,7 +80,7 @@ struct ReadingPreferencesView: View {
             }
             HStack {
                 Spacer()
-                Button("Reset") { theme = .paper; font = .mono; fontSize = 18; appearance = .system }
+                Button("Reset") { theme = .paper; font = .sans; fontSize = 18; appearance = .system }
                     .buttonStyle(PiperButtonStyle(ghost: true)).help("Reset Reading Preferences")
             }
         }
@@ -103,6 +103,8 @@ struct WikiInspector: View {
 
     private enum Tab: String, CaseIterable { case outline = "Outline", links = "Links", info = "Info" }
 
+    private var editable: Bool { FilePresentation(document) == .markdown }
+    private var displayedTab: Tab { editable ? tab : .info }
     private var blocks: [WikiBlock] { WikiMarkdown.parse(model.wikiEdit?.markdown ?? document.body) }
     private var headings: [WikiBlock] {
         blocks.enumerated().filter { index, block in
@@ -116,11 +118,13 @@ struct WikiInspector: View {
         VStack(spacing: 0) {
             tabs
             Rule()
-            saveRow
-            Rule()
+            if editable {
+                saveRow
+                Rule()
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    switch tab {
+                    switch displayedTab {
                     case .outline: outline
                     case .links: links
                     case .info: info
@@ -138,8 +142,8 @@ struct WikiInspector: View {
 
     private var tabs: some View {
         HStack(spacing: 2) {
-            ForEach(Tab.allCases, id: \.self) { item in
-                let active = item == tab
+            ForEach(editable ? Tab.allCases : [.info], id: \.self) { item in
+                let active = item == displayedTab
                 Button { tab = item } label: {
                     HStack(spacing: 5) {
                         Text(item.rawValue)
@@ -238,12 +242,16 @@ struct WikiInspector: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 sectionTitle("Actions")
-                action("Focus", icon: "arrow.up.left.and.arrow.down.right", shortcut: "⌥⌘F", action: focus)
+                if editable {
+                    action("Focus", icon: "arrow.up.left.and.arrow.down.right", shortcut: "⌥⌘F", action: focus)
+                }
                 action("Reveal in Finder", icon: "folder") {
                     guard let url = try? model.vault.containedURL(document.id) else { return }
                     NSWorkspace.shared.activateFileViewerSelecting([url])
                 }
-                action("Discard Changes…", icon: "arrow.uturn.backward") { confirmDiscard = true }.disabled(!hasChanges)
+                if editable {
+                    action("Discard Changes…", icon: "arrow.uturn.backward") { confirmDiscard = true }.disabled(!hasChanges)
+                }
             }
         }
     }
