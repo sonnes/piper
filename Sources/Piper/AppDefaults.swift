@@ -13,10 +13,12 @@ final class AppDefaults {
 
     enum Key {
         static let vaultPath = "wikiPath"
+        static let wikiPaths = "wikiPaths"
         static let captureShortcut = "captureShortcut"
         static let composerDraft = "composerDraft"
         static let migratedLocalPreferences = "migratedLocalPreferences"
-        static let style = "piperStyle"
+        static let accessibilityTipDismissed = "accessibilityTipDismissed"
+        static let showsFileSource = "showsFileSource"
 
         static let inspectorVisible = "wikiInspectorVisible"
         static let readerSize = "wikiReaderSize"
@@ -42,23 +44,17 @@ final class AppDefaults {
 
     // MARK: Sizes
 
-    /// Timeline cell metrics.
+    enum ListSearch {
+        static let horizontalInset: CGFloat = 12
+        static let verticalInset: CGFloat = 8
+    }
+
+    /// File row metrics.
     enum Timeline {
-        static let cellPadding = NSEdgeInsets(top: 8, left: 4, bottom: 10, right: 4)
         static let unreadCircleDimension: CGFloat = 8
-        static let unreadCircleMarginRight: CGFloat = 8
-        static let boxLeftMargin: CGFloat = cellPadding.left + unreadCircleDimension + unreadCircleMarginRight
-        static let titleBottomMargin: CGFloat = 1
-        static let titleNumberOfLines = 3
-        static let dateMarginLeft: CGFloat = 8
-        static let starDimension: CGFloat = 13
-        static let iconSize = NSSize(width: 48, height: 48)
-        static let iconCornerRadius: CGFloat = 4
-        static let iconMargin: CGFloat = 8
-        static var textHeight: CGFloat {
-            let font = PiperTheme.uiNS(FontSize.large)
-            return ceil(NSLayoutManager().defaultLineHeight(for: font)) * CGFloat(titleNumberOfLines)
-        }
+        /// The column that holds the unread dot.
+        static let gutterWidth: CGFloat = 16
+        static let verticalPadding: CGFloat = 6
     }
 
     /// Sidebar cell metrics.
@@ -109,24 +105,32 @@ final class AppDefaults {
     enum Reader {
         static let horizontalInset: CGFloat = 48
         static let topInset: CGFloat = 20
-        static let floatingActionInset: CGFloat = 20
-        static let floatingActionSpacing: CGFloat = 8
-        static let floatingActionShadow: CGFloat = 6
-        static let headerHeight: CGFloat = 68
-        static let titleSize: CGFloat = 29.6
+        static let titleSize: CGFloat = 26
         static let headingMultipliers: [CGFloat] = [1.65, 1.4, 1.2, 1, 1, 1]
 
-        static let columnWidth: CGFloat = 44 * 16
+        static let columnWidth: CGFloat = 640
+        static let noteFontSize: CGFloat = 15
+        static let codeFontSize: CGFloat = 13
     }
 
+    /// Capture list metrics, shared by the panel and the Inbox pane.
     enum CaptureItem {
-        static let cornerRadius: CGFloat = 20
-        static let fontSize: CGFloat = 16
-        static let lineSpacing: CGFloat = 5
-        static let spacing: CGFloat = 12
+        static let cornerRadius: CGFloat = PiperTheme.cardRadius
+        static let fontSize: CGFloat = 15
+        static let clipboardFontSize: CGFloat = 13
+        static let clipboardCodeFontSize: CGFloat = 12
+        static let lineSpacing: CGFloat = 2
         static let circleSize: CGFloat = 18
-        static let horizontalPadding: CGFloat = 16
-        static let verticalPadding: CGFloat = 12
+        static let horizontalPadding: CGFloat = 12
+        static let verticalPadding: CGFloat = 10
+        static let minimumHeight: CGFloat = 42
+        static let clipboardHeight: CGFloat = 36
+        /// The space from the edge of a card to the text after the circle.
+        static let textInset: CGFloat = horizontalPadding + circleSize + 10
+        /// The inset of the list from the edge of the pane.
+        static let listInset: CGFloat = 14
+        /// The number of clipboard items that the capture list shows.
+        static let recentClipboardCount = 5
     }
 
     /// Composer metrics.
@@ -137,11 +141,11 @@ final class AppDefaults {
         static let lineHeight: CGFloat = 23
         static let visibleLines = 2
         /// The space between the edge of the text region and the first line.
-        static let textInset = NSSize(width: 14, height: 7)
+        static let textInset = NSSize(width: 10, height: 7)
         /// The space between the edge of the card and the text region.
-        static let regionInset: CGFloat = 14
+        static let regionInset: CGFloat = 5
         /// The space between the edge of the panel and the card.
-        static let margin: CGFloat = 10
+        static let margin: CGFloat = 14
         /// The space that holds the overlay scroller off the text.
         static let scrollerInset: CGFloat = 6
 
@@ -153,17 +157,6 @@ final class AppDefaults {
         static let width = Window.capturePanelSize.width - margin * 2
         /// The width available to the text.
         static let textWidth = width - textInset.width * 2
-    }
-
-    // MARK: Type
-
-    /// The two font sizes every list row uses.
-    ///
-    /// The large size is `NSFont.systemFontSize + 1`. The small size is 90
-    /// percent of it, rounded down.
-    enum FontSize {
-        static let large: CGFloat = NSFont.systemFontSize + 1
-        static let small: CGFloat = (large * 0.90).rounded(.down)
     }
 
     // MARK: Stored values

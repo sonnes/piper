@@ -18,41 +18,61 @@ struct NoteWebReader: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Button("Show Note", action: showNote)
-                Button { page.webView?.goBack() } label: { Image(systemName: "chevron.left") }
-                    .disabled(!page.canGoBack)
-                    .help("Back").accessibilityLabel("Back")
-                Button { page.webView?.goForward() } label: { Image(systemName: "chevron.right") }
-                    .disabled(!page.canGoForward)
-                    .help("Forward").accessibilityLabel("Forward")
-                Button { page.reload() } label: { Image(systemName: "arrow.clockwise") }
-                    .help("Reload").accessibilityLabel("Reload")
-                Text((page.url ?? url).absoluteString)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .help((page.url ?? url).absoluteString)
-                Button { NSWorkspace.shared.open(page.url ?? url) } label: {
-                    Image(systemName: "safari")
+            HStack(spacing: 6) {
+                Button(action: showNote) {
+                    Label("Note", systemImage: "chevron.left").labelStyle(.titleAndIcon)
                 }
-                .help("Open in Browser").accessibilityLabel("Open in Browser")
+                .buttonStyle(.text)
+                .help("Show the note")
+                Group {
+                    Button { page.webView?.goBack() } label: { Image(systemName: "chevron.left") }
+                        .disabled(!page.canGoBack)
+                        .help("Back").accessibilityLabel("Back")
+                    Button { page.webView?.goForward() } label: { Image(systemName: "chevron.right") }
+                        .disabled(!page.canGoForward)
+                        .help("Forward").accessibilityLabel("Forward")
+                }
+                .buttonStyle(.borderless)
+                HStack(spacing: 6) {
+                    Image(systemName: page.isLoading ? "hourglass" : "globe")
+                        .font(.system(size: 11)).foregroundStyle(PiperTheme.faint)
+                    Text(address)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(PiperTheme.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .help((page.url ?? url).absoluteString)
+                    Button { page.reload() } label: { Image(systemName: "arrow.clockwise").font(.system(size: 10, weight: .semibold)) }
+                        .buttonStyle(.borderless)
+                        .help("Reload").accessibilityLabel("Reload")
+                }
+                .padding(.horizontal, 8)
+                .frame(height: 22)
+                .background(PiperTheme.ink.opacity(0.05), in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+                Button(isCapturing ? "Capturing…" : "Capture") {
+                    Task { await capturePage() }
+                }
+                .disabled(isCapturing || page.isLoading || page.errorMessage != nil || page.url == nil)
+                .help("Save the selected text, or the page text, to Inbox")
+                .accessibilityLabel("Capture Web Page")
+                Button { NSWorkspace.shared.open(page.url ?? url) } label: { Image(systemName: "safari") }
+                    .buttonStyle(.borderless)
+                    .help("Open in Browser").accessibilityLabel("Open in Browser")
             }
-            .buttonStyle(.borderless)
+            .controlSize(.small)
             .font(PiperTheme.ui(12))
-            .padding(10)
+            .padding(.horizontal, 12)
+            .frame(height: 38)
+            .background(PiperTheme.panel)
             Rule()
             NoteWebView(url: url, page: page)
-                .overlay(alignment: .top) {
-                    if page.isLoading { ProgressView().controlSize(.small).padding(12) }
-                }
                 .overlay {
                     if let error = page.errorMessage {
-                        VStack(spacing: 12) {
-                            Text("Cannot Open Page").font(.headline)
-                            Text(error).multilineTextAlignment(.center)
-                            Button("Retry") { page.reload() }
+                        VStack(spacing: 10) {
+                            Text("Cannot Open Page").font(PiperTheme.ui(15, weight: .semibold))
+                            Text(error).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Try Again") { page.reload() }
                         }
                         .padding(24)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -60,32 +80,24 @@ struct NoteWebReader: View {
                     }
                 }
                 .overlay(alignment: .bottom) {
-                    VStack(spacing: AppDefaults.Reader.floatingActionSpacing) {
-                        if let captureMessage {
-                            Text(captureMessage)
-                                .font(PiperTheme.ui(AppDefaults.FontSize.small))
-                                .multilineTextAlignment(.center)
-                                .padding(AppDefaults.Reader.floatingActionSpacing)
-                                .background(.regularMaterial, in: Capsule())
-                        }
-                        Button {
-                            Task { await capturePage() }
-                        } label: {
-                            Label(isCapturing ? "Capturing…" : "Capture", systemImage: "square.and.arrow.down")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .buttonBorderShape(.capsule)
-                        .controlSize(.large)
-                        .tint(PiperTheme.accent)
-                        .shadow(color: PiperTheme.ink.opacity(0.15), radius: AppDefaults.Reader.floatingActionShadow)
-                        .disabled(isCapturing || page.isLoading || page.errorMessage != nil || page.url == nil)
-                        .help("Save selected text, or the page text, to Inbox")
-                        .accessibilityLabel("Capture Web Page")
+                    if let captureMessage {
+                        Text(captureMessage)
+                            .font(PiperTheme.ui(12))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .background(.regularMaterial, in: Capsule())
+                            .padding(16)
+                            .transition(.opacity)
                     }
-                    .padding(AppDefaults.Reader.floatingActionInset)
                 }
         }
         .onChange(of: page.url) { captureMessage = nil }
+    }
+
+    /// The host and path of the page, without the scheme.
+    private var address: String {
+        let current = page.url ?? url
+        return (current.host() ?? "") + current.path()
     }
 
     // MARK: - Capture

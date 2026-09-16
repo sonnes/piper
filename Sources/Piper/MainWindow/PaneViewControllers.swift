@@ -49,13 +49,14 @@ final class SidebarViewController: HostingPaneViewController {
 /// The files of the selected folder. It reports a file and nothing else.
 @MainActor
 final class FileListViewController: HostingPaneViewController {
+    override var acceptsFirstResponder: Bool { true }
     weak var delegate: FileListViewControllerDelegate?
 
     func selectFile(_ path: String) {
         delegate?.fileListViewController(self, didSelectFile: path)
     }
 
-    func selectNote(_ id: UUID) {
+    func selectNote(_ id: UUID?) {
         delegate?.fileListViewController(self, didSelectNote: id)
     }
 }

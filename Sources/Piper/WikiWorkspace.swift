@@ -54,7 +54,7 @@ enum WikiLinks {
             if candidates.count == 1 { return WikiLocation(path: candidates[0].id, anchor: anchor) }
             if candidates.count > 1 { throw PiperError("More than one note matches “\(path)”. Use the folder path in the link.") }
         }
-        throw PiperError("The note “\(path)” is unavailable in this Wiki.")
+        throw PiperError("The note “\(path)” is unavailable in this folder.")
     }
 
     static func targets(in text: String) -> [(target: String, wikiStyle: Bool)] {

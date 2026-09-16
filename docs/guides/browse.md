@@ -1,30 +1,34 @@
 ---
-title: "Browse And Edit Your Wiki"
-summary: "Search, read, preview, and edit the files in your Wiki folder, and read captures in Inbox"
+title: "Browse And Edit Files"
+summary: "Search, read, preview, and edit the files in your folders, and read captures in Inbox"
 read_when:
-  - Choosing a Wiki folder
+  - Adding a folder
   - Searching, reading, or editing a file
   - Reading web links from captures
 ---
 
-# Browse And Edit Your Wiki
+# Browse And Edit Files
 
-The Wiki window shows one folder of files. Piper calls this folder the vault. Any folder works: Piper needs no index, no frontmatter, and no folder names. See [Wiki files](../concepts/files.md) for the scan rules.
+The main window keeps one or more folders in the sidebar. The selected folder is the active vault. Any folder works: Piper needs no index, no frontmatter, and no folder names. See [Wiki files](../concepts/files.md) for the scan rules.
 
 Open the window with Command-2. Command-0 opens it on the Home page.
 
-## Choose A Folder
+## Add A Folder
 
 The default folder is `~/Desktop/Wiki`.
 
-1. Open the Wiki window with Command-2.
-2. Open the folder menu in the toolbar.
-3. Select Choose Wiki Folder.
-4. Select a folder.
+1. Open the main window with Command-2.
+2. Select Add Folder at the bottom of the sidebar.
+3. Select one or more folders.
+4. Select Add.
 
-The folder menu also has Reveal Wiki in Finder and Settings. Settings > Wiki has the same folder choice.
+Add Folder is also in the sidebar context menu, in the More menu of the toolbar, and in Settings > General.
 
-After you choose a folder, the sidebar selects its root and the file list shows its top-level files. Piper clears the previous search.
+Piper keeps the added folders across restarts. Select a folder in the sidebar to show its folder tree.
+
+To take a folder out of the sidebar, Control-click it and select Remove Folder. You can also select it in Settings > General and select the minus button. The folder on disk does not change. The last folder cannot be removed.
+
+Home search uses the selected folder. Switching folders clears the previous search and asks you to resolve unsaved edits.
 
 ## Find Your Way Around
 
@@ -32,15 +36,26 @@ The window has three panes:
 
 | Pane | Content |
 | --- | --- |
-| Sidebar | Library (Home and Inbox) and Folders (the vault root and its folder tree) |
-| File list | The files of the selected folder, or the captures in Inbox |
+| Sidebar | Library (Home, Inbox with a row for each other section, and Clipboard) and Folders (every folder, and the tree of the active folder) |
+| List | The files of the selected folder, the captures, or the clipboard history |
 | Detail | The selected file, Home, or the selected capture |
 
-Select the vault root to see the files at the top level. The folder tree shows nested and empty folders. Files show only in the file list.
+The window title names the sidebar selection. The subtitle shows a count, or the folder path on Home.
 
-The toggle button at the left of the toolbar hides the sidebar. Home hides the file list.
+The toolbar has these controls:
 
-The window restores its frame, the pane widths, the selection, the open folders, and the last file.
+| Control | Action |
+| --- | --- |
+| Toggle Sidebar | Hides or shows the sidebar |
+| New Capture | Opens the capture panel |
+| Back and Forward | Moves through the files you opened |
+| Preview and Source | Shows the formatted file or its text |
+| Mark as Done | Marks the selected capture as done, or opens it again |
+| More | New Section, Add Folder, Reveal in Finder, Refresh, and Settings |
+
+Select the vault root to see the files at the top level. The folder tree shows nested and empty folders. Files show only in the list.
+
+Home hides the list. The window restores its frame, the pane widths, the selection, the open folders, and the last file.
 
 ## Search From Home
 
@@ -51,44 +66,48 @@ Home has one search field and a list of the six most recent files.
 3. Use the Up and Down keys to select a result.
 4. Press Return.
 
-Plain text lists files that match by name, then files that match by text. Then it lists matching local app actions. If nothing matches, the last row searches every file for the text.
+Plain text lists files that match by name, then files that match by text. Then it lists matching app actions. If nothing matches, the last row searches every file for the text.
 
-Type `>` to list app actions: New Capture, Browse Files, Choose Wiki Folder, Reveal in Finder, Capture Clipboard, and Settings.
+Type `>` to list app actions: New Capture, Browse Files, Add Folder, Reveal in Finder, Capture Clipboard, and Settings.
 
-## Search From The Toolbar
+## Search The Current List
 
-The search field at the right of the toolbar filters the file list. The filter reads the whole vault, not only the selected folder. Each word must match a title, a path, a description, or the body text.
+The search field sits at the top of the list. In a folder, the sort menu sits next to it.
 
-If the text starts with `>`, the window shows Home and gives it the text. If Inbox is selected, the field filters captures.
+File search filters only the files in the selected folder. Each word must match a title, a path, a description, or the body text. Selecting another folder clears the file search.
+
+In Inbox, search filters the notes of every section. In Clipboard, search filters the clipboard history.
+
+Home searches the whole vault. Its Search All Files action opens an All Files list with the same search field. A leading `>` selects actions only in Home.
 
 ## Track Unread Files
 
-A file you have not opened has a blue dot and a heavier title. A file becomes unread again when its modification time changes. A save that you make in Piper keeps the file read.
+A file you have not opened has a blue dot. A file becomes unread again when its modification time changes. A save that you make in Piper keeps the file read.
 
-Sidebar counts include unread files in subfolders. A folder with no unread files shows no count. Read state is separate for each Wiki folder and survives a restart.
+The window subtitle shows the number of files and the number of unread files in the folder. Sidebar counts include unread files in subfolders. A folder with no unread files shows no count. Read state is separate for each folder and survives a restart.
 
 ## Read A File
 
-Select a file in the file list. The file list sort menu sorts by Name or by Date.
+Select a file in the list. The sort menu next to the search field sorts by Name or by Date.
 
-A Markdown file opens in the editor, in a centered column. The header shows the folder, the file name, and the modification date. The status bar shows the path, the word count, and whether the file has unsaved changes.
+A Markdown file opens in the editor, in a centered column. The modification date shows above the text. After a change that is not saved, the date line ends with "Edited". If the file has no heading, its title shows under the date.
 
 Wiki links use `[[Note]]`, `[[folder/Note|Label]]`, and `[[Note#Heading]]`. Relative Markdown links open from the current file. HTTP, HTTPS, and `mailto` links open in your default app.
 
-Use Command-[ and Command-] to go back and forward. Press Command-R, or select Refresh in the toolbar, to scan the folder again.
+Use Command-[ and Command-] to go back and forward. To scan the folder again, press Command-R, or select Refresh in the More menu.
 
 ## Change Reading Preferences
 
-Open Settings with Command-comma, then select Reading. The preferences change the page only. They do not change any file.
+Open Settings with Command-comma, then select Reading. The preferences change how Piper shows a Markdown file. They do not change the file.
 
 | Preference | Values | Default |
 | --- | --- | --- |
-| Paper | Paper, Sepia, Slate | Paper |
-| Font | Monospace, Serif, Sans Serif | Sans Serif |
+| Font | Mono, Serif, Sans | Sans |
 | Size | 13 to 24 points | 18 points |
+| Paper | Paper, Sepia, Slate | Paper |
 | Appearance | System, Light, Dark | System |
 
-Reset restores the defaults.
+Reset to Defaults restores the defaults.
 
 ## Preview Other Files
 
@@ -102,9 +121,9 @@ A file larger than 4 MiB, or a file that is not UTF-8 text, uses the Quick Look 
 
 ## View The Source
 
-Markdown and HTML files have a Preview / Raw toggle above the page. Raw shows selectable, read-only source text in a monospace font.
+For a Markdown or HTML file, select Source in the toolbar. Source shows selectable, read-only text in a monospaced font. Long lines wrap at the width of the pane. The choice stays for the next file.
 
-For Markdown, Raw includes the frontmatter and your unsaved body edits. Select Preview to continue editing. For HTML, Preview shows the page and Raw shows its markup. Files larger than 4 MiB or without UTF-8 text use Quick Look and have no Raw toggle.
+For Markdown, Source includes the frontmatter and your unsaved body edits. Select Preview to continue editing. For HTML, Preview shows the page and Source shows its markup. The control is off for a file that has no source text.
 
 ## Edit A Markdown File
 
@@ -119,7 +138,7 @@ The editor does not show frontmatter. A save keeps the frontmatter bytes, the Wi
 Piper asks you to Save, Discard, or Cancel when a change is unsaved and you do one of these actions:
 
 - Open another file, go back, or go forward.
-- Change the Wiki folder.
+- Change the folder.
 - Close the window or quit Piper.
 - Run a command.
 
@@ -127,17 +146,18 @@ If another app changed the file after you opened it, Save refuses to write. Your
 
 ## Read Captures In Inbox
 
-1. Select Inbox in the sidebar.
-2. Select a capture in the file list.
+Select Inbox in the sidebar to see every section in one list. Inbox also becomes the section for new notes. Select a section under Inbox to scroll the list to it and make it the section for new notes. Select Clipboard to see the clipboard history. See [Capture notes](capture.md) for the list and its actions.
 
-The capture shows its text, with Mark as Done and Edit. Web URLs in the text are links. A capture that contains only a URL opens the page at once.
+Select one capture to show it in the detail pane. The date shows at the top. Type in the text to change the note. Piper saves the change shortly after you stop typing. If the note looks like source code, the text uses a monospaced font. The editor does not change quotes or dashes while you type. The source app shows under the text.
 
-Piper opens a web link inside the window. The page controls are Show Note, Back, Forward, Reload, and Open in Browser. If a page fails to load, select Retry.
+A web link in a capture shows as a card with the host, the path, Open Reader, and Open in Browser. A capture that contains only a URL opens the page at once.
+
+The reader bar has these controls: Note, Back, Forward, the address with Reload, Capture, and Open in Browser. If a page fails to load, select Try Again.
 
 To save part of a page as a new capture:
 
 1. Select text on the page.
-2. Select Capture at the bottom of the page.
+2. Select Capture in the reader bar.
 
 If no text is selected, Capture saves the whole page text. The new capture goes to Inbox with the page title and URL. The original capture does not change.
 

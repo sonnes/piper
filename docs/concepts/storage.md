@@ -43,11 +43,11 @@ Piper keeps one earlier state in memory. Undo saves that state to the database. 
 
 Selecting an existing section does not replace the undo step. An editor save with no change adds no undo step.
 
-## Clipboard Entries
+## Clipboard History
 
-Clipboard cards stay in memory until Piper quits. They do not go into SQLite or UserDefaults. A card becomes a note only when you save it.
+Clipboard texts stay in memory until Piper quits or you select Clear History. They do not go into SQLite or UserDefaults. A text becomes a note only when you keep it. Each text records the time of the last copy and the app that was in front.
 
-Piper checks the clipboard about every 0.6 seconds. If an app replaces the clipboard twice between checks, Piper sees only the last copy. The buffer holds ten entries, each up to 500,000 UTF-8 bytes.
+Piper checks the clipboard about every 0.6 seconds. If an app replaces the clipboard twice between checks, Piper sees only the last copy. The history holds 50 texts, each up to 500,000 UTF-8 bytes.
 
 ## Drafts
 
@@ -59,10 +59,12 @@ UserDefaults holds these keys:
 
 | Key | Content |
 | --- | --- |
-| `wikiPath` | The Wiki folder |
+| `wikiPath` | The active Wiki folder |
+| `wikiPaths` | The Wiki folders in the sidebar |
 | `captureShortcut` | `Shift, Shift` or `Control-Option-Space` |
 | `composerDraft` | The unsaved composer text |
-| `piperStyle` | `Vault` or `Page` |
+| `accessibilityTipDismissed` | True after you close the Accessibility tip in the capture panel |
+| `showsFileSource` | True while the main window shows the Source view of a file |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
 | `wikiFileSort` | Name or Date |
 | `mainWindowState` | The sidebar selection, open file, open folders, and pane widths |
@@ -83,4 +85,3 @@ The release bundle ID is `com.piper`. On the first launch, Piper copies missing 
 2. Copy `~/Library/Application Support/Piper`.
 3. If you want the preferences, copy `~/Library/Preferences/com.piper.plist`.
 
-Deleting a capture does not remove an exported file. See [Export captures](../guides/export.md).

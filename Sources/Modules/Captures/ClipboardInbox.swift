@@ -6,12 +6,21 @@ public struct ClipboardEntry: Identifiable, Equatable {
 
     // MARK: - Properties
 
-    public let id = UUID()
+    public let id: UUID
     public let text: String
+    /// The last time the reader copied this text.
+    public let copiedAt: Date
+    /// The name of the application that was in front when the text arrived.
+    public let source: String?
 
     // MARK: - Initialization
 
-    public init(text: String) { self.text = text }
+    public init(id: UUID = UUID(), text: String, copiedAt: Date = Date(), source: String? = nil) {
+        self.id = id
+        self.text = text
+        self.copiedAt = copiedAt
+        self.source = source
+    }
 }
 
 /// Recent clipboard text, held until the reader saves it or it falls out of the list.
@@ -24,6 +33,8 @@ public final class ClipboardInbox {
     // MARK: - Properties
 
     public static let copiedNoteType = NSPasteboard.PasteboardType("com.piper.saved-notes")
+    /// The number of texts the history keeps. The history lives in memory only.
+    public static let historyLimit = 50
     private static let ignoredTypes: Set<NSPasteboard.PasteboardType> = [
         copiedNoteType,
         NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"),
@@ -72,10 +83,14 @@ public final class ClipboardInbox {
             return item.string(forType: .string)
         }
         guard pasteboard.changeCount == version else { changeCount = nil; return }
-        receive(texts)
+        receive(texts, source: NSWorkspace.shared.frontmostApplication?.localizedName)
     }
 
-    public func receive(_ texts: [String]) {
+    /// Adds copied texts to the front of the history.
+    ///
+    /// A text that the history already holds moves to the front and keeps its
+    /// identity, so a selection of that entry survives the copy.
+    public func receive(_ texts: [String], source: String? = nil, at date: Date = Date()) {
         var updated = items
         for text in texts.reversed() {
             guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -83,17 +98,22 @@ public final class ClipboardInbox {
                   !store.notes.contains(where: { $0.text == text }) else { continue }
             let existing = updated.first { $0.text == text }
             updated.removeAll { $0.text == text }
-            updated.insert(existing ?? ClipboardEntry(text: text), at: 0)
+            updated.insert(ClipboardEntry(id: existing?.id ?? UUID(), text: text, copiedAt: date, source: source), at: 0)
         }
-        updated = Array(updated.prefix(10))
+        updated = Array(updated.prefix(Self.historyLimit))
         if updated != items { items = updated }
+    }
+
+    /// Forgets every text that the reader has not saved.
+    public func clear() {
+        items.removeAll()
     }
 
     // MARK: - Saving
 
     @discardableResult public func save(_ id: UUID) -> Bool {
         guard let entry = entries.first(where: { $0.id == id }),
-              store.add(entry.text, source: "Clipboard", to: store.activeSection, interpretSection: false) else { return false }
+              store.add(entry.text, source: "Clipboard", to: "Inbox", interpretSection: false) else { return false }
         return true
     }
 }

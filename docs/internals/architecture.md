@@ -17,9 +17,8 @@ flowchart LR
     CB[ClipboardInbox] --> S
     P[Capture panel] --> S
     S --> D[(SQLite snapshot)]
-    P --> E[Send to Wiki] --> F[One Markdown file]
     V[Vault scan and watcher] --> M[AppModel]
-    M --> W[Wiki window]
+    M --> W[Main window]
     W --> ED[Editor] --> V
 ```
 
@@ -46,31 +45,34 @@ Each module has a test target with the same name and a `Tests` suffix. `PiperTes
 | Window | Owner |
 | --- | --- |
 | Capture panel | `CapturePanelController` |
-| Wiki window | `MainWindowController` |
+| Main window | `MainWindowController` |
+| Settings | `SettingsWindowController` |
 | Note editor windows | `AppDelegate`, one for each note |
 | Capture toast | `AppDelegate` |
 
-The capture panel and the Wiki window are exclusive. `showPanel()` hides the Wiki window, and `showLibrary()` hides the panel. Neither closes, so drafts and edit sessions stay. Closing every window leaves the app running in the menu bar.
+The capture panel and the main window are exclusive. `showPanel()` hides the main window, and `showLibrary()` hides the panel. Neither closes, so drafts and edit sessions stay. Closing every window leaves the app running in the menu bar.
 
 The panel is a non-activating `NSPanel` on every Space. It is 430 by 932 points with 22-point corners, and it scales down on a small screen.
 
-### Wiki Window
+### Main Window
 
 `MainWindowController` owns the toolbar and an `NSSplitViewController` with three split items:
 
 | Pane | Controller | Content |
 | --- | --- | --- |
 | Sidebar | `SidebarViewController` | `SidebarOutline`, an `NSOutlineView` |
-| File list | `FileListViewController` | `FileListView` or `InboxListView` |
+| List | `FileListViewController` | `FileListView` or `CaptureView` |
 | Detail | `DetailViewController` | `HomeView`, `WikiEditor`, `FilePreview`, or `NoteDetail` |
 
 Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostingView`. A pane reports upward through a delegate protocol, and `MainWindowController` decides what the other panes show. `WikiEditor` is an exception. It calls `AppModel.openDocument` directly, so a link does not move the sidebar or the file list.
 
 `SidebarSelection` decides the layout. Home collapses the file list because the search field needs the width. `MainWindowState` saves the selection, the open file, the open folders, and the pane widths.
 
-The toolbar has tracking separators that align with the split view dividers. Toggle Sidebar and Refresh sit over the sidebar. Home and the folder menu sit over the file list. Back, Forward, and Capture sit over the detail pane. Search is at the trailing edge.
+The window title names the sidebar selection, as in Mail. The subtitle shows a count, and it updates through `withObservationTracking`. The toolbar has tracking separators that align with the split view dividers. Toggle Sidebar sits over the sidebar. New Capture sits over the list. Back and Forward, Preview and Source, Mark as Done, and the More menu sit over the detail pane. Each list has its own search field.
 
-Sidebar fonts and icons follow the macOS sidebar size preference: 11 and 16 points, 13 and 19 points, or 15 and 22 points. `TimelineCell` draws every file row, and `TimelineRow` draws capture rows with the same metrics.
+The sidebar has two groups. Library holds Home, Inbox with one child for each capture section other than Inbox, and Clipboard. Folders holds every root and the tree of the active root. `SidebarSelection.section` scrolls the Inbox list to a section, and `SidebarSelection.clipboard` shows the clipboard history.
+
+Sidebar fonts and icons follow the macOS sidebar size preference: 11 and 16 points, 13 and 19 points, or 15 and 22 points. `TimelineCell` draws every file row through `TimelineRow`.
 
 ## Capture
 
@@ -80,21 +82,25 @@ The service records the source app and the active section before it reads Access
 
 `CaptureStore` builds a candidate state and saves it before it replaces the current state. `Database` compares the stored blob with the last loaded blob on every save. A database error or a stale snapshot leaves the current notes as they are. See [Local storage](../concepts/storage.md).
 
-`ClipboardInbox` polls the pasteboard and keeps a buffer of text entries. `ClipboardRow` in `PanelView.swift` pastes on a click through `ClipboardPaster` and saves on a Command-click.
+`ClipboardInbox` polls the pasteboard and keeps the 50 latest texts, with the copy time and the app in front. `ClipboardRow` in `CaptureRows.swift` saves to Inbox with Keep, and pastes through `ClipboardPaster` on a double-click.
+
+`CaptureView` draws the capture list for both windows. The list holds every section under a header, and a `SectionScroll` request scrolls it to one header. The panel keeps its own tab, and the main window passes the sidebar selection. The main-window controller routes note selection to the detail pane and limits shortcuts to the Inbox pane.
 
 ## Vault
 
 `Vault` lists every file and folder under the root and applies no rule about structure. `VaultFile` holds the path, size, modification date, text, and parsed frontmatter. `VaultWatcher` wraps `FSEventStream` on a private queue and calls back on the main queue.
 
-`AppModel` starts the watcher with the first scan and replaces it when the root changes. A scan runs in the background. A change during a scan or an export requests one more scan. A scan keeps unsaved edit sessions and updates clean editors and previews. See [Wiki files](../concepts/files.md).
+`AppModel` stores the folder list and the active root in preferences. `removeWikiFolder` moves the active root to another folder before it removes a root.
+
+`AppModel` starts the watcher with the first scan and replaces it when the active root changes. A scan runs in the background. A change during a scan requests one more scan. A scan keeps unsaved edit sessions and updates clean editors and previews. See [Wiki files](../concepts/files.md).
 
 `FileReadState` stores the last-read modification time of each file. `AppModel` computes unread state and folder counts, including subfolders. The first file selection waits until the detail pane shows before it marks the file read.
 
 ## Reading And Editing
 
-`FilePresentation` decides how the detail pane shows a file. Markdown and HTML also have a read-only Raw view through `PlainTextPreview`. Markdown opens in the editor, other text in a read-only text view, and everything else in Quick Look.
+`FilePresentation` decides how the detail pane shows a file. Markdown and HTML also have a read-only Source view through `PlainTextPreview`. `AppModel.showsFileSource` holds the choice. Markdown opens in the editor, other text in a read-only text view, and everything else in Quick Look.
 
-`WikiEditor` embeds SwiftMarkdownEngine 0.12.0 through its AppKit bridge. The page is a centered column, at most 704 points wide, with 48-point side margins. `DetailHeader` shows the folder, file name, and date above the page. `DetailStatusBar` shows the path, the word count, and the save state below it.
+`WikiEditor` embeds SwiftMarkdownEngine 0.12.0 through its AppKit bridge. The page is a centered column, at most 640 points wide, with 48-point side margins. `DetailHeader` shows the date and the save state above the page, and the title when the body has no heading.
 
 Only a Markdown text file gets an edit session. `WikiSave.body` writes the original frontmatter bytes and the new body. It refuses to write if the file on disk no longer matches what the editor opened. Navigation, folder changes, window close, and quit resolve an unsaved session through Save, Discard, or Cancel.
 
@@ -114,40 +120,39 @@ The Capture button runs JavaScript in an isolated content world. One call return
 
 `HomeSearch` in `PiperCore` ranks `HomeSuggestion` rows. A leading `>` lists local `HomeAction` values. Other text lists file name matches, file text matches, and local actions, in that order.
 
-The toolbar search field filters the file list across the vault. If the text starts with `>`, the window shows Home and passes the query to `HomeView`.
+The file-list search filters the selected folder. Inbox search filters the active capture section and temporary clipboard cards.
 
-## Export
-
-`WikiExport.markdown` builds the file text, and `AppModel.export` writes it atomically to the URL from the save panel. Export writes that one file and nothing else. See [Export captures](../guides/export.md).
+Home searches the whole vault. Its Search All Files action opens the `allFiles` sidebar state with a vault-wide list.
 
 ## Source Map
 
 | Source | Responsibility |
 | --- | --- |
 | [PiperApp.swift](../../Sources/Piper/PiperApp.swift) | `AppDelegate`, menus, the menu bar item, editor windows, the toast, and quit |
-| [AppModel.swift](../../Sources/Piper/AppModel.swift) | Scans, selection, edit sessions, and export |
+| [AppModel.swift](../../Sources/Piper/AppModel.swift) | Scans, selection, and edit sessions |
 | [AppDefaults.swift](../../Sources/Piper/AppDefaults.swift) | Preference keys, sizes, and metrics |
 | [AppNotifications.swift](../../Sources/Piper/AppNotifications.swift) | Notification names |
-| [PiperTheme.swift](../../Sources/Piper/PiperTheme.swift) | `PiperStyle`, app colors, and fonts |
+| [PiperTheme.swift](../../Sources/Piper/PiperTheme.swift) | App colors, shapes, fonts, and shared controls |
 | [FileReadState.swift](../../Sources/Piper/FileReadState.swift) | Read timestamps for each file |
 | [CaptureService.swift](../../Sources/Piper/CaptureService.swift) | Global shortcuts and Accessibility selection |
 | [CapturePanel/](../../Sources/Piper/CapturePanel) | `CapturePanelController` and `ClipboardPaster` |
-| [PanelView.swift](../../Sources/Piper/PanelView.swift) | Capture panel content, cards, selection bar, and composer |
+| [CaptureView.swift](../../Sources/Piper/CaptureView.swift) | The capture list, tabs, selection bar, and composer |
+| [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | Capture rows, headers, and the section and note sheets |
 | [CaptureEditor.swift](../../Sources/Piper/CaptureEditor.swift) | The composer text view |
 | [MainWindow/MainWindowController.swift](../../Sources/Piper/MainWindow/MainWindowController.swift) | Split view, toolbar, and routing between panes |
 | [MainWindow/MainWindowState.swift](../../Sources/Piper/MainWindow/MainWindowState.swift) | `SidebarSelection`, restored state, and pane delegate protocols |
 | [MainWindow/PaneViewControllers.swift](../../Sources/Piper/MainWindow/PaneViewControllers.swift) | One hosting view controller for each pane |
-| [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | The Settings sheet and the error alert |
+| [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | The error alert |
 | [MainWindow/Home/](../../Sources/Piper/MainWindow/Home) | The Home page and its suggestion list |
 | [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | Library rows, the folder tree, unread counts, and file warnings |
-| [MainWindow/Browser/](../../Sources/Piper/MainWindow/Browser) | The file list and the Inbox list |
-| [MainWindow/Detail/](../../Sources/Piper/MainWindow/Detail) | Header, status bar, file previews, and the Inbox reader |
+| [MainWindow/Browser/](../../Sources/Piper/MainWindow/Browser) | The file list |
+| [MainWindow/Detail/](../../Sources/Piper/MainWindow/Detail) | Header, file previews, and the Inbox reader |
 | [MainWindow/TimelineCell.swift](../../Sources/Piper/MainWindow/TimelineCell.swift) | File and capture rows |
 | [WikiEditor.swift](../../Sources/Piper/WikiEditor.swift) | The Markdown editor page |
-| [WikiInspector.swift](../../Sources/Piper/WikiInspector.swift) | Reading preferences, reading themes, and the unused inspector view |
+| [WikiInspector.swift](../../Sources/Piper/WikiInspector.swift) | Reading themes and fonts, and the unused inspector view |
 | [WikiWorkspace.swift](../../Sources/Piper/WikiWorkspace.swift) | Navigation history, link resolution, and backlinks |
 | [WikiMarkdown.swift](../../Sources/Piper/WikiMarkdown.swift) | Block parsing, heading anchors, and inline text |
-| [Wiki.swift](../../Sources/Piper/Wiki.swift) | Export text, file names, and the guarded body save |
-| [LibraryView.swift](../../Sources/Piper/LibraryView.swift) | The export sheet and Settings |
+| [Wiki.swift](../../Sources/Piper/Wiki.swift) | File metadata and the guarded body save |
+| [SettingsWindow.swift](../../Sources/Piper/SettingsWindow.swift) | The Settings window and its panes |
 
 `WikiReader.swift` and `MarkdownView.swift` are not used by any other file.

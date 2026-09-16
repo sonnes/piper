@@ -30,10 +30,9 @@ final class QuitSafetyTests: XCTestCase {
     /// Repeats the decision that `applicationShouldTerminate` makes.
     ///
     /// The real method also shows a window. The decision itself is what must not
-    /// change, so the test drives the same three guards in the same order.
+    /// change, so the test drives the same two guards in the same order.
     private func shouldTerminate(_ model: AppModel, resolveCapture: (CaptureEditSession) -> Bool) -> Bool {
         model.route = "wiki"
-        guard !model.exporting else { return false }
         for session in Array(model.captureEdits.values) where !resolveCapture(session) { return false }
         return model.finishWikiEdit()
     }
@@ -52,16 +51,6 @@ final class QuitSafetyTests: XCTestCase {
         try Data("---\ntitle: A note\n---\n\nOriginal body.\n".utf8)
             .write(to: root.appendingPathComponent("note.md"))
         return model
-    }
-
-    // MARK: An export in flight
-
-    func testAnExportInFlightBlocksQuit() throws {
-        let model = try makeWiki()
-        model.exporting = true
-        XCTAssertFalse(shouldTerminate(model) { _ in true })
-        model.exporting = false
-        XCTAssertTrue(shouldTerminate(model) { _ in true })
     }
 
     // MARK: Capture edits
@@ -136,15 +125,5 @@ final class QuitSafetyTests: XCTestCase {
         model.route = "settings"
         XCTAssertTrue(shouldTerminate(model) { _ in true })
         XCTAssertEqual(model.route, "wiki", "Quit must close a sheet, or the alert below it never appears")
-    }
-
-    func testTheExportGuardRunsBeforeTheEditPrompts() throws {
-        let model = try makeWiki()
-        model.exporting = true
-        var prompted = false
-        model.confirmWikiChanges = { _ in prompted = true; return .alertFirstButtonReturn }
-
-        XCTAssertFalse(shouldTerminate(model) { _ in true })
-        XCTAssertFalse(prompted, "An export in flight must stop the quit before any prompt appears")
     }
 }

@@ -22,6 +22,7 @@ struct PiperApp {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var panelController: CapturePanelController?
     private var mainWindowController: MainWindowController?
+    private var settingsWindowController: SettingsWindowController?
     private var editors: [UUID: NSWindow] = [:]
     private var editorSessions: [ObjectIdentifier: CaptureEditSession] = [:]
     private var statusItem: NSStatusItem?
@@ -37,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.openNoteEditor = { [weak self] note in self?.showEditor(note) }
         model.openPanel = { [weak self] in self?.showPanel() }
         model.openLibrary = { [weak self] in self?.showLibrary() }
+        model.openSettings = { [weak self] in self?.settings() }
         let capture = CaptureService(model: model)
         capture.didCapture = { [weak self] text in self?.showToast(text) }
         self.capture = capture
@@ -88,14 +90,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         goMenu.addItem(withTitle: "Back", action: #selector(goBack), keyEquivalent: "[").target = self
         goMenu.addItem(withTitle: "Forward", action: #selector(goForward), keyEquivalent: "]").target = self
         goMenu.addItem(.separator())
-        goMenu.addItem(withTitle: "Search Wiki", action: #selector(searchWiki), keyEquivalent: "o").target = self
+        goMenu.addItem(withTitle: "Search", action: #selector(searchWiki), keyEquivalent: "o").target = self
         let goItem = NSMenuItem(title: "Go", action: nil, keyEquivalent: "")
         goItem.submenu = goMenu
         main.addItem(goItem)
 
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
-        windowMenu.addItem(withTitle: "Browse Wiki", action: #selector(showBrowser), keyEquivalent: "2").target = self
+        windowMenu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "2").target = self
         windowMenu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "0").target = self
         let windowItem = NSMenuItem(title: "Window", action: nil, keyEquivalent: "")
         windowItem.submenu = windowMenu
@@ -110,7 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         let menu = NSMenu()
         menu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Browse Wiki", action: #selector(showBrowser), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Capture Clipboard", action: #selector(clipboard), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings...", action: #selector(settings), keyEquivalent: "").target = self
@@ -136,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         editors[note.id] = window
     }
 
-    /// Shows the capture panel and takes the Wiki window off the screen.
+    /// Shows the capture panel and takes the main window off the screen.
     ///
     /// The two surfaces are exclusive. One of them is in front at a time, and
     /// the toolbar button of each one switches to the other.
@@ -146,7 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panelController?.show()
     }
 
-    /// Shows the Wiki window and takes the capture panel off the screen.
+    /// Shows the main window and takes the capture panel off the screen.
     @objc func showLibrary() {
         if mainWindowController == nil {
             let controller = MainWindowController(model: model)
@@ -175,7 +177,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func goForward() { model.navigate(1); mainWindowController?.refreshPanes() }
     @objc private func searchWiki() { showHome() }
 
-    @objc private func settings() { model.route = "settings"; showLibrary() }
+    @objc private func settings() {
+        if settingsWindowController == nil { settingsWindowController = SettingsWindowController(model: model) }
+        settingsWindowController?.show()
+    }
     @objc private func clipboard() { model.store.captureClipboard(); showToast(model.store.status) }
 
     private func showToast(_ text: String) {
@@ -233,7 +238,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // stops that alert from appearing. Quit then does nothing at all, so
         // close the sheet first.
         dismissAttachedSheet()
-        guard !model.exporting else { showPanel(); return .terminateCancel }
         for session in Array(model.captureEdits.values) {
             if !resolveCaptureEdit(session) { return .terminateCancel }
         }
@@ -256,14 +260,14 @@ private struct ToastView: View {
     let text: String
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "plus").font(.system(size: 12, weight: .medium)).foregroundStyle(PiperTheme.secondary)
-            Text(text).font(PiperTheme.ui(12.5)).lineLimit(1)
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 14)).foregroundStyle(PiperTheme.accent)
+            Text(text).font(PiperTheme.ui(13)).lineLimit(1)
             Spacer(minLength: 0)
-            Text("⌘1").font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.secondary)
+            Text("⌘1").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
         }
         .foregroundStyle(PiperTheme.ink)
         .padding(.horizontal, 14).frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(PiperTheme.surface, in: RoundedRectangle(cornerRadius: 7))
-        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(PiperTheme.rule, lineWidth: 1))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
     }
 }

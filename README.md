@@ -1,6 +1,6 @@
 # Piper
 
-Piper is a native macOS application for capturing text. It saves selected text and clipboard entries as local notes in a floating panel beside the application you work in. A separate window browses and edits a folder of files, such as a Markdown wiki. You can export captures into that folder as one Markdown file.
+Piper is a native macOS application for capturing text. It saves selected text and clipboard entries as local notes in a floating panel beside the application you work in. A separate window browses and edits a folder of files, such as a Markdown wiki.
 
 Capture and browsing need no account, cloud service, telemetry, or network connection. Notes stay in a local SQLite database. Wiki files stay on disk as they are. The web reader connects to the pages you open.
 
@@ -27,8 +27,8 @@ Selection capture works, but its compatibility across applications is unverified
    ```
 
 2. Type a note in the capture panel and press Return.
-3. Copy text in another app, then Command-click its card in the panel to save it.
-4. Press Command-2 to open the Wiki window on `~/Desktop/Wiki`.
+3. Copy text in another app. Click its card in the panel to save it to Inbox.
+4. Press Command-2 to open the main window on `~/Desktop/Wiki`.
 
 To choose another folder, use the folder menu in the Wiki toolbar. To capture a selection with Shift pressed twice, allow Accessibility access first. See [Install Piper](docs/guides/install.md).
 
@@ -36,20 +36,20 @@ To choose another folder, use the folder menu in the Wiki toolbar. To capture a 
 
 | Window | Purpose |
 | --- | --- |
-| Capture panel | Save, organize, edit, copy, and export notes |
-| Wiki window | Search, read, preview, and edit files, read captures in Inbox, and export captures |
-| Note editor | Edit one capture in a separate window with Save Changes |
+| Capture panel | Save, organize, edit, and copy notes |
+| Main window | Search, read, preview, and edit files, and read captures in Inbox |
+| Note editor | Edit one capture in a separate window with Save |
+| Settings | Folders, the capture shortcut, and reading preferences |
 
-The capture panel and the Wiki window take turns on screen. Command-1 shows the panel, and Command-2 shows the Wiki window. Neither closes, so a draft stays open.
+The capture panel and the main window take turns on screen. Command-1 shows the panel, and Command-2 shows the main window. Neither closes, so a draft stays open.
 
-Settings > Style switches between two styles. Vault uses system type and colors. Page uses the bundled IBM Plex Mono font everywhere. Both follow the system appearance.
+Both windows use the system font and colors, with one blue accent. Both follow the system appearance.
 
 ## Documentation
 
 - [Documentation overview](docs/README.md)
 - [Capture notes](docs/guides/capture.md)
-- [Browse and edit your Wiki](docs/guides/browse.md)
-- [Export captures](docs/guides/export.md)
+- [Browse and edit files](docs/guides/browse.md)
 - [Keyboard shortcuts](docs/guides/shortcuts.md)
 - [Architecture](docs/internals/architecture.md)
 

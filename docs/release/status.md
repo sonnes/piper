@@ -16,17 +16,18 @@ This table describes the source on September 15, 2026. Implemented means that th
 | --- | --- | --- |
 | Notes, sections, and search in the capture panel | Implemented | `CaptureStoreTests`, `ReleaseTests` |
 | Merge, copy as list, done, move, delete, and one-step undo | Implemented | `CaptureStoreTests` |
+| One list for every section, with tabs that scroll to a section | Implemented | Manual checks in [Validate a build](validate.md). No automated UI test. |
 | Composer draft that survives a restart | Implemented | Stored in UserDefaults. No automated test. |
-| Note editing with Save Changes | Implemented | `ReleaseTests` (editor conflict), `QuitSafetyTests` |
+| Note editing in a sheet, a window, or in place | Implemented | `ReleaseTests` (editor conflict), `QuitSafetyTests`. In-place saving has no automated test. |
 | Selection capture with double Shift or Control-Option-Space | Implemented, compatibility unverified | `PiperTests` (gesture), `ReleaseTests` (selection range). The app matrix in [Validate a build](validate.md) is open. |
 | Arbitrary capture shortcut | Not implemented | Two presets only |
 | Capture Clipboard | Implemented | `ReleaseTests`, `CaptureStoreTests` |
-| Clipboard cards: paste on click, save on Command-click | Implemented | `ClipboardInboxTests` in `CapturesTests` and `PiperTests` |
+| Clipboard history: 50 texts with time and source app, Keep to Inbox, Clear History | Implemented | `ClipboardInboxTests` in `CapturesTests` and `PiperTests` |
 | Source URL from the source app | Partial | Only when the app exposes an HTTP or HTTPS `AXDocument` value |
 | Local SQLite persistence | Implemented | `CaptureStoreTests`, `ReleaseTests` (locked database, invalid records, unknown version, stale writer) |
 | Image and file attachments | Not implemented | Text only |
 
-## Wiki Window
+## Main Window
 
 | Capability | Status | Evidence or limit |
 | --- | --- | --- |
@@ -40,10 +41,11 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Markdown editing with explicit save | Implemented | `WikiEditingTests`, `QuitSafetyTests` |
 | Frontmatter bytes kept through a save | Implemented | `WikiEditingTests`, `FrontmatterTests` |
 | Refusal to overwrite an external change | Implemented | `WikiEditingTests`, `PiperTests` |
-| Raw source for Markdown and HTML | Implemented | `FilePreviewTests`; source includes unsaved Markdown edits |
+| Source view for Markdown and HTML | Implemented | `FilePreviewTests` (unsaved Markdown edits), `SourceViewTests` (line wrap) |
 | Previews for non-Markdown files | Implemented | `FilePreviewTests` |
 | Markdown rendering | Partial | SwiftMarkdownEngine 0.12.0 with strikethrough. Not full CommonMark. |
-| Find in the open file | Not implemented | Command-F does nothing in the Wiki window |
+| Add and remove folders | Implemented | `WikiFoldersTests` |
+| Find in the open file | Not implemented | Command-F does nothing in the main window |
 | Create a new Wiki from the UI | Not implemented | `Vault.create()` exists and has tests, but no UI calls it |
 | Concurrent external edits | Partial | A byte compare detects most changes. No shared lock. |
 
@@ -53,12 +55,6 @@ This table describes the source on September 15, 2026. Implemented means that th
 | --- | --- | --- |
 | Web links in captures | Implemented | `CaptureLinksTests`, `ReleaseTests` (source URLs). Manual checks for redirects, history, new-window links, edits, and failed loads. |
 | Capture from a web page | Implemented | Manual checks for selected text, page text, source metadata, empty pages, and the Capture button |
-
-## Export
-
-| Capability | Status | Evidence or limit |
-| --- | --- | --- |
-| Send to Wiki as one Markdown file | Implemented | `PiperTests` (one file, bad input, file names), `QuitSafetyTests` (export blocks quit) |
 
 ## Distribution
 

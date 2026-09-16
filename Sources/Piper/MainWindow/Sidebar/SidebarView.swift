@@ -3,24 +3,60 @@ import PiperTree
 import SwiftUI
 import Vault
 
-/// The source list and file warnings of the main window.
+/// The source list, its actions, and file warnings.
 struct SidebarView: View {
     @Bindable var model: AppModel
     @Binding var expanded: Set<String>
     let selection: SidebarSelection
     let select: (SidebarSelection) -> Void
+    @State private var namingSection = false
 
     var body: some View {
         VStack(spacing: 0) {
             SidebarOutline(model: model, unreadCounts: model.unreadFolderCounts,
-                           expanded: $expanded, selection: selection, select: select)
+                           sections: sectionCounts,
+                           expanded: $expanded, selection: selection, select: select,
+                           newSection: { namingSection = true })
             if !model.wikiProblems.isEmpty {
                 DisclosureGroup("\(model.wikiProblems.count) file warnings") {
                     Text(model.wikiProblems.joined(separator: "\n"))
                         .textSelection(.enabled).font(PiperTheme.ui(10)).padding(.top, 5)
-                }.font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.warning).padding(12)
+                }
+                .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.warning)
+                .padding(.horizontal, AppDefaults.Sidebar.rowInset).padding(.vertical, 6)
+            }
+            HStack(spacing: 14) {
+                footerButton("New Section") { namingSection = true }
+                footerButton("Add Folder…") { model.chooseWiki() }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, AppDefaults.Sidebar.rowInset)
+            .frame(height: 32)
+        }
+        .sheet(isPresented: $namingSection) {
+            NewSectionSheet(sections: model.store.sections) { name in
+                guard model.store.chooseSection(name) else { return }
+                namingSection = false
+                expanded.remove(SidebarOutline.inboxCollapsedKey)
+                select(.section(model.store.activeSection))
             }
         }
+    }
+
+    /// Every capture section and the number of notes that are not done.
+    private var sectionCounts: [SidebarSection] {
+        model.store.sections.map { section in
+            SidebarSection(name: section, count: model.store.notes.filter { $0.section == section && !$0.isDone }.count)
+        }
+    }
+
+    private func footerButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: "plus")
+                .labelStyle(SidebarFooterLabelStyle())
+        }
+        .buttonStyle(.plain)
+        .help(title)
     }
 
     /// Every folder path in the files, at every level.
@@ -34,5 +70,22 @@ struct SidebarView: View {
             }
         }
         return result
+    }
+}
+
+/// One capture section in the sidebar.
+struct SidebarSection: Equatable {
+    let name: String
+    let count: Int
+}
+
+private struct SidebarFooterLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon.font(.system(size: 11, weight: .medium))
+            configuration.title.font(PiperTheme.ui(12))
+        }
+        .foregroundStyle(PiperTheme.secondary)
+        .contentShape(Rectangle())
     }
 }

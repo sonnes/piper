@@ -123,4 +123,23 @@ final class WikiWorkspaceTests: XCTestCase {
         model.wikiQuery = "unmatched"
         XCTAssertTrue(model.filteredFiles.isEmpty)
     }
+
+    @MainActor func testListSearchStaysInItsFolder() {
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        model.files = [
+            document("Root.md", body: "matching text"),
+            document("Topics/One.md", body: "matching text"),
+            document("Topics/Nested/Two.md", body: "matching text"),
+            document("Other/Three.md", body: "matching text")
+        ]
+        model.wikiQuery = "matching"
+        XCTAssertEqual(model.filteredFiles(in: "Topics").map(\.id), ["Topics/One.md"])
+        XCTAssertEqual(model.filteredFiles(in: "").map(\.id), ["Root.md"])
+        XCTAssertEqual(model.filteredFiles(in: nil).count, 4)
+        model.wikiQuery = "   "
+        XCTAssertEqual(model.filteredFiles(in: "Topics").map(\.id), ["Topics/One.md"])
+        model.wikiQuery = "absent"
+        XCTAssertTrue(model.filteredFiles(in: "Topics").isEmpty)
+    }
+
 }

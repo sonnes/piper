@@ -25,11 +25,15 @@ final class MainWindowController: NSWindowController {
     private let fileListViewController = FileListViewController()
     private let detailViewController = DetailViewController()
     private var listItem: NSSplitViewItem?
-    /// The text the toolbar search field hands to the home page.
+    /// The initial query for Home.
     private var homeSeed = ""
     /// Changes with every seed, so that the home page takes the new text.
     private var homeIdentity = UUID()
     private var appliedPaneWidths = false
+    /// The last section that the sidebar selected. A new value scrolls the list.
+    private var sectionScroll: SectionScroll?
+    private var viewModeControl: NSSegmentedControl?
+    private var doneItem: NSToolbarItem?
 
     /// True while the panes to the right of the sidebar hold the home page.
     private var showsHome: Bool { state.selection == .home }
@@ -47,16 +51,11 @@ final class MainWindowController: NSWindowController {
         super.init(window: window)
         NotificationCenter.default.addObserver(self, selector: #selector(vaultChanged),
                                                name: .vaultPathDidChange, object: model)
-        NotificationCenter.default.addObserver(self, selector: #selector(exportedDocumentOpened),
-                                               name: .exportedDocumentDidOpen, object: model)
 
-        // The capture panel is also called Piper. Two windows with one name make
-        // the Window menu unreadable, so the main window carries the folder name.
-        window.title = "Piper Wiki"
-        // The toolbar holds the controls of both panes, and a title in front of
-        // them pushes the first group out over the file list.
-        window.titleVisibility = .hidden
-        window.titlebarAppearsTransparent = true
+        // The title names what the sidebar selected, as in Mail. The subtitle
+        // says where it lives.
+        window.title = "Piper"
+        window.titleVisibility = .visible
         window.toolbarStyle = .unified
         window.tabbingMode = .disallowed
         window.backgroundColor = PiperTheme.pageNS
@@ -82,7 +81,6 @@ final class MainWindowController: NSWindowController {
     // MARK: - API
 
     func show() {
-        window?.title = "Piper Wiki — " + model.vault.root.lastPathComponent
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         refreshPanes()
@@ -119,7 +117,7 @@ final class MainWindowController: NSWindowController {
 
     /// Shows the home page in the panes beside the sidebar.
     ///
-    /// The toolbar passes its action query to the Home suggestion list.
+    /// The seed supplies the initial query.
     func showHome(seed: String = "") {
         homeSeed = seed
         homeIdentity = UUID()
@@ -128,6 +126,25 @@ final class MainWindowController: NSWindowController {
 
     /// Records what the sidebar picked and redraws the panes for it.
     private func select(_ selection: SidebarSelection) {
+        if case .folder = selection, selection != state.selection { model.wikiQuery = "" }
+        if selection.showsCaptures != state.selection.showsCaptures || selection == .clipboard || state.selection == .clipboard {
+            model.store.query = ""
+            model.store.selection.removeAll()
+        }
+        switch selection {
+        case .section(let name):
+            if name != model.store.activeSection { model.store.chooseSection(name) }
+            sectionScroll = SectionScroll(section: name)
+        case .inbox:
+            let section = model.store.sections.contains(SidebarOutline.inboxSection)
+                ? SidebarOutline.inboxSection : model.store.sections.first
+            if let section {
+                if section != model.store.activeSection { model.store.chooseSection(section) }
+                sectionScroll = SectionScroll(section: section)
+            }
+        default:
+            break
+        }
         state.selection = selection
         state.selectedFile = model.selectedDocument
         state.save()
@@ -147,19 +164,7 @@ final class MainWindowController: NSWindowController {
     /// The home page needs the width of the window, so its selection collapses
     /// the file list.
     func refreshPanes() {
-        if let path = model.exportedDocument {
-            state.selection = .folder((path as NSString).deletingLastPathComponent)
-            state.selectedFile = path
-            state.save()
-            model.exportedDocument = nil
-        }
-        window?.title = "Piper Wiki — " + model.vault.root.lastPathComponent
-        if let search = window?.toolbar?.items.first(where: { $0.itemIdentifier == .search })?.view as? NSSearchField,
-           search.stringValue != model.wikiQuery {
-            let query = model.wikiQuery
-            search.abortEditing()
-            search.stringValue = query
-        }
+        observeTitle()
         sidebarViewController.setContent(SidebarPane(
             model: model,
             selection: state.selection,
@@ -178,13 +183,30 @@ final class MainWindowController: NSWindowController {
         switch state.selection {
         case .home:
             detailViewController.setContent(homeContent)
-        case .inbox:
-            fileListViewController.setContent(InboxListView(model: model, selected: state.selectedNote) { [weak self] note in
-                guard let self else { return }
-                fileListViewController.selectNote(note.id)
-            })
-            detailViewController.setContent(NoteDetailPane(model: model, id: state.selectedNote).routeSheets(model))
-        case .folder(let path):
+        case .inbox, .section, .clipboard:
+            let clipboard = state.selection == .clipboard
+            fileListViewController.setContent(CaptureView(
+                model: model, embedded: true,
+                content: clipboard ? .clipboard : .sections,
+                scroll: clipboard ? nil : sectionScroll,
+                acceptsKeyboard: { [weak self] window in
+                    guard let self, state.selection.showsCaptures, window === self.window else { return false }
+                    if window.firstResponder === fileListViewController { return true }
+                    guard let responder = window.firstResponder as? NSView else { return false }
+                    return responder.isDescendant(of: fileListViewController.view)
+                },
+                focusNotes: { [weak self] in
+                    guard let self else { return }
+                    window?.makeFirstResponder(fileListViewController)
+                },
+                selectCapture: { [weak self] id in
+                    guard let self, state.selection.showsCaptures else { return }
+                    fileListViewController.selectNote(id)
+                }
+            ))
+            detailViewController.setContent(NoteDetailPane(model: model, id: clipboard ? nil : state.selectedNote).routeSheets(model))
+        case .folder, .allFiles:
+            let path: String? = state.selection == .allFiles ? nil : state.selection.folder
             fileListViewController.setContent(FileListView(model: model, folder: path) { [weak self] file in
                 guard let self else { return }
                 fileListViewController.selectFile(file.id)
@@ -193,15 +215,92 @@ final class MainWindowController: NSWindowController {
         }
 
         listItem?.isCollapsed = showsHome
+        updateToolbarState()
     }
 
-    /// The home page, with the seed the toolbar search field left behind.
+    /// Keeps the title current. The counts in the subtitle change with the
+    /// notes and the files, so the title updates when the model does.
+    private func observeTitle() {
+        withObservationTracking {
+            updateTitle()
+        } onChange: { [weak self] in
+            DispatchQueue.main.async { self?.observeTitle() }
+        }
+    }
+
+    /// Names the sidebar selection in the title bar, with a count under it.
+    private func updateTitle() {
+        guard window != nil else { return }
+        let store = model.store
+        switch state.selection {
+        case .home:
+            setTitle("Home", (model.vault.root.path as NSString).abbreviatingWithTildeInPath)
+        case .inbox:
+            setTitle("Inbox", Self.count(store.notes.count, "note") + " in " + Self.count(store.sections.count, "section"))
+        case .section(let name):
+            setTitle(name, Self.count(store.notes.filter { $0.section == name }.count, "note"))
+        case .clipboard:
+            setTitle("Clipboard", Self.count(model.clipboard.entries.count, "copy", "copies") + " · not saved")
+        case .allFiles:
+            setTitle("All Files", fileCount(model.files))
+        case .folder(let path):
+            let name = path.isEmpty ? model.vault.root.lastPathComponent : (path as NSString).lastPathComponent
+            setTitle(name, fileCount(model.files.filter { $0.folder == path }))
+        }
+    }
+
+    private func setTitle(_ title: String, _ subtitle: String) {
+        if window?.title != title { window?.title = title }
+        if window?.subtitle != subtitle { window?.subtitle = subtitle }
+    }
+
+    private func fileCount(_ files: [VaultFile]) -> String {
+        let unread = files.filter { model.isUnread($0) }.count
+        let total = files.isEmpty ? "No files" : Self.count(files.count, "file")
+        return unread > 0 ? total + " · \(unread) unread" : total
+    }
+
+    private static func count(_ value: Int, _ one: String, _ many: String? = nil) -> String {
+        "\(value) " + (value == 1 ? one : many ?? one + "s")
+    }
+
+    /// Enables the toolbar controls that act on the current selection, and
+    /// hides the ones that have no meaning there.
+    private func updateToolbarState() {
+        let showsFile = !state.selection.showsCaptures && !showsHome && model.currentDocument.map {
+            FilePresentation.sourceText(for: $0) != nil
+        } == true
+        let showsFiles = !state.selection.showsCaptures && !showsHome
+        let showsNotes = state.selection.showsCaptures && state.selection != .clipboard
+        if #available(macOS 15.0, *), let items = window?.toolbar?.items {
+            for item in items {
+                if item.itemIdentifier == .viewMode { item.isHidden = !showsFiles }
+                if item.itemIdentifier == .markDone { item.isHidden = !showsNotes }
+            }
+        }
+        viewModeControl?.isEnabled = showsFile
+        viewModeControl?.selectedSegment = model.showsFileSource ? 1 : 0
+        let note = state.selectedNote.flatMap { id in model.store.notes.first { $0.id == id } }
+        let canComplete = state.selection.showsCaptures && state.selection != .clipboard && note != nil
+        doneItem?.isEnabled = canComplete
+        doneItem?.image = NSImage(systemSymbolName: note?.isDone == true ? "checkmark.circle.fill" : "checkmark.circle",
+                                  accessibilityDescription: nil)
+        doneItem?.label = note?.isDone == true ? "Reopen" : "Mark as Done"
+        doneItem?.toolTip = doneItem?.label
+    }
+
+    /// The Home page and its initial query.
     private var homeContent: some View {
         HomeView(
             model: model,
             initialText: homeSeed,
             openFile: { [weak self] path in self?.open(path) },
-            showBrowser: { [weak self] in self?.showBrowser() }
+            showBrowser: { [weak self] in self?.showBrowser() },
+            searchFiles: { [weak self] query in
+                guard let self else { return }
+                model.wikiQuery = query
+                select(.allFiles)
+            }
         )
         .id(homeIdentity)
         .routeSheets(model)
@@ -263,22 +362,20 @@ enum Toolbar {
 }
 
 extension NSToolbarItem.Identifier {
-    static let home = NSToolbarItem.Identifier("home")
     static let navigate = NSToolbarItem.Identifier("navigate")
     static let capture = NSToolbarItem.Identifier("capture")
-    static let settings = NSToolbarItem.Identifier("settings")
-    static let search = NSToolbarItem.Identifier("search")
-    static let refresh = NSToolbarItem.Identifier("refresh")
-    static let folder = NSToolbarItem.Identifier("folder")
+    static let viewMode = NSToolbarItem.Identifier("viewMode")
+    static let markDone = NSToolbarItem.Identifier("markDone")
+    static let more = NSToolbarItem.Identifier("more")
     static let readerSeparator = NSToolbarItem.Identifier("readerSeparator")
 }
 
 extension MainWindowController: NSToolbarDelegate {
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        return [.toggleSidebar, .refresh, .sidebarTrackingSeparator,
-                .home, .folder, .flexibleSpace, .readerSeparator,
-                .navigate, .capture, .flexibleSpace, .search]
+        [.toggleSidebar, .sidebarTrackingSeparator,
+         .flexibleSpace, .capture, .readerSeparator,
+         .navigate, .flexibleSpace, .viewMode, .markDone, .more]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -292,47 +389,24 @@ extension MainWindowController: NSToolbarDelegate {
         case .readerSeparator:
             return NSTrackingSeparatorToolbarItem(identifier: identifier,
                                                   splitView: splitViewController.splitView, dividerIndex: 1)
-        case .home:
-            return button(identifier, symbol: "house", label: "Home", action: #selector(goHome))
         case .navigate:
             return navigateItem()
         case .capture:
             return button(identifier, symbol: "square.and.pencil",
-                          label: "Capture Panel · ⌘1", action: #selector(openCapture))
-        case .settings:
-            return button(identifier, symbol: "gearshape", label: "Settings", action: #selector(openSettings))
-        case .search:
-            return searchItem()
-        case .refresh:
-            return button(identifier, symbol: "arrow.clockwise", label: "Refresh", action: #selector(refreshVault))
-        case .folder:
-            return folderItem()
+                          label: "New Capture · ⌘1", action: #selector(openCapture))
+        case .viewMode:
+            return viewModeItem()
+        case .markDone:
+            let item = button(identifier, symbol: "checkmark.circle", label: "Mark as Done", action: #selector(toggleDone))
+            item.autovalidates = false
+            doneItem = item
+            updateToolbarState()
+            return item
+        case .more:
+            return moreItem()
         default:
             return nil
         }
-    }
-
-    /// The search field of the browser toolbar.
-    ///
-    /// Plain text filters the file list. A leading `>` selects local app actions, so
-    /// the window shows the home page and hands the text to its suggestion list.
-    ///
-    private func searchItem() -> NSToolbarItem {
-        let field = NSSearchField()
-        field.placeholderString = "Search"
-        field.sendsWholeSearchString = false
-        field.sendsSearchStringImmediately = true
-        field.stringValue = model.wikiQuery
-        field.target = self
-        field.action = #selector(search(_:))
-        field.translatesAutoresizingMaskIntoConstraints = false
-        field.widthAnchor.constraint(equalToConstant: 220).isActive = true
-        let item = NSToolbarItem(itemIdentifier: .search)
-        item.view = field
-        item.label = "Search"
-        item.toolTip = "Search; > for actions"
-        item.visibilityPriority = .high
-        return item
     }
 
     private func button(_ identifier: NSToolbarItem.Identifier,
@@ -349,18 +423,37 @@ extension MainWindowController: NSToolbarDelegate {
         return item
     }
 
-    /// The Wiki folder menu.
-    private func folderItem() -> NSToolbarItem {
+    /// Preview and Source for a text file.
+    private func viewModeItem() -> NSToolbarItem {
+        let control = NSSegmentedControl(labels: ["Preview", "Source"], trackingMode: .selectOne,
+                                         target: self, action: #selector(changeViewMode(_:)))
+        control.controlSize = .regular
+        control.selectedSegment = model.showsFileSource ? 1 : 0
+        control.setToolTip("Show the formatted file", forSegment: 0)
+        control.setToolTip("Show the text of the file", forSegment: 1)
+        viewModeControl = control
+        let item = NSToolbarItem(itemIdentifier: .viewMode)
+        item.view = control
+        item.label = "View"
+        updateToolbarState()
+        return item
+    }
+
+    /// Actions that apply to the whole window.
+    private func moreItem() -> NSToolbarItem {
         let menu = NSMenu()
-        menu.addItem(withTitle: "Choose Wiki Folder…", action: #selector(chooseFolder), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Reveal Wiki in Finder", action: #selector(revealFolder), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "New Section…", action: #selector(newSection), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Add Folder…", action: #selector(chooseFolder), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Reveal in Finder", action: #selector(revealFolder), keyEquivalent: "").target = self
         menu.addItem(.separator())
+        menu.addItem(withTitle: "Refresh", action: #selector(refreshVault), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: "").target = self
-        let item = NSMenuToolbarItem(itemIdentifier: .folder)
+        let item = NSMenuToolbarItem(itemIdentifier: .more)
         item.isBordered = true
-        item.image = NSImage(systemSymbolName: "folder", accessibilityDescription: "Wiki Folder")
-        item.label = "Wiki Folder"
-        item.toolTip = "Wiki Folder"
+        item.showsIndicator = false
+        item.image = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: "More")
+        item.label = "More"
+        item.toolTip = "More"
         item.menu = menu
         return item
     }
@@ -370,22 +463,41 @@ extension MainWindowController: NSToolbarDelegate {
             NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Back") ?? NSImage(),
             NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Forward") ?? NSImage()
         ], trackingMode: .momentary, target: self, action: #selector(navigate(_:)))
+        control.segmentStyle = .separated
         let item = NSToolbarItem(itemIdentifier: .navigate)
         item.view = control
         item.label = "Back and Forward"
         return item
     }
 
-    @objc private func goHome() { showHome() }
-
-
     @objc private func openCapture() { model.openPanel?() }
 
-    @objc private func openSettings() { model.route = "settings" }
+    @objc private func openSettings() { model.openSettings?() }
 
     @objc private func refreshVault() { model.reload(); refreshPanes() }
 
     @objc private func chooseFolder() { model.chooseWiki() }
+
+    @objc private func newSection() {
+        guard let window else { return }
+        let sheet = NSHostingController(rootView: NewSectionSheet(sections: model.store.sections) { [weak self, weak window] name in
+            guard let self, model.store.chooseSection(name) else { return }
+            if let sheet = window?.attachedSheet { window?.endSheet(sheet) }
+            select(.section(model.store.activeSection))
+        })
+        window.contentViewController?.presentAsSheet(sheet)
+    }
+
+    @objc private func toggleDone() {
+        guard let id = state.selectedNote else { return }
+        model.store.toggleDone(id)
+        updateToolbarState()
+    }
+
+    @objc private func changeViewMode(_ sender: NSSegmentedControl) {
+        model.showsFileSource = sender.selectedSegment == 1
+        refreshPanes()
+    }
 
     @objc private func vaultChanged() {
         state.resetForVault()
@@ -395,22 +507,7 @@ extension MainWindowController: NSToolbarDelegate {
         refreshPanes()
     }
 
-    @objc private func exportedDocumentOpened() {
-        refreshPanes()
-    }
-
     @objc private func revealFolder() { NSWorkspace.shared.open(model.vault.root) }
-
-    @objc private func search(_ sender: NSSearchField) {
-        let text = sender.stringValue
-        guard !text.hasPrefix(">") else {
-            sender.stringValue = ""
-            model.wikiQuery = ""
-            showHome(seed: text)
-            return
-        }
-        model.wikiQuery = text
-    }
 
     @objc private func navigate(_ sender: NSSegmentedControl) {
         model.navigate(sender.selectedSegment == 0 ? -1 : 1)
@@ -428,11 +525,7 @@ private struct NoteDetailPane: View {
             NoteDetail(model: model, note: note)
                 .id(note.id)
         } else {
-            Text("No Selection")
-                .font(PiperTheme.ui(18))
-                .foregroundStyle(.tertiary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(PiperTheme.page)
+            NoSelection()
         }
     }
 }
@@ -455,10 +548,11 @@ extension MainWindowController: FileListViewControllerDelegate {
         refreshPanes()
     }
 
-    func fileListViewController(_ controller: FileListViewController, didSelectNote id: UUID) {
+    func fileListViewController(_ controller: FileListViewController, didSelectNote id: UUID?) {
         state.selectedNote = id
         state.save()
-        refreshPanes()
+        detailViewController.setContent(NoteDetailPane(model: model, id: id).routeSheets(model))
+        updateToolbarState()
     }
 }
 
@@ -499,7 +593,6 @@ private struct SidebarPane: View {
 /// The detail pane. It holds the reading preferences, which belong to the view.
 private struct DetailPane: View {
     @Bindable var model: AppModel
-    @State private var showsRaw = false
 
     @AppStorage(AppDefaults.Key.readerSize) private var readerSize = 18.0
     @AppStorage(AppDefaults.Key.readerTheme) private var readerTheme = WikiReadingTheme.paper
@@ -510,46 +603,22 @@ private struct DetailPane: View {
     var body: some View {
         Group {
             if let document = model.currentDocument {
-                VStack(spacing: 0) {
-                    let source = FilePresentation.sourceText(for: document, markdown: model.wikiEdit?.markdown)
-                    if source != nil {
-                        HStack {
-                            Spacer()
-                            Picker("File View", selection: $showsRaw) {
-                                Text("Preview").tag(false)
-                                Text("Raw").tag(true)
-                            }
-                            .pickerStyle(.segmented)
-                            .fixedSize()
-                            .accessibilityLabel("File View")
-                        }
-                        .padding(AppDefaults.Reader.topInset)
-                        Rule()
+                let source = FilePresentation.sourceText(for: document, markdown: model.wikiEdit?.markdown)
+                if model.showsFileSource, let source {
+                    PlainTextPreview(text: source)
+                } else if FilePresentation(document) != .markdown {
+                    FilePreview(model: model, document: document)
+                } else {
+                    VStack(spacing: 0) {
+                        DetailHeader(file: document, hasChanges: model.wikiEdit?.hasChanges ?? false)
+                        WikiEditor(model: model, document: document, fontSize: readerSize,
+                                   fontName: readerFont.font(size: readerSize).fontName, paper: paper)
                     }
-                    if showsRaw, let source {
-                        PlainTextPreview(text: source)
-                        DetailStatusBar(path: path(of: document), words: words(of: document),
-                                        hasChanges: model.wikiEdit?.hasChanges ?? false)
-                    } else if FilePresentation(document) != .markdown {
-                        FilePreview(model: model, document: document)
-                    } else {
-                        VStack(spacing: 0) {
-                            DetailHeader(file: document, rootName: model.vault.root.lastPathComponent)
-                            WikiEditor(model: model, document: document, fontSize: readerSize,
-                                       fontName: readerFont.font(size: readerSize).fontName, paper: paper)
-                            DetailStatusBar(path: path(of: document), words: words(of: document),
-                                            hasChanges: model.wikiEdit?.hasChanges ?? false)
-                        }
-                        .background(paper)
-                        .preferredColorScheme(readerAppearance.colorScheme)
-                    }
+                    .background(paper)
+                    .preferredColorScheme(readerAppearance.colorScheme)
                 }
             } else {
-                Text("No Selection")
-                    .font(PiperTheme.ui(18))
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(PiperTheme.page)
+                NoSelection()
             }
         }
         .onChange(of: model.currentDocument?.id, initial: true) { _, _ in
@@ -559,17 +628,5 @@ private struct DetailPane: View {
 
     private var paper: Color {
         Color(nsColor: readerTheme.background(dark: (readerAppearance.colorScheme ?? colorScheme) == .dark))
-    }
-
-    private func path(of document: VaultFile) -> String {
-        let url = model.vault.root.appendingPathComponent(document.relativePath)
-        return (url.path as NSString).abbreviatingWithTildeInPath
-    }
-
-    /// The length of what the reader sees. The editor text comes first, so the
-    /// count follows a change before a save.
-    private func words(of document: VaultFile) -> Int {
-        let text = model.wikiEdit?.text ?? document.body
-        return text.split(whereSeparator: \.isWhitespace).count
     }
 }

@@ -29,14 +29,14 @@ Piper starts with the capture panel and a menu bar icon. A second launch opens t
 
 ## Allow Selection Capture
 
-Piper reads selected text through the macOS Accessibility API. Without this permission, the capture panel and the Wiki window still work.
+Piper reads selected text through the macOS Accessibility API. Without this permission, the capture panel and the main window still work.
 
 1. Open Settings with Command-comma.
 2. Select Capture.
 3. Select Open System Settings.
 4. Turn on Piper in the Accessibility list.
 
-Piper checks the permission every four seconds. You do not need to restart it. The capture panel shows an Enable Selection Capture banner until the permission is on.
+Piper checks the permission every four seconds. You do not need to restart it. Until the permission is on, the capture panel shows a tip with an Enable button. You can close the tip.
 
 To use selection capture, see [Capture notes](capture.md#capture-a-selection).
 

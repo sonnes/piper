@@ -46,7 +46,7 @@ final class CapturePanelController: NSWindowController {
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        panel.contentView = NSHostingView(rootView: PanelView(model: model)
+        panel.contentView = NSHostingView(rootView: CaptureView(model: model)
             .clipShape(RoundedRectangle(cornerRadius: AppDefaults.Window.captureCornerRadius * scale)))
 
         if !panel.setFrameUsingName(NSWindow.FrameAutosaveName(AppDefaults.WindowName.capturePanel)),

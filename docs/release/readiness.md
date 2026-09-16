@@ -23,28 +23,22 @@ Acceptance: a supported app saves the exact selected text. The clipboard and the
 ## Windows And Persistence
 
 - [ ] Run the capture checks, including a restart.
-- [ ] Test Save Changes and Cancel in a separate note editor.
+- [ ] Test Save and Cancel in a separate note editor.
 - [x] Keep the current notes when a database write fails. `ReleaseTests` covers locked, invalid, and stale databases.
 - [x] Protect capture drafts from conflicting edits and from quit. `ReleaseTests` and `QuitSafetyTests` cover this.
 
 Acceptance: each window restores its own state, saved notes survive a restart, and a failed write keeps the current data.
 
-## Wiki Window
+## Main Window
 
-- [ ] Run the Wiki window, editing, and reading preference checks.
-- [ ] Decide whether the Wiki window needs find in the open file.
+- [ ] Run the main window, editing, and reading preference checks.
+- [ ] Decide whether the main window needs find in the open file.
+- [ ] Decide whether the capture tabs follow the section at the top of the list while it scrolls. Today a tab changes only on a click.
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
 - [ ] Make a link from the editor update the sidebar and the file list.
-
-Acceptance: every visible control does what its label says, and no edit is lost on navigation, close, or quit.
-
-## Export
-
-- [ ] Run the export checks.
-- [ ] Correct the Settings > Wiki text that still describes unverified drafts.
 - [ ] Connect the Capture Clipboard action on Home. `AppModel.captureClipboard` is never set.
 
-Acceptance: export writes one file and changes nothing else.
+Acceptance: every visible control does what its label says, and no edit is lost on navigation, close, or quit.
 
 ## Distribution
 

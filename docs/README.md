@@ -8,14 +8,13 @@ read_when:
 
 # Documentation
 
-Piper captures text into a local database and browses a folder of files. Send to Wiki connects the two by writing captures to one Markdown file.
+Piper captures text into a local database and browses a folder of files.
 
 ## Use Piper
 
 - [Install Piper](guides/install.md): build from source, allow Accessibility access, and build a signed release.
-- [Capture notes](guides/capture.md): the capture panel, clipboard cards, selection capture, and sections.
-- [Browse and edit your Wiki](guides/browse.md): Home, search, unread files, previews, editing, and the Inbox reader.
-- [Export captures](guides/export.md): write selected captures to one Markdown file.
+- [Capture notes](guides/capture.md): the capture panel, clipboard history, selection capture, and sections.
+- [Browse and edit files](guides/browse.md): folders, Home, search, unread files, previews, editing, and the Inbox reader.
 - [Keyboard shortcuts](guides/shortcuts.md): every shortcut in both windows.
 
 ## Understand The Data

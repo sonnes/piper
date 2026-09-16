@@ -76,31 +76,36 @@ struct FilePreview: View {
 struct PlainTextPreview: NSViewRepresentable {
     let text: String
 
-    func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSScrollView()
+    func makeNSView(context: Context) -> NSScrollView { Self.makeScrollView() }
+
+    /// A read-only text view that wraps each line at the width of the pane.
+    ///
+    /// `scrollableTextView()` sizes the text view to the clip view and tracks
+    /// its width.
+    static func makeScrollView() -> NSScrollView {
+        let scroll = NSTextView.scrollableTextView()
         scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true
         scroll.drawsBackground = true
         scroll.backgroundColor = PiperTheme.pageNS
-
-        let editor = NSTextView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        guard let editor = scroll.documentView as? NSTextView else { return scroll }
         editor.isEditable = false
         editor.isSelectable = true
         editor.isRichText = false
         editor.usesFindBar = true
-        editor.isVerticallyResizable = true
         editor.isHorizontallyResizable = false
-        editor.autoresizingMask = [.width]
-        editor.minSize = .zero
-        editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         editor.textContainer?.widthTracksTextView = true
-        editor.textContainer?.containerSize = NSSize(width: 640, height: CGFloat.greatestFiniteMagnitude)
-        editor.textContainerInset = NSSize(width: 24, height: 20)
-        editor.font = .monospacedSystemFont(ofSize: 14, weight: .regular)
+        editor.textContainerInset = NSSize(width: 32, height: 20)
+        editor.font = PiperTheme.manuscript(size: 12.5)
         editor.textColor = PiperTheme.inkNS
         editor.backgroundColor = PiperTheme.pageNS
+        editor.defaultParagraphStyle = {
+            let style = NSMutableParagraphStyle()
+            style.lineSpacing = 3
+            return style
+        }()
         editor.setAccessibilityLabel("File text")
-        scroll.documentView = editor
         return scroll
     }
 

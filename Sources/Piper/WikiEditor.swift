@@ -113,7 +113,7 @@ struct WikiEditor: View {
             )
             .frame(width: min(AppDefaults.Reader.columnWidth + AppDefaults.Reader.horizontalInset * 2, geometry.size.width), height: geometry.size.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityLabel("Wiki Page")
+            .accessibilityLabel("Page")
             .background(WikiEditorSetup(model: model, anchorRequest: model.anchorRequest))
         }
         .background(paper)

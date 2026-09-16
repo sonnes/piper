@@ -44,56 +44,6 @@ enum WikiReadingAppearance: String, CaseIterable {
     }
 }
 
-/// Theme, font, size, and appearance for the Wiki page. Shown in the Aa popover and in Settings.
-struct ReadingPreferencesView: View {
-    @AppStorage("wikiReaderSize") private var fontSize = 18.0
-    @AppStorage("wikiReaderTheme") private var theme = WikiReadingTheme.paper
-    @AppStorage("wikiReaderFont") private var font = WikiReadingFont.sans
-    @AppStorage("wikiReaderAppearance") private var appearance = WikiReadingAppearance.system
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            row("Paper") {
-                Picker("Paper", selection: $theme) {
-                    ForEach(WikiReadingTheme.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }.pickerStyle(.segmented).labelsHidden().controlSize(.small).accessibilityLabel("Reading Theme")
-            }
-            row("Font") {
-                Picker("Font", selection: $font) {
-                    ForEach(WikiReadingFont.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }.pickerStyle(.segmented).labelsHidden().controlSize(.small).accessibilityLabel("Reading Font")
-            }
-            row("Size") {
-                HStack(spacing: 0) {
-                    Button { fontSize = max(13, fontSize - 1) } label: { Image(systemName: "minus").frame(width: 30, height: 24) }
-                        .disabled(fontSize <= 13).accessibilityLabel("Decrease Reading Size")
-                    Text("\(Int(fontSize)) pt").font(PiperTheme.ui(11)).monospacedDigit().frame(maxWidth: .infinity)
-                    Button { fontSize = min(24, fontSize + 1) } label: { Image(systemName: "plus").frame(width: 30, height: 24) }
-                        .disabled(fontSize >= 24).accessibilityLabel("Increase Reading Size")
-                }.buttonStyle(.plain)
-                    .overlay(RoundedRectangle(cornerRadius: PiperTheme.radius).strokeBorder(PiperTheme.rule, lineWidth: 1))
-            }
-            row("Appearance") {
-                Picker("Appearance", selection: $appearance) {
-                    ForEach(WikiReadingAppearance.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }.pickerStyle(.segmented).labelsHidden().controlSize(.small).accessibilityLabel("Reading Appearance")
-            }
-            HStack {
-                Spacer()
-                Button("Reset") { theme = .paper; font = .sans; fontSize = 18; appearance = .system }
-                    .buttonStyle(PiperButtonStyle(ghost: true)).help("Reset Reading Preferences")
-            }
-        }
-    }
-
-    private func row<Control: View>(_ title: String, @ViewBuilder control: () -> Control) -> some View {
-        HStack(spacing: 12) {
-            Text(title).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary).frame(width: 72, alignment: .leading)
-            control().frame(maxWidth: .infinity)
-        }
-    }
-}
-
 struct WikiInspector: View {
     let model: AppModel
     let document: VaultFile
@@ -133,7 +83,7 @@ struct WikiInspector: View {
             }
             .scrollIndicators(.automatic)
         }
-        .background(PiperTheme.surface)
+        .background(PiperTheme.panel)
         .confirmationDialog("Discard unsaved changes?", isPresented: $confirmDiscard, titleVisibility: .visible) {
             Button("Discard Changes", role: .destructive) { model.discardWikiEdit() }
             Button("Cancel", role: .cancel) { }
@@ -155,7 +105,7 @@ struct WikiInspector: View {
                     .foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary)
                     .padding(.horizontal, 8).frame(height: 38)
                     .overlay(alignment: .bottom) {
-                        if active && !PiperTheme.isPage { Rectangle().fill(PiperTheme.accent).frame(height: 2).padding(.horizontal, 8) }
+                        if active { Rectangle().fill(PiperTheme.accent).frame(height: 2).padding(.horizontal, 8) }
                     }
                     .contentShape(Rectangle())
                 }
@@ -175,7 +125,7 @@ struct WikiInspector: View {
             Text(hasChanges ? "Unsaved changes" : "Saved").font(PiperTheme.ui(11.5))
             Spacer(minLength: 0)
             Button("Save ⌘S") { model.saveWikiEdit() }
-                .buttonStyle(PiperButtonStyle(prominent: true))
+                .buttonStyle(.borderedProminent)
                 .disabled(!hasChanges)
                 .help("Save Markdown File · ⌘S").accessibilityLabel("Save Markdown File")
         }

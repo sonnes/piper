@@ -19,13 +19,8 @@ final class AppModel {
     var wikiProblems: [String] = []
     var wikiError: String?
     var loading = false
-    var exporting = false {
-        didSet { if !exporting, reloadPending { reload() } }
-    }
     @ObservationIgnored private var vaultWatcher: VaultWatcher?
     @ObservationIgnored private var reloadPending = false
-    @ObservationIgnored private var pendingExport: URL?
-    var exportedDocument: String?
     var route = "wiki"
     var workspace = WikiWorkspace()
     var wikiEdit: WikiEditSession?
@@ -47,16 +42,27 @@ final class AppModel {
     var wikiQuery = ""
     var requestedAnchor: String?
     var anchorRequest = UUID()
+    var composerDraft = UserDefaults.standard.string(forKey: AppDefaults.Key.composerDraft) ?? "" {
+        didSet { UserDefaults.standard.set(composerDraft, forKey: AppDefaults.Key.composerDraft) }
+    }
     var accessibilityEnabled = AXIsProcessTrusted()
-    var exportNotes: [Note] = []
     var openNoteEditor: ((Note) -> Void)?
     var openPanel: (() -> Void)?
     var openLibrary: (() -> Void)?
     var captureClipboard: (() -> Void)?
+    var openSettings: (() -> Void)?
+    /// True while the detail pane shows the text of a file in place of its preview.
+    var showsFileSource = UserDefaults.standard.bool(forKey: AppDefaults.Key.showsFileSource) {
+        didSet { UserDefaults.standard.set(showsFileSource, forKey: AppDefaults.Key.showsFileSource) }
+    }
     var captureShortcutChanged: (() -> Void)?
+    private(set) var wikiPaths: [String] {
+        didSet { preferences.set(wikiPaths, forKey: AppDefaults.Key.wikiPaths) }
+    }
+    @ObservationIgnored private let preferences: UserDefaults
     var wikiPath: String {
         didSet {
-            UserDefaults.standard.set(wikiPath, forKey: "wikiPath")
+            preferences.set(wikiPath, forKey: AppDefaults.Key.vaultPath)
             if let vaultWatcher, vaultWatcher.root != vault.root { reload() }
         }
     }
@@ -66,12 +72,10 @@ final class AppModel {
             captureShortcutChanged?()
         }
     }
-    var style = PiperStyle.current {
-        didSet { UserDefaults.standard.set(style.rawValue, forKey: PiperStyle.key) }
-    }
 
-    init(store: CaptureStore? = nil, wikiPath: String? = nil, fileReadState: FileReadState? = nil) {
-        let defaults = UserDefaults.standard
+    init(store: CaptureStore? = nil, wikiPath: String? = nil, fileReadState: FileReadState? = nil, preferences: UserDefaults = .standard) {
+        self.preferences = preferences
+        let defaults = preferences
         if Bundle.main.bundleIdentifier == "com.piper", !defaults.bool(forKey: "migratedLocalPreferences") {
             let previous = defaults.persistentDomain(forName: "local.piper") ?? [:]
             for key in ["wikiPath", "captureShortcut", "composerDraft", "wikiReaderSize", "NSWindow Frame PiperCapturePanel", "NSWindow Frame PiperLibrary"] {
@@ -79,11 +83,17 @@ final class AppModel {
             }
             defaults.set(true, forKey: "migratedLocalPreferences")
         }
+        composerDraft = defaults.string(forKey: AppDefaults.Key.composerDraft) ?? ""
         let store = store ?? CaptureStore()
         self.store = store
         clipboard = ClipboardInbox(store: store)
         self.fileReadState = fileReadState ?? FileReadState()
-        self.wikiPath = wikiPath ?? UserDefaults.standard.string(forKey: "wikiPath") ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Wiki").path
+        let activePath = wikiPath ?? defaults.string(forKey: AppDefaults.Key.vaultPath)
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Wiki").path
+        self.wikiPath = activePath
+        var savedPaths = wikiPath == nil ? defaults.stringArray(forKey: AppDefaults.Key.wikiPaths) ?? [] : []
+        if !savedPaths.contains(activePath) { savedPaths.append(activePath) }
+        self.wikiPaths = savedPaths
         // Control-Option-C was the earlier alternative. A stored value that no
         // longer matches a preset leaves the capture shortcut dead.
         let stored = UserDefaults.standard.string(forKey: "captureShortcut") ?? "Shift, Shift"
@@ -132,9 +142,12 @@ final class AppModel {
         fileReadState.markRead(document, in: vault.root)
     }
 
-    var filteredFiles: [VaultFile] {
+    var filteredFiles: [VaultFile] { filteredFiles(in: nil) }
+
+    func filteredFiles(in folder: String?) -> [VaultFile] {
         files.filter { document in
-            wikiQuery.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").allSatisfy { word in
+            guard folder == nil || document.folder == folder else { return false }
+            return wikiQuery.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").allSatisfy { word in
                 (document.title + " " + document.relativePath + " " + document.summary + " " + document.body).localizedCaseInsensitiveContains(String(word))
             }
         }
@@ -148,7 +161,7 @@ final class AppModel {
             vaultWatcher = watcher
             watcher.start()
         }
-        guard !loading, !exporting else { reloadPending = true; return }
+        guard !loading else { reloadPending = true; return }
         reloadPending = false
         loading = true
         let edit = wikiEdit
@@ -188,18 +201,6 @@ final class AppModel {
                        ?? files.first {
                     openDocument(first.id, markAsRead: false)
                 }
-                if let destination = pendingExport, destination.path.hasPrefix(repo.root.path + "/") {
-                    let path = String(destination.path.dropFirst(repo.root.path.count + 1))
-                    if files.contains(where: { $0.id == path }) {
-                        pendingExport = nil
-                        openDocument(path)
-                        if selectedDocument == path {
-                            wikiQuery = ""
-                            exportedDocument = path
-                            NotificationCenter.default.post(name: .exportedDocumentDidOpen, object: self)
-                        }
-                    }
-                }
             case .failure(let error):
                 files = []
                 folders = []
@@ -213,19 +214,49 @@ final class AppModel {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.message = "Choose your Wiki folder."
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        changeWiki(to: url)
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Add"
+        panel.message = "Choose folders to add to the sidebar."
+        guard panel.runModal() == .OK else { return }
+        addWikiFolders(panel.urls)
+    }
+
+    /// Takes a folder out of the sidebar. The folder on disk does not change.
+    ///
+    /// The active folder moves to the next folder in the list first. The last
+    /// folder stays, because the window needs one folder to show.
+    func removeWikiFolder(_ path: String) {
+        guard wikiPaths.count > 1, let index = wikiPaths.firstIndex(of: path) else { return }
+        if path == wikiPath {
+            let next = wikiPaths[index == 0 ? 1 : index - 1]
+            changeWiki(to: URL(fileURLWithPath: (next as NSString).expandingTildeInPath))
+            guard wikiPath == next else { return }
+        }
+        wikiPaths.removeAll { $0 == path }
+    }
+
+    func addWikiFolders(_ urls: [URL]) {
+        guard let first = urls.first, finishWikiEdit() else { return }
+        for url in urls { registerWikiFolder(url) }
+        changeWiki(to: first)
+    }
+
+    @discardableResult private func registerWikiFolder(_ url: URL) -> String {
+        let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
+        if let existing = wikiPaths.first(where: {
+            URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath)
+                .standardizedFileURL.resolvingSymlinksInPath() == resolved
+        }) { return existing }
+        let path = url.standardizedFileURL.path
+        wikiPaths.append(path)
+        return path
     }
 
     func changeWiki(to url: URL) {
         guard finishWikiEdit() else { return }
-        wikiPath = url.path
+        wikiPath = registerWikiFolder(url)
         workspace = WikiWorkspace()
         initialDocument = nil
-        pendingExport = nil
-        exportedDocument = nil
         files = []
         folders = []
         wikiQuery = ""
@@ -238,36 +269,6 @@ final class AppModel {
         guard finishWikiEdit() else { return }
         do { try vault.create(); reload() }
         catch { beginWikiEdit(); store.report(error) }
-    }
-
-    func prepareExport() {
-        guard !store.selectedNotes.isEmpty else { return }
-        exportNotes = store.selectedNotes
-    }
-
-    /// Writes the selected captures to one Markdown file that the reader names.
-    ///
-    /// The write touches that file and nothing else. Piper builds no index and
-    /// appends to no log, because the folder belongs to the reader.
-    func export(title: String, sourceURL: String, destination: URL) async -> String? {
-        exporting = true
-        defer { exporting = false }
-        let notes = exportNotes
-        do {
-            let markdown = try WikiExport.markdown(notes: notes, title: title, sourceURL: sourceURL)
-            try Data(markdown.utf8).write(to: destination, options: .atomic)
-        } catch { return error.localizedDescription }
-        route = "wiki"
-        store.status = "Saved to " + destination.lastPathComponent
-        let resolved = destination.standardizedFileURL.resolvingSymlinksInPath()
-        pendingExport = resolved.path.hasPrefix(vault.root.path + "/") ? resolved : nil
-        reload()
-        return nil
-    }
-
-    /// The file that Send To Wiki proposes in the save panel.
-    func exportDestination(title: String) -> URL {
-        vault.root.appendingPathComponent(WikiExport.fileName(title))
     }
 
     func openLink(_ url: URL, from document: VaultFile) {

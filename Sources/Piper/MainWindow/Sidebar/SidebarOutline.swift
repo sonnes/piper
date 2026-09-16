@@ -6,9 +6,17 @@ import SwiftUI
 struct SidebarOutline: NSViewRepresentable {
     let model: AppModel
     let unreadCounts: [String: Int]
+    let sections: [SidebarSection]
     @Binding var expanded: Set<String>
     let selection: SidebarSelection
     let select: (SidebarSelection) -> Void
+    let newSection: () -> Void
+
+    /// The entry of the expansion set that records a collapsed Inbox. No
+    /// folder path starts with this character, so the two cannot collide.
+    static let inboxCollapsedKey = "\u{1}inbox"
+    /// The section that the Inbox row itself stands for.
+    static let inboxSection = "Inbox"
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -33,8 +41,7 @@ struct SidebarOutline: NSViewRepresentable {
         outline.setAccessibilityLabel("Sources")
 
         let menu = NSMenu()
-        let reveal = menu.addItem(withTitle: "Reveal in Finder", action: #selector(Coordinator.revealInFinder), keyEquivalent: "")
-        reveal.target = context.coordinator
+        menu.delegate = context.coordinator
         outline.menu = menu
 
         let scroll = NSScrollView()
@@ -52,15 +59,16 @@ struct SidebarOutline: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuItemValidation {
+    final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
         var parent: SidebarOutline
         weak var outline: NSOutlineView?
         private var root = Node.root(representedObject: "root")
         private var paths: [String] = []
         private var folders: [String] = []
         private var wikiPath = ""
+        private var wikiPaths: [String] = []
         private var unreadCounts: [String: Int] = [:]
-        private var style = PiperTheme.style
+        private var sections: [SidebarSection] = []
         private var updating = false
 
         init(_ parent: SidebarOutline) {
@@ -85,21 +93,33 @@ struct SidebarOutline: NSViewRepresentable {
             updating = true
             defer { updating = false }
             let newPaths = parent.model.files.map(\.relativePath)
-            if newPaths != paths || folders != parent.model.folders || wikiPath != parent.model.wikiPath || unreadCounts != parent.unreadCounts || style != PiperTheme.style {
+            if wikiPaths != parent.model.wikiPaths || newPaths != paths || folders != parent.model.folders || wikiPath != parent.model.wikiPath || unreadCounts != parent.unreadCounts || sections != parent.sections {
                 paths = newPaths
                 folders = parent.model.folders
                 wikiPath = parent.model.wikiPath
+                wikiPaths = parent.model.wikiPaths
                 unreadCounts = parent.unreadCounts
-                style = PiperTheme.style
+                sections = parent.sections
                 root = Node.root(representedObject: "root")
                 let library = Node(representedObject: "Library", parent: root)
                 library.isGroupItem = true
-                library.children = [SidebarSelection.home, .inbox].map { Node(representedObject: $0, parent: library) }
+                let inbox = Node(representedObject: SidebarSelection.inbox, parent: library)
+                // Inbox itself is the first section, so it needs no child row.
+                inbox.children = sections.filter { $0.name != SidebarOutline.inboxSection }
+                    .map { Node(representedObject: SidebarSelection.section($0.name), parent: inbox) }
+                library.children = [
+                    Node(representedObject: SidebarSelection.home, parent: library),
+                    inbox,
+                    Node(representedObject: SidebarSelection.clipboard, parent: library)
+                ]
                 let folderGroup = Node(representedObject: "Folders", parent: root)
                 folderGroup.isGroupItem = true
                 let wiki = PathTreeBuilder.tree(paths: paths, folders: folders, includingFiles: false)
                 wiki.parent = folderGroup
-                folderGroup.children = [wiki]
+                folderGroup.children = wikiPaths.map { path in
+                    if path == wikiPath { return wiki }
+                    return Node(representedObject: URL(fileURLWithPath: path), parent: folderGroup)
+                }
                 root.children = [library, folderGroup]
                 outline.reloadData()
             }
@@ -107,6 +127,9 @@ struct SidebarOutline: NSViewRepresentable {
             func restore(_ node: Node) {
                 if node.isGroupItem {
                     outline.expandItem(node)
+                } else if node.representedObject as? SidebarSelection == .inbox {
+                    if parent.expanded.contains(SidebarOutline.inboxCollapsedKey) { outline.collapseItem(node) }
+                    else { outline.expandItem(node) }
                 } else if let item = node.representedObject as? PathItem, item.isFolder {
                     if item.path.isEmpty || parent.expanded.contains(item.path) { outline.expandItem(node) }
                     else { outline.collapseItem(node) }
@@ -155,7 +178,7 @@ struct SidebarOutline: NSViewRepresentable {
             guard let node = item as? Node else { return nil }
             if node.isGroupItem {
                 let label = NSTextField(labelWithString: node.representedObject as? String ?? (wikiPath as NSString).abbreviatingWithTildeInPath)
-                label.font = .systemFont(ofSize: AppDefaults.Sidebar.headerFontSize, weight: .bold)
+                label.font = .systemFont(ofSize: AppDefaults.Sidebar.headerFontSize, weight: .semibold)
                 label.textColor = .secondaryLabelColor
                 label.lineBreakMode = .byTruncatingHead
                 return label
@@ -168,10 +191,21 @@ struct SidebarOutline: NSViewRepresentable {
                                symbol: "folder", count: unreadCounts[item.path, default: 0],
                                rowSizeStyle: outlineView.effectiveRowSizeStyle)
                 cell.toolTip = item.path.isEmpty ? wikiPath : item.path
+            } else if let url = node.representedObject as? URL {
+                cell.configure(title: url.lastPathComponent, symbol: "folder", count: 0,
+                               rowSizeStyle: outlineView.effectiveRowSizeStyle)
+                cell.toolTip = url.path
             } else if let selection = node.representedObject as? SidebarSelection {
-                let home = selection == .home
-                cell.configure(title: home ? "Home" : "Inbox", symbol: home ? "house.fill" : "tray.fill",
-                               count: 0, rowSizeStyle: outlineView.effectiveRowSizeStyle)
+                let row: (title: String, symbol: String, count: Int)
+                switch selection {
+                case .home: row = ("Home", "house", 0)
+                case .inbox: row = ("Inbox", "tray", sections.reduce(0) { $0 + $1.count })
+                case .section(let name): row = (name, "tray", sections.first { $0.name == name }?.count ?? 0)
+                case .clipboard: row = ("Clipboard", "clipboard", 0)
+                case .allFiles, .folder: row = ("", "folder", 0)
+                }
+                cell.configure(title: row.title, symbol: row.symbol, count: row.count,
+                               rowSizeStyle: outlineView.effectiveRowSizeStyle)
                 cell.toolTip = nil
             }
             return cell
@@ -179,7 +213,10 @@ struct SidebarOutline: NSViewRepresentable {
 
         func outlineViewSelectionDidChange(_ notification: Notification) {
             guard !updating, let outline, let node = outline.item(atRow: outline.selectedRow) as? Node else { return }
-            if let selection = node.representedObject as? SidebarSelection {
+            if let url = node.representedObject as? URL {
+                parent.model.changeWiki(to: url)
+                update()
+            } else if let selection = node.representedObject as? SidebarSelection {
                 parent.select(selection)
             } else if let item = node.representedObject as? PathItem {
                 parent.select(.folder(item.path))
@@ -190,21 +227,63 @@ struct SidebarOutline: NSViewRepresentable {
         func outlineViewItemDidCollapse(_ notification: Notification) { recordExpansion(notification, expanded: false) }
 
         private func recordExpansion(_ notification: Notification, expanded: Bool) {
-            guard !updating, let node = notification.userInfo?["NSObject"] as? Node,
-                  !node.isGroupItem, let item = node.representedObject as? PathItem else { return }
+            guard !updating, let node = notification.userInfo?["NSObject"] as? Node, !node.isGroupItem else { return }
+            if node.representedObject as? SidebarSelection == .inbox {
+                if expanded { parent.expanded.remove(SidebarOutline.inboxCollapsedKey) }
+                else { parent.expanded.insert(SidebarOutline.inboxCollapsedKey) }
+                return
+            }
+            guard let item = node.representedObject as? PathItem else { return }
             if expanded { parent.expanded.insert(item.path) } else { parent.expanded.remove(item.path) }
         }
 
-        @objc func revealInFinder() {
-            guard let outline, let node = outline.item(atRow: outline.clickedRow) as? Node,
-                  let item = node.representedObject as? PathItem else { return }
-            let url = item.path.isEmpty ? parent.model.vault.root : try? parent.model.vault.containedURL(item.path)
-            if let url { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        // MARK: Context menu
+
+        func menuNeedsUpdate(_ menu: NSMenu) {
+            menu.removeAllItems()
+            menu.addItem(withTitle: "New Section…", action: #selector(newSection), keyEquivalent: "").target = self
+            menu.addItem(withTitle: "Add Folder…", action: #selector(addFolder), keyEquivalent: "").target = self
+            guard let node = clickedNode, folderURL(of: node) != nil else { return }
+            menu.addItem(.separator())
+            menu.addItem(withTitle: "Reveal in Finder", action: #selector(revealInFinder), keyEquivalent: "").target = self
+            if let path = topLevelFolderPath(of: node), wikiPaths.count > 1 {
+                let remove = menu.addItem(withTitle: "Remove Folder", action: #selector(removeFolder(_:)), keyEquivalent: "")
+                remove.target = self
+                remove.representedObject = path
+            }
         }
 
-        func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-            guard let outline, let node = outline.item(atRow: outline.clickedRow) as? Node else { return false }
-            return node.representedObject is PathItem
+        private var clickedNode: Node? {
+            guard let outline else { return nil }
+            return outline.item(atRow: outline.clickedRow) as? Node
+        }
+
+        private func folderURL(of node: Node) -> URL? {
+            if let url = node.representedObject as? URL { return url }
+            guard let item = node.representedObject as? PathItem else { return nil }
+            return item.path.isEmpty ? parent.model.vault.root : try? parent.model.vault.containedURL(item.path)
+        }
+
+        /// The stored path of a folder that sits directly under the Folders header.
+        private func topLevelFolderPath(of node: Node) -> String? {
+            if let url = node.representedObject as? URL { return wikiPaths.first { URL(fileURLWithPath: $0) == url } }
+            if let item = node.representedObject as? PathItem, item.path.isEmpty { return wikiPath }
+            return nil
+        }
+
+        @objc private func newSection() { parent.newSection() }
+
+        @objc private func addFolder() { parent.model.chooseWiki() }
+
+        @objc private func revealInFinder() {
+            guard let node = clickedNode, let url = folderURL(of: node) else { return }
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        }
+
+        @objc private func removeFolder(_ sender: NSMenuItem) {
+            guard let path = sender.representedObject as? String else { return }
+            parent.model.removeWikiFolder(path)
+            update()
         }
     }
 }
@@ -262,6 +341,6 @@ private final class SidebarCell: NSTableCellView {
         let emphasized = backgroundStyle == .emphasized
         title.textColor = emphasized ? .selectedControlTextColor : .labelColor
         countLabel.textColor = emphasized ? .selectedControlTextColor : .secondaryLabelColor
-        icon.contentTintColor = emphasized ? .selectedControlTextColor : .controlAccentColor
+        icon.contentTintColor = emphasized ? .selectedControlTextColor : PiperTheme.accentNS
     }
 }

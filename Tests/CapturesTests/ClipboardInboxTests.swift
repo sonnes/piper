@@ -58,10 +58,36 @@ final class ClipboardInboxTests: XCTestCase {
         copy("first")
         XCTAssertEqual(inbox.entries.map(\.text), ["first", "second"])
         XCTAssertEqual(inbox.entries[0].id, id)
-        for index in 0..<12 { copy("item \(index)") }
-        XCTAssertEqual(inbox.entries.count, 10)
-        XCTAssertEqual(inbox.entries.first?.text, "item 11")
+        let limit = ClipboardInbox.historyLimit
+        for index in 0..<(limit + 2) { copy("item \(index)") }
+        XCTAssertEqual(inbox.entries.count, limit)
+        XCTAssertEqual(inbox.entries.first?.text, "item \(limit + 1)")
         XCTAssertEqual(inbox.entries.last?.text, "item 2")
+    }
+
+    func testACopyRecordsItsTimeAndSourceAndARepeatMovesTheTimeForward() {
+        let early = Date(timeIntervalSince1970: 1_000)
+        let late = Date(timeIntervalSince1970: 2_000)
+        inbox.receive(["first"], source: "Safari", at: early)
+        inbox.receive(["second"], source: "Terminal", at: early)
+        let id = inbox.entries[1].id
+        XCTAssertEqual(inbox.entries[1].source, "Safari")
+        XCTAssertEqual(inbox.entries[1].copiedAt, early)
+        inbox.receive(["first"], source: "Notes", at: late)
+        XCTAssertEqual(inbox.entries.map(\.text), ["first", "second"])
+        XCTAssertEqual(inbox.entries[0].id, id)
+        XCTAssertEqual(inbox.entries[0].copiedAt, late)
+        XCTAssertEqual(inbox.entries[0].source, "Notes")
+    }
+
+    func testClearForgetsTheHistoryAndSavesNothing() {
+        copy("one")
+        copy("two")
+        inbox.clear()
+        XCTAssertTrue(inbox.entries.isEmpty)
+        XCTAssertTrue(store.notes.isEmpty)
+        copy("three")
+        XCTAssertEqual(inbox.entries.map(\.text), ["three"])
     }
 
     func testUndoRestoresAnUnsavedGhostAfterAnotherCopy() {
@@ -101,11 +127,12 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertEqual(inbox.entries.map(\.text), ["ordinary text"])
     }
 
-    func testSavingUsesChosenSectionAndDoesNotInterpretAHeading() {
+    func testSavingAlwaysUsesInboxAndDoesNotInterpretAHeading() {
         copy("# Keep this heading")
         store.add("# Research")
         XCTAssertTrue(inbox.save(inbox.entries[0].id))
-        XCTAssertEqual(store.notes.first?.section, "Research")
+        XCTAssertEqual(store.notes.first?.section, "Inbox")
+        XCTAssertEqual(store.activeSection, "Research")
         XCTAssertEqual(store.notes.first?.text, "# Keep this heading")
         XCTAssertEqual(store.sections, ["Inbox", "Research"])
     }

@@ -11,28 +11,28 @@ enum FileSort: String, CaseIterable {
 
 /// The middle pane of the main window: the files of one folder.
 ///
-/// Each row is a `TimelineCell`. Rows carry no dividing line, and a selected
-/// row takes the system selection fill. A file needs no frontmatter. Where a
-/// file carries none, the title falls back to the file name and the summary
-/// falls back to the first lines of the text.
+/// Each row is a `TimelineCell`. A selected row takes the accent while the list
+/// has focus. A file needs no frontmatter. Where a file carries none, the title
+/// falls back to the file name and the summary to the first lines of the text.
 struct FileListView: View {
 
     // MARK: Properties
 
     @Bindable var model: AppModel
-    /// The folder path from the vault root. The empty path holds the root files.
-    let folder: String
+    /// A nil folder shows the results of a vault-wide search from Home.
+    let folder: String?
     let selectFile: (VaultFile) -> Void
 
     @AppStorage(AppDefaults.Key.fileSort) private var sort = FileSort.name
+    @FocusState private var searching: Bool
 
-    private var searching: Bool {
+    private var isSearching: Bool {
         !model.wikiQuery.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    /// The rows of the list. A search reads the whole vault.
+    /// Search filters the current list.
     private var files: [VaultFile] {
-        let folderFiles = searching ? model.filteredFiles : model.files.filter { $0.folder == folder }
+        let folderFiles = model.filteredFiles(in: folder)
         switch sort {
         case .name:
             return folderFiles.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -43,15 +43,20 @@ struct FileListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            HStack(spacing: 6) {
+                searchField
+                sortMenu
+            }
+            .padding(.leading, AppDefaults.ListSearch.horizontalInset)
+            .padding(.trailing, AppDefaults.ListSearch.horizontalInset - 4)
+            .padding(.vertical, AppDefaults.ListSearch.verticalInset)
             List(selection: Binding<String?>(get: { model.selectedDocument }, set: { path in
                 if let file = files.first(where: { $0.id == path }) { selectFile(file) }
             })) {
                 ForEach(files) { file in
                     TimelineCell(file: file, rootName: model.vault.root.lastPathComponent, isUnread: model.isUnread(file))
                         .tag(file.id)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets())
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                         .help(file.relativePath)
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(file.title)
@@ -62,9 +67,11 @@ struct FileListView: View {
             .scrollContentBackground(.hidden)
             .overlay {
                 if files.isEmpty {
-                    Text(searching ? "No matching files" : "No files in this folder")
-                        .font(PiperTheme.ui(AppDefaults.FontSize.small))
-                        .foregroundStyle(.secondary)
+                    if isSearching {
+                        EmptyPane(title: "No Results", detail: "Try another word.")
+                    } else {
+                        EmptyPane(title: "No Files", detail: "Files you add to this folder appear here.")
+                    }
                 }
             }
             .accessibilityLabel("Files")
@@ -74,44 +81,52 @@ struct FileListView: View {
 
     // MARK: Parts
 
-    /// The title block over the list.
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(PiperTheme.ui(13, weight: .bold))
-                    .foregroundStyle(PiperTheme.ink)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text("\(files.filter { model.isUnread($0) }.count) unread")
-                    .font(PiperTheme.ui(11))
-                    .foregroundStyle(PiperTheme.secondary)
-            }
-            Spacer(minLength: 8)
-            Menu {
-                Picker("Sort", selection: $sort) {
+    /// Name or Date. The window title names the list, so the pane has no title.
+    private var sortMenu: some View {
+        Menu {
+                Picker("Sort By", selection: $sort) {
                     ForEach(FileSort.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.inline)
-                .labelsHidden()
             } label: {
                 Image(systemName: "arrow.up.arrow.down")
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(PiperTheme.secondary)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .tint(PiperTheme.secondary)
+            .frame(width: 22, height: 22)
+            .help("Sort Files")
             .accessibilityLabel("Sort Files")
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(PiperTheme.faint)
+            TextField("Search", text: $model.wikiQuery)
+                .textFieldStyle(.plain)
+                .font(PiperTheme.ui(13))
+                .focused($searching)
+                .accessibilityLabel("Search \(title)")
+            if !model.wikiQuery.isEmpty {
+                Button { model.wikiQuery = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(PiperTheme.faint) }
+                    .buttonStyle(.plain).accessibilityLabel("Clear file search")
+            }
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 7)
+        .frame(height: 22)
+        .background(PiperTheme.ink.opacity(0.05), in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+        .overlay {
+            RoundedRectangle(cornerRadius: PiperTheme.radius + 2)
+                .strokeBorder(searching ? PiperTheme.focusRing : .clear, lineWidth: 3)
+                .padding(-2)
+        }
     }
 
     private var title: String {
-        if searching { return "Search Results" }
+        guard let folder else { return "All Files" }
         return folder.isEmpty ? model.vault.root.lastPathComponent : (folder as NSString).lastPathComponent
     }
-
 }

@@ -23,7 +23,7 @@ The scan skips these items:
 
 If Piper cannot read one file, it adds a problem to the list and continues. The sidebar shows the count as file warnings.
 
-`VaultWatcher` watches the folder with `FSEventStream`. It groups changes for about 0.5 seconds, then Piper scans again. A change during a scan or an export starts one more scan after that work finishes. Piper also scans every four seconds while the Wiki window shows.
+`VaultWatcher` watches the folder with `FSEventStream`. It groups changes for about 0.5 seconds, then Piper scans again. A change during a scan starts one more scan after that scan finishes. Piper also scans every four seconds while the main window shows.
 
 A scan updates the tree, the file list, previews, and unread counts. It keeps unsaved edits, including a draft whose file was deleted.
 
@@ -38,7 +38,7 @@ For a Markdown file, Piper reads a YAML block at the top of the file. Piper uses
 - `title` sets the title in the file list. Without it, Piper uses the first heading, then the file name.
 - `description` sets the summary in the file list, and search matches it.
 
-Frontmatter never changes how Piper sorts or groups files. Raw view shows the original frontmatter text, including invalid YAML.
+Frontmatter never changes how Piper sorts or groups files. The Source view shows the original frontmatter text, including invalid YAML.
 
 ## Links
 
@@ -56,7 +56,7 @@ Piper refuses a path that leaves the Wiki root or goes through a symbolic link.
 
 ## Navigation History
 
-The Wiki window has one history. Opening a new file clears the forward history. A scan removes deleted files from the history.
+The main window has one history. Opening a new file clears the forward history. A scan removes deleted files from the history.
 
 ## Saving An Edit
 

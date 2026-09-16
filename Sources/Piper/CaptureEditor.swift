@@ -5,6 +5,7 @@ import Captures
 struct CaptureEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var focused: Bool
+    let placeholder: String
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -56,6 +57,7 @@ struct CaptureEditor: NSViewRepresentable {
             .paragraphStyle: paragraph
         ]
         editor.string = text
+        editor.placeholder = placeholder
         editor.delegate = context.coordinator
         editor.setAccessibilityLabel("New note text")
         editor.setAccessibilityHelp("Return saves the note. Shift-Return inserts a new line.")
@@ -69,6 +71,10 @@ struct CaptureEditor: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.parent = self
         guard let editor = scroll.documentView as? CaptureTextView else { return }
+        if editor.placeholder != placeholder {
+            editor.placeholder = placeholder
+            editor.needsDisplay = true
+        }
         if editor.string != text {
             editor.string = text
             editor.undoManager?.removeAllActions()
@@ -115,6 +121,7 @@ private final class CaptureScrollView: NSScrollView {
 
 private final class CaptureTextView: NSTextView {
     var onFocusChange: ((Bool) -> Void)?
+    var placeholder = ""
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
@@ -141,9 +148,8 @@ private final class CaptureTextView: NSTextView {
         super.draw(dirtyRect)
         guard string.isEmpty, let container = textContainer else { return }
         var attributes = typingAttributes
-        attributes[.foregroundColor] = PiperTheme.secondaryNS
-        let placeholder = NSAttributedString(string: "Add a note or a prompt", attributes: attributes)
-        placeholder.draw(in: NSRect(origin: textContainerOrigin,
+        attributes[.foregroundColor] = PiperTheme.faintNS
+        NSAttributedString(string: placeholder, attributes: attributes).draw(in: NSRect(origin: textContainerOrigin,
             size: NSSize(width: container.size.width, height: AppDefaults.Composer.lineHeight)))
     }
 }

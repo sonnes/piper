@@ -9,6 +9,11 @@ enum SidebarSelection: Codable, Equatable {
     case home
     /// The captures, which live in the database rather than in the vault.
     case inbox
+    /// One capture section. The Inbox list scrolls to it.
+    case section(String)
+    /// The clipboard texts that the reader has not saved.
+    case clipboard
+    case allFiles
     /// One folder of the vault. The empty path is the root.
     case folder(String)
 
@@ -16,6 +21,14 @@ enum SidebarSelection: Codable, Equatable {
     var folder: String {
         if case .folder(let path) = self { return path }
         return ""
+    }
+
+    /// True for the rows that show captures in the file list.
+    var showsCaptures: Bool {
+        switch self {
+        case .inbox, .section, .clipboard: return true
+        case .home, .allFiles, .folder: return false
+        }
     }
 }
 
@@ -80,5 +93,5 @@ protocol SidebarViewControllerDelegate: AnyObject {
 @MainActor
 protocol FileListViewControllerDelegate: AnyObject {
     func fileListViewController(_ controller: FileListViewController, didSelectFile path: String)
-    func fileListViewController(_ controller: FileListViewController, didSelectNote id: UUID)
+    func fileListViewController(_ controller: FileListViewController, didSelectNote id: UUID?)
 }

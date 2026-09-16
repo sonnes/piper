@@ -1,25 +1,13 @@
 import AppKit
 import CoreText
 import SwiftUI
-import Captures
 
-/// The visual style of the whole application. Vault is the default. Page is the switchable alternative.
-enum PiperStyle: String, CaseIterable {
-    case vault = "Vault", page = "Page"
-
-    static let key = "piperStyle"
-    static var current: PiperStyle {
-        PiperStyle(rawValue: UserDefaults.standard.string(forKey: key) ?? "") ?? .vault
-    }
-
-    var summary: String {
-        switch self {
-        case .vault: return "System type for controls, tinted panes, and bordered buttons."
-        case .page: return "One monospace face everywhere, flat surfaces, and controls as words."
-        }
-    }
-}
-
+/// The colors, fonts, and shapes of the application.
+///
+/// Text and surfaces use the system colors, so they follow the dark appearance
+/// and the contrast settings of the reader. The accent is the one saturated
+/// color, and it marks selection with focus, links, unread files, and the
+/// primary button.
 enum PiperTheme {
     static let resources: Bundle = {
         if let url = Bundle.main.url(forResource: "Piper_Piper", withExtension: "bundle"), let bundle = Bundle(url: url) {
@@ -29,78 +17,49 @@ enum PiperTheme {
     }()
     static let mark = resources.image(forResource: "Sandpiper")
 
-    static var style: PiperStyle { PiperStyle.current }
-    static var isPage: Bool { style == .page }
+    // MARK: Colors
 
-    // Vault takes the system colors. They carry the dark appearance and the
-    // reader's contrast settings at no cost. Page keeps its own flat palette.
-    static let pageNS = system(.textBackgroundColor, page: (0xFCFCFA, 0x18191A))
-    static let surfaceNS = system(.windowBackgroundColor, page: (0xFCFCFA, 0x18191A))
-    static let hoverNS = color(vault: (0xECECEE, 0x2C2C2C), page: (0xF1F1ED, 0x212224))
-    static let inkNS = system(.labelColor, page: (0x232323, 0xEDEDE9))
-    static let secondaryNS = system(.secondaryLabelColor, page: (0x686867, 0x8E8F8C))
-    static let faintNS = system(.tertiaryLabelColor, page: (0xB4B4AE, 0x5C5D5B))
+    /// The background of the list and the detail pane.
+    static let pageNS = NSColor.textBackgroundColor
+    /// The background of the capture panel, the reader bar, and the link card.
+    static let panelNS = color(light: 0xF3F3F4, dark: 0x232324)
+    /// The background of a grouped card on the panel.
+    static let cardNS = color(light: 0xFFFFFF, dark: 0x2C2C2E)
+    static let inkNS = NSColor.labelColor
+    static let secondaryNS = NSColor.secondaryLabelColor
+    static let faintNS = NSColor.tertiaryLabelColor
     /// The accent color: srgb 0.031 0.416 0.933, and 0.369 0.620 0.957 in the dark.
-    static let accentNS = color(vault: (0x086AEE, 0x5E9EF4), page: (0x086AEE, 0x5E9EF4))
-    static let selectionNS = color(vault: (0xEEF1FA, 0x2A3245), page: (0xEEF2FF, 0x1F2636))
-    /// The row separator: white 0.9 in gray gamma 2.2.
-    static let ruleNS = color(vault: (0xE5E5E5, 0x333333), page: (0xE5E5E5, 0x2A2B2C))
-    static let controlNS = color(vault: (0x868680, 0x838781), page: (0x868680, 0x838781))
-    /// The status bar background: srgb 0.94 in all three channels.
-    static let statusBarNS = color(vault: (0xF0F0F0, 0x2A2A2A), page: (0xF0F0F0, 0x232323))
-    /// `rgba(255,0,0,.6)`, darkened so that a
-    /// 12-point bold label keeps its contrast.
-    static let feedLinkNS = color(vault: (0xC23C3C, 0xE07C7C), page: (0xC23C3C, 0xE07C7C))
-    static let successNS = color(vault: (0x49654B, 0xA3C39F), page: (0x49654B, 0xA3C39F))
-    static let dangerNS = color(vault: (0xA03432, 0xEFA5A0), page: (0xA03432, 0xEFA5A0))
-    static let warningNS = color(vault: (0xE0A125, 0xE0A125), page: (0xE0A125, 0xE0A125))
+    static let accentNS = color(light: 0x086AEE, dark: 0x5E9EF4)
+    /// The selection of a row without keyboard focus.
+    static let selectionNS = NSColor.unemphasizedSelectedContentBackgroundColor
+    static let ruleNS = NSColor.separatorColor
+    static let warningNS = NSColor.systemOrange
+    static let dangerNS = NSColor.systemRed
 
     static let page = Color(nsColor: pageNS)
-    static let surface = Color(nsColor: surfaceNS)
-    static let hover = Color(nsColor: hoverNS)
+    static let panel = Color(nsColor: panelNS)
+    static let card = Color(nsColor: cardNS)
     static let ink = Color(nsColor: inkNS)
     static let secondary = Color(nsColor: secondaryNS)
     static let faint = Color(nsColor: faintNS)
     static let accent = Color(nsColor: accentNS)
     static let selection = Color(nsColor: selectionNS)
     static let rule = Color(nsColor: ruleNS)
-    static let control = Color(nsColor: controlNS)
-    static let statusBar = Color(nsColor: statusBarNS)
-    static let feedLink = Color(nsColor: feedLinkNS)
-    static let success = Color(nsColor: successNS)
-    static let danger = Color(nsColor: dangerNS)
     static let warning = Color(nsColor: warningNS)
+    static let danger = Color(nsColor: dangerNS)
+    /// A row under the pointer.
+    static let hover = Color.primary.opacity(0.045)
+    /// The ring around a focused field.
+    static let focusRing = accent.opacity(0.45)
 
-    /// The system selection fill for a row without keyboard focus.
-    static let rowSelection = Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+    // MARK: Shapes
 
-    /// The unread count badge and its text color.
-    static let badge = Color(white: 0, opacity: 0.5)
-    static let badgeText = Color(white: 1, opacity: 0.9)
+    /// Corner radius for controls, rows, and selection backgrounds.
+    static let radius: CGFloat = 6
+    /// Corner radius for cards, the composer, and popovers.
+    static let cardRadius: CGFloat = 10
 
-    /// Corner radius for controls and selection backgrounds.
-    static var radius: CGFloat { isPage ? 3 : 5 }
-
-    private static func color(vault: (UInt32, UInt32), page: (UInt32, UInt32)) -> NSColor {
-        NSColor(name: nil) { appearance in
-            let pair = isPage ? page : vault
-            return hex(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? pair.1 : pair.0)
-        }
-    }
-
-    /// A system color in Vault, and a flat color in Page.
-    private static func system(_ color: NSColor, page: (UInt32, UInt32)) -> NSColor {
-        NSColor(name: nil) { appearance in
-            guard isPage else { return color }
-            return hex(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? page.1 : page.0)
-        }
-    }
-
-    private static func hex(_ value: UInt32) -> NSColor {
-        NSColor(srgbRed: CGFloat((value >> 16) & 255) / 255,
-                green: CGFloat((value >> 8) & 255) / 255,
-                blue: CGFloat(value & 255) / 255, alpha: 1)
-    }
+    // MARK: Fonts
 
     private static let registeredFonts: Void = {
         for name in ["Regular", "Medium", "Italic", "Bold", "BoldItalic"] {
@@ -110,56 +69,53 @@ enum PiperTheme {
         }
     }()
 
-    /// Note and document text. Always IBM Plex Mono.
+    /// Monospaced text: file sources, file names, and code.
     static func manuscript(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
         _ = registeredFonts
         let face = weight >= .semibold ? "Bold" : weight >= .medium ? "Medium" : "Regular"
         return NSFont(name: "IBMPlexMono-\(face)", size: size) ?? .monospacedSystemFont(ofSize: size, weight: weight)
     }
 
-    /// Control and label text. System font in Vault, IBM Plex Mono in Page.
+    /// Control and label text.
     static func uiNS(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
-        isPage ? manuscript(size: size, weight: weight) : .systemFont(ofSize: size, weight: weight)
+        .systemFont(ofSize: size, weight: weight)
     }
 
-    static func ui(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font {
-        Font(uiNS(size, weight: weight))
+    static func ui(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight)
+    }
+
+    private static func color(light: UInt32, dark: UInt32) -> NSColor {
+        NSColor(name: nil) { appearance in
+            hex(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light)
+        }
+    }
+
+    private static func hex(_ value: UInt32) -> NSColor {
+        NSColor(srgbRed: CGFloat((value >> 16) & 255) / 255,
+                green: CGFloat((value >> 8) & 255) / 255,
+                blue: CGFloat(value & 255) / 255, alpha: 1)
     }
 }
 
-/// Bordered button in Vault. A plain word in Page.
-struct PiperButtonStyle: ButtonStyle {
-    var prominent = false
-    var ghost = false
+/// A button without a bezel that reads as a link in the accent color.
+struct TextButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
 
     func makeBody(configuration: Configuration) -> some View {
-        let label = configuration.label
-            .font(PiperTheme.ui(12, weight: prominent ? .medium : .regular))
-            .lineLimit(1)
-        Group {
-            if PiperTheme.isPage {
-                label
-                    .padding(.horizontal, 4).padding(.vertical, 5)
-                    .foregroundStyle(enabled ? (prominent ? PiperTheme.accent : PiperTheme.ink) : PiperTheme.secondary)
-            } else {
-                label
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .foregroundStyle(enabled ? (prominent ? Color.white : PiperTheme.ink) : PiperTheme.secondary)
-                    .background(prominent && enabled ? PiperTheme.accent : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
-                    .overlay {
-                        if !prominent && !ghost {
-                            RoundedRectangle(cornerRadius: PiperTheme.radius).strokeBorder(PiperTheme.rule, lineWidth: 1)
-                        }
-                    }
-            }
-        }
-        .contentShape(Rectangle())
-        .opacity(configuration.isPressed ? 0.7 : 1)
+        configuration.label
+            .font(PiperTheme.ui(12))
+            .foregroundStyle(enabled ? PiperTheme.accent : PiperTheme.faint)
+            .opacity(configuration.isPressed ? 0.6 : 1)
+            .contentShape(Rectangle())
     }
 }
 
-/// A 26-point icon button with an optional active state.
+extension ButtonStyle where Self == TextButtonStyle {
+    static var text: TextButtonStyle { TextButtonStyle() }
+}
+
+/// A 28 by 24 point icon button with an optional active state.
 struct IconButton: View {
     let title: String
     let icon: String
@@ -169,10 +125,10 @@ struct IconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
-                .frame(width: 26, height: 26)
+                .font(.system(size: 14, weight: .regular))
+                .frame(width: 28, height: 24)
                 .foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary)
-                .background(active ? PiperTheme.hover : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+                .background(active ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -181,11 +137,30 @@ struct IconButton: View {
     }
 }
 
-/// A one-point rule in the theme's rule color.
+/// A one-point rule in the separator color.
 struct Rule: View {
     var vertical = false
     var body: some View {
         Rectangle().fill(PiperTheme.rule)
             .frame(width: vertical ? 1 : nil, height: vertical ? nil : 1)
+    }
+}
+
+/// A title and a line under it, centered in a pane that has nothing to show.
+struct EmptyPane: View {
+    let title: String
+    var detail: String?
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text(title).font(PiperTheme.ui(15, weight: .semibold)).foregroundStyle(PiperTheme.secondary)
+            if let detail {
+                Text(detail).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.faint)
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .allowsHitTesting(false)
     }
 }

@@ -1,6 +1,6 @@
 ---
 title: "Validate A Build"
-summary: "Automated tests and manual acceptance checks for capture, the Wiki window, export, and distribution"
+summary: "Automated tests and manual acceptance checks for capture, the main window, and distribution"
 read_when:
   - Testing a build before regular use
   - Recording application compatibility
@@ -24,19 +24,33 @@ The tests use temporary folders and temporary databases. Each module has a test 
 | `PiperTreeTests` | Folder trees and counts |
 | `CapturesTests` | The capture store, clipboard entries, and capture links |
 | `VaultTests` | Scans, path safety, reads, writes, and the watcher |
-| `PiperTests` | The app model: editing, refresh, read state, previews, export, and quit safety |
+| `PiperTests` | The app model: editing, refresh, read state, previews, and quit safety |
 
 The tests do not cover the UI or the global shortcut path.
 
 ## Capture Checks
 
 1. Run `make run`.
-2. Save a note with Return, and edit it with Save Changes.
-3. Copy text in another app, then Command-click its card in the panel.
-4. Click another clipboard card, and make sure that the text pastes into the app in front.
-5. Select notes, then use Merge, Move, Copy as List, and Undo.
-6. Restart Piper.
-7. Make sure that the notes, sections, and composer draft are still there.
+2. Save a note with Return, and edit it with Save.
+3. Copy text in another app. Move the pointer over its row in the panel and select Keep.
+4. Double-click another clipboard row. Make sure that the text pastes into the app in front.
+5. Select each section tab. Make sure that the list scrolls to that section and the composer placeholder names it.
+6. Select the Clipboard tab. Make sure that the rows show the source app and the time, and that Clear History empties the list.
+7. Select notes, then use Merge, Move, Copy, Delete, Command-Shift-C, and Undo.
+8. Restart Piper.
+9. Make sure that the notes, sections, and composer draft are still there.
+
+## Main-Window Inbox
+
+1. Select Inbox in the main window. Make sure that every section shows in one list, and that the title shows the note count.
+2. Select a section under Inbox. Make sure that the list scrolls to it.
+3. Select New Section at the bottom of the sidebar. Make sure that the new section shows under Inbox.
+4. Select several notes. Use Merge, Move, Copy, Delete, and Undo.
+5. Search from the field at the top of the Inbox list. Make sure that results come from every section.
+6. Select one note and type in the detail pane. Make sure that the change is saved after a pause.
+7. Select text in the detail pane. Make sure that Command-C copies the text and Delete does not remove a note.
+8. Select Mark as Done in the toolbar. Make sure that the note circle fills.
+9. Select Clipboard in the sidebar. Make sure that the history shows.
 
 ## Selection Capture Checks
 
@@ -59,20 +73,23 @@ Record the macOS version, the app version, and the permission state with each re
 
 Automated keystrokes go directly to an app. They do not test the macOS hotkey path or the double Shift gesture.
 
-## Wiki Window Checks
+## Main Window Checks
 
-1. Choose a disposable Wiki folder in the folder menu.
+The middle-pane search filters the selected folder. A matching file in another folder must stay outside the results. Home search still finds files across the vault.
+
+1. Add a disposable folder with Add Folder at the bottom of the sidebar.
 2. Add, rename, and delete a file in Finder. Make sure that the tree and the file list update.
-3. Search from Home and from the toolbar.
+3. Search from Home and from the field over the list.
 4. Open a file. Make sure that its unread dot goes away.
 5. Follow a Wiki link, then use Command-[ and Command-].
-6. Switch Markdown and HTML files between Preview and Raw. Make sure that Raw shows their source text.
+6. Switch Markdown and HTML files between Preview and Source in the toolbar. Make sure that Source shows their text, and that long lines wrap.
 7. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
+8. Control-click the added folder and select Remove Folder. Make sure that the folder stays on disk.
 
 ## Editing Checks
 
 1. Edit a Markdown file that has frontmatter.
-2. Make sure that the status bar shows Unsaved and the file on disk has not changed.
+2. Make sure that the date line ends with Edited and the file on disk has not changed.
 3. Press Command-S. Compare the file: the frontmatter and Wiki links must be unchanged.
 4. Make sure that Command-Z still reverses the edit after the save.
 5. Edit again, open another file, and select Cancel. Make sure that the draft stays.
@@ -86,25 +103,16 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 2. Switch among Paper, Sepia, and Slate.
 3. Change the font, the size, and the appearance.
 4. Make sure that an unsaved edit keeps its text and scroll position.
-5. Select Reset and make sure that the defaults return.
-6. Switch Settings > Style between Vault and Page. Make sure that both windows update.
+5. Select Reset to Defaults and make sure that the defaults return.
+6. Switch the system appearance between Light and Dark. Make sure that both windows update.
 
 ## Inbox Reader Checks
 
 1. Capture a note that contains only a URL, and a note that contains text with two URLs.
-2. Select Inbox in the Wiki window, then select each note.
+2. Select Inbox in the main window, then select each note. Select Open Reader on a link card.
 3. Follow a redirect, use Back and Forward, and select Reload.
-4. Load a page that fails, then select Retry.
-5. Select text on a page and select Capture. Make sure that a new Inbox note has the page title and URL.
-
-## Export Checks
-
-1. Select notes with source URLs and select Wiki in the selection bar.
-2. Save the file inside the Wiki folder.
-3. Make sure that the Wiki window opens the file.
-4. Make sure that the frontmatter has `title`, `created`, and `sources`.
-5. Make sure that no other file in the folder changed.
-6. Export again to a folder outside the Wiki. Make sure that only that file is written.
+4. Load a page that fails, then select Try Again.
+5. Select text on a page and select Capture in the reader bar. Make sure that a new Inbox note has the page title and URL.
 
 ## Distribution Checks
 

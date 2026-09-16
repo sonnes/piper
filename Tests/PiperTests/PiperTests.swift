@@ -82,46 +82,6 @@ final class PiperTests: XCTestCase {
         XCTAssertNotNil(makeFile("---\ntitle: [broken\n---\ntext", path: "bad.md").problem)
     }
 
-    // MARK: Export writes one file and nothing else
-
-    func testExportWritesOneFileAndLeavesEveryOtherFileAlone() throws {
-        let vault = Vault(root: folder)
-        try FileManager.default.createDirectory(at: folder.appendingPathComponent("topics"), withIntermediateDirectories: true)
-        let original = "---\ntype: Topic\ntitle: Existing\ncustom: keep\n---\nKeep exactly.\n"
-        let originalURL = folder.appendingPathComponent("topics/existing.md")
-        try Data(original.utf8).write(to: originalURL)
-
-        let note = Note(text: "  exact\n# heading\n---\n你好", section: "Inbox")
-        let markdown = try WikiExport.markdown(notes: [note], title: "Title: \"quoted\"", sourceURL: "https://example.com/page")
-        let destination = folder.appendingPathComponent(WikiExport.fileName("Title: \"quoted\""))
-        try Data(markdown.utf8).write(to: destination, options: .withoutOverwriting)
-
-        let written = try vault.read(destination.lastPathComponent)
-        XCTAssertEqual(written.metadata["title"] as? String, "Title: \"quoted\"")
-        XCTAssertTrue(written.body.contains(note.text), "The capture text reaches the file unchanged")
-        XCTAssertEqual(written.metadata["sources"] as? [String], ["https://example.com/page"])
-
-        XCTAssertEqual(try String(contentsOf: originalURL, encoding: .utf8), original, "Export must not touch another file")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("index.md").path), "Export builds no index")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("log.md").path), "Export appends to no log")
-    }
-
-    func testExportRefusesEmptyInputAndABadSourceURL() throws {
-        let note = Note(text: "one", section: "Inbox")
-        XCTAssertThrowsError(try WikiExport.markdown(notes: [], title: "Title", sourceURL: ""))
-        XCTAssertThrowsError(try WikiExport.markdown(notes: [note], title: "   ", sourceURL: ""))
-        XCTAssertThrowsError(try WikiExport.markdown(notes: [note], title: "Title", sourceURL: "javascript:alert(1)"))
-        XCTAssertNoThrow(try WikiExport.markdown(notes: [note], title: "Title", sourceURL: ""))
-        XCTAssertNoThrow(try WikiExport.markdown(notes: [note], title: "Title", sourceURL: "https://example.com"))
-    }
-
-    func testTheProposedFileNameIsSafeForAnyTitle() {
-        XCTAssertEqual(WikiExport.fileName("Title: \"quoted\""), "title-quoted.md")
-        XCTAssertEqual(WikiExport.fileName("../../etc/passwd"), "etc-passwd.md")
-        XCTAssertEqual(WikiExport.fileName("你好"), "capture.md")
-        XCTAssertEqual(WikiExport.fileName(""), "capture.md")
-    }
-
     func testAPathThatLeavesTheVaultThrows() throws {
         let vault = Vault(root: folder)
         XCTAssertThrowsError(try vault.containedURL("../../outside.md"))

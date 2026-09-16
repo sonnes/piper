@@ -61,9 +61,10 @@ final class ClipboardInboxTests: XCTestCase {
         copy("first")
         XCTAssertEqual(inbox.entries.map(\.text), ["first", "second"])
         XCTAssertEqual(inbox.entries[0].id, id)
-        for index in 0..<12 { copy("item \(index)") }
-        XCTAssertEqual(inbox.entries.count, 10)
-        XCTAssertEqual(inbox.entries.first?.text, "item 11")
+        let limit = ClipboardInbox.historyLimit
+        for index in 0..<(limit + 2) { copy("item \(index)") }
+        XCTAssertEqual(inbox.entries.count, limit)
+        XCTAssertEqual(inbox.entries.first?.text, "item \(limit + 1)")
         XCTAssertEqual(inbox.entries.last?.text, "item 2")
     }
 
@@ -104,11 +105,12 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertEqual(inbox.entries.map(\.text), ["ordinary text"])
     }
 
-    func testSavingUsesChosenSectionAndDoesNotInterpretAHeading() {
+    func testSavingAlwaysUsesInboxAndDoesNotInterpretAHeading() {
         copy("# Keep this heading")
         store.add("# Research")
         XCTAssertTrue(inbox.save(inbox.entries[0].id))
-        XCTAssertEqual(store.notes.first?.section, "Research")
+        XCTAssertEqual(store.notes.first?.section, "Inbox")
+        XCTAssertEqual(store.activeSection, "Research")
         XCTAssertEqual(store.notes.first?.text, "# Keep this heading")
         XCTAssertEqual(store.sections, ["Inbox", "Research"])
     }

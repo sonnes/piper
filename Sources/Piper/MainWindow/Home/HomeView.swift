@@ -9,12 +9,13 @@ struct HomeView: View {
     // MARK: Properties
 
     @Bindable var model: AppModel
-    /// The text the browser toolbar left behind. Empty when the window opens here.
+    /// The initial query. Empty when the window opens here.
     var initialText = ""
     /// Opens a file. The window leaves the home page for the browser.
     let openFile: (String) -> Void
     /// Leaves the home page without opening a file.
     let showBrowser: () -> Void
+    let searchFiles: (String) -> Void
 
     @State private var text = ""
     @State private var selection = 0
@@ -23,9 +24,9 @@ struct HomeView: View {
     @FocusState private var focused: Bool
 
     /// The width of the search field and of the lists under it.
-    private static let contentWidth: CGFloat = 560
+    private static let contentWidth: CGFloat = 480
     /// The width of the Recent list.
-    private static let recentWidth: CGFloat = 660
+    private static let recentWidth: CGFloat = AppDefaults.Reader.columnWidth
     /// How many files the Recent list shows.
     private static let recentCount = 6
 
@@ -45,14 +46,14 @@ struct HomeView: View {
     private var actions: [HomeAction] {
         [
             HomeAction(title: "New Capture", detail: "Open the capture panel", shortcut: "⌘1") { newCapture() },
-            HomeAction(title: "Browse Files", detail: "Open the three-pane browser", shortcut: "⌘2") { browseFiles() },
-            HomeAction(title: "Choose Wiki Folder…", detail: "Pick a different folder") { model.chooseWiki() },
+            HomeAction(title: "Browse Files", detail: "Show the files of the folder", shortcut: "⌘2") { browseFiles() },
+            HomeAction(title: "Add Folder…", detail: "Add a folder to the sidebar") { model.chooseWiki() },
             HomeAction(title: "Reveal in Finder", detail: "Show " + vaultPath) {
                 NSWorkspace.shared.activateFileViewerSelecting([model.vault.root])
             },
             HomeAction(title: "Capture Clipboard", detail: "Save the clipboard as a note") { model.captureClipboard?() },
-            HomeAction(title: "Settings…", detail: "Folder, shortcut, reading, style", shortcut: "⌘,") {
-                model.route = "settings"
+            HomeAction(title: "Settings…", detail: "Folders, shortcut, and reading", shortcut: "⌘,") {
+                model.openSettings?()
             }
         ]
     }
@@ -66,19 +67,23 @@ struct HomeView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
-                    wordmark
                     searchField
-                    if !rows.isEmpty {
-                        HomeSuggestionList(suggestions: rows, selection: selection, run: run)
-                            .frame(width: Self.contentWidth)
-                            .padding(.top, 5)
-                    }
-                    buttons
+                    Text("Type > for actions")
+                        .font(PiperTheme.ui(11))
+                        .foregroundStyle(PiperTheme.faint)
+                        .padding(.top, 8)
                     if !recent.isEmpty { recentList }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.top, 56)
+                .padding(.top, 64)
                 .padding(.bottom, 40)
+                .overlay(alignment: .top) {
+                    if !rows.isEmpty {
+                        HomeSuggestionList(suggestions: rows, selection: selection, run: run)
+                            .frame(width: Self.contentWidth)
+                            .padding(.top, 64 + 30 + 6)
+                    }
+                }
             }
             .onChange(of: selection) { _, index in
                 guard rows.indices.contains(index) else { return }
@@ -105,79 +110,44 @@ struct HomeView: View {
 
 private extension HomeView {
 
-    var wordmark: some View {
-        VStack(spacing: 8) {
-            if let mark = PiperTheme.mark {
-                Image(nsImage: mark)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 42)
-                    .accessibilityHidden(true)
-            }
-            Text("Piper")
-                .font(PiperTheme.ui(34, weight: .semibold))
-                .tracking(-0.6)
-            Text(verbatim: "\(vaultPath) · \(model.unreadFolderCounts["", default: 0]) unread")
-                .font(PiperTheme.ui(12))
-                .foregroundStyle(PiperTheme.secondary)
-        }
-        .padding(.bottom, 22)
-    }
-
     var searchField: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 7) {
             Image(systemName: "magnifyingglass")
-                .font(PiperTheme.ui(13))
-                .foregroundStyle(PiperTheme.secondary)
-            TextField("Search your wiki", text: $text)
+                .font(.system(size: 13))
+                .foregroundStyle(PiperTheme.faint)
+            TextField("Search", text: $text)
                 .textFieldStyle(.plain)
                 .font(PiperTheme.ui(14))
                 .focused($focused)
                 .onSubmit(runSelection)
-                .accessibilityLabel("Search")
-        }
-        .padding(.horizontal, 14)
-        .frame(width: Self.contentWidth, height: 36)
-        .background(PiperTheme.page, in: Capsule())
-        .overlay(Capsule().strokeBorder(focused ? PiperTheme.accent : PiperTheme.rule, lineWidth: 1))
-    }
-
-    var buttons: some View {
-        HStack(spacing: 8) {
-            button("New Capture", hint: "⌘1", action: newCapture)
-            button("Actions", hint: ">") { fill(">") }
-            button("Browse Files", hint: "⌘2", action: browseFiles)
-        }
-        .padding(.top, 18)
-    }
-
-    func button(_ title: String, hint: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Text(title)
-                Text(hint).foregroundStyle(PiperTheme.faint)
+                .accessibilityLabel("Search files and actions")
+            if !text.isEmpty {
+                Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(PiperTheme.faint) }
+                    .buttonStyle(.plain).accessibilityLabel("Clear search")
             }
         }
-        .buttonStyle(PiperButtonStyle())
-        .focusEffectDisabled()
-        .accessibilityLabel(title)
+        .padding(.horizontal, 10)
+        .frame(width: Self.contentWidth, height: 30)
+        .background(PiperTheme.ink.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(focused ? PiperTheme.focusRing : .clear, lineWidth: 3)
+                .padding(-2)
+        }
     }
 
     var recentList: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text("Recent")
-                    .font(PiperTheme.ui(11, weight: .bold).smallCaps())
-                    .tracking(0.3)
+                Text("RECENT")
+                    .font(PiperTheme.ui(11, weight: .semibold))
+                    .tracking(0.4)
                     .foregroundStyle(PiperTheme.secondary)
                 Spacer()
-                Button("Show All", action: showBrowser)
-                    .buttonStyle(.plain)
-                    .font(PiperTheme.ui(11))
-                    .foregroundStyle(PiperTheme.accent)
+                Button("Show All", action: showBrowser).buttonStyle(.text)
             }
-            .padding(.horizontal, 4)
-            .padding(.bottom, 6)
+            .padding(.horizontal, 6)
+            .padding(.bottom, 4)
             ForEach(recent) { file in
                 Button { openFile(file.id) } label: {
                     TimelineCell(
@@ -189,8 +159,9 @@ private extension HomeView {
                 .buttonStyle(.plain)
             }
         }
-        .frame(width: Self.recentWidth, alignment: .leading)
-        .padding(.top, 36)
+        .frame(maxWidth: Self.recentWidth, alignment: .leading)
+        .padding(.horizontal, AppDefaults.Reader.horizontalInset)
+        .padding(.top, 44)
     }
 }
 
@@ -256,11 +227,6 @@ private extension HomeView {
         return true
     }
 
-    func fill(_ prefix: String) {
-        text = prefix
-        selection = 0
-        focused = true
-    }
 }
 
 // MARK: - Running
@@ -280,8 +246,7 @@ private extension HomeView {
         case .action(let action):
             action.run()
         case .searchEverything(let query):
-            model.wikiQuery = query
-            browseFiles()
+            searchFiles(query)
         }
         text = ""
     }
@@ -291,7 +256,6 @@ private extension HomeView {
     }
 
     func browseFiles() {
-        model.route = "wiki"
         showBrowser()
     }
 }

@@ -5,7 +5,7 @@ import Vault
 
 enum WikiStyle {
     static let paper = PiperTheme.page
-    static let sidebar = PiperTheme.surface
+    static let sidebar = PiperTheme.panel
     static let hairline = PiperTheme.rule
 }
 
@@ -135,7 +135,7 @@ private struct WikiBlockView: View {
                     Text(block.text).font(Font(PiperTheme.manuscript(size: fontSize - 3))).lineSpacing(6)
                         .textSelection(.enabled).fixedSize(horizontal: true, vertical: false).padding(16)
                 }.scrollIndicators(.automatic)
-            }.background(PiperTheme.surface, in: RoundedRectangle(cornerRadius: 3))
+            }.background(PiperTheme.panel, in: RoundedRectangle(cornerRadius: 3))
                 .overlay(RoundedRectangle(cornerRadius: 3).stroke(WikiStyle.hairline, lineWidth: 1))
         case .table:
             table
@@ -173,7 +173,7 @@ private struct WikiBlockView: View {
                     if index < rows.count - 1 { Divider().gridCellUnsizedAxes(.horizontal) }
                 }
             }.padding(16)
-        }.background(PiperTheme.surface, in: RoundedRectangle(cornerRadius: 3))
+        }.background(PiperTheme.panel, in: RoundedRectangle(cornerRadius: 3))
             .overlay(RoundedRectangle(cornerRadius: 3).stroke(WikiStyle.hairline, lineWidth: 1))
     }
 }

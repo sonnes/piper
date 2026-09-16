@@ -169,7 +169,7 @@ final class ReleaseTests: XCTestCase {
         XCTAssertTrue(model.captureEdits[second.id] === second)
     }
 
-    func testCreateWikiStartsEmptyAndSupportsRealExport() throws {
+    func testCreateWikiStartsEmptyAndScansAFileAddedLater() throws {
         let root = folder.appendingPathComponent("Wiki")
         let vault = Vault(root: root)
         try vault.create()
@@ -177,12 +177,11 @@ final class ReleaseTests: XCTestCase {
         // it has no opinion about what belongs in the folder.
         XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty)
         XCTAssertTrue(try vault.scan().files.isEmpty)
-        let note = Note(text: "A captured thought", section: "Inbox")
-        let markdown = try WikiExport.markdown(notes: [note], title: "First capture", sourceURL: "")
-        try Data(markdown.utf8).write(to: root.appendingPathComponent(WikiExport.fileName("First capture")))
+        let text = "A captured thought"
+        try Data(("# First capture\n\n" + text + "\n").utf8).write(to: root.appendingPathComponent("first-capture.md"))
         let scan = try vault.scan()
         XCTAssertEqual(scan.files.map(\.id), ["first-capture.md"])
-        XCTAssertTrue(scan.files[0].body.contains(note.text))
+        XCTAssertTrue(scan.files[0].body.contains(text))
         XCTAssertTrue(scan.problems.isEmpty)
 
         // Creating over a folder that now holds a file must refuse.
