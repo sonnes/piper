@@ -1,6 +1,7 @@
 import AppKit
 import XCTest
 import Captures
+import CSQLite
 
 @MainActor
 final class ClipboardInboxTests: XCTestCase {
@@ -159,5 +160,64 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertEqual(inbox.entries.map(\.text), ["one", "two"])
         copy(String(repeating: "x", count: 500_001))
         XCTAssertEqual(inbox.entries.map(\.text), ["one", "two"])
+    }
+
+    // MARK: - Stored History
+
+    private func reopen(now: Date = Date()) -> ClipboardInbox {
+        let reopened = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
+        return ClipboardInbox(store: reopened, pasteboard: pasteboard, now: now)
+    }
+
+    func testHistorySurvivesARestartWithItsIdentityTimeAndSource() {
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        inbox.receive(["first"], source: "Safari", at: date)
+        inbox.receive(["emoji 🐦\u{0}after a null", "no source"], at: date.addingTimeInterval(60))
+        let reopened = reopen(now: date.addingTimeInterval(120))
+        XCTAssertEqual(reopened.entries, inbox.entries)
+        XCTAssertEqual(reopened.entries.last?.source, "Safari")
+        XCTAssertNil(reopened.entries.first?.source)
+    }
+
+    func testTextsOlderThanTheRetentionPeriodLeaveOnOpenAndWhileRunning() {
+        let day: TimeInterval = 24 * 60 * 60
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        inbox.receive(["old"], at: start)
+        inbox.receive(["new"], at: start.addingTimeInterval(3 * day))
+        XCTAssertEqual(reopen(now: start.addingTimeInterval(7 * day + 1)).entries.map(\.text), ["new"])
+        XCTAssertEqual(inbox.entries.map(\.text), ["new", "old"])
+        inbox.removeExpired(at: start.addingTimeInterval(10 * day + 1))
+        XCTAssertTrue(inbox.entries.isEmpty)
+        XCTAssertTrue(reopen(now: start).entries.isEmpty)
+    }
+
+    func testClearAndTheHistoryLimitAlsoChangeTheStoredHistory() {
+        for index in 0..<(ClipboardInbox.historyLimit + 2) { copy("item \(index)") }
+        let reopened = reopen()
+        XCTAssertEqual(reopened.entries.count, ClipboardInbox.historyLimit)
+        XCTAssertEqual(reopened.entries.last?.text, "item 2")
+        inbox.clear()
+        XCTAssertTrue(reopen().entries.isEmpty)
+    }
+
+    func testADatabaseFromBeforeTheClipboardTableGainsTheTable() throws {
+        let url = folder.appendingPathComponent("old.sqlite")
+        var db: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(url.path, &db), SQLITE_OK)
+        let state = #"{"notes":[],"sections":["Inbox"],"activeSection":"Inbox"}"#
+        XCTAssertEqual(sqlite3_exec(db, "CREATE TABLE state (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL, data BLOB NOT NULL); INSERT INTO state VALUES(1,1,CAST('\(state)' AS BLOB));", nil, nil, nil), SQLITE_OK)
+        sqlite3_close(db)
+        let oldStore = CaptureStore(url: url)
+        XCTAssertNil(oldStore.errorMessage)
+        ClipboardInbox(store: oldStore, pasteboard: pasteboard).receive(["after upgrade"])
+        XCTAssertNil(oldStore.errorMessage)
+        XCTAssertEqual(ClipboardInbox(store: CaptureStore(url: url), pasteboard: pasteboard).entries.map(\.text), ["after upgrade"])
+    }
+
+    func testSavingANoteKeepsTheStoredText() {
+        copy("keep me")
+        XCTAssertTrue(inbox.save(inbox.entries[0].id))
+        store.undo()
+        XCTAssertEqual(reopen().entries.map(\.text), ["keep me"])
     }
 }

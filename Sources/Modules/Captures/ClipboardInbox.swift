@@ -1,4 +1,5 @@
 import AppKit
+import CapturesDatabase
 import Observation
 
 /// One clipboard text that a reader has not saved yet.
@@ -25,16 +26,19 @@ public struct ClipboardEntry: Identifiable, Equatable {
 
 /// Recent clipboard text, held until the reader saves it or it falls out of the list.
 ///
-/// Nothing here reaches the database on its own. A reader saves an entry, and
-/// then the entry disappears because the store holds the same text.
+/// The history goes into the clipboard table of the note database, so it
+/// survives a restart. It never becomes a note on its own. A reader saves an
+/// entry, and then the entry disappears because the store holds the same text.
 @MainActor @Observable
 public final class ClipboardInbox {
 
     // MARK: - Properties
 
     public static let copiedNoteType = NSPasteboard.PasteboardType("com.piper.saved-notes")
-    /// The number of texts the history keeps. The history lives in memory only.
+    /// The number of texts the history keeps.
     public static let historyLimit = 50
+    /// The age after which a text leaves the history.
+    nonisolated public static let defaultRetention: TimeInterval = 7 * 24 * 60 * 60
     private static let ignoredTypes: Set<NSPasteboard.PasteboardType> = [
         copiedNoteType,
         NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"),
@@ -43,6 +47,7 @@ public final class ClipboardInbox {
     ]
     private let store: CaptureStore
     private let pasteboard: NSPasteboard
+    private let retention: TimeInterval
     private var items: [ClipboardEntry] = []
     @ObservationIgnored private var changeCount: Int?
     @ObservationIgnored private var timer: Timer?
@@ -53,9 +58,19 @@ public final class ClipboardInbox {
 
     // MARK: - Initialization
 
-    public init(store: CaptureStore, pasteboard: NSPasteboard = .general) {
+    public init(store: CaptureStore, pasteboard: NSPasteboard = .general, retention: TimeInterval = defaultRetention, now: Date = Date()) {
         self.store = store
         self.pasteboard = pasteboard
+        self.retention = retention
+        guard let database = store.database else { return }
+        do {
+            try database.removeClipboard(before: now.addingTimeInterval(-retention))
+            let loaded = try database.loadClipboard().map {
+                ClipboardEntry(id: $0.id, text: $0.text, copiedAt: $0.copiedAt, source: $0.source)
+            }
+            items = Array(loaded.prefix(Self.historyLimit))
+            persist(items, previous: loaded)
+        } catch { store.report(error) }
     }
 
     // MARK: - Polling
@@ -74,6 +89,7 @@ public final class ClipboardInbox {
     public func stop() { timer?.invalidate(); timer = nil }
 
     public func poll() {
+        removeExpired()
         let version = pasteboard.changeCount
         guard version != changeCount else { return }
         changeCount = version
@@ -100,12 +116,23 @@ public final class ClipboardInbox {
             updated.removeAll { $0.text == text }
             updated.insert(ClipboardEntry(id: existing?.id ?? UUID(), text: text, copiedAt: date, source: source), at: 0)
         }
-        updated = Array(updated.prefix(Self.historyLimit))
-        if updated != items { items = updated }
+        updated = Array(updated.prefix(Self.historyLimit).filter { !isExpired($0, at: date) })
+        guard updated != items else { return }
+        persist(updated, previous: items)
+        items = updated
+    }
+
+    /// Removes the texts that are older than the retention period.
+    public func removeExpired(at date: Date = Date()) {
+        guard items.contains(where: { isExpired($0, at: date) }) else { return }
+        let updated = items.filter { !isExpired($0, at: date) }
+        persist(updated, previous: items)
+        items = updated
     }
 
     /// Forgets every text that the reader has not saved.
     public func clear() {
+        do { try store.database?.removeAllClipboard() } catch { store.report(error) }
         items.removeAll()
     }
 
@@ -115,5 +142,24 @@ public final class ClipboardInbox {
         guard let entry = entries.first(where: { $0.id == id }),
               store.add(entry.text, source: "Clipboard", to: "Inbox", interpretSection: false) else { return false }
         return true
+    }
+
+    // MARK: - Private
+
+    private func isExpired(_ entry: ClipboardEntry, at date: Date) -> Bool {
+        entry.copiedAt < date.addingTimeInterval(-retention)
+    }
+
+    /// Writes the entries that changed and removes the entries that left the history.
+    ///
+    /// A failed write keeps the history in memory and shows the error.
+    private func persist(_ updated: [ClipboardEntry], previous: [ClipboardEntry]) {
+        guard let database = store.database else { return }
+        let changed = updated.filter { !previous.contains($0) }.map {
+            ClipboardRecord(id: $0.id, text: $0.text, copiedAt: $0.copiedAt, source: $0.source)
+        }
+        let kept = Set(updated.map(\.id))
+        let removed = previous.map(\.id).filter { !kept.contains($0) }
+        do { try database.saveClipboard(changed, removing: removed) } catch { store.report(error) }
     }
 }

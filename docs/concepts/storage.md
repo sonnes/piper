@@ -31,11 +31,11 @@ A new database has the Inbox section and no notes.
 
 ### Write Safety
 
-Piper writes a new snapshot before the UI shows the change. A save compares the stored snapshot with the snapshot that Piper loaded last. If they differ, the save fails. As a result, a second Piper instance cannot replace newer notes.
+Piper writes a new snapshot before the UI shows the change. A save compares the stored snapshot with the snapshot that Piper loaded last. If they differ, the save fails. As a result, a second Piper instance cannot replace newer notes. Clipboard rows do not use this check.
 
 If the database is locked, Piper waits three seconds. Then the save fails, the current notes stay, and you can try again.
 
-The schema is version 1. Piper refuses to open a snapshot with an unknown version, and it does not overwrite that snapshot. Piper has no general schema migration. The database uses the default SQLite journal mode.
+The schema is version 1. Piper refuses to open a snapshot with an unknown version, and it does not overwrite that snapshot. Piper adds the `clipboard` table the first time it opens a version 1 database. Piper has no general schema migration. The database uses the default SQLite journal mode.
 
 ### Undo
 
@@ -45,9 +45,20 @@ Selecting an existing section does not replace the undo step. An editor save wit
 
 ## Clipboard History
 
-Clipboard texts stay in memory until Piper quits or you select Clear History. They do not go into SQLite or UserDefaults. A text becomes a note only when you keep it. Each text records the time of the last copy and the app that was in front.
+The `clipboard` table in the capture database holds the clipboard history, so the history survives a restart. A text becomes a note only when you keep it. Clear History removes every row. Each row has these fields:
 
-Piper checks the clipboard about every 0.6 seconds. If an app replaces the clipboard twice between checks, Piper sees only the last copy. The history holds 50 texts, each up to 500,000 UTF-8 bytes.
+| Field | Content |
+| --- | --- |
+| `id` | A UUID |
+| `text` | The copied text |
+| `copied_at` | The time of the last copy, in seconds since 1970 |
+| `source` | The app that was in front, or no value |
+
+The history holds the 50 latest texts, each up to 500,000 UTF-8 bytes. Piper removes a text 7 days after its last copy. This check runs when Piper starts and each time Piper checks the clipboard. A text that leaves the history also leaves the table.
+
+Piper checks the clipboard about every 0.6 seconds. If an app replaces the clipboard twice between checks, Piper sees only the last copy.
+
+The table stores each text as plain text on disk. Piper does not store the texts that an app marks concealed or transient, such as passwords from a password manager.
 
 ## Drafts
 

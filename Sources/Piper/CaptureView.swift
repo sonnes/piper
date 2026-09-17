@@ -371,7 +371,7 @@ struct CaptureView: View {
         .overlay {
             if clipboardEntries.isEmpty {
                 if store.query.isEmpty {
-                    EmptyPane(title: "No Copies", detail: "Text you copy appears here until Piper quits.")
+                    EmptyPane(title: "No Copies", detail: "Text you copy appears here for 7 days.")
                 } else {
                     EmptyPane(title: "No Results", detail: "Try another word.")
                 }
@@ -447,7 +447,7 @@ struct CaptureView: View {
         HStack(spacing: 6) {
             if store.status == "Local notes" || content == .clipboard {
                 Text(content == .clipboard
-                     ? "Not saved. Quit clears the list."
+                     ? "Not saved as notes. Texts leave after 7 days."
                      : "Return saves to \(store.activeSection) · ⌘K section")
             } else {
                 Text(store.status).help(store.status)

@@ -18,7 +18,7 @@ public final class CaptureStore {
     public var selection: Set<UUID> = []
     public var status = "Local notes"
     public var errorMessage: String?
-    private var database: Database?
+    private(set) var database: Database?
     private var undoState: SavedState?
     public var notes: [Note] { state.notes }
     public var sections: [String] { state.sections }
