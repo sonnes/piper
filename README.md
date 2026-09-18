@@ -92,8 +92,6 @@ See [Send notes to Claude](docs/guides/claude.md) for setup and permission contr
 
 `make release` reads Developer ID credentials from a local `.envrc` file, which Git ignores. [Build a signed release](docs/guides/install.md#build-a-signed-release) lists the variables.
 
-GitHub Actions runs `make test` and `make build` on macOS 14 and macOS 26 for pushes and pull requests.
-
 `Sources/Modules/` holds the model modules, and `Sources/Piper/` holds the application. `Sources/CSQLite/` exposes system SQLite. Each module has a test target in `Tests/`. See [Architecture](docs/internals/architecture.md) and [Coding guidelines](docs/internals/coding-guidelines.md).
 
 `Resources/AppIcon.png` is the icon master. The build creates `Resources/Piper.icns` and bundles the fonts, the bird mark, and the licenses.

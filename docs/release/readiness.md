@@ -63,10 +63,8 @@ Acceptance: the downloaded DMG installs and captures text with the documented pe
 ## Repository Preparation
 
 - [x] Add README screenshots with fictional developer notes and public project links.
-- [x] Add CI for tests, the app build, and signature checks on macOS 14 and macOS 26.
 - [x] Run local tests and build the current source. See [Recorded results](validate.md#recorded-results).
-- [ ] Record the first successful GitHub Actions run.
-- [ ] Publish a GitHub release with the signed DMG of the current source. The README links to the latest release.
+- [x] Publish a GitHub release with the signed DMG of the current source. [Piper 0.1.0](https://github.com/sonnes/piper/releases/tag/v0.1.0) has the notarized arm64 DMG.
 
 ## Out Of Scope
 
