@@ -22,9 +22,11 @@ Apple notarizes each release DMG, so Gatekeeper accepts it. The DMG requires mac
 
 ## Requirements
 
-- macOS 14 or later
-- A Swift 5.9 toolchain with the macOS SDK
+- macOS 15.6 or later
+- Xcode 26 or later, for the macOS 26 SDK
 - Make
+
+The app that you build runs on macOS 14 or later.
 
 ## Build And Open
 
