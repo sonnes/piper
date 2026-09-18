@@ -13,6 +13,8 @@ The capture panel is a floating window for short notes. It stays above other app
 
 Open the panel with Command-1, the menu bar icon, or the New Capture button in the main window toolbar. The panel and the main window take turns. When one opens, the other leaves the screen. Neither closes, so a draft stays as it is.
 
+To move the panel, drag an empty part of it. To resize the panel, drag an edge or a corner. Piper keeps the size and the position for the next launch.
+
 ## Read The Panel
 
 The panel shows one list. The list starts with the five latest clipboard texts. Then it shows each section under its own header. A section with no notes shows one "No notes" row.
@@ -45,6 +47,8 @@ Piper shows the texts that you copy while it runs. These texts are not saved.
 4. Select Keep.
 
 Keep always saves to Inbox, even when another section is selected. The row goes away after a successful save.
+
+If a sidebar folder has Claude Code skills, the row also shows Send to <folder>. See [Send notes to Claude](claude.md).
 
 Double-click a row to paste the text into the app in front. The row context menu has Paste and Keep in Inbox. Paste needs Accessibility access. Without it, Piper copies the text, and you paste it with Command-V.
 
@@ -84,6 +88,7 @@ Sections group notes.
 - To create a section, select the + tab. In the main window, select New Section at the bottom of the sidebar.
 - To change the section for new notes, select its tab, or press Command-K.
 - To create or select a section from the composer, type `# Research` alone and press Return.
+- To run a folder skill, type `/` and the skill name. See [Send notes to Claude](claude.md#run-a-skill-from-the-composer).
 - To find notes, press Command-F. Search matches note text in all sections and in the clipboard. To end the search, select Cancel or press Escape.
 
 Section names have 1 to 80 characters and ignore case.
@@ -99,6 +104,7 @@ Section names have 1 to 80 characters and ignore case.
 | Merge | Joins the notes with blank lines between them |
 | Move | Moves the notes to another section |
 | Copy | Copies the text of the notes |
+| Send | Runs the default Claude skill on each note. See [Send notes to Claude](claude.md). |
 | Delete | Deletes the notes, with no confirmation |
 
 Command-Shift-C copies the notes as a numbered list. The note context menu also has Copy as List, Mark as Done, Edit, and Open in Browser.

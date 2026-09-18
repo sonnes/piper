@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
+import Agents
 import Captures
+import PiperCore
 
 @main
 struct PiperApp {
@@ -19,7 +21,7 @@ struct PiperApp {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
     private var panelController: CapturePanelController?
     private var mainWindowController: MainWindowController?
     private var settingsWindowController: SettingsWindowController?
@@ -31,6 +33,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var toastDismiss: DispatchWorkItem?
     private let model = AppModel()
     private var capture: CaptureService?
+    private let sendShortcut = SendShortcut()
+    private var sendClipboardItem: NSMenuItem?
+    private var terminateSignal: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -39,8 +44,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.openPanel = { [weak self] in self?.showPanel() }
         model.openLibrary = { [weak self] in self?.showLibrary() }
         model.openSettings = { [weak self] in self?.settings() }
+        model.showFile = { [weak self] path in
+            self?.showLibrary()
+            self?.mainWindowController?.showFile(path)
+        }
+        model.showNote = { [weak self] id in
+            self?.showLibrary()
+            self?.mainWindowController?.showNote(id)
+        }
+        model.showSession = { [weak self] id in
+            self?.showLibrary()
+            self?.mainWindowController?.showSession(id)
+        }
         let capture = CaptureService(model: model)
-        capture.didCapture = { [weak self] text in self?.showToast(text) }
+        capture.didCapture = { [weak self] text, noteID in self?.captured(text, noteID: noteID) }
+        sendShortcut.action = { [weak self] in self?.sendClipboard() }
+        sendShortcut.failure = { [weak self] message in self?.model.store.report(PiperError(message)) }
+        sendShortcut.update(enabled: !model.agents.folders.isEmpty)
+        stopRunsOnTerminateSignal()
         self.capture = capture
         model.captureShortcutChanged = { [weak capture] in capture?.start() }
         capture.start()
@@ -50,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         refresh = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.capture?.start()
+                self?.sendShortcut.update(enabled: self?.model.agents.folders.isEmpty == false)
                 if self?.mainWindowController?.window?.isVisible == true { self?.model.reload() }
             }
         }
@@ -99,6 +121,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
         windowMenu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "2").target = self
         windowMenu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "0").target = self
+        let claudePane = windowMenu.addItem(withTitle: "Claude Pane", action: #selector(toggleClaudePane), keyEquivalent: "c")
+        claudePane.keyEquivalentModifierMask = [.command, .option]
+        claudePane.target = self
         let windowItem = NSMenuItem(title: "Window", action: nil, keyEquivalent: "")
         windowItem.submenu = windowMenu
         main.addItem(windowItem)
@@ -115,9 +140,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Capture Clipboard", action: #selector(clipboard), keyEquivalent: "").target = self
+        let send = menu.addItem(withTitle: "Send Clipboard", action: #selector(sendClipboard), keyEquivalent: "w")
+        send.keyEquivalentModifierMask = [.control, .option]
+        send.target = self
+        sendClipboardItem = send
         menu.addItem(withTitle: "Settings...", action: #selector(settings), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Piper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.delegate = self
         status.menu = menu
         statusItem = status
     }
@@ -164,6 +194,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mainWindowController?.showHome()
     }
 
+    /// Opens or closes the Claude pane. A hidden window comes back with the pane open.
+    @objc private func toggleClaudePane() {
+        let visible = mainWindowController?.window?.isVisible == true
+        showLibrary()
+        if visible { mainWindowController?.toggleSessionPane() } else { mainWindowController?.showSessionPane() }
+    }
+
     /// Shows the window and its browser. Showing the window alone leaves the
     /// home page in front, which is not what the menu item names.
     @objc func showBrowser() {
@@ -183,7 +220,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc private func clipboard() { model.store.captureClipboard(); showToast(model.store.status) }
 
-    private func showToast(_ text: String) {
+    /// Names the default folder in the menu bar item, and hides the item when
+    /// no folder has Claude skills.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        model.agents.refresh(paths: model.wikiPaths)
+        sendClipboardItem?.isHidden = model.agents.folders.isEmpty
+        sendClipboardItem?.title = "Send Clipboard to " + (model.agents.defaultFolder?.name ?? "Folder")
+    }
+
+    /// Saves the clipboard to Inbox and sends it to the default folder.
+    @objc private func sendClipboard() {
+        guard let run = model.agents.sendPasteboard() else {
+            showToast(model.store.status)
+            return
+        }
+        showRunToast(run)
+    }
+
+    /// Confirms a selection capture. A note that a folder can take gets a Send button.
+    private func captured(_ text: String, noteID: UUID?) {
+        guard let noteID, let note = model.store.notes.first(where: { $0.id == noteID }),
+              let action = model.agents.defaultAction(for: note.text) else {
+            showToast(text)
+            return
+        }
+        showToast(text, action: ToastAction(title: "Send to " + action.folder.name) { [weak self] in
+            guard let self, let session = model.agents.send(note, action: action) else { return }
+            showRunToast(session)
+        })
+    }
+
+    private func showRunToast(_ session: AgentSession) {
+        showToast(model.store.status, action: session.noteID.map { id in
+            ToastAction(title: "Show") { [weak self] in self?.model.showNote?(id) }
+        })
+    }
+
+    private func showToast(_ text: String, action: ToastAction? = nil) {
         toastDismiss?.cancel()
         toast?.close()
         let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 44), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -193,16 +266,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.backgroundColor = .clear
         window.hasShadow = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.contentView = NSHostingView(rootView: ToastView(text: text))
+        window.contentView = FirstMouseHostingView(rootView: ToastView(text: text, action: action.map { action in
+            ToastAction(title: action.title) { [weak window] in
+                window?.orderOut(nil)
+                action.perform()
+            }
+        }))
         if let screen = NSScreen.main { window.setFrameOrigin(NSPoint(x: screen.visibleFrame.maxX - 370, y: screen.visibleFrame.minY + 30)) }
         window.orderFrontRegardless()
         toast = window
         let dismiss = DispatchWorkItem { [weak window] in window?.orderOut(nil) }
         toastDismiss = dismiss
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: dismiss)
+        DispatchQueue.main.asyncAfter(deadline: .now() + (action == nil ? 3 : AppDefaults.Agents.actionToastDuration), execute: dismiss)
     }
 
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showPanel(); return true }
+    /// Brings the open windows forward on a Dock click. With no window open,
+    /// the click opens the main window. The capture panel has its own shortcut.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showLibrary() }
+        return true
+    }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         if sender === mainWindowController?.window { return model.finishWikiEdit() }
@@ -238,12 +321,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // stops that alert from appearing. Quit then does nothing at all, so
         // close the sheet first.
         dismissAttachedSheet()
+        if !confirmStoppingRuns() { return .terminateCancel }
         for session in Array(model.captureEdits.values) {
             if !resolveCaptureEdit(session) { return .terminateCancel }
         }
         if model.finishWikiEdit() { return .terminateNow }
         showLibrary()
         return .terminateCancel
+    }
+
+    /// Stops the Claude runs when the process gets SIGTERM, for example from
+    /// `kill`. A child process otherwise keeps writing to its folder after
+    /// Piper exits.
+    private func stopRunsOnTerminateSignal() {
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated {
+                self?.model.agents.runner.stopAll()
+                exit(0)
+            }
+        }
+        source.resume()
+        terminateSignal = source
+    }
+
+    /// Asks before quitting stops Claude sessions that are in a turn.
+    private func confirmStoppingRuns() -> Bool {
+        let count = model.agents.runner.activeCount
+        guard count > 0 else { return true }
+        let alert = NSAlert()
+        alert.messageText = count == 1 ? "Stop the Claude session and quit?" : "Stop \(count) Claude sessions and quit?"
+        alert.informativeText = "A stopped turn can leave some files changed in its folder. You can continue the session after you open Piper again."
+        alert.addButton(withTitle: "Stop and Quit")
+        alert.addButton(withTitle: "Cancel").keyEquivalent = "\u{1b}"
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     /// Closes a sheet on any window, so that a modal alert can appear.
@@ -253,17 +365,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.route = "wiki"
     }
 
-    func applicationWillTerminate(_ notification: Notification) { capture?.stop(); model.clipboard.stop(); refresh?.invalidate() }
+    func applicationWillTerminate(_ notification: Notification) {
+        capture?.stop()
+        sendShortcut.unregister()
+        model.agents.runner.stopAll()
+        model.clipboard.stop()
+        refresh?.invalidate()
+    }
+}
+
+/// A button on the toast.
+private struct ToastAction {
+    let title: String
+    let perform: () -> Void
+}
+
+/// The toast takes a click without first becoming the key window.
+private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
 private struct ToastView: View {
     let text: String
+    let action: ToastAction?
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 14)).foregroundStyle(PiperTheme.accent)
-            Text(text).font(PiperTheme.ui(13)).lineLimit(1)
+            Text(text).font(PiperTheme.ui(13)).lineLimit(1).help(text)
             Spacer(minLength: 0)
-            Text("⌘1").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+            if let action {
+                Button(action.title, action: action.perform)
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+            } else {
+                Text("⌘1").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+            }
         }
         .foregroundStyle(PiperTheme.ink)
         .padding(.horizontal, 14).frame(maxWidth: .infinity, maxHeight: .infinity)

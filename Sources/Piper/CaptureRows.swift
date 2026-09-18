@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Agents
 import Captures
 
 // MARK: Tabs and headers
@@ -116,8 +117,12 @@ struct ClipboardRow: View {
     let separated: Bool
     let paste: () -> Void
     let keep: () -> Void
+    let agents: FolderAgents
+    /// Saves the text and runs a skill on it. Nil runs the default skill.
+    let send: (FolderAgents.Action?) -> Void
     @State private var hovered = false
     private var isCode: Bool { CaptureText.looksLikeCode(entry.text) }
+    private var canSend: Bool { agents.defaultAction(for: entry.text) != nil }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -134,6 +139,9 @@ struct ClipboardRow: View {
                     .lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if hovered {
+                    if canSend {
+                        SendButton(agents: agents, title: agents.sendTitle, sendDefault: { send(nil) }, send: send)
+                    }
                     Button("Keep", action: keep).controlSize(.small).help("Save to Inbox")
                 }
                 if showsSource, let source = entry.source {
@@ -152,12 +160,17 @@ struct ClipboardRow: View {
         .contextMenu {
             Button("Paste", systemImage: "doc.on.clipboard", action: paste)
             Button("Keep in Inbox", systemImage: "tray.and.arrow.down", action: keep)
+            if !agents.folders.isEmpty {
+                Divider()
+                Menu("Send To") { SendMenuItems(agents: agents, send: send) }
+            }
         }
         .help(String(entry.text.prefix(500)))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Clipboard: \(String(entry.text.prefix(240)))")
         .accessibilityAction(named: "Keep in Inbox", keep)
         .accessibilityAction(named: "Paste", paste)
+        .accessibilityAction(named: agents.sendTitle) { send(nil) }
     }
 }
 
@@ -176,8 +189,17 @@ struct NoteRow: View {
     let move: () -> Void
     let delete: () -> Void
     let canMerge: Bool
+    /// The last session of the note.
+    let session: AgentSession?
+    let agents: FolderAgents
+    /// Runs a skill on the note. Nil runs the default skill.
+    let send: (FolderAgents.Action?) -> Void
+    let openRun: () -> Void
+    let stopRun: () -> Void
 
     private var link: URL? { CaptureLinks(note.text).standaloneURL }
+    /// A link that no run has taken yet gets a Send button on the row.
+    private var showsSend: Bool { link != nil && session == nil && !note.isDone && agents.defaultAction(for: note.text) != nil }
 
     private var formattedText: AttributedString {
         (try? AttributedString(markdown: note.text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(note.text)
@@ -220,21 +242,29 @@ struct NoteRow: View {
                                     .lineSpacing(AppDefaults.CaptureItem.lineSpacing)
                                     .lineLimit(3)
                             }
-                            if let source {
+                            if let session {
+                                RunLine(session: session)
+                            } else if let source {
                                 Text(source).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
                             }
                         }
                         .font(PiperTheme.ui(AppDefaults.CaptureItem.fontSize))
                         .strikethrough(note.isDone, color: PiperTheme.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        Text(RowTime.text(note.createdAt))
-                            .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.faint).monospacedDigit().fixedSize()
                     }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selected ? .isSelected : [])
                 .accessibilityHint("Command-click adds to the selection. Return edits the note.")
+                if let session {
+                    RunBadge(session: session, open: openRun)
+                } else if showsSend {
+                    SendButton(agents: agents, title: agents.sendTitle, sendDefault: { send(nil) }, send: send)
+                }
+                Text(RowTime.text(note.createdAt))
+                    .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.faint).monospacedDigit().fixedSize()
+                    .onTapGesture(perform: select)
             }
             .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding)
             .padding(.vertical, AppDefaults.CaptureItem.verticalPadding)
@@ -256,6 +286,16 @@ struct NoteRow: View {
             Divider()
             Button("Merge Notes", action: merge).disabled(!canMerge)
             Button("Move To…") { prepareActions(); move() }
+            if !agents.folders.isEmpty {
+                Divider()
+                if let action = agents.defaultAction(for: note.text) {
+                    Button("Send to \(action.folder.name) with /\(action.skill.name)") { send(nil) }
+                }
+                Menu("Send To") { SendMenuItems(agents: agents, send: send) }
+            }
+            if session?.isActive == true {
+                Button("Stop Session", action: stopRun)
+            }
             if let source = note.sourceURLs.first, let url = URL(string: source), CaptureLinks.isWebURL(url) {
                 Divider()
                 Button("Open in Browser") { NSWorkspace.shared.open(url) }

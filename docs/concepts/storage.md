@@ -35,13 +35,38 @@ Piper writes a new snapshot before the UI shows the change. A save compares the 
 
 If the database is locked, Piper waits three seconds. Then the save fails, the current notes stay, and you can try again.
 
-The schema is version 1. Piper refuses to open a snapshot with an unknown version, and it does not overwrite that snapshot. Piper adds the `clipboard` table the first time it opens a version 1 database. Piper has no general schema migration. The database uses the default SQLite journal mode.
+The schema is version 1. Piper refuses to open a snapshot with an unknown version, and it does not overwrite that snapshot. Piper adds the `clipboard` and `sessions` tables the first time it opens a version 1 database. Piper has no general schema migration. The database uses the default SQLite journal mode.
 
 ### Undo
 
 Piper keeps one earlier state in memory. Undo saves that state to the database. A restart clears the undo step.
 
 Selecting an existing section does not replace the undo step. An editor save with no change adds no undo step.
+
+## Claude Sessions
+
+The `sessions` table in the capture database holds each Claude session. Each row has an `id`, the `folder`, an `updated_at` time, and a JSON `data` value with these fields:
+
+| Field | Content |
+| --- | --- |
+| `folder` | The absolute path of the folder |
+| `noteID` | The note that started the session, if a note started it |
+| `command` | The skill of the first turn, if a skill started the session |
+| `claudeSessionID` | The session id that `claude --resume` takes |
+| `state` | `waiting`, `running`, `needsYou`, `idle`, or `failed` |
+| `createdAt`, `updatedAt` | The start time and the time of the last change |
+| `unread` | True when a turn ended after you last looked at the session |
+| `blocks` | The transcript: messages, tool calls, cards, and turn results |
+
+Piper writes a row at each change of state. Text and tool calls wait 250 milliseconds, so a fast stream writes less often. When Piper starts, it keeps the 500 most recently changed rows. A session that was in a turn at that time changes to `idle`, with the result "Piper quit before the turn finished." Undo does not change sessions.
+
+An older version of Piper kept its runs in a `runs` table. Piper does not read that table and does not remove it.
+
+Claude Code keeps its own copy of each conversation in `~/.claude`. Piper uses that copy only through `--resume`.
+
+### Allow Rules
+
+Always in <folder> on a permission card adds a rule to `permissions.allow` in `.claude/settings.local.json` in that folder. Piper creates the file if it does not exist. The other keys of the file stay the same. Claude Code reads this file with `.claude/settings.json`. If the folder is a Git repository, add the file to `.gitignore` to keep your rules out of commits.
 
 ## Clipboard History
 

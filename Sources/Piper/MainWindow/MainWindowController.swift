@@ -1,8 +1,10 @@
 import AppKit
+import Agents
+import Captures
 import SwiftUI
 import Vault
 
-/// Owns the main window and its three panes.
+/// Owns the main window: three panes and the Claude pane.
 ///
 /// The window holds an `NSSplitViewController` with one view controller per
 /// pane. A pane never calls another pane. Each one reports upward through a
@@ -24,7 +26,9 @@ final class MainWindowController: NSWindowController {
     private let sidebarViewController = SidebarViewController()
     private let fileListViewController = FileListViewController()
     private let detailViewController = DetailViewController()
+    private let sessionViewController = SessionPaneViewController()
     private var listItem: NSSplitViewItem?
+    private var sessionItem: NSSplitViewItem?
     /// The initial query for Home.
     private var homeSeed = ""
     /// Changes with every seed, so that the home page takes the new text.
@@ -37,12 +41,17 @@ final class MainWindowController: NSWindowController {
 
     /// True while the panes to the right of the sidebar hold the home page.
     private var showsHome: Bool { state.selection == .home }
+    /// True while the list and the detail pane show Claude sessions.
+    private var showsSessions: Bool {
+        if case .sessions = state.selection { return true }
+        return false
+    }
 
     // MARK: - Initialization
 
     init(model: AppModel) {
         self.model = model
-        let window = NSWindow(
+        let window = RoundedWindow(
             contentRect: NSRect(origin: .zero, size: AppDefaults.Window.mainSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
@@ -122,6 +131,48 @@ final class MainWindowController: NSWindowController {
         homeSeed = seed
         homeIdentity = UUID()
         select(.home)
+    }
+
+    /// Shows a file in its folder.
+    func showFile(_ path: String) {
+        open(path)
+    }
+
+    /// Shows a note in the Inbox list and its detail.
+    func showNote(_ id: UUID) {
+        guard let note = model.store.notes.first(where: { $0.id == id }) else { return }
+        state.selectedNote = id
+        select(.section(note.section))
+        model.store.selection = [id]
+    }
+
+    /// Shows a session: in the Claude list when it is selected, or else in the Claude pane.
+    func showSession(_ id: UUID) {
+        model.selectedSession = id
+        guard showsSessions else { return showSessionPane() }
+        if let session = model.agents.runner.session(id), state.selection != .sessions(session.folder) {
+            select(.sessions(session.folder))
+        }
+    }
+
+    /// Opens or closes the Claude pane.
+    func toggleSessionPane() {
+        state.inspectorVisible.toggle()
+        state.save()
+        updateSessionPane(animated: true)
+    }
+
+    func showSessionPane() {
+        guard !state.inspectorVisible else { return }
+        toggleSessionPane()
+    }
+
+    /// Collapses the Claude pane while it is closed, and while the Claude list
+    /// shows the same sessions in the detail pane.
+    private func updateSessionPane(animated: Bool) {
+        let collapsed = !state.inspectorVisible || showsSessions
+        guard let sessionItem, sessionItem.isCollapsed != collapsed else { return }
+        if animated { sessionItem.animator().isCollapsed = collapsed } else { sessionItem.isCollapsed = collapsed }
     }
 
     /// Records what the sidebar picked and redraws the panes for it.
@@ -212,9 +263,14 @@ final class MainWindowController: NSWindowController {
                 fileListViewController.selectFile(file.id)
             })
             detailViewController.setContent(DetailPane(model: model).routeSheets(model))
+        case .sessions(let folder):
+            fileListViewController.setContent(SessionListView(model: model, folder: folder))
+            detailViewController.setContent(SessionDetailPane(model: model, folder: folder).routeSheets(model))
         }
+        sessionViewController.setContent(SessionInspector(model: model))
 
         listItem?.isCollapsed = showsHome
+        updateSessionPane(animated: false)
         updateToolbarState()
     }
 
@@ -246,6 +302,11 @@ final class MainWindowController: NSWindowController {
         case .folder(let path):
             let name = path.isEmpty ? model.vault.root.lastPathComponent : (path as NSString).lastPathComponent
             setTitle(name, fileCount(model.files.filter { $0.folder == path }))
+        case .sessions(let folder):
+            let sessions = model.agents.runner.sessions(in: folder)
+            let waiting = sessions.filter { $0.state == .needsYou }.count
+            let total = Self.count(sessions.count, "session")
+            setTitle(URL(fileURLWithPath: folder).lastPathComponent, waiting > 0 ? total + " · \(waiting) need you" : total)
         }
     }
 
@@ -270,12 +331,13 @@ final class MainWindowController: NSWindowController {
         let showsFile = !state.selection.showsCaptures && !showsHome && model.currentDocument.map {
             FilePresentation.sourceText(for: $0) != nil
         } == true
-        let showsFiles = !state.selection.showsCaptures && !showsHome
+        let showsFiles = !state.selection.showsCaptures && !showsHome && !showsSessions
         let showsNotes = state.selection.showsCaptures && state.selection != .clipboard
         if #available(macOS 15.0, *), let items = window?.toolbar?.items {
             for item in items {
                 if item.itemIdentifier == .viewMode { item.isHidden = !showsFiles }
                 if item.itemIdentifier == .markDone { item.isHidden = !showsNotes }
+                if item.itemIdentifier == .claude { item.isHidden = showsSessions }
             }
         }
         viewModeControl?.isEnabled = showsFile
@@ -287,6 +349,18 @@ final class MainWindowController: NSWindowController {
                                   accessibilityDescription: nil)
         doneItem?.label = note?.isDone == true ? "Reopen" : "Mark as Done"
         doneItem?.toolTip = doneItem?.label
+        model.actionTarget = actionTarget(note: note)
+    }
+
+    /// What the Claude pane takes as context: the note in the inbox, the file
+    /// in the folder, or the folder alone.
+    private func actionTarget(note: Note?) -> SkillTarget {
+        if state.selection.showsCaptures {
+            guard let note else { return .folder }
+            return .text(note.text, noteID: note.id)
+        }
+        guard !showsHome, !showsSessions, let document = model.currentDocument else { return .folder }
+        return .page(model.vault.root.appendingPathComponent(document.relativePath).path)
     }
 
     /// The Home page and its initial query.
@@ -339,9 +413,17 @@ private extension MainWindowController {
         let detailItem = NSSplitViewItem(viewController: detailViewController)
         detailItem.minimumThickness = AppDefaults.Window.detailMinimumThickness
 
+        let session = NSSplitViewItem(inspectorWithViewController: sessionViewController)
+        session.minimumThickness = AppDefaults.Sessions.paneMinimumWidth
+        session.maximumThickness = AppDefaults.Sessions.paneMaximumWidth
+        session.canCollapse = true
+        session.isCollapsed = true
+        sessionItem = session
+
         splitViewController.addSplitViewItem(sidebarItem)
         splitViewController.addSplitViewItem(list)
         splitViewController.addSplitViewItem(detailItem)
+        splitViewController.addSplitViewItem(session)
         refreshPanes()
     }
 
@@ -368,6 +450,7 @@ extension NSToolbarItem.Identifier {
     static let markDone = NSToolbarItem.Identifier("markDone")
     static let more = NSToolbarItem.Identifier("more")
     static let readerSeparator = NSToolbarItem.Identifier("readerSeparator")
+    static let claude = NSToolbarItem.Identifier("claude")
 }
 
 extension MainWindowController: NSToolbarDelegate {
@@ -375,7 +458,7 @@ extension MainWindowController: NSToolbarDelegate {
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [.toggleSidebar, .sidebarTrackingSeparator,
          .flexibleSpace, .capture, .readerSeparator,
-         .navigate, .flexibleSpace, .viewMode, .markDone, .more]
+         .navigate, .flexibleSpace, .viewMode, .markDone, .more, .claude]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -404,6 +487,8 @@ extension MainWindowController: NSToolbarDelegate {
             return item
         case .more:
             return moreItem()
+        case .claude:
+            return button(identifier, symbol: "sidebar.right", label: "Claude Pane · ⌥⌘C", action: #selector(toggleSessionPaneAction))
         default:
             return nil
         }
@@ -472,6 +557,8 @@ extension MainWindowController: NSToolbarDelegate {
 
     @objc private func openCapture() { model.openPanel?() }
 
+    @objc private func toggleSessionPaneAction() { toggleSessionPane() }
+
     @objc private func openSettings() { model.openSettings?() }
 
     @objc private func refreshVault() { model.reload(); refreshPanes() }
@@ -512,6 +599,31 @@ extension MainWindowController: NSToolbarDelegate {
     @objc private func navigate(_ sender: NSSegmentedControl) {
         model.navigate(sender.selectedSegment == 0 ? -1 : 1)
         refreshPanes()
+    }
+}
+
+/// The detail pane while the sidebar selects a Claude folder: the selected
+/// session, or a new one.
+private struct SessionDetailPane: View {
+    @Bindable var model: AppModel
+    let folder: String
+
+    private var session: AgentSession? {
+        guard let id = model.selectedSession, let session = model.agents.runner.session(id),
+              session.folder == folder else { return nil }
+        return session
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SessionHeader(session: session)
+                .padding(.horizontal, 16)
+                .frame(height: 38)
+            Rule()
+            SessionPane(model: model, session: session, folder: folder,
+                        started: { model.selectedSession = $0.id })
+        }
+        .background(PiperTheme.page)
     }
 }
 
@@ -629,4 +741,13 @@ private struct DetailPane: View {
     private var paper: Color {
         Color(nsColor: readerTheme.background(dark: (readerAppearance.colorScheme ?? colorScheme) == .dark))
     }
+}
+
+/// A window with the corner radius of `AppDefaults.Window.cornerRadius`.
+///
+/// AppKit has no public API for the corner radius of a titled window. The
+/// window server reads this private method for the shape, the outline, and
+/// the shadow, so all three stay in step.
+final class RoundedWindow: NSWindow {
+    @objc func _cornerRadius() -> CGFloat { AppDefaults.Window.cornerRadius }
 }

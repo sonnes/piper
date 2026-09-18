@@ -16,6 +16,8 @@ enum SidebarSelection: Codable, Equatable {
     case allFiles
     /// One folder of the vault. The empty path is the root.
     case folder(String)
+    /// The Claude sessions of a folder, by its absolute path.
+    case sessions(String)
 
     /// The folder path, or the root for the inbox.
     var folder: String {
@@ -27,7 +29,7 @@ enum SidebarSelection: Codable, Equatable {
     var showsCaptures: Bool {
         switch self {
         case .inbox, .section, .clipboard: return true
-        case .home, .allFiles, .folder: return false
+        case .home, .allFiles, .folder, .sessions: return false
         }
     }
 }
@@ -52,6 +54,7 @@ struct MainWindowState: Codable, Equatable {
     var expandedFolders: [String]?
     var sidebarWidth: CGFloat = 216
     var listWidth: CGFloat = 340
+    /// True while the Claude pane is open on the right.
     var inspectorVisible = false
 
     // MARK: - Persistence

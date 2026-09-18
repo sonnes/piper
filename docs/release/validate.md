@@ -52,6 +52,28 @@ The tests do not cover the UI or the global shortcut path.
 8. Select Mark as Done in the toolbar. Make sure that the note circle fills.
 9. Select Clipboard in the sidebar. Make sure that the history shows.
 
+## Claude Checks
+
+Use a copy of a folder with skills, because a session changes files.
+
+1. Add the copy to the sidebar. Make sure that Settings > Claude shows the folder and the path of `claude`.
+2. Copy a URL. Open the capture panel and select Send on the clipboard row. Make sure that the note shows Running, then Done or Failed.
+3. With Auto, send a link to a skill that fetches the page. Make sure that the note shows Done.
+4. Select Ask Every Time in Settings > Claude. Send a link to a skill that needs a shell command. Make sure that the note shows Needs you.
+5. Select the note. In the detail pane, select Deny on the card. Make sure that Claude continues and names the denied call.
+6. Send the link again. Select Always in <folder> on the card. Make sure that `.claude/settings.local.json` in the folder has the rule.
+7. Select the Done badge on a note. Make sure that the main window opens the file that the session wrote.
+8. Press Option-Command-C. Make sure that the Claude pane opens with a chip for the file.
+9. Type a question and press Return. Make sure that the transcript shows the tool calls and the answer. Send a second message in the same session.
+10. Type `@` and a part of a file name. Make sure that the file list shows, and that Tab puts the path in the message.
+11. Select the folder in the Claude group of the sidebar. Make sure that the list shows the sessions and the detail pane shows the selected one.
+12. Type `/` in the composer. Make sure that the skill list shows. Press Tab, type a URL, and press Return.
+13. Copy a URL in another app and press Control-Option-W. Make sure that a toast shows, and that Show opens the note.
+14. Capture a selection with double Shift. Make sure that the toast shows a Send button, and that the button starts a session.
+15. Start a turn and quit Piper. Make sure that Piper asks before it stops the turn. Open Piper again. Make sure that the session shows "Piper quit before the turn finished." and continues after a new message.
+
+To test the idle timeout, set `AppDefaults.Sessions.idleTimeout` to 60 seconds in a debug build. Wait for 2 minutes after a turn, then send a message. Make sure that `ps` shows `--resume` in the new `claude` process.
+
 ## Selection Capture Checks
 
 Before you start, allow Accessibility access. For each app in the table, do these steps:

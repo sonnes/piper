@@ -179,4 +179,16 @@ final class WikiRefreshTests: XCTestCase {
         XCTAssertEqual(state.sidebarWidth, 250)
         XCTAssertEqual(state.listWidth, 300)
     }
+
+    func testSessionsSelectionAndPaneSurviveASave() throws {
+        var state = MainWindowState()
+        state.selection = .sessions("/Users/me/Wiki")
+        state.inspectorVisible = true
+        XCTAssertFalse(state.selection.showsCaptures)
+        XCTAssertEqual(state.selectedFolder, "")
+
+        let copy = try JSONDecoder().decode(MainWindowState.self, from: JSONEncoder().encode(state))
+        XCTAssertEqual(copy.selection, .sessions("/Users/me/Wiki"))
+        XCTAssertTrue(copy.inspectorVisible)
+    }
 }

@@ -20,7 +20,13 @@ final class AppDefaults {
         static let accessibilityTipDismissed = "accessibilityTipDismissed"
         static let showsFileSource = "showsFileSource"
 
-        static let inspectorVisible = "wikiInspectorVisible"
+        static let agentDisabledFolders = "agentDisabledFolders"
+        static let agentLastFolder = "agentLastFolder"
+        static let agentDefaultSkills = "agentDefaultSkills"
+        static let claudePath = "claudePath"
+        static let claudePermissionMode = "claudePermissionMode"
+        static let claudeModel = "claudeModel"
+
         static let readerSize = "wikiReaderSize"
         static let readerTheme = "wikiReaderTheme"
         static let readerFont = "wikiReaderFont"
@@ -39,7 +45,7 @@ final class AppDefaults {
     enum WindowName {
         static let capturePanel = "PiperCapturePanel"
         static let mainWindow = "PiperLibrary"
-        static let mainSplitView = "PiperMainSplitViewThreePane"
+        static let mainSplitView = "PiperMainSplitViewFourPane"
     }
 
     // MARK: Sizes
@@ -99,7 +105,9 @@ final class AppDefaults {
         static let mainMinimumSize = NSSize(width: 850, height: 620)
         static let detailMinimumThickness: CGFloat = 384
         static let capturePanelSize = NSSize(width: 430, height: 932)
-        static let captureCornerRadius: CGFloat = 22
+        static let capturePanelMinimumSize = NSSize(width: 340, height: 480)
+        /// The corner radius of the main window and the capture panel.
+        static let cornerRadius: CGFloat = 40
     }
 
     enum Reader {
@@ -129,6 +137,8 @@ final class AppDefaults {
         static let textInset: CGFloat = horizontalPadding + circleSize + 10
         /// The inset of the list from the edge of the pane.
         static let listInset: CGFloat = 14
+        /// Lifts the panel hint line clear of the rounded bottom corners.
+        static let hintBottomPadding: CGFloat = 6
         /// The number of clipboard items that the capture list shows.
         static let recentClipboardCount = 5
     }
@@ -159,6 +169,33 @@ final class AppDefaults {
         static let textWidth = width - textInset.width * 2
     }
 
+    /// Claude sessions in folders.
+    enum Agents {
+        /// A turn stops after this time. The time a card waits does not count.
+        static let timeout: TimeInterval = 10 * 60
+        /// The number of turns at the same time. More turns wait.
+        static let concurrency = 2
+        /// The number of skills the composer list shows.
+        static let completionLimit = 6
+        /// The model a run uses when the reader chose none.
+        static let model = "sonnet"
+        /// How long a toast with a button stays.
+        static let actionToastDuration: TimeInterval = 6
+    }
+
+    /// The Claude pane and the session transcript.
+    enum Sessions {
+        static let paneMinimumWidth: CGFloat = 320
+        static let paneMaximumWidth: CGFloat = 640
+        /// An idle `claude` process ends after this time. The next message resumes the session.
+        static let idleTimeout: TimeInterval = 15 * 60
+        static let composerLines = 3
+        /// The number of files that the `@` list shows.
+        static let fileCompletionLimit = 8
+        /// The number of diff lines that an Edit row shows.
+        static let diffLineLimit = 12
+    }
+
     // MARK: Stored values
 
     private let defaults = UserDefaults.standard
@@ -183,11 +220,6 @@ final class AppDefaults {
             return stored == "Control-Option-C" ? "Control-Option-Space" : stored
         }
         set { defaults.set(newValue, forKey: Key.captureShortcut) }
-    }
-
-    var inspectorVisible: Bool {
-        get { defaults.object(forKey: Key.inspectorVisible) as? Bool ?? false }
-        set { defaults.set(newValue, forKey: Key.inspectorVisible) }
     }
 
     var readerSize: Double {

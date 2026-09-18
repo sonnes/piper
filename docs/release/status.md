@@ -27,6 +27,23 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Local SQLite persistence | Implemented | `CaptureStoreTests`, `ReleaseTests` (locked database, invalid records, unknown version, stale writer) |
 | Image and file attachments | Not implemented | Text only |
 
+## Claude Sessions
+
+| Capability | Status | Evidence or limit |
+| --- | --- | --- |
+| Skill discovery from `.claude/skills` | Implemented | `FolderSkillTests` |
+| Sessions over stream-json input and output, with turns, resume after the idle timeout, stop, turn timeout, and a limit of two turns | Implemented | `SessionRunnerTests` with a script in place of `claude`. A spike against Claude Code 2.1.276 confirmed the protocol. |
+| Permission cards with Allow Once, Always in <folder>, and Deny, and question cards for `AskUserQuestion` | Implemented | `SessionRunnerTests`, `SessionHelperTests`. The cards have no automated UI test. |
+| The JSON stream parser, allow rules, the diff, and `@` mentions | Implemented | `SessionEventTests`, `SessionHelperTests` |
+| Sessions stored across restarts | Implemented | `SessionsTableTests`, `SessionRunnerTests` |
+| The Claude pane, the Claude sidebar group, and the session list | Implemented | `MainWindowState` covered by `WikiRefreshTests`. The views have no automated UI test. |
+| Send from a note, a clipboard row, the selection bar, and Command-Shift-Return | Implemented | `FolderAgentsTests`. The buttons have no automated UI test. |
+| Slash commands in the composer | Implemented | `SlashCommandTests`, `FolderAgentsTests`. The skill list has no automated UI test. |
+| Control-Option-W and the toast Send button | Implemented | Manual checks only |
+| A per-session model or permission mode | Not implemented | Every session uses the values in Settings > Claude |
+| Interrupt a turn and keep the process | Not implemented | Stop ends the process. The next message resumes the session. |
+| A notice when a turn ends or needs you | Not implemented | The badges, the sidebar count, and the unread dot change. Piper shows no toast. |
+
 ## Main Window
 
 | Capability | Status | Evidence or limit |

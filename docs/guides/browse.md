@@ -94,6 +94,8 @@ A Markdown file opens in the editor, in a centered column. The modification date
 
 Wiki links use `[[Note]]`, `[[folder/Note|Label]]`, and `[[Note#Heading]]`. Relative Markdown links open from the current file. HTTP, HTTPS, and `mailto` links open in your default app.
 
+To ask Claude about the open file, press Option-Command-C. See [Send notes to Claude](claude.md#talk-to-claude-in-a-session).
+
 Use Command-[ and Command-] to go back and forward. To scan the folder again, press Command-R, or select Refresh in the More menu.
 
 ## Change Reading Preferences

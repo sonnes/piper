@@ -151,9 +151,65 @@ public extension Database {
     }
 }
 
+// MARK: - Sessions
+
+public extension Database {
+
+    /// Returns the stored Claude sessions, the most recently changed first.
+    /// Each session is a blob that the caller encodes.
+    func loadSessions() throws -> [Data] {
+        try createSessionsTable()
+        let statement = try prepare("SELECT data FROM sessions ORDER BY updated_at DESC")
+        defer { sqlite3_finalize(statement) }
+        var sessions: [Data] = []
+        while true {
+            let result = sqlite3_step(statement)
+            if result == SQLITE_DONE { return sessions }
+            guard result == SQLITE_ROW else { throw failure() }
+            guard let bytes = sqlite3_column_blob(statement, 0) else { continue }
+            sessions.append(Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 0))))
+        }
+    }
+
+    /// Writes one session, replacing the stored session with the same id.
+    func saveSession(id: UUID, folder: String, updatedAt: Date, data: Data) throws {
+        try createSessionsTable()
+        let statement = try prepare("INSERT OR REPLACE INTO sessions VALUES(?,?,?,?)")
+        defer { sqlite3_finalize(statement) }
+        bind(id.uuidString, at: 1, in: statement)
+        bind(folder, at: 2, in: statement)
+        sqlite3_bind_double(statement, 3, updatedAt.timeIntervalSince1970)
+        let result = data.withUnsafeBytes { bytes in
+            sqlite3_bind_blob(statement, 4, bytes.baseAddress, Int32(bytes.count), unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+        }
+        guard result == SQLITE_OK, sqlite3_step(statement) == SQLITE_DONE else { throw failure() }
+    }
+
+    func deleteSession(id: UUID) throws {
+        try createSessionsTable()
+        let statement = try prepare("DELETE FROM sessions WHERE id=?")
+        defer { sqlite3_finalize(statement) }
+        bind(id.uuidString, at: 1, in: statement)
+        guard sqlite3_step(statement) == SQLITE_DONE else { throw failure() }
+    }
+
+    /// Removes every session except the `count` most recently changed.
+    func keepNewestSessions(_ count: Int) throws {
+        try createSessionsTable()
+        let statement = try prepare("DELETE FROM sessions WHERE id NOT IN (SELECT id FROM sessions ORDER BY updated_at DESC LIMIT ?)")
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_int(statement, 1, Int32(count))
+        guard sqlite3_step(statement) == SQLITE_DONE else { throw failure() }
+    }
+}
+
 // MARK: - Private
 
 private extension Database {
+
+    func createSessionsTable() throws {
+        try execute("CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, folder TEXT NOT NULL, updated_at REAL NOT NULL, data BLOB NOT NULL)")
+    }
 
     func createClipboardTable() throws {
         try execute("CREATE TABLE IF NOT EXISTS clipboard (id TEXT PRIMARY KEY, text TEXT NOT NULL, copied_at REAL NOT NULL, source TEXT)")

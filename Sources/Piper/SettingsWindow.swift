@@ -1,4 +1,5 @@
 import AppKit
+import Agents
 import ApplicationServices
 import Combine
 import SwiftUI
@@ -19,6 +20,8 @@ final class SettingsWindowController: NSWindowController {
                     content: CaptureSettings(model: model))
         tabs.addTab("Reading", symbol: "book", size: NSSize(width: 560, height: 300),
                     content: ReadingSettings())
+        tabs.addTab("Claude", symbol: "sparkles", size: NSSize(width: 560, height: 480),
+                    content: ClaudeSettings(model: model))
 
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: 560, height: 330)),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -142,6 +145,115 @@ private struct CaptureSettings: View {
         }
         .formStyle(.grouped)
         .onReceive(timer) { _ in model.accessibilityEnabled = AXIsProcessTrusted() }
+    }
+}
+
+/// The claude command, what a run may do, and the folders that take part.
+private struct ClaudeSettings: View {
+    @Bindable var model: AppModel
+    private var agents: FolderAgents { model.agents }
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent {
+                    HStack {
+                        if agents.claudePath != nil {
+                            Button("Find Automatically") { agents.claudePath = nil }
+                        }
+                        Button("Choose…", action: chooseExecutable)
+                    }
+                } label: {
+                    Text("Claude Code")
+                    Text(agents.runner.executable.map { ($0.path as NSString).abbreviatingWithTildeInPath }
+                         ?? "Not found. Install Claude Code, or choose the claude command.")
+                        .foregroundStyle(agents.runner.executable == nil ? PiperTheme.danger : PiperTheme.secondary)
+                }
+                Picker(selection: Binding(get: { agents.model }, set: { agents.model = $0 })) {
+                    Text("Sonnet").tag("sonnet")
+                    Text("Opus").tag("opus")
+                    Text("Haiku").tag("haiku")
+                    Text("Claude Code Default").tag("")
+                } label: {
+                    Text("Model")
+                    Text("Claude Code Default uses the model in your Claude Code settings.")
+                }
+                Picker(selection: Binding(get: { agents.permissionMode }, set: { agents.permissionMode = $0 })) {
+                    Text("Auto").tag(PermissionMode.auto)
+                    Text("Edit Files Only").tag(PermissionMode.acceptEdits)
+                    Text("Ask Every Time").tag(PermissionMode.ask)
+                    Text("Allow Every Tool").tag(PermissionMode.bypassPermissions)
+                } label: {
+                    Text("Permissions")
+                    switch agents.permissionMode {
+                    case .auto: Text("Claude Code allows safe tools and asks about risky ones. Use Sonnet or Opus.")
+                    case .acceptEdits: Text("Claude edits files without asking. Other tools show a card in the session.")
+                    case .ask: Text("Each tool that the folder settings do not allow shows a card in the session.")
+                    case .bypassPermissions: Text("A session can use any tool, including shell commands, without asking.")
+                    }
+                }
+            } header: {
+                Text("Command")
+            }
+            Section {
+                if agents.available.isEmpty {
+                    Text("No sidebar folder has skills in .claude/skills.")
+                        .foregroundStyle(PiperTheme.secondary)
+                }
+                ForEach(agents.available) { folder in
+                    FolderAgentRow(agents: agents, folder: folder)
+                }
+            } header: {
+                Text("Folders")
+            } footer: {
+                Text("Send runs the skill for links or for text in the folder you used last. \(SendShortcut.glyphs) sends the clipboard.")
+                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { agents.refresh(paths: model.wikiPaths) }
+    }
+
+    private func chooseExecutable() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.treatsFilePackagesAsDirectories = true
+        panel.showsHiddenFiles = true
+        panel.message = "Choose the claude command."
+        panel.prompt = "Choose"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        agents.claudePath = url.path
+    }
+}
+
+/// One folder with skills: its switch and the skills that Send runs.
+private struct FolderAgentRow: View {
+    let agents: FolderAgents
+    let folder: FolderAgents.Folder
+
+    var body: some View {
+        Toggle(isOn: Binding(get: { agents.isEnabled(folder) }, set: { agents.setEnabled($0, for: folder) })) {
+            Text(folder.name)
+            Text("\(folder.skills.count) skills · " + (folder.path as NSString).abbreviatingWithTildeInPath)
+        }
+        if agents.isEnabled(folder) {
+            skillPicker("Links run", forLink: true)
+            skillPicker("Text runs", forLink: false)
+        }
+    }
+
+    private func skillPicker(_ title: String, forLink: Bool) -> some View {
+        Picker(title, selection: Binding(
+            get: { agents.defaultSkill(forLink: forLink, in: folder)?.name ?? FolderAgents.noSkill },
+            set: { agents.setDefaultSkill($0, forLink: forLink, in: folder) }
+        )) {
+            Text("Nothing").tag(FolderAgents.noSkill)
+            ForEach(folder.skills, id: \.name) { skill in
+                Text("/" + skill.name).tag(skill.name)
+            }
+        }
+        .padding(.leading, 16)
     }
 }
 

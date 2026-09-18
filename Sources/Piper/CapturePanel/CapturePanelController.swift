@@ -7,6 +7,21 @@ final class CapturePanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+/// Moves the window when a drag starts on an empty part of the panel.
+///
+/// SwiftUI takes the mouse-down before `isMovableByWindowBackground` can
+/// move a borderless panel, so this view starts the drag itself.
+struct WindowDragArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class DragView: NSView {
+        override func mouseDown(with event: NSEvent) {
+            window?.performDrag(with: event)
+        }
+    }
+}
+
 /// Owns the capture panel window.
 ///
 /// Each window has an `NSWindowController` that owns its window, its frame
@@ -29,7 +44,7 @@ final class CapturePanelController: NSWindowController {
                           height: AppDefaults.Window.capturePanelSize.height * scale)
         let panel = CapturePanel(
             contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
         )
@@ -40,21 +55,29 @@ final class CapturePanelController: NSWindowController {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.isMovableByWindowBackground = true
+        panel.minSize = AppDefaults.Window.capturePanelMinimumSize
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        panel.contentView = NSHostingView(rootView: CaptureView(model: model)
-            .clipShape(RoundedRectangle(cornerRadius: AppDefaults.Window.captureCornerRadius * scale)))
+        let corners = RoundedRectangle(cornerRadius: AppDefaults.Window.cornerRadius * scale, style: .continuous)
+        let hosting = NSHostingView(rootView: CaptureView(model: model)
+            .clipShape(corners)
+            .overlay(corners.strokeBorder(PiperTheme.rule, lineWidth: 0.5)))
+        // The panel sets its own size. The SwiftUI size would pin the panel
+        // to the height of its content, and the reader could not resize it.
+        hosting.sizingOptions = []
+        panel.contentView = hosting
 
+        // A saved frame keeps the size that the reader chose.
         if !panel.setFrameUsingName(NSWindow.FrameAutosaveName(AppDefaults.WindowName.capturePanel)),
            let screen = NSScreen.main {
+            panel.setContentSize(size)
             panel.setFrameOrigin(NSPoint(x: screen.visibleFrame.maxX - size.width - 30,
                                          y: screen.visibleFrame.midY - size.height / 2))
         }
-        panel.setContentSize(size)
         panel.setFrameAutosaveName(NSWindow.FrameAutosaveName(AppDefaults.WindowName.capturePanel))
     }
 

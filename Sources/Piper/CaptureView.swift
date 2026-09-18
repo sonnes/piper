@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import PiperCore
+import Agents
 import Captures
 
 private enum PanelSheet: Identifiable {
@@ -69,6 +70,10 @@ struct CaptureView: View {
     @State private var composing = false
     @State private var panelContent = CaptureListContent.sections
     @State private var scroll: SectionScroll?
+    /// The highlighted row of the skill list over the composer.
+    @State private var completionIndex = 0
+    /// The skill the reader picked from the list, which also picks the folder.
+    @State private var chosenAction: FolderAgents.Action?
     @AppStorage(AppDefaults.Key.accessibilityTipDismissed) private var tipDismissed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -93,20 +98,41 @@ struct CaptureView: View {
     private var showsComposer: Bool { !embedded && content == .sections }
     private var canSave: Bool { !model.composerDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var motion: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.2) }
+    private var agents: FolderAgents { model.agents }
+
+    /// The skills that match the command in the composer.
+    private var completions: [FolderAgents.Action] {
+        guard showsComposer, composing, let partial = SlashCommand.partialName(model.composerDraft) else { return [] }
+        return Array(agents.completions(for: partial).prefix(AppDefaults.Agents.completionLimit))
+    }
+
+    /// The folder and skill that Return runs, when the composer holds a command.
+    private var composedAction: FolderAgents.Action? {
+        guard let command = SlashCommand(model.composerDraft) else { return nil }
+        if let chosenAction, chosenAction.skill.name == command.name { return chosenAction }
+        return agents.action(for: command)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             if embedded { paneHeader } else { panelHeader }
             if !embedded && !model.accessibilityEnabled && !tipDismissed { accessibilityTip }
             switch content {
-            case .sections: sectionList
+            case .sections:
+                sectionList.overlay(alignment: .bottom) { skillList }
             case .clipboard: clipboardHistory
             }
             if !store.selection.isEmpty { selectionBar }
             if showsComposer { composer }
             if !embedded { hints }
         }
-        .background(embedded ? PiperTheme.page : PiperTheme.panel)
+        .background {
+            if embedded {
+                PiperTheme.page
+            } else {
+                ZStack { PiperTheme.panel; WindowDragArea() }
+            }
+        }
         .foregroundStyle(PiperTheme.ink)
         .tint(PiperTheme.accent)
         .accentColor(PiperTheme.accent)
@@ -144,8 +170,10 @@ struct CaptureView: View {
         .onChange(of: embeddedScroll, initial: true) { _, request in
             if embedded { scroll = request }
         }
+        .onChange(of: model.composerDraft) { _, _ in completionIndex = 0 }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             guard !embedded, let window = notification.object as? CapturePanel, window.attachedSheet == nil else { return }
+            agents.refresh(paths: model.wikiPaths)
             if store.selection.isEmpty && !searchMode && content == .sections { composing = true }
         }
         .onAppear {
@@ -296,7 +324,8 @@ struct CaptureView: View {
                         CaptureCard {
                             ForEach(Array(recentClipboard.enumerated()), id: \.element.id) { index, entry in
                                 ClipboardRow(entry: entry, showsSource: false, separated: index > 0,
-                                             paste: { paste(entry) }, keep: { keep(entry) })
+                                             paste: { paste(entry) }, keep: { keep(entry) },
+                                             agents: agents, send: { send(entry, $0) })
                             }
                         }
                     }
@@ -354,7 +383,8 @@ struct CaptureView: View {
                     CaptureCard {
                         ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                             ClipboardRow(entry: entry, showsSource: true, separated: index > 0,
-                                         paste: { paste(entry) }, keep: { keep(entry) })
+                                         paste: { paste(entry) }, keep: { keep(entry) },
+                                         agents: agents, send: { send(entry, $0) })
                         }
                     }
                 }
@@ -399,7 +429,12 @@ struct CaptureView: View {
                     if !store.selection.contains(note.id) { store.selection = [note.id] }
                     store.deleteSelection()
                 },
-                canMerge: store.selection.contains(note.id) && store.selection.count > 1)
+                canMerge: store.selection.contains(note.id) && store.selection.count > 1,
+                session: agents.latestSession(for: note),
+                agents: agents,
+                send: { action in agents.send(note, action: action) },
+                openRun: { openRun(for: note) },
+                stopRun: { if let session = agents.latestSession(for: note) { agents.runner.stop(session) } })
     }
 
     // MARK: Selection, composer, hints
@@ -408,6 +443,11 @@ struct CaptureView: View {
         HStack(spacing: 6) {
             Text("\(store.selection.count) selected").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
             Spacer(minLength: 0)
+            if !agents.folders.isEmpty {
+                SendButton(agents: agents, title: "Send", sendDefault: { agents.sendSelection() },
+                           send: { agents.sendSelection(action: $0) })
+                    .help("Send each note with its default skill · ⇧⌘Return")
+            }
             Button("Merge") { store.merge() }
                 .disabled(store.selection.count < 2).help("Merge Notes · ⇧⌘M")
             Button("Move…") { sheet = .sections(moving: true) }
@@ -443,9 +483,24 @@ struct CaptureView: View {
         .padding(.top, store.selection.isEmpty ? 8 : 0)
     }
 
+    /// The skills that match the command in the composer, over the bottom of the list.
+    @ViewBuilder private var skillList: some View {
+        if !completions.isEmpty {
+            SkillCompletions(actions: completions, selected: min(completionIndex, completions.count - 1)) {
+                complete($0, run: false)
+            }
+            .padding(.horizontal, AppDefaults.Composer.margin)
+            .padding(.bottom, 4)
+        }
+    }
+
     private var hints: some View {
         HStack(spacing: 6) {
-            if store.status == "Local notes" || content == .clipboard {
+            if composing, let action = composedAction {
+                Text("Return runs /\(action.skill.name) in \(action.folder.name)")
+            } else if !completions.isEmpty {
+                Text("Tab completes · ↑↓ choose")
+            } else if store.status == "Local notes" || content == .clipboard {
                 Text(content == .clipboard
                      ? "Not saved as notes. Texts leave after 7 days."
                      : "Return saves to \(store.activeSection) · ⌘K section")
@@ -464,6 +519,7 @@ struct CaptureView: View {
         .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
         .padding(.horizontal, AppDefaults.CaptureItem.listInset + 4)
         .frame(height: 30)
+        .padding(.bottom, AppDefaults.CaptureItem.hintBottomPadding)
     }
 
     // MARK: Values
@@ -537,6 +593,38 @@ struct CaptureView: View {
         }
     }
 
+    /// Saves a clipboard text to Inbox and runs a skill on the new note.
+    private func send(_ entry: ClipboardEntry, _ action: FolderAgents.Action?) {
+        withAnimation(motion) {
+            if agents.send(entry, from: model.clipboard, action: action) != nil { clearSelection() }
+        }
+    }
+
+    /// Opens the file that a finished session wrote. Any other session shows its note.
+    private func openRun(for note: Note) {
+        guard let session = agents.latestSession(for: note) else { return }
+        if session.state == .idle, let file = session.primaryFile {
+            model.openRunFile(file, in: session.folder)
+        } else if embedded {
+            store.selection = [note.id]
+            selectionAnchor = note.id
+        } else {
+            model.showNote?(note.id)
+        }
+    }
+
+    /// Puts a skill from the list into the composer. A skill that takes no
+    /// argument runs at once when the reader pressed Return.
+    private func complete(_ action: FolderAgents.Action, run: Bool) {
+        chosenAction = action
+        if run && action.skill.argumentHint == nil {
+            model.composerDraft = "/" + action.skill.name
+            saveNote()
+        } else {
+            model.composerDraft = "/" + action.skill.name + " "
+        }
+    }
+
     private func selectNote(_ id: UUID) {
         composing = false
         showingSearch = searchMode && !store.query.isEmpty
@@ -558,6 +646,17 @@ struct CaptureView: View {
 
     private func saveNote() {
         guard canSave else { return }
+        if let command = SlashCommand(model.composerDraft), let action = composedAction {
+            if agents.run(command, action: action) != nil {
+                model.composerDraft = ""
+                chosenAction = nil
+                store.query = ""
+                showingSearch = false
+                store.selection.removeAll()
+                composing = true
+            }
+            return
+        }
         let createsSection = model.composerDraft.hasPrefix("# ") && !model.composerDraft.contains("\n")
         if store.add(model.composerDraft) {
             if createsSection {
@@ -581,6 +680,22 @@ struct CaptureView: View {
             let textView = window.firstResponder as? NSTextView
             if textView?.hasMarkedText() == true { return event }
             let editingText = textView != nil
+            let plain = flags.isDisjoint(with: [.shift, .command, .option, .control])
+            if editingText, plain, !completions.isEmpty {
+                let current = min(completionIndex, completions.count - 1)
+                switch event.keyCode {
+                case 125: completionIndex = min(current + 1, completions.count - 1); return nil
+                case 126: completionIndex = max(current - 1, 0); return nil
+                case 48: complete(completions[current], run: false); return nil
+                case 36: complete(completions[current], run: true); return nil
+                case 53: model.composerDraft = ""; return nil
+                default: break
+                }
+            }
+            if event.keyCode == 36, flags.intersection([.command, .shift, .option, .control]) == [.command, .shift], !editingText, !store.selection.isEmpty {
+                agents.sendSelection()
+                return nil
+            }
             if event.keyCode == 53 {
                 if !store.selection.isEmpty { store.selection.removeAll(); composing = showsComposer }
                 else if searchMode { endSearch() }

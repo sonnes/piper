@@ -6,6 +6,8 @@ struct CaptureEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var focused: Bool
     let placeholder: String
+    var label = "New note text"
+    var help = "Return saves the note. Shift-Return inserts a new line."
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -59,8 +61,8 @@ struct CaptureEditor: NSViewRepresentable {
         editor.string = text
         editor.placeholder = placeholder
         editor.delegate = context.coordinator
-        editor.setAccessibilityLabel("New note text")
-        editor.setAccessibilityHelp("Return saves the note. Shift-Return inserts a new line.")
+        editor.setAccessibilityLabel(label)
+        editor.setAccessibilityHelp(help)
         editor.onFocusChange = { [weak coordinator = context.coordinator] focused in
             DispatchQueue.main.async { coordinator?.parent.focused = focused }
         }

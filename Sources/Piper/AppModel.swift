@@ -1,4 +1,5 @@
 import AppKit
+import Agents
 import ApplicationServices
 import Observation
 import PiperCore
@@ -9,6 +10,7 @@ import Vault
 final class AppModel {
     let store: CaptureStore
     let clipboard: ClipboardInbox
+    let agents: FolderAgents
     let fileReadState: FileReadState
     var files: [VaultFile] = []
     /// Every folder of the vault, including the ones that hold no file.
@@ -39,6 +41,8 @@ final class AppModel {
         if let edit = wikiEdit, edit.hasChanges, edit.document.id == selectedDocument { return edit.document }
         return files.first { $0.id == selectedDocument }
     }
+    /// What the actions in the toolbar run on. The window sets it with the selection.
+    var actionTarget = SkillTarget.folder
     var wikiQuery = ""
     var requestedAnchor: String?
     var anchorRequest = UUID()
@@ -57,8 +61,21 @@ final class AppModel {
     }
     var captureShortcutChanged: (() -> Void)?
     private(set) var wikiPaths: [String] {
-        didSet { preferences.set(wikiPaths, forKey: AppDefaults.Key.wikiPaths) }
+        didSet {
+            preferences.set(wikiPaths, forKey: AppDefaults.Key.wikiPaths)
+            agents.refresh(paths: wikiPaths)
+        }
     }
+    /// A file to open when the next scan finds it, because a run just wrote it.
+    @ObservationIgnored private var pendingDocument: String?
+    /// Shows a file in the main window.
+    var showFile: ((String) -> Void)?
+    /// Shows a note in the Inbox of the main window.
+    var showNote: ((UUID) -> Void)?
+    /// Shows a session in the Claude pane of the main window.
+    var showSession: ((UUID) -> Void)?
+    /// The session that the Claude pane and the Claude list show. Nil starts a new session.
+    var selectedSession: UUID?
     @ObservationIgnored private let preferences: UserDefaults
     var wikiPath: String {
         didSet {
@@ -87,6 +104,7 @@ final class AppModel {
         let store = store ?? CaptureStore()
         self.store = store
         clipboard = ClipboardInbox(store: store)
+        agents = FolderAgents(store: store, preferences: preferences)
         self.fileReadState = fileReadState ?? FileReadState()
         let activePath = wikiPath ?? defaults.string(forKey: AppDefaults.Key.vaultPath)
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Wiki").path
@@ -98,6 +116,7 @@ final class AppModel {
         // longer matches a preset leaves the capture shortcut dead.
         let stored = UserDefaults.standard.string(forKey: "captureShortcut") ?? "Shift, Shift"
         captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
+        agents.refresh(paths: wikiPaths)
     }
 
     func requestAccessibility() {
@@ -154,6 +173,7 @@ final class AppModel {
     }
 
     func reload() {
+        agents.refresh(paths: wikiPaths)
         let repo = vault
         if vaultWatcher?.root != repo.root {
             vaultWatcher?.stop()
@@ -194,7 +214,10 @@ final class AppModel {
                     beginWikiEdit()
                 }
                 if previousLocation != workspace.location { jump(to: workspace.location?.anchor) }
-                if firstLoad,
+                if let pending = pendingDocument, files.contains(where: { $0.id == pending }) {
+                    pendingDocument = nil
+                    openDocument(pending)
+                } else if firstLoad,
                    let first = files.first(where: { $0.id == initialDocument })
                        ?? files.first(where: { $0.id == "Start Here.md" })
                        ?? files.first(where: { $0.id == "index.md" })
@@ -263,6 +286,25 @@ final class AppModel {
         route = "wiki"
         NotificationCenter.default.post(name: .vaultPathDidChange, object: self)
         reload()
+    }
+
+    /// Opens a file that a run wrote, in the folder it ran in.
+    ///
+    /// The file can be newer than the last scan. The model then opens it when
+    /// the next scan finds it.
+    func openRunFile(_ path: String, in folder: String) {
+        let root = URL(fileURLWithPath: folder).standardizedFileURL
+        if root != vault.root {
+            changeWiki(to: root)
+            guard vault.root == root else { return }
+        }
+        if files.contains(where: { $0.id == path }) {
+            openDocument(path)
+        } else {
+            pendingDocument = path
+            reload()
+        }
+        showFile?(path)
     }
 
     func createWiki() {

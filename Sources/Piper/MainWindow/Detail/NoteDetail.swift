@@ -35,7 +35,8 @@ struct NoteDetail: View {
         .background(PiperTheme.page)
         .onAppear {
             session = model.editCapture(note)
-            selectedURL = links.standaloneURL
+            // A note with a session opens on its page, so the reader sees the session.
+            if model.agents.latestSession(for: note) == nil { selectedURL = links.standaloneURL }
         }
         .onDisappear(perform: finish)
         .onChange(of: note.text) { _, text in
@@ -80,6 +81,11 @@ struct NoteDetail: View {
                     .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
                     .lineLimit(1).truncationMode(.middle)
                     .padding(.vertical, 10)
+            }
+            if let session = model.agents.latestSession(for: note) {
+                SessionPane(model: model, session: session, folder: session.folder)
+                    .frame(maxHeight: .infinity)
+                    .overlay(alignment: .top) { Rule() }
             }
         }
         .frame(maxWidth: AppDefaults.Reader.columnWidth, alignment: .leading)

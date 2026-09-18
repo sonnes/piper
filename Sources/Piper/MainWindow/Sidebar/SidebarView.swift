@@ -15,6 +15,7 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             SidebarOutline(model: model, unreadCounts: model.unreadFolderCounts,
                            sections: sectionCounts,
+                           sessionFolders: sessionFolders,
                            expanded: $expanded, selection: selection, select: select,
                            newSection: { namingSection = true })
             if !model.wikiProblems.isEmpty {
@@ -59,6 +60,14 @@ struct SidebarView: View {
         .help(title)
     }
 
+    /// The folders with Claude sessions, and the sessions in each that need the reader.
+    private var sessionFolders: [SidebarSessionFolder] {
+        let runner = model.agents.runner
+        return runner.folders().map { folder in
+            SidebarSessionFolder(path: folder, attention: runner.sessions(in: folder).filter { $0.state == .needsYou }.count)
+        }
+    }
+
     /// Every folder path in the files, at every level.
     static func folders(of files: [VaultFile], including empty: [String] = []) -> Set<String> {
         var result = Set(empty)
@@ -71,6 +80,13 @@ struct SidebarView: View {
         }
         return result
     }
+}
+
+/// One folder in the Claude group of the sidebar.
+struct SidebarSessionFolder: Equatable {
+    let path: String
+    /// The sessions that wait for an answer.
+    let attention: Int
 }
 
 /// One capture section in the sidebar.

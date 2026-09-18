@@ -40,6 +40,16 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 
 Acceptance: every visible control does what its label says, and no edit is lost on navigation, close, or quit.
 
+## Claude Sessions
+
+- [ ] Run the Claude checks in [Validate a build](validate.md#claude-checks).
+- [ ] Test the toast Send button when Piper is not the active app.
+- [ ] Decide on a notice when a turn ends or needs an answer while the main window is hidden.
+- [ ] Decide whether Stop sends an interrupt and keeps the process. Today Stop ends the process.
+- [ ] Decide whether the Claude pane restores the session that it showed before a restart.
+
+Acceptance: a link from the clipboard reaches the folder with one action, a card waits for an answer, and a failed turn names its cause.
+
 ## Distribution
 
 - [x] Choose the Developer ID identity and a direct-download channel.

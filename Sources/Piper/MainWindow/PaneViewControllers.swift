@@ -65,3 +65,7 @@ final class FileListViewController: HostingPaneViewController {
 @MainActor
 final class DetailViewController: HostingPaneViewController {}
 
+/// The Claude pane on the right of the window.
+@MainActor
+final class SessionPaneViewController: HostingPaneViewController {}
+

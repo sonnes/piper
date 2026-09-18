@@ -32,6 +32,7 @@ flowchart LR
 | `CapturesDatabase` | One versioned blob in SQLite, with compare-and-swap | `CSQLite` |
 | `Captures` | `Note`, `CaptureStore`, `ClipboardInbox`, `CaptureLinks`, and edit sessions | `PiperCore`, `CapturesDatabase` |
 | `Vault` | One folder: scan, read, write, and watch | `PiperCore`, Yams |
+| `Agents` | `FolderSkill`, `SlashCommand`, `AgentSession`, `SessionEvent`, `ClaudeProcess`, `PermissionRule`, and `SessionRunner` | `PiperCore`, `CapturesDatabase` |
 | `Piper` | Windows, panes, views, and app state | All modules, Yams, and `MarkdownEngine` |
 
 `PiperCore`, `PiperTree`, and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser and Home search models.
@@ -56,21 +57,22 @@ The panel is a non-activating `NSPanel` on every Space. It is 430 by 932 points 
 
 ### Main Window
 
-`MainWindowController` owns the toolbar and an `NSSplitViewController` with three split items:
+`MainWindowController` owns the toolbar and an `NSSplitViewController` with four split items:
 
 | Pane | Controller | Content |
 | --- | --- | --- |
 | Sidebar | `SidebarViewController` | `SidebarOutline`, an `NSOutlineView` |
-| List | `FileListViewController` | `FileListView` or `CaptureView` |
-| Detail | `DetailViewController` | `HomeView`, `WikiEditor`, `FilePreview`, or `NoteDetail` |
+| List | `FileListViewController` | `FileListView`, `CaptureView`, or `SessionListView` |
+| Detail | `DetailViewController` | `HomeView`, `WikiEditor`, `FilePreview`, `NoteDetail`, or a session |
+| Claude pane | `SessionPaneViewController` | `SessionInspector`, in an inspector split item |
 
 Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostingView`. A pane reports upward through a delegate protocol, and `MainWindowController` decides what the other panes show. `WikiEditor` is an exception. It calls `AppModel.openDocument` directly, so a link does not move the sidebar or the file list.
 
-`SidebarSelection` decides the layout. Home collapses the file list because the search field needs the width. `MainWindowState` saves the selection, the open file, the open folders, and the pane widths.
+`SidebarSelection` decides the layout. Home collapses the file list because the search field needs the width. A Claude folder collapses the Claude pane, because the list and the detail pane show the same sessions. `MainWindowState` saves the selection, the open file, the open folders, the pane widths, and whether the Claude pane is open. `AppModel.selectedSession` holds the session that the Claude pane and the Claude list show.
 
-The window title names the sidebar selection, as in Mail. The subtitle shows a count, and it updates through `withObservationTracking`. The toolbar has tracking separators that align with the split view dividers. Toggle Sidebar sits over the sidebar. New Capture sits over the list. Back and Forward, Preview and Source, Mark as Done, and the More menu sit over the detail pane. Each list has its own search field.
+The window title names the sidebar selection, as in Mail. The subtitle shows a count, and it updates through `withObservationTracking`. The toolbar has tracking separators that align with the split view dividers. Toggle Sidebar sits over the sidebar. New Capture sits over the list. Back and Forward, Preview and Source, Mark as Done, and the More menu sit over the detail pane. The Claude Pane button at the end opens and closes the Claude pane, as does Option-Command-C. Each list has its own search field.
 
-The sidebar has two groups. Library holds Home, Inbox with one child for each capture section other than Inbox, and Clipboard. Folders holds every root and the tree of the active root. `SidebarSelection.section` scrolls the Inbox list to a section, and `SidebarSelection.clipboard` shows the clipboard history.
+The sidebar has up to three groups. Library holds Home, Inbox with one child for each capture section other than Inbox, and Clipboard. Claude holds one `SidebarSelection.sessions` row for each folder with sessions, and it shows only when a session exists. Folders holds every root and the tree of the active root. `SidebarSelection.section` scrolls the Inbox list to a section, and `SidebarSelection.clipboard` shows the clipboard history.
 
 Sidebar fonts and icons follow the macOS sidebar size preference: 11 and 16 points, 13 and 19 points, or 15 and 22 points. `TimelineCell` draws every file row through `TimelineRow`.
 
@@ -85,6 +87,43 @@ The service records the source app and the active section before it reads Access
 `ClipboardInbox` polls the pasteboard and keeps the 50 latest texts from the last 7 days, with the copy time and the app in front. It stores them in the `clipboard` table through the `Database` of `CaptureStore`. `ClipboardRow` in `CaptureRows.swift` saves to Inbox with Keep, and pastes through `ClipboardPaster` on a double-click.
 
 `CaptureView` draws the capture list for both windows. The list holds every section under a header, and a `SectionScroll` request scrolls it to one header. The panel keeps its own tab, and the main window passes the sidebar selection. The main-window controller routes note selection to the detail pane and limits shortcuts to the Inbox pane.
+
+## Claude Sessions
+
+`FolderAgents` in the application target holds the sidebar folders that have skills, the default folder, and the default skill for links and for text. `AppModel` refreshes it when the folder list changes, on each scan, and when the capture panel becomes key.
+
+`SessionRunner` in the `Agents` module owns every `AgentSession`. Each session is an `@Observable` object, so a view of one session redraws only when that session changes. A session starts one `ClaudeProcess` with this command in the folder:
+
+```
+claude -p --input-format stream-json --output-format stream-json --verbose \
+  --permission-prompt-tool stdio --permission-mode <mode> [--model <model>] [--resume <id>]
+```
+
+The mode is `auto` and the model is `sonnet` by default. An empty model omits `--model`. The process starts through `zsh -l`, so it gets the PATH of the login shell. The process stays open while its standard input is open, so one process serves many turns.
+
+Each message is one JSON line on standard input: `{"type":"user","message":{"role":"user","content":[{"type":"text","text":...}]}}`. A context file goes after the text as a `Context file: <path>` line. A slash command takes the path as its argument.
+
+`SessionEvent.parse` reads each line of standard output:
+
+| Line | Effect |
+| --- | --- |
+| `system` with subtype `init` | Stores `session_id` for `--resume` |
+| `assistant` | Adds a text block or a tool call block. A `Write`, `Edit`, `MultiEdit`, or `NotebookEdit` call records its file. |
+| `user` with a `tool_result` | Marks the tool call as finished or failed |
+| `control_request` with subtype `can_use_tool` | Adds a permission card, or a question card for `AskUserQuestion`. The session changes to `needsYou`. |
+| `result` | Adds a result block with the time and the cost, and ends the turn |
+
+A message from a subagent carries a `parent_tool_use_id`, and the parser skips it. A card sends one `control_response` line with the `request_id`. Allow sends `{"behavior":"allow","updatedInput":<input>}`. Deny sends `{"behavior":"deny","message":...}`, and Claude reads the message as the tool result. An answer to `AskUserQuestion` adds `answers`, a map from each question to the chosen labels, to `updatedInput`. Always also writes the rule from `PermissionRule` into `.claude/settings.local.json`, and the runner answers later calls with that rule for the rest of the launch.
+
+A turn fails when `is_error` is true, when the subtype is not `success`, or when `permission_denials` names a call that the reader did not deny on a card.
+
+At most two sessions are in a turn. Other turns wait. A timer stops a turn after 10 minutes of work. The timer stops while a card waits. After a turn, an idle process stays open for 15 minutes. Then Piper closes its standard input, and the next message starts a new process with `--resume`.
+
+`ClaudeProcess` reads both pipes with a `readabilityHandler`. A blocking read holds a thread for each idle process, and a few idle sessions then hold every thread of the pool. Piper ignores SIGPIPE, so a write to a process that exited fails without a crash.
+
+`SkillTarget` names what the main window shows: `page(path)`, `text(text, noteID)`, or `folder`. `MainWindowController` sets `AppModel.actionTarget` with the selection, and the Claude pane takes a page as context. A Send action starts a session with the skill command as its first message.
+
+The `sessions` table stores each session at each change of state. Quit asks before it stops sessions in a turn. `AppDelegate` also stops them on SIGTERM, because a child process keeps running after its parent exits.
 
 ## Vault
 
@@ -135,6 +174,11 @@ Home searches the whole vault. Its Search All Files action opens the `allFiles` 
 | [PiperTheme.swift](../../Sources/Piper/PiperTheme.swift) | App colors, shapes, fonts, and shared controls |
 | [FileReadState.swift](../../Sources/Piper/FileReadState.swift) | Read timestamps for each file |
 | [CaptureService.swift](../../Sources/Piper/CaptureService.swift) | Global shortcuts and Accessibility selection |
+| [FolderAgents.swift](../../Sources/Piper/FolderAgents.swift) | Folders with skills, default skills, and every send action |
+| [AgentViews.swift](../../Sources/Piper/AgentViews.swift) | The session badge, the Send button, and the skill list |
+| [Sessions/](../../Sources/Piper/Sessions) | The session pane, the transcript views, the cards, the message field, and the Claude pane |
+| [SendShortcut.swift](../../Sources/Piper/SendShortcut.swift) | The Control-Option-W hotkey |
+| [Modules/Agents/](../../Sources/Modules/Agents) | Skill discovery, command parsing, sessions, the JSON stream, allow rules, and the session runner |
 | [CapturePanel/](../../Sources/Piper/CapturePanel) | `CapturePanelController` and `ClipboardPaster` |
 | [CaptureView.swift](../../Sources/Piper/CaptureView.swift) | The capture list, tabs, selection bar, and composer |
 | [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | Capture rows, headers, and the section and note sheets |
@@ -145,7 +189,7 @@ Home searches the whole vault. Its Search All Files action opens the `allFiles` 
 | [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | The error alert |
 | [MainWindow/Home/](../../Sources/Piper/MainWindow/Home) | The Home page and its suggestion list |
 | [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | Library rows, the folder tree, unread counts, and file warnings |
-| [MainWindow/Browser/](../../Sources/Piper/MainWindow/Browser) | The file list |
+| [MainWindow/Browser/](../../Sources/Piper/MainWindow/Browser) | The file list and the session list |
 | [MainWindow/Detail/](../../Sources/Piper/MainWindow/Detail) | Header, file previews, and the Inbox reader |
 | [MainWindow/TimelineCell.swift](../../Sources/Piper/MainWindow/TimelineCell.swift) | File and capture rows |
 | [WikiEditor.swift](../../Sources/Piper/WikiEditor.swift) | The Markdown editor page |

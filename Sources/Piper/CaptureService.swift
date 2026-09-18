@@ -39,7 +39,8 @@ final class CaptureService {
     private let model: AppModel
     private let queue = DispatchQueue(label: "piper.capture")
     private var busy = false
-    var didCapture: ((String) -> Void)?
+    /// Reports the result of a capture, with the id of the saved note.
+    var didCapture: ((String, UUID?) -> Void)?
 
     init(model: AppModel) { self.model = model }
 
@@ -111,7 +112,7 @@ final class CaptureService {
         guard AXIsProcessTrusted() else {
             model.accessibilityEnabled = false
             model.store.status = "Enable Accessibility in Settings"
-            didCapture?(model.store.status)
+            didCapture?(model.store.status, nil)
             return
         }
         guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
@@ -129,11 +130,11 @@ final class CaptureService {
                 self.busy = false
                 switch result {
                 case .success(let selection):
-                    _ = self.model.store.add(selection.text, source: source, sourceURL: selection.sourceURL, to: section, interpretSection: false)
-                    self.didCapture?(self.model.store.status)
+                    let saved = self.model.store.add(selection.text, source: source, sourceURL: selection.sourceURL, to: section, interpretSection: false)
+                    self.didCapture?(self.model.store.status, saved ? self.model.store.notes.last?.id : nil)
                 case .failure(let error):
                     self.model.store.status = error.localizedDescription
-                    self.didCapture?(error.localizedDescription)
+                    self.didCapture?(error.localizedDescription, nil)
                 }
             }
         }

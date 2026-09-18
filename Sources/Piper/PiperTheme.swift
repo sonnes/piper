@@ -35,6 +35,7 @@ enum PiperTheme {
     static let ruleNS = NSColor.separatorColor
     static let warningNS = NSColor.systemOrange
     static let dangerNS = NSColor.systemRed
+    static let successNS = NSColor.systemGreen
 
     static let page = Color(nsColor: pageNS)
     static let panel = Color(nsColor: panelNS)
@@ -47,6 +48,7 @@ enum PiperTheme {
     static let rule = Color(nsColor: ruleNS)
     static let warning = Color(nsColor: warningNS)
     static let danger = Color(nsColor: dangerNS)
+    static let success = Color(nsColor: successNS)
     /// A row under the pointer.
     static let hover = Color.primary.opacity(0.045)
     /// The ring around a focused field.

@@ -7,6 +7,8 @@ struct SidebarOutline: NSViewRepresentable {
     let model: AppModel
     let unreadCounts: [String: Int]
     let sections: [SidebarSection]
+    /// The folders that have Claude sessions.
+    let sessionFolders: [SidebarSessionFolder]
     @Binding var expanded: Set<String>
     let selection: SidebarSelection
     let select: (SidebarSelection) -> Void
@@ -69,6 +71,7 @@ struct SidebarOutline: NSViewRepresentable {
         private var wikiPaths: [String] = []
         private var unreadCounts: [String: Int] = [:]
         private var sections: [SidebarSection] = []
+        private var sessionFolders: [SidebarSessionFolder] = []
         private var updating = false
 
         init(_ parent: SidebarOutline) {
@@ -93,13 +96,14 @@ struct SidebarOutline: NSViewRepresentable {
             updating = true
             defer { updating = false }
             let newPaths = parent.model.files.map(\.relativePath)
-            if wikiPaths != parent.model.wikiPaths || newPaths != paths || folders != parent.model.folders || wikiPath != parent.model.wikiPath || unreadCounts != parent.unreadCounts || sections != parent.sections {
+            if wikiPaths != parent.model.wikiPaths || newPaths != paths || folders != parent.model.folders || wikiPath != parent.model.wikiPath || unreadCounts != parent.unreadCounts || sections != parent.sections || sessionFolders != parent.sessionFolders {
                 paths = newPaths
                 folders = parent.model.folders
                 wikiPath = parent.model.wikiPath
                 wikiPaths = parent.model.wikiPaths
                 unreadCounts = parent.unreadCounts
                 sections = parent.sections
+                sessionFolders = parent.sessionFolders
                 root = Node.root(representedObject: "root")
                 let library = Node(representedObject: "Library", parent: root)
                 library.isGroupItem = true
@@ -120,7 +124,16 @@ struct SidebarOutline: NSViewRepresentable {
                     if path == wikiPath { return wiki }
                     return Node(representedObject: URL(fileURLWithPath: path), parent: folderGroup)
                 }
-                root.children = [library, folderGroup]
+                if sessionFolders.isEmpty {
+                    root.children = [library, folderGroup]
+                } else {
+                    let claude = Node(representedObject: "Claude", parent: root)
+                    claude.isGroupItem = true
+                    claude.children = sessionFolders.map {
+                        Node(representedObject: SidebarSelection.sessions($0.path), parent: claude)
+                    }
+                    root.children = [library, claude, folderGroup]
+                }
                 outline.reloadData()
             }
 
@@ -202,6 +215,9 @@ struct SidebarOutline: NSViewRepresentable {
                 case .inbox: row = ("Inbox", "tray", sections.reduce(0) { $0 + $1.count })
                 case .section(let name): row = (name, "tray", sections.first { $0.name == name }?.count ?? 0)
                 case .clipboard: row = ("Clipboard", "clipboard", 0)
+                case .sessions(let path):
+                    row = (URL(fileURLWithPath: path).lastPathComponent, "text.bubble",
+                           sessionFolders.first { $0.path == path }?.attention ?? 0)
                 case .allFiles, .folder: row = ("", "folder", 0)
                 }
                 cell.configure(title: row.title, symbol: row.symbol, count: row.count,
