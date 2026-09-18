@@ -12,7 +12,7 @@ Piper captures text into a local database and browses a folder of files.
 
 ## Use Piper
 
-- [Install Piper](guides/install.md): build from source, allow Accessibility access, and build a signed release.
+- [Install Piper](guides/install.md): download the signed DMG, build from source, allow Accessibility access, and publish a signed release.
 - [Capture notes](guides/capture.md): the capture panel, clipboard history, selection capture, and sections.
 - [Send notes to Claude](guides/claude.md): talk to Claude Code in a folder, and send notes to its skills.
 - [Browse and edit files](guides/browse.md): folders, Home, search, unread files, previews, editing, and the Inbox reader.

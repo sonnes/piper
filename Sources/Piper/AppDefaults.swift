@@ -187,8 +187,6 @@ final class AppDefaults {
     enum Sessions {
         static let paneMinimumWidth: CGFloat = 320
         static let paneMaximumWidth: CGFloat = 640
-        /// An idle `claude` process ends after this time. The next message resumes the session.
-        static let idleTimeout: TimeInterval = 15 * 60
         static let composerLines = 3
         /// The number of files that the `@` list shows.
         static let fileCompletionLimit = 8

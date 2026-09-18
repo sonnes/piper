@@ -218,7 +218,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         if settingsWindowController == nil { settingsWindowController = SettingsWindowController(model: model) }
         settingsWindowController?.show()
     }
-    @objc private func clipboard() { model.store.captureClipboard(); showToast(model.store.status) }
+    @objc private func clipboard() { model.captureClipboard(); showToast(model.store.status) }
 
     /// Names the default folder in the menu bar item, and hides the item when
     /// no folder has Claude skills.

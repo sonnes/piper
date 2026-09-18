@@ -8,6 +8,10 @@ struct CaptureEditor: NSViewRepresentable {
     let placeholder: String
     var label = "New note text"
     var help = "Return saves the note. Shift-Return inserts a new line."
+    /// Handles a key command such as `insertNewline:` or `moveUp:`. Returns
+    /// true when it handled the command. The coordinator reads the newest
+    /// value on each update, so the handler never sees an old view.
+    var command: ((Selector) -> Bool)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -102,6 +106,10 @@ struct CaptureEditor: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let editor = notification.object as? NSTextView else { return }
             parent.text = editor.string
+        }
+
+        func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            parent.command?(selector) ?? false
         }
     }
 }

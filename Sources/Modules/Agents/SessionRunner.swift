@@ -16,10 +16,10 @@ public enum PermissionMode: String, CaseIterable, Sendable {
 
 /// Runs Claude Code sessions in folders and keeps every session.
 ///
-/// A session has one `claude` process while it is in use. The process reads
-/// messages and permission replies on standard input and writes its JSON
-/// stream on standard output. A process that stays idle ends, and the next
-/// message starts a new process with `--resume`.
+/// A session has one `claude` process. The process reads messages and
+/// permission replies on standard input and writes its JSON stream on standard
+/// output. It stays open between turns. After a stop, a failure, or a restart
+/// of Piper, the next message starts a new process with `--resume`.
 @MainActor @Observable
 public final class SessionRunner {
 
@@ -36,8 +36,6 @@ public final class SessionRunner {
     public var usesLoginShell = true
     /// The time a turn can run. The time a card waits for the reader does not count.
     public var turnTimeout: TimeInterval = 10 * 60
-    /// The time an idle process stays open for the next message.
-    public var idleTimeout: TimeInterval = 15 * 60
     /// The number of turns that run at the same time.
     public var concurrency = 2
     /// The number of sessions the database keeps.
@@ -45,6 +43,7 @@ public final class SessionRunner {
     static let quitMessage = "Piper quit before the turn finished."
     static let stopMessage = "Stopped."
     static let denyMessage = "The reader denied this tool call in Piper."
+    static let replyPrefix = "The reader did not use the card and wrote this instead:\n\n"
     private static let saveDelay = Duration.milliseconds(250)
 
     @ObservationIgnored private let database: Database?
@@ -53,7 +52,6 @@ public final class SessionRunner {
     /// The message lines that wait for the next turn of a session.
     @ObservationIgnored private var queued: [UUID: [String]] = [:]
     @ObservationIgnored private var turnTimers: [UUID: Task<Void, Never>] = [:]
-    @ObservationIgnored private var idleTimers: [UUID: Task<Void, Never>] = [:]
     @ObservationIgnored private var saves: [UUID: Task<Void, Never>] = [:]
     /// Why Piper ended a process, for the result block.
     @ObservationIgnored private var stopReasons: [UUID: String] = [:]
@@ -120,12 +118,20 @@ public final class SessionRunner {
     ///
     /// Each context path goes after the text. A slash command takes the paths
     /// as its argument, and other text names them as context files.
+    ///
+    /// A message while a card waits answers the card: Piper denies the tool
+    /// call, and Claude reads the message as the reason in the same turn.
     public func send(_ text: String, context: [String] = [], to session: AgentSession) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         session.append(.user(id: UUID().uuidString, text: text, context: context))
         session.unread = false
-        idleTimers.removeValue(forKey: session.id)?.cancel()
+        let waiting = pendingRequests(in: session)
+        if !waiting.isEmpty, processes[session.id] != nil {
+            let reply = Self.replyPrefix + Self.messageBody(text, context: context)
+            for request in waiting { deny(request, message: reply, in: session) }
+            return
+        }
         queued[session.id, default: []].append(Self.userLine(text, context: context))
         if !session.isActive { session.state = .waiting }
         persist(session, now: true)
@@ -157,7 +163,7 @@ public final class SessionRunner {
         reply(to: request, in: session, ["behavior": "deny", "message": message ?? Self.denyMessage])
         if let id = request.toolUseID { deniedCalls[session.id, default: []].insert(id) }
         session.update(TranscriptBlock.permission(request, decision: .pending).id) {
-            $0 = .permission(request, decision: .denied)
+            $0 = request.isQuestion ? .question(request, answers: [:]) : .permission(request, decision: .denied)
         }
         resume(session)
     }
@@ -183,7 +189,6 @@ public final class SessionRunner {
             process.terminate()
         } else {
             endTurn(session, TurnResult(failure: Self.stopMessage), state: .idle)
-            startIdleTimer(for: session)
             startWaitingSessions()
         }
     }
@@ -201,7 +206,6 @@ public final class SessionRunner {
         stop(session)
         processes.removeValue(forKey: session.id)?.terminate()
         stopReasons.removeValue(forKey: session.id)
-        idleTimers.removeValue(forKey: session.id)?.cancel()
         saves.removeValue(forKey: session.id)?.cancel()
         sessions.removeAll { $0.id == session.id }
         do { try database?.deleteSession(id: session.id) } catch { report(error) }
@@ -292,7 +296,6 @@ public final class SessionRunner {
                 if result.failure == nil { result.failure = SessionEvent.failure(for: refused) }
                 endTurn(session, result, state: result.failure == nil ? .idle : .failed)
                 if queued[id]?.isEmpty == false { session.state = .waiting }
-                startIdleTimer(for: session)
                 startWaitingSessions()
             }
         }
@@ -313,12 +316,15 @@ public final class SessionRunner {
     }
 
     private func isPending(_ request: PermissionRequest, in session: AgentSession) -> Bool {
-        session.blocks.contains {
+        pendingRequests(in: session).contains { $0.requestID == request.requestID }
+    }
+
+    /// The permission and question cards that wait for the reader.
+    private func pendingRequests(in session: AgentSession) -> [PermissionRequest] {
+        session.blocks.compactMap {
             switch $0 {
-            case .permission(let pending, decision: .pending), .question(let pending, answers: nil):
-                return pending.requestID == request.requestID
-            default:
-                return false
+            case .permission(let request, decision: .pending), .question(let request, answers: nil): return request
+            default: return nil
             }
         }
     }
@@ -343,7 +349,6 @@ public final class SessionRunner {
     private func exited(_ id: UUID, process: ClaudeProcess, status: Int32, errors: String) {
         guard processes[id] === process else { return }
         processes.removeValue(forKey: id)
-        idleTimers.removeValue(forKey: id)?.cancel()
         let reason = stopReasons.removeValue(forKey: id)
         guard let session = session(id), session.isActive else { return }
         queued.removeValue(forKey: id)
@@ -388,19 +393,6 @@ public final class SessionRunner {
         }
     }
 
-    /// Ends the process of an idle session after the idle timeout.
-    private func startIdleTimer(for session: AgentSession) {
-        let id = session.id
-        let limit = idleTimeout
-        idleTimers[id]?.cancel()
-        idleTimers[id] = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(limit))
-            guard !Task.isCancelled, let self, let session = self.session(id), !session.isActive else { return }
-            self.idleTimers.removeValue(forKey: id)
-            self.processes.removeValue(forKey: id)?.closeInput()
-        }
-    }
-
     // MARK: - Storage
 
     /// Stores a session. A change of state stores it at once. Text and tool
@@ -426,14 +418,17 @@ public final class SessionRunner {
 
     // MARK: - Messages
 
+    /// The text of a message with its context paths.
+    nonisolated static func messageBody(_ text: String, context: [String]) -> String {
+        guard !context.isEmpty else { return text }
+        return text + (SlashCommand(text) != nil
+            ? " " + context.joined(separator: " ")
+            : "\n\n" + context.map { "Context file: " + $0 }.joined(separator: "\n"))
+    }
+
     /// One user message of the stream-json input.
     nonisolated static func userLine(_ text: String, context: [String]) -> String {
-        var body = text
-        if !context.isEmpty {
-            body += SlashCommand(text) != nil
-                ? " " + context.joined(separator: " ")
-                : "\n\n" + context.map { "Context file: " + $0 }.joined(separator: "\n")
-        }
+        let body = messageBody(text, context: context)
         let object: [String: Any] = ["type": "user",
                                      "message": ["role": "user", "content": [["type": "text", "text": body]]]]
         let data = (try? JSONSerialization.data(withJSONObject: object, options: [.withoutEscapingSlashes])) ?? Data()

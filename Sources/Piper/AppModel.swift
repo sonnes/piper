@@ -53,7 +53,6 @@ final class AppModel {
     var openNoteEditor: ((Note) -> Void)?
     var openPanel: (() -> Void)?
     var openLibrary: (() -> Void)?
-    var captureClipboard: (() -> Void)?
     var openSettings: (() -> Void)?
     /// True while the detail pane shows the text of a file in place of its preview.
     var showsFileSource = UserDefaults.standard.bool(forKey: AppDefaults.Key.showsFileSource) {
@@ -123,6 +122,10 @@ final class AppModel {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+    }
+
+    @discardableResult func captureClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
+        store.captureClipboard(from: pasteboard)
     }
 
     func editCapture(_ note: Note) -> CaptureEditSession {

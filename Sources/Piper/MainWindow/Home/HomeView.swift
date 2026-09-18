@@ -51,7 +51,7 @@ struct HomeView: View {
             HomeAction(title: "Reveal in Finder", detail: "Show " + vaultPath) {
                 NSWorkspace.shared.activateFileViewerSelecting([model.vault.root])
             },
-            HomeAction(title: "Capture Clipboard", detail: "Save the clipboard as a note") { model.captureClipboard?() },
+            HomeAction(title: "Capture Clipboard", detail: "Save the clipboard as a note") { model.captureClipboard() },
             HomeAction(title: "Settings…", detail: "Folders, shortcut, and reading", shortcut: "⌘,") {
                 model.openSettings?()
             }

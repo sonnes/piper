@@ -72,7 +72,7 @@ Use a copy of a folder with skills, because a session changes files.
 14. Capture a selection with double Shift. Make sure that the toast shows a Send button, and that the button starts a session.
 15. Start a turn and quit Piper. Make sure that Piper asks before it stops the turn. Open Piper again. Make sure that the session shows "Piper quit before the turn finished." and continues after a new message.
 
-To test the idle timeout, set `AppDefaults.Sessions.idleTimeout` to 60 seconds in a debug build. Wait for 2 minutes after a turn, then send a message. Make sure that `ps` shows `--resume` in the new `claude` process.
+To test resume, start a turn and select Stop. Send another message. Make sure that `ps` shows `--resume` in the new `claude` process, and that Claude knows the earlier messages.
 
 ## Selection Capture Checks
 
@@ -151,8 +151,12 @@ Record the macOS version and the SHA-256 checksum.
 
 ## Recorded Results
 
+- On September 18, 2026, `make test` passed 220 tests with no failures on macOS 27.0 (26A428), Apple silicon.
+- On the same date, `make build` completed. An isolated app copy displayed fictional captures, Markdown architecture notes, and Claude sessions for the README screenshots.
+- These local checks do not cover selection shortcuts, Claude authentication, notarization of the current source, or installation on a clean Mac.
+
 - Release 0.1.0 for Apple silicon passed Developer ID signature checks, notarization, stapling, and Gatekeeper on September 12, 2026. Artifact: `build/Piper_0.1.0_arm64.dmg`. SHA-256: `0f2e9a794ddc96971ad975fc7f748838cfa7d3f4961034d6d6f718af559f6917`.
 - On the same date, Accessibility approval worked for the signed release and survived a replacement of the app.
 - The global shortcut checks were skipped. The clean-Mac check is open.
 
-These results are older than the module refactor. Repeat the checks for the next release.
+The September 12 distribution results are older than the module refactor. Repeat the distribution checks for the next release.

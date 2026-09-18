@@ -19,7 +19,6 @@ struct SessionComposer: View {
     @State private var text = ""
     @State private var focused = false
     @State private var completionIndex = 0
-    @State private var keyMonitor: Any?
 
     private var agents: FolderAgents { model.agents }
     private var isActive: Bool { session?.isActive == true }
@@ -70,7 +69,8 @@ struct SessionComposer: View {
             HStack(alignment: .bottom, spacing: 6) {
                 CaptureEditor(text: $text, focused: $focused, placeholder: "Ask Claude in \(folderName)",
                               label: "Message to Claude",
-                              help: "Return sends the message. Shift-Return inserts a new line.")
+                              help: "Return sends the message. Shift-Return inserts a new line.",
+                              command: handle)
                     .frame(height: height)
                 if isActive {
                     Button(action: stop) { Image(systemName: "stop.fill") }
@@ -104,11 +104,6 @@ struct SessionComposer: View {
             .lineLimit(1)
         }
         .padding(12)
-        .onAppear(perform: installKeyMonitor)
-        .onDisappear {
-            if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
-            keyMonitor = nil
-        }
         .onChange(of: text) { _, _ in completionIndex = 0 }
     }
 
@@ -168,31 +163,33 @@ struct SessionComposer: View {
         }
     }
 
-    private func installKeyMonitor() {
-        guard keyMonitor == nil else { return }
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard focused, let window = NSApp.keyWindow, window.attachedSheet == nil,
-                  let textView = window.firstResponder as? NSTextView, !textView.hasMarkedText() else { return event }
-            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            let plain = flags.isDisjoint(with: [.shift, .command, .option, .control])
-            if plain, completionCount > 0 {
-                let current = min(completionIndex, completionCount - 1)
-                switch event.keyCode {
-                case 125: completionIndex = min(current + 1, completionCount - 1); return nil
-                case 126: completionIndex = max(current - 1, 0); return nil
-                case 48, 36:
-                    if !skills.isEmpty { choose(skill: skills[current]) } else { choose(file: files[current]) }
-                    return nil
-                case 53: dismissCompletions(); return nil
-                default: break
-                }
+    /// Handles the keys of the message field. Return sends and Shift-Return
+    /// adds a new line. While a list shows, the arrows, Tab, Return, and
+    /// Escape act on the list.
+    private func handle(_ selector: Selector) -> Bool {
+        let shift = NSApp.currentEvent?.modifierFlags.contains(.shift) == true
+        if completionCount > 0 {
+            let current = min(completionIndex, completionCount - 1)
+            switch selector {
+            case #selector(NSResponder.moveDown(_:)):
+                completionIndex = min(current + 1, completionCount - 1)
+                return true
+            case #selector(NSResponder.moveUp(_:)):
+                completionIndex = max(current - 1, 0)
+                return true
+            case #selector(NSResponder.insertTab(_:)), #selector(NSResponder.insertNewline(_:)) where !shift:
+                if !skills.isEmpty { choose(skill: skills[current]) } else { choose(file: files[current]) }
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):
+                dismissCompletions()
+                return true
+            default:
+                break
             }
-            if event.keyCode == 36, flags.isDisjoint(with: [.shift, .option, .control, .command]) {
-                submit()
-                return nil
-            }
-            return event
         }
+        guard selector == #selector(NSResponder.insertNewline(_:)), !shift else { return false }
+        submit()
+        return true
     }
 }
 

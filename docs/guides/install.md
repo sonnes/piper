@@ -1,7 +1,8 @@
 ---
 title: "Install Piper"
-summary: "Build Piper from source, grant Accessibility access, and build a signed release"
+summary: "Download the signed DMG or build Piper from source, grant Accessibility access, and publish a signed release"
 read_when:
+  - Installing Piper from a release
   - Starting Piper locally
   - Enabling selection capture
   - Building a notarized DMG
@@ -9,7 +10,15 @@ read_when:
 
 # Install Piper
 
-No signed build is available for download. You build Piper from source.
+You can install a signed release or build Piper from source.
+
+## Download A Release
+
+1. Download `Piper_<version>_arm64.dmg` from the [latest release](https://github.com/sonnes/piper/releases/latest).
+2. Open the DMG and drag Piper to Applications.
+3. Open Piper from Applications.
+
+Apple notarizes each release DMG, so Gatekeeper accepts it. The DMG requires macOS 14 or later on Apple silicon. On an Intel Mac, build Piper from source.
 
 ## Requirements
 
@@ -18,6 +27,8 @@ No signed build is available for download. You build Piper from source.
 - Make
 
 ## Build And Open
+
+The steps below build Piper from source.
 
 1. Open a terminal in the Piper repository.
 2. Run `make test`.
@@ -49,6 +60,13 @@ The `make release` target runs the tests. Then it signs, notarizes, staples, and
 3. Run `make release`.
 4. Make sure that `notarytool` reports an `Accepted` status.
 5. Save the SHA-256 checksum that the command shows.
+6. Create a GitHub release for the version tag, with the DMG attached:
+
+   ```sh
+   gh release create v0.1.0 build/Piper_0.1.0_arm64.dmg --title "Piper 0.1.0"
+   ```
+
+7. Add the SHA-256 checksum to the release notes.
 
 ```text
 APPLE_TEAM_ID

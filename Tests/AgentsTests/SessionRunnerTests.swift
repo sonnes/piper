@@ -103,16 +103,16 @@ final class SessionRunnerTests: XCTestCase {
         runner.stopAll()
     }
 
-    func testIdleProcessEndsAndTheNextMessageResumes() async throws {
-        let runner = runner(try fakeClaude(turn: Self.result))
-        runner.idleTimeout = 0.2
+    func testMessageAfterAStopResumesTheSession() async throws {
+        let runner = runner(try fakeClaude(turn: ""))
         runner.permissionMode = .ask
         let session = start(runner)
+        try await wait { lines("inputs.txt").count == 1 }
+        runner.stop(session)
         try await wait { session.state == .idle }
-        try await Task.sleep(for: .milliseconds(500))
 
         runner.send("Later", to: session)
-        try await wait { session.state == .idle && lines("args.txt").count == 2 }
+        try await wait { lines("args.txt").count == 2 && lines("inputs.txt").count == 2 }
         XCTAssertTrue(lines("args.txt")[1].hasSuffix("--permission-mode manual --resume s-1"), lines("args.txt")[1])
         runner.stopAll()
     }
@@ -194,6 +194,26 @@ final class SessionRunnerTests: XCTestCase {
         XCTAssertTrue(lines("replies.txt").first?.contains(#""answers":{"Which color?":"Blue"}"#) == true)
         guard case .question(_, let answers)? = session.blocks.first(where: { $0.id == "request-q1" }) else { return XCTFail("No question") }
         XCTAssertEqual(answers, ["Which color?": "Blue"])
+        runner.stopAll()
+    }
+
+    func testMessageWhileACardWaitsAnswersTheCard() async throws {
+        let claude = try fakeClaude(turn: """
+        echo '{"type":"control_request","request_id":"q1","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"Which docs?","header":"Docs","options":[{"label":"A","description":""}],"multiSelect":false}]},"tool_use_id":"t1"}}'
+        """, reply: Self.result)
+        let runner = runner(claude)
+        let session = start(runner, "Go in depth of it docs")
+        try await wait { session.state == .needsYou }
+
+        runner.send("The projects docs", to: session)
+        try await wait { session.state == .idle }
+        let reply = try XCTUnwrap(lines("replies.txt").first)
+        XCTAssertTrue(reply.contains(#""behavior":"deny""#))
+        XCTAssertTrue(reply.contains("The projects docs"))
+        XCTAssertEqual(lines("inputs.txt").count, 1)
+        XCTAssertNil(session.failure)
+        guard case .question(_, let answers)? = session.blocks.first(where: { $0.id == "request-q1" }) else { return XCTFail("No question") }
+        XCTAssertEqual(answers, [:])
         runner.stopAll()
     }
 

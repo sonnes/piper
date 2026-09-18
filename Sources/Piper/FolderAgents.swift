@@ -93,7 +93,6 @@ final class FolderAgents {
         runner.permissionMode = permissionMode
         runner.model = model
         runner.turnTimeout = AppDefaults.Agents.timeout
-        runner.idleTimeout = AppDefaults.Sessions.idleTimeout
         runner.concurrency = AppDefaults.Agents.concurrency
     }
 

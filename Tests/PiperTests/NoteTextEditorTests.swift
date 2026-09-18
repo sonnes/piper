@@ -27,3 +27,24 @@ final class NoteTextEditorTests: XCTestCase {
         (view as? NSTextView) ?? view.subviews.lazy.compactMap { textView(in: $0) }.first
     }
 }
+
+@MainActor
+final class CaptureEditorCommandTests: XCTestCase {
+
+    /// The session composer once kept the view from its first appearance, so
+    /// Return sent to that session. The coordinator must call the newest handler.
+    func testCommandsReachTheNewestHandler() {
+        var calls: [String] = []
+        func editor(_ name: String) -> CaptureEditor {
+            CaptureEditor(text: .constant(""), focused: .constant(true), placeholder: "",
+                          command: { _ in calls.append(name); return true })
+        }
+        let coordinator = editor("first").makeCoordinator()
+        coordinator.parent = editor("second")
+
+        XCTAssertTrue(coordinator.textView(NSTextView(), doCommandBy: #selector(NSResponder.insertNewline(_:))))
+        XCTAssertEqual(calls, ["second"])
+        XCTAssertFalse(CaptureEditor(text: .constant(""), focused: .constant(false), placeholder: "")
+            .makeCoordinator().textView(NSTextView(), doCommandBy: #selector(NSResponder.insertNewline(_:))))
+    }
+}

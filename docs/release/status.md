@@ -32,7 +32,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Capability | Status | Evidence or limit |
 | --- | --- | --- |
 | Skill discovery from `.claude/skills` | Implemented | `FolderSkillTests` |
-| Sessions over stream-json input and output, with turns, resume after the idle timeout, stop, turn timeout, and a limit of two turns | Implemented | `SessionRunnerTests` with a script in place of `claude`. A spike against Claude Code 2.1.276 confirmed the protocol. |
+| Sessions over stream-json input and output, with turns, resume after a stop or a restart, stop, turn timeout, and a limit of two turns | Implemented | `SessionRunnerTests` with a script in place of `claude`. A spike against Claude Code 2.1.276 confirmed the protocol. |
 | Permission cards with Allow Once, Always in <folder>, and Deny, and question cards for `AskUserQuestion` | Implemented | `SessionRunnerTests`, `SessionHelperTests`. The cards have no automated UI test. |
 | The JSON stream parser, allow rules, the diff, and `@` mentions | Implemented | `SessionEventTests`, `SessionHelperTests` |
 | Sessions stored across restarts | Implemented | `SessionsTableTests`, `SessionRunnerTests` |

@@ -48,6 +48,11 @@ Piper shows the texts that you copy while it runs. These texts are not saved.
 
 Keep always saves to Inbox, even when another section is selected. The row goes away after a successful save.
 
+Home also has a Capture Clipboard action. It saves the current clipboard text to the active capture section.
+
+1. Type `>` in Home search.
+2. Select Capture Clipboard.
+
 If a sidebar folder has Claude Code skills, the row also shows Send to <folder>. See [Send notes to Claude](claude.md).
 
 Double-click a row to paste the text into the app in front. The row context menu has Paste and Keep in Inbox. Paste needs Accessibility access. Without it, Piper copies the text, and you paste it with Command-V.

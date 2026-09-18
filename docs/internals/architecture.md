@@ -113,11 +113,13 @@ Each message is one JSON line on standard input: `{"type":"user","message":{"rol
 | `control_request` with subtype `can_use_tool` | Adds a permission card, or a question card for `AskUserQuestion`. The session changes to `needsYou`. |
 | `result` | Adds a result block with the time and the cost, and ends the turn |
 
-A message from a subagent carries a `parent_tool_use_id`, and the parser skips it. A card sends one `control_response` line with the `request_id`. Allow sends `{"behavior":"allow","updatedInput":<input>}`. Deny sends `{"behavior":"deny","message":...}`, and Claude reads the message as the tool result. An answer to `AskUserQuestion` adds `answers`, a map from each question to the chosen labels, to `updatedInput`. Always also writes the rule from `PermissionRule` into `.claude/settings.local.json`, and the runner answers later calls with that rule for the rest of the launch.
+A message from a subagent carries a `parent_tool_use_id`, and the parser skips it. A card sends one `control_response` line with the `request_id`. Allow sends `{"behavior":"allow","updatedInput":<input>}`. Deny sends `{"behavior":"deny","message":...}`, and Claude reads the message as the tool result. An answer to `AskUserQuestion` adds `answers`, a map from each question to the chosen labels, to `updatedInput`. A message that the reader sends while a card waits becomes the deny message of each waiting card, so Claude reads it in the same turn. Always also writes the rule from `PermissionRule` into `.claude/settings.local.json`, and the runner answers later calls with that rule for the rest of the launch.
 
 A turn fails when `is_error` is true, when the subtype is not `success`, or when `permission_denials` names a call that the reader did not deny on a card.
 
-At most two sessions are in a turn. Other turns wait. A timer stops a turn after 10 minutes of work. The timer stops while a card waits. After a turn, an idle process stays open for 15 minutes. Then Piper closes its standard input, and the next message starts a new process with `--resume`.
+At most two sessions are in a turn. Other turns wait. A timer stops a turn after 10 minutes of work. The timer stops while a card waits. After a turn, the process stays open for the next message. It ends only on Stop, on a failure, on Delete Session, or when Piper quits. Then the next message starts a new process with `--resume`.
+
+The session composer handles Return, Tab, the arrows, and Escape in `textView(_:doCommandBy:)` of `CaptureEditor`. An `NSEvent` monitor kept the view from its first appearance, and Return then sent to an old session.
 
 `ClaudeProcess` reads both pipes with a `readabilityHandler`. A blocking read holds a thread for each idle process, and a few idle sessions then hold every thread of the pool. Piper ignores SIGPIPE, so a write to a process that exited fails without a crash.
 

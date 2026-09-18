@@ -48,6 +48,23 @@ final class ReleaseTests: XCTestCase {
         XCTAssertEqual(store.notes.count, 1)
     }
 
+    func testHomeClipboardCaptureSavesWithoutAnAppDelegate() {
+        let pasteboard = NSPasteboard(name: .init("com.piper.home-test." + UUID().uuidString))
+        defer { pasteboard.releaseGlobally() }
+        let store = CaptureStore(url: databaseURL)
+        let model = AppModel(store: store, wikiPath: folder.path)
+        pasteboard.setString("A fictional field note", forType: .string)
+        let version = pasteboard.changeCount
+
+        XCTAssertTrue(model.captureClipboard(from: pasteboard))
+        XCTAssertEqual(store.notes.first?.text, "A fictional field note")
+        XCTAssertEqual(store.notes.first?.section, "Inbox")
+        XCTAssertEqual(pasteboard.changeCount, version)
+        pasteboard.clearContents()
+        XCTAssertFalse(model.captureClipboard(from: pasteboard))
+        XCTAssertEqual(store.notes.count, 1)
+    }
+
     func testSelectionRangeUsesUTF16AndRejectsInvalidBounds() {
         let text = "a👋🏽你好\nend"
         XCTAssertEqual(CapturedSelection.substring(text, range: CFRange(location: 1, length: 6)), "👋🏽你好")

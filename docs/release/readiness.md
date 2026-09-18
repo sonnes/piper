@@ -36,7 +36,7 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Decide whether the capture tabs follow the section at the top of the list while it scrolls. Today a tab changes only on a click.
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
 - [ ] Make a link from the editor update the sidebar and the file list.
-- [ ] Connect the Capture Clipboard action on Home. `AppModel.captureClipboard` is never set.
+- [x] Connect the Capture Clipboard action on Home. `ReleaseTests.testHomeClipboardCaptureSavesWithoutAnAppDelegate` covers the model action and an empty clipboard.
 
 Acceptance: every visible control does what its label says, and no edit is lost on navigation, close, or quit.
 
@@ -60,6 +60,14 @@ Acceptance: a link from the clipboard reaches the folder with one action, a card
 
 Acceptance: the downloaded DMG installs and captures text with the documented permission steps.
 
+## Repository Preparation
+
+- [x] Add README screenshots with fictional developer notes and public project links.
+- [x] Add CI for tests, the app build, and signature checks on macOS 14 and macOS 26.
+- [x] Run local tests and build the current source. See [Recorded results](validate.md#recorded-results).
+- [ ] Record the first successful GitHub Actions run.
+- [ ] Publish a GitHub release with the signed DMG of the current source. The README links to the latest release.
+
 ## Out Of Scope
 
-These items need a separate scope decision: attachments, URL lookup beyond Accessibility, an arbitrary shortcut recorder, launch at login, and full CommonMark. Sync, AI processing, and a documentation website are outside this release.
+These items need a separate scope decision: attachments, URL lookup beyond Accessibility, an arbitrary shortcut recorder, launch at login, and full CommonMark. Sync, built-in model hosting, and a documentation website are outside this release. Optional Claude Code sessions already exist.

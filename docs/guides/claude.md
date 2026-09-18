@@ -81,7 +81,7 @@ To delete a session, Control-click it and select Delete Session.
 
 ### Continue An Old Session
 
-The `claude` process of a session ends 15 minutes after the last turn. Your next message starts a new process with `--resume`. Claude keeps the earlier conversation.
+The `claude` process of a session stays open between turns, until you stop the turn or quit Piper. Each open session uses memory for its process. After a stop, a failure, or a restart of Piper, your next message starts a new process with `--resume`. Claude keeps the earlier conversation.
 
 ## Allow The Tools That Claude Uses
 
@@ -94,6 +94,8 @@ If Claude wants a tool that the permission mode does not allow, the transcript s
 The pointer over Always in <folder> shows the rule, for example `Bash(python3:*)` or `WebFetch(domain:example.com)`. Claude Code reads the rules in this file for that folder only.
 
 Claude can also ask a question with choices. Select a choice for each question, then select Answer.
+
+If you type a message while a card waits, Piper denies the card and gives your message to Claude as the reason. Claude continues the same turn with your message.
 
 Settings > Claude > Permissions has these values:
 
