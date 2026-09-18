@@ -4,7 +4,7 @@ Piper is a native macOS application for capturing text. It saves selected text a
 
 Capture and browsing need no account, cloud service, telemetry, or network connection. Notes stay in a local SQLite database. Wiki files stay on disk as they are. The web reader connects to the pages you open.
 
-![The Piper main window with an architecture note about pi-go open in the Architecture folder](docs/images/main-window.png)
+![The Piper capture panel with notes and links beside the main window with an architecture note about pi-go](docs/images/hero.jpg)
 
 The screenshots show fictional notes of my public projects.
 
@@ -60,6 +60,8 @@ To choose another folder, use the folder menu in the Wiki toolbar. To capture a 
 The capture panel and the main window take turns on screen. Command-1 shows the panel, and Command-2 shows the main window. Neither closes, so a draft stays open.
 
 Both windows use the system font and colors, with one blue accent. Both follow the system appearance.
+
+![The Piper main window with an architecture note about pi-go open in the Architecture folder](docs/images/main-window.png)
 
 <img src="docs/images/capture-panel.png" alt="The Piper capture panel with clipboard texts, Inbox notes, and Read Later links" width="360">
 
