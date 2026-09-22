@@ -98,6 +98,7 @@ UserDefaults holds these keys:
 | `wikiPath` | The active Wiki folder |
 | `wikiPaths` | The Wiki folders in the sidebar |
 | `captureShortcut` | `Shift, Shift` or `Control-Option-Space` |
+| `captureFloating` | True by default. Keeps the capture panel above other apps. |
 | `composerDraft` | The unsaved composer text |
 | `accessibilityTipDismissed` | True after you close the Accessibility tip in the capture panel |
 | `showsFileSource` | True while the main window shows the Source view of a file |
@@ -120,4 +121,3 @@ The release bundle ID is `com.piper`. On the first launch, Piper copies missing 
 1. Quit Piper.
 2. Copy `~/Library/Application Support/Piper`.
 3. If you want the preferences, copy `~/Library/Preferences/com.piper.plist`.
-

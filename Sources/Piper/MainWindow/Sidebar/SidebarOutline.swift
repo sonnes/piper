@@ -13,6 +13,8 @@ struct SidebarOutline: NSViewRepresentable {
     let selection: SidebarSelection
     let select: (SidebarSelection) -> Void
     let newSection: () -> Void
+    let editSection: (String) -> Void
+    let deleteSection: (String) -> Void
 
     /// The entry of the expansion set that records a collapsed Inbox. No
     /// folder path starts with this character, so the two cannot collide.
@@ -194,11 +196,21 @@ struct SidebarOutline: NSViewRepresentable {
                 label.font = .systemFont(ofSize: AppDefaults.Sidebar.headerFontSize, weight: .semibold)
                 label.textColor = .secondaryLabelColor
                 label.lineBreakMode = .byTruncatingHead
+                if node.representedObject as? String == "Folders" {
+                    let button = addButton("Add Folder", action: #selector(addFolder))
+                    let header = NSStackView(views: [label, button])
+                    header.spacing = AppDefaults.Sidebar.actionSpacing
+                    header.edgeInsets.right = AppDefaults.Sidebar.trailingInset
+                    label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                    return header
+                }
                 return label
             }
             let identifier = NSUserInterfaceItemIdentifier("sourceCell")
             let cell = (outlineView.makeView(withIdentifier: identifier, owner: self) as? SidebarCell) ?? SidebarCell()
             cell.identifier = identifier
+            cell.addButton = node.representedObject as? SidebarSelection == .inbox
+                ? addButton("New Section", action: #selector(newSection)) : nil
             if let item = node.representedObject as? PathItem {
                 cell.configure(title: item.path.isEmpty ? parent.model.vault.root.lastPathComponent : item.name,
                                symbol: "folder", count: unreadCounts[item.path, default: 0],
@@ -225,6 +237,17 @@ struct SidebarOutline: NSViewRepresentable {
                 cell.toolTip = nil
             }
             return cell
+        }
+
+        private func addButton(_ title: String, action: Selector) -> NSButton {
+            let button = NSButton(title: "", target: self, action: action)
+            button.image = NSImage(systemSymbolName: "plus", accessibilityDescription: title)
+            button.isBordered = false
+            button.toolTip = title
+            button.setAccessibilityLabel(title)
+            button.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.addButtonSize).isActive = true
+            button.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.addButtonSize).isActive = true
+            return button
         }
 
         func outlineViewSelectionDidChange(_ notification: Notification) {
@@ -259,6 +282,15 @@ struct SidebarOutline: NSViewRepresentable {
             menu.removeAllItems()
             menu.addItem(withTitle: "New Section…", action: #selector(newSection), keyEquivalent: "").target = self
             menu.addItem(withTitle: "Add Folder…", action: #selector(addFolder), keyEquivalent: "").target = self
+            if let selection = clickedNode?.representedObject as? SidebarSelection, case .section(let name) = selection {
+                menu.addItem(.separator())
+                let edit = menu.addItem(withTitle: "Edit Section…", action: #selector(editSection(_:)), keyEquivalent: "")
+                edit.target = self
+                edit.representedObject = name
+                let delete = menu.addItem(withTitle: "Delete Section…", action: #selector(deleteSection(_:)), keyEquivalent: "")
+                delete.target = self
+                delete.representedObject = name
+            }
             guard let node = clickedNode, folderURL(of: node) != nil else { return }
             menu.addItem(.separator())
             menu.addItem(withTitle: "Reveal in Finder", action: #selector(revealInFinder), keyEquivalent: "").target = self
@@ -289,6 +321,16 @@ struct SidebarOutline: NSViewRepresentable {
 
         @objc private func newSection() { parent.newSection() }
 
+        @objc private func editSection(_ sender: NSMenuItem) {
+            guard let section = sender.representedObject as? String else { return }
+            parent.editSection(section)
+        }
+
+        @objc private func deleteSection(_ sender: NSMenuItem) {
+            guard let section = sender.representedObject as? String else { return }
+            parent.deleteSection(section)
+        }
+
         @objc private func addFolder() { parent.model.chooseWiki() }
 
         @objc private func revealInFinder() {
@@ -308,6 +350,13 @@ private final class SidebarCell: NSTableCellView {
     private let title = NSTextField(labelWithString: "")
     private let icon = NSImageView()
     private let countLabel = NSTextField(labelWithString: "")
+    private let actions = NSStackView()
+    var addButton: NSButton? {
+        didSet {
+            oldValue?.removeFromSuperview()
+            if let addButton { actions.addArrangedSubview(addButton) }
+        }
+    }
     private lazy var iconWidth = icon.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.metrics(for: .medium).imageSize)
     private lazy var iconHeight = icon.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.metrics(for: .medium).imageSize)
 
@@ -324,7 +373,9 @@ private final class SidebarCell: NSTableCellView {
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         countLabel.font = .monospacedDigitSystemFont(ofSize: AppDefaults.Sidebar.countFontSize, weight: .regular)
         icon.imageScaling = .scaleProportionallyUpOrDown
-        for view in [title, icon, countLabel] {
+        actions.spacing = AppDefaults.Sidebar.actionSpacing
+        actions.addArrangedSubview(countLabel)
+        for view in [title, icon, actions] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
             view.centerYAnchor.constraint(equalTo: centerYAnchor).isActive = true
@@ -334,8 +385,8 @@ private final class SidebarCell: NSTableCellView {
             iconWidth,
             iconHeight,
             title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: AppDefaults.Sidebar.imageMarginRight),
-            title.trailingAnchor.constraint(lessThanOrEqualTo: countLabel.leadingAnchor, constant: -AppDefaults.Sidebar.countMarginLeft),
-            countLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4)
+            title.trailingAnchor.constraint(lessThanOrEqualTo: actions.leadingAnchor, constant: -AppDefaults.Sidebar.countMarginLeft),
+            actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -AppDefaults.Sidebar.trailingInset)
         ])
     }
 

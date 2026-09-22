@@ -108,6 +108,42 @@ public final class CaptureStore {
         return change { $0.sections.append(name); $0.activeSection = name }
     }
 
+    @discardableResult public func renameSection(_ section: String, to name: String) -> Bool {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard section != "Inbox", sections.contains(section) else { return false }
+        guard !name.isEmpty, !name.contains(where: \.isNewline), name.count <= 80 else {
+            report(PiperError("Use a section name with 1 to 80 characters on one line."))
+            return false
+        }
+        guard !sections.contains(where: { $0 != section && $0.caseInsensitiveCompare(name) == .orderedSame }) else {
+            report(PiperError("A section with this name already exists. Choose another name."))
+            return false
+        }
+        let saved = change { state in
+            if let index = state.sections.firstIndex(of: section) { state.sections[index] = name }
+            for index in state.notes.indices where state.notes[index].section == section {
+                state.notes[index].section = name
+            }
+            if state.activeSection == section { state.activeSection = name }
+        }
+        if saved { status = "Section renamed · Undo available" }
+        return saved
+    }
+
+    @discardableResult public func deleteSection(_ section: String) -> Bool {
+        guard section != "Inbox", sections.contains(section), sections.contains("Inbox") else { return false }
+        let saved = change { state in
+            state.sections.removeAll { $0 == section }
+            for index in state.notes.indices where state.notes[index].section == section {
+                state.notes[index].section = "Inbox"
+                state.notes[index].modifiedAt = Date()
+            }
+            if state.activeSection == section { state.activeSection = "Inbox" }
+        }
+        if saved { status = "Section deleted · Notes moved to Inbox · Undo available" }
+        return saved
+    }
+
     @discardableResult public func update(_ id: UUID, text: String, sourceURL: String? = nil, originalText: String? = nil) -> Bool {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         guard let current = notes.first(where: { $0.id == id }) else { report(PiperError("This note was removed. Copy your changes into a new note.")); return false }

@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// A floating panel that does not take focus from the application in front.
+/// A capture panel that does not activate Piper when it takes keyboard focus.
 final class CapturePanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
@@ -56,8 +56,12 @@ final class CapturePanelController: NSWindowController {
         panel.hasShadow = true
         panel.isMovableByWindowBackground = true
         panel.minSize = AppDefaults.Window.capturePanelMinimumSize
-        panel.isFloatingPanel = true
-        panel.level = .floating
+        panel.isFloatingPanel = model.captureFloating
+        panel.level = model.captureFloating ? .floating : .normal
+        model.captureFloatingChanged = { [weak panel] floating in
+            panel?.isFloatingPanel = floating
+            panel?.level = floating ? .floating : .normal
+        }
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]

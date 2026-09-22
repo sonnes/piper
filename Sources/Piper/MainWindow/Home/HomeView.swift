@@ -16,6 +16,7 @@ struct HomeView: View {
     /// Leaves the home page without opening a file.
     let showBrowser: () -> Void
     let searchFiles: (String) -> Void
+    let newCapture: () -> Void
 
     @State private var text = ""
     @State private var selection = 0
@@ -45,7 +46,7 @@ struct HomeView: View {
     /// The actions that `>` lists. Each one runs what the matching menu item runs.
     private var actions: [HomeAction] {
         [
-            HomeAction(title: "New Capture", detail: "Open the capture panel", shortcut: "⌘1") { newCapture() },
+            HomeAction(title: "New Capture", detail: "Write a note in Inbox", shortcut: "⌘N") { newCapture() },
             HomeAction(title: "Browse Files", detail: "Show the files of the folder", shortcut: "⌘2") { browseFiles() },
             HomeAction(title: "Add Folder…", detail: "Add a folder to the sidebar") { model.chooseWiki() },
             HomeAction(title: "Reveal in Finder", detail: "Show " + vaultPath) {
@@ -249,10 +250,6 @@ private extension HomeView {
             searchFiles(query)
         }
         text = ""
-    }
-
-    func newCapture() {
-        model.openPanel?()
     }
 
     func browseFiles() {

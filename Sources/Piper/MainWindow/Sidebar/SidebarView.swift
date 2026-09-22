@@ -10,6 +10,9 @@ struct SidebarView: View {
     let selection: SidebarSelection
     let select: (SidebarSelection) -> Void
     @State private var namingSection = false
+    @State private var editingSection: String?
+    @State private var sectionName = ""
+    @State private var deletingSection: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,7 +20,12 @@ struct SidebarView: View {
                            sections: sectionCounts,
                            sessionFolders: sessionFolders,
                            expanded: $expanded, selection: selection, select: select,
-                           newSection: { namingSection = true })
+                           newSection: { namingSection = true },
+                           editSection: { section in
+                               sectionName = section
+                               editingSection = section
+                           },
+                           deleteSection: { deletingSection = $0 })
             if !model.wikiProblems.isEmpty {
                 DisclosureGroup("\(model.wikiProblems.count) file warnings") {
                     Text(model.wikiProblems.joined(separator: "\n"))
@@ -26,13 +34,6 @@ struct SidebarView: View {
                 .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.warning)
                 .padding(.horizontal, AppDefaults.Sidebar.rowInset).padding(.vertical, 6)
             }
-            HStack(spacing: 14) {
-                footerButton("New Section") { namingSection = true }
-                footerButton("Add Folder…") { model.chooseWiki() }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, AppDefaults.Sidebar.rowInset)
-            .frame(height: 32)
         }
         .sheet(isPresented: $namingSection) {
             NewSectionSheet(sections: model.store.sections) { name in
@@ -42,6 +43,35 @@ struct SidebarView: View {
                 select(.section(model.store.activeSection))
             }
         }
+        .alert("Edit Section", isPresented: Binding(
+            get: { editingSection != nil },
+            set: { if !$0 { editingSection = nil } }
+        ), presenting: editingSection) { section in
+            TextField("Name", text: $sectionName)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                guard model.store.renameSection(section, to: sectionName) else { return }
+                if selection == .section(section) {
+                    select(.section(sectionName.trimmingCharacters(in: .whitespacesAndNewlines)))
+                }
+            }
+            .disabled(sectionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+        .alert("Delete Section?", isPresented: Binding(
+            get: { deletingSection != nil },
+            set: { if !$0 { deletingSection = nil } }
+        ), presenting: deletingSection) { section in
+            Button("Cancel", role: .cancel) {}
+            Button("Delete Section", role: .destructive) {
+                guard model.store.deleteSection(section) else { return }
+                if selection == .section(section) { select(.inbox) }
+            }
+        } message: { section in
+            Text("Delete \"\(section)\" and move its notes to Inbox. You can undo this change.")
+        }
+        .onChange(of: model.store.sections) { _, sections in
+            if case .section(let name) = selection, !sections.contains(name) { select(.inbox) }
+        }
     }
 
     /// Every capture section and the number of notes that are not done.
@@ -49,15 +79,6 @@ struct SidebarView: View {
         model.store.sections.map { section in
             SidebarSection(name: section, count: model.store.notes.filter { $0.section == section && !$0.isDone }.count)
         }
-    }
-
-    private func footerButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(title, systemImage: "plus")
-                .labelStyle(SidebarFooterLabelStyle())
-        }
-        .buttonStyle(.plain)
-        .help(title)
     }
 
     /// The folders with Claude sessions, and the sessions in each that need the reader.
@@ -93,15 +114,4 @@ struct SidebarSessionFolder: Equatable {
 struct SidebarSection: Equatable {
     let name: String
     let count: Int
-}
-
-private struct SidebarFooterLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 4) {
-            configuration.icon.font(.system(size: 11, weight: .medium))
-            configuration.title.font(PiperTheme.ui(12))
-        }
-        .foregroundStyle(PiperTheme.secondary)
-        .contentShape(Rectangle())
-    }
 }

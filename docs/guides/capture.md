@@ -9,9 +9,13 @@ read_when:
 
 # Capture Notes
 
-The capture panel is a floating window for short notes. It stays above other apps, on every Space. Piper saves each note in a local database. See [Local storage](../concepts/storage.md) for the details.
+The capture panel is a window for short notes. By default, it floats above other apps, on every Space. Piper saves each note in a local database. See [Local storage](../concepts/storage.md) for the details.
 
-Open the panel with Command-1, the menu bar icon, or the New Capture button in the main window toolbar. The panel and the main window take turns. When one opens, the other leaves the screen. Neither closes, so a draft stays as it is.
+Settings > Capture > Float Above Other Windows controls whether the panel stays above other apps. With this setting off, other windows can cover the panel. The change takes effect immediately and survives a restart. The panel remains available on every Space.
+
+Open the panel with Command-1 or the menu bar icon.
+
+The panel and the main window take turns. When one opens, the other leaves the screen. Neither closes, so a draft stays as it is.
 
 To move the panel, drag an empty part of it. To resize the panel, drag an edge or a corner. Piper keeps the size and the position for the next launch.
 
@@ -36,6 +40,16 @@ If Accessibility access is off, a tip at the top of the list has an Enable butto
 Shift-Return adds a new line. The note goes to the selected section, which is Inbox at first. The composer placeholder names that section. The composer keeps the keyboard focus after each save.
 
 If you close the panel with Escape, Piper keeps the unfinished text in the composer.
+
+### In The Main Window
+
+1. Select New Capture in the toolbar, or press Command-N.
+2. Type or paste text into the composer below the note list.
+3. Press Return.
+
+New Capture keeps the main window open. It uses the selected Inbox section, or opens Inbox from another pane. Home has the same New Capture action.
+
+The composer uses the same draft and controls as the capture panel. Shift-Return adds a new line. Command-K chooses a section. Section commands and folder skills work in both composers.
 
 ## Save A Clipboard Text
 
@@ -90,13 +104,15 @@ If an app does not expose its selection, use the clipboard:
 
 Sections group notes.
 
-- To create a section, select the + tab. In the main window, select New Section at the bottom of the sidebar.
+- To create a section, select the + tab. In the main window, select the + button beside Inbox in the sidebar.
 - To change the section for new notes, select its tab, or press Command-K.
 - To create or select a section from the composer, type `# Research` alone and press Return.
 - To run a folder skill, type `/` and the skill name. See [Send notes to Claude](claude.md#run-a-skill-from-the-composer).
 - To find notes, press Command-F. Search matches note text in all sections and in the clipboard. To end the search, select Cancel or press Escape.
 
 Section names have 1 to 80 characters and ignore case.
+
+In the sidebar, right-click a section to open Edit Section or Delete Section. Edit Section changes its name. Delete Section moves its notes to Inbox and removes the section. Undo restores the previous name or the deleted section and its notes. Inbox has a fixed name and cannot be deleted.
 
 ## Act On Several Notes
 

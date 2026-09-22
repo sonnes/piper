@@ -10,7 +10,7 @@ The screenshots show fictional notes of my public projects.
 
 ## Status
 
-Piper is an early preview at version 0.1.0. Each release has a signed and notarized DMG for Apple silicon. To run the current source, build it with the steps in [Quick Start](#quick-start).
+Piper is an early preview at version 0.1.1. Each release has a signed and notarized DMG for Apple silicon. To run the current source, build it with the steps in [Quick Start](#quick-start).
 
 Selection capture works, but its compatibility across applications is unverified. Markdown rendering does not cover all of CommonMark. Piper captures text only. The [capability status](docs/release/status.md) page records each feature and its evidence.
 

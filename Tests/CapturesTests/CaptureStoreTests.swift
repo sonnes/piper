@@ -224,6 +224,103 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.sections.count, 2)
     }
 
+    func testRenameSectionPreservesNotesAndPersistsOneUndoStep() {
+        let store = CaptureStore(url: url())
+        XCTAssertTrue(store.chooseSection("Research"))
+        XCTAssertTrue(store.add("a note", source: "Safari", interpretSection: false))
+        let original = store.state
+        let note = store.notes[0]
+        store.selection = [note.id]
+
+        XCTAssertTrue(store.renameSection("Research", to: "  Reading  "))
+        XCTAssertEqual(store.sections, ["Inbox", "Reading"])
+        XCTAssertEqual(store.activeSection, "Reading")
+        var renamed = note
+        renamed.section = "Reading"
+        XCTAssertEqual(store.notes, [renamed])
+        XCTAssertEqual(store.selection, [note.id])
+        XCTAssertEqual(CaptureStore(url: url()).state, store.state)
+
+        store.undo()
+        XCTAssertEqual(store.state, original)
+        XCTAssertEqual(CaptureStore(url: url()).state, original)
+    }
+
+    func testRenameSectionRejectsInvalidNamesAndAllowsCaseChanges() {
+        let store = CaptureStore(url: url())
+        XCTAssertTrue(store.chooseSection("Research"))
+        let original = store.state
+        for name in ["", "  ", "two\nlines", String(repeating: "x", count: 81), "INBOX"] {
+            XCTAssertFalse(store.renameSection("Research", to: name))
+            XCTAssertEqual(store.state, original)
+        }
+        XCTAssertFalse(store.renameSection("Inbox", to: "Archive"))
+        XCTAssertFalse(store.renameSection("Missing", to: "Archive"))
+        XCTAssertEqual(store.state, original)
+        store.activeSection = "Inbox"
+        XCTAssertTrue(store.renameSection("Research", to: "research"))
+        XCTAssertEqual(store.sections, ["Inbox", "research"])
+        XCTAssertEqual(store.activeSection, "Inbox")
+    }
+
+    func testDeleteSectionMovesNotesToInboxAndUndoRestoresThem() {
+        let store = CaptureStore(url: url())
+        XCTAssertTrue(store.add("existing inbox note", interpretSection: false))
+        XCTAssertTrue(store.chooseSection("Research"))
+        XCTAssertTrue(store.add("research note", source: "Safari", sourceURL: "https://example.com", interpretSection: false))
+        let id = store.notes[1].id
+        store.toggleDone(id)
+        store.selection = [id]
+        let original = store.state
+
+        XCTAssertTrue(store.deleteSection("Research"))
+        XCTAssertEqual(store.sections, ["Inbox"])
+        XCTAssertEqual(store.activeSection, "Inbox")
+        XCTAssertEqual(store.notes.map(\.section), ["Inbox", "Inbox"])
+        XCTAssertEqual(store.notes.map(\.id), original.notes.map(\.id))
+        XCTAssertEqual(store.notes.map(\.text), original.notes.map(\.text))
+        XCTAssertEqual(store.notes[1].sources, ["Safari"])
+        XCTAssertEqual(store.notes[1].sourceURLs, ["https://example.com"])
+        XCTAssertTrue(store.notes[1].isDone)
+        XCTAssertEqual(store.selection, [id])
+        XCTAssertEqual(CaptureStore(url: url()).state, store.state)
+
+        store.undo()
+        XCTAssertEqual(store.notes, original.notes)
+        XCTAssertEqual(store.sections, original.sections)
+        XCTAssertEqual(store.activeSection, "Inbox")
+        XCTAssertEqual(CaptureStore(url: url()).state, store.state)
+    }
+
+    func testDeletingAnEmptySectionKeepsTheActiveSectionAndProtectsInbox() {
+        let store = CaptureStore(url: url())
+        XCTAssertTrue(store.chooseSection("Research"))
+        XCTAssertTrue(store.chooseSection("Work"))
+        XCTAssertTrue(store.deleteSection("Research"))
+        XCTAssertEqual(store.sections, ["Inbox", "Work"])
+        XCTAssertEqual(store.activeSection, "Work")
+        let original = store.state
+        XCTAssertFalse(store.deleteSection("Inbox"))
+        XCTAssertFalse(store.deleteSection("Missing"))
+        XCTAssertEqual(store.state, original)
+    }
+
+    func testSectionChangesLeaveMemoryUntouchedWhenPersistenceFails() {
+        let first = CaptureStore(url: url())
+        XCTAssertTrue(first.chooseSection("Research"))
+        XCTAssertTrue(first.add("original note", interpretSection: false))
+        let stale = CaptureStore(url: url())
+        let original = stale.state
+        XCTAssertTrue(first.add("another note", interpretSection: false))
+
+        XCTAssertFalse(stale.renameSection("Research", to: "Reading"))
+        XCTAssertEqual(stale.state, original)
+        XCTAssertFalse(stale.deleteSection("Research"))
+        XCTAssertEqual(stale.state, original)
+        XCTAssertFalse(stale.canUndo)
+        XCTAssertEqual(CaptureStore(url: url()).state, first.state)
+    }
+
     func testSelectionMovesCompletesAndSearches() {
         let store = CaptureStore(url: url())
         XCTAssertTrue(store.chooseSection("Research"))

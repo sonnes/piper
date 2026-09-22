@@ -59,6 +59,13 @@ final class AppModel {
         didSet { UserDefaults.standard.set(showsFileSource, forKey: AppDefaults.Key.showsFileSource) }
     }
     var captureShortcutChanged: (() -> Void)?
+    var captureFloatingChanged: ((Bool) -> Void)?
+    var captureFloating: Bool {
+        didSet {
+            preferences.set(captureFloating, forKey: AppDefaults.Key.captureFloating)
+            captureFloatingChanged?(captureFloating)
+        }
+    }
     private(set) var wikiPaths: [String] {
         didSet {
             preferences.set(wikiPaths, forKey: AppDefaults.Key.wikiPaths)
@@ -92,6 +99,7 @@ final class AppModel {
     init(store: CaptureStore? = nil, wikiPath: String? = nil, fileReadState: FileReadState? = nil, preferences: UserDefaults = .standard) {
         self.preferences = preferences
         let defaults = preferences
+        captureFloating = defaults.object(forKey: AppDefaults.Key.captureFloating) as? Bool ?? true
         if Bundle.main.bundleIdentifier == "com.piper", !defaults.bool(forKey: "migratedLocalPreferences") {
             let previous = defaults.persistentDomain(forName: "local.piper") ?? [:]
             for key in ["wikiPath", "captureShortcut", "composerDraft", "wikiReaderSize", "NSWindow Frame PiperCapturePanel", "NSWindow Frame PiperLibrary"] {

@@ -8,7 +8,7 @@ read_when:
 
 # Release Readiness
 
-Release 0.1.0 is notarized, but it is older than the current source. The next release needs the acceptance work below. Each task links to the checks in [Validate a build](validate.md). Change a checkbox only when you record the evidence.
+Release 0.1.1 is signed and notarized. Manual acceptance work remains open below, including installation on a clean Mac. Each task links to the checks in [Validate a build](validate.md). Change a checkbox only when you record the evidence.
 
 ## Capture Compatibility
 
@@ -54,7 +54,7 @@ Acceptance: a link from the clipboard reaches the folder with one action, a card
 
 - [x] Choose the Developer ID identity and a direct-download channel.
 - [x] Add Developer ID signing and notarization for the DMG.
-- [x] Notarize and staple release 0.1.0 for Apple silicon.
+- [x] Notarize and staple release 0.1.1 for Apple silicon.
 - [ ] Choose the supported macOS versions and the app compatibility list.
 - [ ] Run the distribution checks for the next release, including a clean Mac.
 

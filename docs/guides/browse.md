@@ -18,7 +18,7 @@ Open the window with Command-2. Command-0 opens it on the Home page.
 The default folder is `~/Desktop/Wiki`.
 
 1. Open the main window with Command-2.
-2. Select Add Folder at the bottom of the sidebar.
+2. Select the + button beside the Folders heading in the sidebar.
 3. Select one or more folders.
 4. Select Add.
 
@@ -47,7 +47,7 @@ The toolbar has these controls:
 | Control | Action |
 | --- | --- |
 | Toggle Sidebar | Hides or shows the sidebar |
-| New Capture | Opens the capture panel |
+| New Capture | Moves the focus to the note composer in the main window |
 | Back and Forward | Moves through the files you opened |
 | Preview and Source | Shows the formatted file or its text |
 | Mark as Done | Marks the selected capture as done, or opens it again |

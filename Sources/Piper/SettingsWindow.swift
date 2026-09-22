@@ -16,7 +16,7 @@ final class SettingsWindowController: NSWindowController {
         tabs.tabStyle = .toolbar
         tabs.addTab("General", symbol: "gearshape", size: NSSize(width: 560, height: 330),
                     content: GeneralSettings(model: model))
-        tabs.addTab("Capture", symbol: "text.cursor", size: NSSize(width: 560, height: 280),
+        tabs.addTab("Capture", symbol: "text.cursor", size: AppDefaults.Window.captureSettingsSize,
                     content: CaptureSettings(model: model))
         tabs.addTab("Reading", symbol: "book", size: NSSize(width: 560, height: 300),
                     content: ReadingSettings())
@@ -112,13 +112,19 @@ private struct GeneralSettings: View {
     }
 }
 
-/// The capture shortcut, Accessibility access, and the clipboard fallback.
+/// The capture panel, shortcut, Accessibility access, and clipboard fallback.
 private struct CaptureSettings: View {
     @Bindable var model: AppModel
     private let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     var body: some View {
         Form {
+            Section("Capture Window") {
+                Toggle(isOn: $model.captureFloating) {
+                    Text("Float Above Other Windows")
+                    Text("Keeps the capture panel above other apps.")
+                }
+            }
             Section("Selection Capture") {
                 Picker(selection: $model.captureShortcut) {
                     Text("⇧ ⇧ (Shift twice)").tag("Shift, Shift")

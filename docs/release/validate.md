@@ -159,4 +159,6 @@ Record the macOS version and the SHA-256 checksum.
 - On the same date, Accessibility approval worked for the signed release and survived a replacement of the app.
 - The global shortcut checks were skipped. The clean-Mac check is open.
 
-The September 12 distribution results are older than the module refactor. Repeat the distribution checks for the next release.
+- On September 22, 2026, `make release` passed the tests and built Piper 0.1.1 on macOS 27.0 (26A428), Apple silicon.
+- Apple accepted the 0.1.1 DMG. Developer ID signature checks, stapling, and Gatekeeper passed. Artifact: `build/Piper_0.1.1_arm64.dmg`. SHA-256: `319cca3fc017ab6ce664343ba0c5d079cf744af0b394c53a0ba9270c18725d72`.
+- Installation on a clean Mac remains unverified for 0.1.1.

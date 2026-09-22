@@ -15,6 +15,7 @@ final class AppDefaults {
         static let vaultPath = "wikiPath"
         static let wikiPaths = "wikiPaths"
         static let captureShortcut = "captureShortcut"
+        static let captureFloating = "captureFloating"
         static let composerDraft = "composerDraft"
         static let migratedLocalPreferences = "migratedLocalPreferences"
         static let accessibilityTipDismissed = "accessibilityTipDismissed"
@@ -93,6 +94,9 @@ final class AppDefaults {
         static let disclosurePointSize: CGFloat = 9
 
         static let headerFontSize: CGFloat = 11
+        static let addButtonSize: CGFloat = 20
+        static let actionSpacing: CGFloat = 6
+        static let trailingInset: CGFloat = 4
         /// The space over a group header. The first header needs less, because
         /// the toolbar is already over it.
         static let headerTopMargin: CGFloat = 14
@@ -101,6 +105,7 @@ final class AppDefaults {
     }
 
     enum Window {
+        static let captureSettingsSize = NSSize(width: 560, height: 380)
         static let mainSize = NSSize(width: 1240, height: 800)
         static let mainMinimumSize = NSSize(width: 850, height: 620)
         static let detailMinimumThickness: CGFloat = 384

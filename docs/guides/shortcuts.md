@@ -56,6 +56,7 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 | Shortcut | Action |
 | --- | --- |
 | Command-O | Open Home and move the focus to its search field |
+| Command-N | Open the note composer in the selected Inbox section, or in Inbox from another pane |
 | Up / Down, Return | Select and open a Home search result |
 | Command-S | Save the open Markdown file |
 | Command-R | Scan the folder again |

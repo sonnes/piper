@@ -100,6 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         // A menu item puts them on the responder chain instead, which is where
         // AppKit expects them and which shows them to the reader.
         let fileMenu = NSMenu(title: "File")
+        fileMenu.addItem(withTitle: "New Capture", action: #selector(MainWindowController.newDocument(_:)), keyEquivalent: "n")
         fileMenu.addItem(withTitle: "Save", action: #selector(saveFile), keyEquivalent: "s").target = self
         fileMenu.addItem(withTitle: "Refresh", action: #selector(refreshVault), keyEquivalent: "r").target = self
         fileMenu.addItem(.separator())
@@ -170,8 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     /// Shows the capture panel and takes the main window off the screen.
     ///
-    /// The two surfaces are exclusive. One of them is in front at a time, and
-    /// the toolbar button of each one switches to the other.
+    /// The two surfaces are exclusive. Only one is in front at a time.
     @objc func showPanel() {
         if panelController == nil { panelController = CapturePanelController(model: model) }
         mainWindowController?.hide()

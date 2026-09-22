@@ -36,6 +36,7 @@ final class MainWindowController: NSWindowController {
     private var appliedPaneWidths = false
     /// The last section that the sidebar selected. A new value scrolls the list.
     private var sectionScroll: SectionScroll?
+    private var composerRequest: UUID?
     private var viewModeControl: NSSegmentedControl?
     private var doneItem: NSToolbarItem?
 
@@ -177,6 +178,7 @@ final class MainWindowController: NSWindowController {
 
     /// Records what the sidebar picked and redraws the panes for it.
     private func select(_ selection: SidebarSelection) {
+        composerRequest = nil
         if case .folder = selection, selection != state.selection { model.wikiQuery = "" }
         if selection.showsCaptures != state.selection.showsCaptures || selection == .clipboard || state.selection == .clipboard {
             model.store.query = ""
@@ -240,6 +242,7 @@ final class MainWindowController: NSWindowController {
                 model: model, embedded: true,
                 content: clipboard ? .clipboard : .sections,
                 scroll: clipboard ? nil : sectionScroll,
+                composerRequest: composerRequest,
                 acceptsKeyboard: { [weak self] window in
                     guard let self, state.selection.showsCaptures, window === self.window else { return false }
                     if window.firstResponder === fileListViewController { return true }
@@ -374,7 +377,8 @@ final class MainWindowController: NSWindowController {
                 guard let self else { return }
                 model.wikiQuery = query
                 select(.allFiles)
-            }
+            },
+            newCapture: { [weak self] in self?.newDocument(nil) }
         )
         .id(homeIdentity)
         .routeSheets(model)
@@ -476,7 +480,7 @@ extension MainWindowController: NSToolbarDelegate {
             return navigateItem()
         case .capture:
             return button(identifier, symbol: "square.and.pencil",
-                          label: "New Capture · ⌘1", action: #selector(openCapture))
+                          label: "New Capture · ⌘N", action: #selector(newDocument(_:)))
         case .viewMode:
             return viewModeItem()
         case .markDone:
@@ -555,7 +559,17 @@ extension MainWindowController: NSToolbarDelegate {
         return item
     }
 
-    @objc private func openCapture() { model.openPanel?() }
+    @objc func newDocument(_ sender: Any?) {
+        if !state.selection.showsCaptures || state.selection == .clipboard {
+            select(.inbox)
+        }
+        model.store.query = ""
+        model.store.selection.removeAll()
+        state.selectedNote = nil
+        state.save()
+        composerRequest = UUID()
+        refreshPanes()
+    }
 
     @objc private func toggleSessionPaneAction() { toggleSessionPane() }
 

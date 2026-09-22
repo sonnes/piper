@@ -45,16 +45,19 @@ struct CaptureView: View {
     let embeddedContent: CaptureListContent
     /// The section that the sidebar selected in the main window.
     let embeddedScroll: SectionScroll?
+    let composerRequest: UUID?
 
     init(model: AppModel, embedded: Bool = false,
          content: CaptureListContent = .sections,
          scroll: SectionScroll? = nil,
+         composerRequest: UUID? = nil,
          acceptsKeyboard: @escaping (NSWindow) -> Bool = { $0 is CapturePanel },
          focusNotes: @escaping () -> Void = {},
          selectCapture: @escaping (UUID?) -> Void = { _ in }) {
         self.embedded = embedded
         self.embeddedContent = content
         self.embeddedScroll = scroll
+        self.composerRequest = composerRequest
         self.acceptsKeyboard = acceptsKeyboard
         self.focusNotes = focusNotes
         self.selectCapture = selectCapture
@@ -95,7 +98,7 @@ struct CaptureView: View {
         guard !embedded else { return [] }
         return searchMode ? clipboardEntries : Array(clipboardEntries.prefix(AppDefaults.CaptureItem.recentClipboardCount))
     }
-    private var showsComposer: Bool { !embedded && content == .sections }
+    private var showsComposer: Bool { content == .sections }
     private var canSave: Bool { !model.composerDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var motion: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.2) }
     private var agents: FolderAgents { model.agents }
@@ -124,7 +127,7 @@ struct CaptureView: View {
             }
             if !store.selection.isEmpty { selectionBar }
             if showsComposer { composer }
-            if !embedded { hints }
+            if !embedded || showsComposer { hints }
         }
         .background {
             if embedded {
@@ -163,7 +166,13 @@ struct CaptureView: View {
             Button("OK") { store.errorMessage = nil }
         } message: { Text(store.errorMessage ?? "") }
         .onChange(of: store.query) { _, _ in clearSelection() }
-        .onChange(of: content) { _, _ in clearSelection() }
+        .onChange(of: content) { _, _ in
+            clearSelection()
+            if embedded { composing = false }
+            if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+            keyMonitor = nil
+            installKeyboardShortcuts()
+        }
         .onChange(of: store.selection) { _, selection in
             selectCapture(selection.count == 1 ? selection.first : nil)
         }
@@ -171,13 +180,18 @@ struct CaptureView: View {
             if embedded { scroll = request }
         }
         .onChange(of: model.composerDraft) { _, _ in completionIndex = 0 }
+        .onChange(of: composerRequest, initial: true) { _, request in
+            guard embedded, request != nil, showsComposer else { return }
+            clearSelection()
+            endSearch()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             guard !embedded, let window = notification.object as? CapturePanel, window.attachedSheet == nil else { return }
             agents.refresh(paths: model.wikiPaths)
             if store.selection.isEmpty && !searchMode && content == .sections { composing = true }
         }
         .onAppear {
-            composing = showsComposer
+            if !embedded { composing = showsComposer }
             installKeyboardShortcuts()
         }
         .onDisappear {

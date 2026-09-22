@@ -77,5 +77,5 @@ This table describes the source on September 15, 2026. Implemented means that th
 
 | Capability | Status | Evidence or limit |
 | --- | --- | --- |
-| Developer ID signing and notarization | Verified for 0.1.0 | Apple accepted the 0.1.0 arm64 DMG on September 12, 2026. Stapling and Gatekeeper checks passed. That build is older than the current source. |
+| Developer ID signing and notarization | Verified for 0.1.1 | Apple accepted the 0.1.1 arm64 DMG on September 22, 2026. Stapling and Gatekeeper checks passed. |
 | Installation on a clean Mac | Open | See [Release readiness](readiness.md) |
