@@ -13,6 +13,7 @@ public enum SessionEvent: Equatable, Sendable {
 
     /// Claude Code started and names its session.
     case started(sessionID: String)
+    case commands([String])
     case text(String)
     case toolCall(ToolCall)
     case toolResult(toolUseID: String, isError: Bool, preview: String)
@@ -39,8 +40,15 @@ public enum SessionEvent: Equatable, Sendable {
         let isSubagent = object["parent_tool_use_id"].map { !($0 is NSNull) } ?? false
         switch object["type"] as? String {
         case "system":
+            if object["subtype"] as? String == "compact_boundary" {
+                return [.text("Conversation compacted.")]
+            }
             guard object["subtype"] as? String == "init", let id = object["session_id"] as? String else { return [] }
-            return [.started(sessionID: id)]
+            var events: [SessionEvent] = [.started(sessionID: id)]
+            if let names = object["slash_commands"] as? [String] {
+                events.append(.commands(names.filter { SlashCommand.isName($0) }))
+            }
+            return events
         case "assistant":
             guard !isSubagent else { return [] }
             let content = (object["message"] as? [String: Any])?["content"] as? [[String: Any]] ?? []

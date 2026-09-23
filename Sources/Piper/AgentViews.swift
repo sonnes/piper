@@ -144,7 +144,7 @@ struct SendButton: View {
             sendDefault()
         }
         .menuStyle(.borderedButton)
-        .controlSize(.small)
+        .controlSize(.regular)
         .fixedSize()
         .help("Send with the default skill. Open the menu to choose another skill.")
     }
@@ -161,6 +161,7 @@ extension FolderAgents {
 struct SkillCompletions: View {
     let actions: [FolderAgents.Action]
     let selected: Int
+    var label = "Skills"
     let choose: (FolderAgents.Action) -> Void
 
     var body: some View {
@@ -180,7 +181,7 @@ struct SkillCompletions: View {
         .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Skills")
+        .accessibilityLabel(label)
     }
 
     private func row(_ action: FolderAgents.Action, active: Bool) -> some View {

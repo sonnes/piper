@@ -60,7 +60,8 @@ The first message starts a session. The message names the file as context. To se
 In the message field:
 
 - Shift-Return adds a new line.
-- A `/` at the start lists the skills of the folder. Tab or Return puts the skill in the message.
+- A `/` at the start lists the commands available in the session. Tab or Return puts the command in the message.
+- Before the session starts, the list shows folder skills. After Claude starts, the list also includes its supported built-in commands.
 - An `@` lists the files of the folder. Tab or Return puts the path in the message.
 - A skill takes the path of the chip file as its argument, for example `/verify <path>`.
 
@@ -78,6 +79,18 @@ When a folder has sessions, the sidebar shows a Claude group with a row for that
 The list shows the newest change first. A blue dot marks a session with a turn that you have not read. The detail pane shows the transcript and a message field.
 
 To delete a session, Control-click it and select Delete Session.
+
+### Run A Command In A Follow-Up
+
+1. Type `/compact` in the message field of an existing session.
+2. If the completion list is open, press Tab to complete the command.
+3. Add optional instructions, such as `keep the implementation decisions`.
+4. Press Return to send the command.
+
+Claude compacts the conversation in the same session. The transcript shows confirmation, or the reason that compaction did not run.
+
+The list uses the commands reported by the installed Claude Code version. Commands that need an interactive terminal do not appear.
+The `/compact`, `/clear`, `/context`, and `/usage` commands receive no attached file paths. Other commands and skills keep file context.
 
 ### Continue An Old Session
 

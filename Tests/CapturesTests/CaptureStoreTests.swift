@@ -23,6 +23,43 @@ final class CaptureStoreTests: XCTestCase {
 
     // MARK: - Tests
 
+    func testArchivedNotesStayOutOfSectionsAndSearch() {
+        let store = CaptureStore(url: url())
+        XCTAssertTrue(store.add("active note"))
+        XCTAssertTrue(store.add("archived note"))
+        let archivedID = store.notes[1].id
+        store.toggleDone(archivedID)
+
+        XCTAssertEqual(store.visibleNotes(in: "Inbox").map(\.text), ["active note"])
+        XCTAssertEqual(store.visibleNotes(in: "Inbox", archived: true).map(\.id), [archivedID])
+        store.query = "archived"
+        XCTAssertTrue(store.visibleNotes(in: "Inbox").isEmpty)
+        XCTAssertEqual(store.visibleNotes(in: "Inbox", archived: true).map(\.id), [archivedID])
+        store.query = "missing"
+        XCTAssertTrue(store.visibleNotes(in: "Inbox", archived: true).isEmpty)
+        store.query = ""
+        store.toggleDone(archivedID)
+        XCTAssertEqual(store.visibleNotes(in: "Inbox").count, 2)
+        XCTAssertTrue(store.visibleNotes(in: "Inbox", archived: true).isEmpty)
+    }
+
+    func testMultipleSelectionsCopyAndDeleteTogether() {
+        let store = CaptureStore(url: url())
+        for text in ["first", "second", "third"] { XCTAssertTrue(store.add(text)) }
+        let ids = store.notes.map(\.id)
+        store.toggleSelection(ids[0])
+        store.toggleSelection(ids[1])
+        store.toggleSelection(ids[2])
+        store.toggleSelection(ids[1])
+        XCTAssertEqual(store.selection, [ids[0], ids[2]])
+        XCTAssertEqual(store.copyText(asList: false), "first\n\nthird")
+        store.deleteSelection()
+        XCTAssertEqual(store.notes.map(\.text), ["second"])
+        XCTAssertTrue(store.selection.isEmpty)
+        store.undo()
+        XCTAssertEqual(store.notes.map(\.text), ["first", "second", "third"])
+    }
+
     func testPersistenceMergeUndoAndExactText() throws {
         let url = url()
         let store = CaptureStore(url: url)
@@ -347,9 +384,10 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Research"])
 
         store.query = "alp"
-        XCTAssertEqual(store.visibleNotes(in: "Research").map(\.text), ["alpha"])
+        XCTAssertTrue(store.visibleNotes(in: "Research").isEmpty)
+        XCTAssertEqual(store.visibleNotes(in: "Research", archived: true).map(\.text), ["alpha"])
         store.query = ""
-        XCTAssertEqual(store.visibleNotes(in: "Research").count, 2)
+        XCTAssertEqual(store.visibleNotes(in: "Research").map(\.text), ["beta"])
         XCTAssertEqual(store.copyText(asList: false), "alpha\n\nbeta")
     }
 

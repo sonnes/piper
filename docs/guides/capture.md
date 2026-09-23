@@ -23,11 +23,11 @@ To move the panel, drag an empty part of it. To resize the panel, drag an edge o
 
 The panel shows one list. The list starts with the five latest clipboard texts. Then it shows each section under its own header. A section with no notes shows one "No notes" row.
 
-The header has one tab for each section, with its count of open notes. Select a tab to scroll the list to that section. The selected tab is also the section for new notes. Its header shows in the accent color.
+The header keeps Inbox visible beside a section dropdown. Select a section from the dropdown to scroll the list to its header. New notes use the selected section. Its header shows in the accent color.
 
-The Clipboard tab sits at the left of the section tabs. It shows the full clipboard history. See [Save a clipboard text](#save-a-clipboard-text).
+The Clipboard tab sits at the left of Inbox. It shows the full clipboard history. See [Save a clipboard text](#save-a-clipboard-text).
 
-The + tab creates a section. The More Actions menu has Capture Clipboard, Capture To, New Section, Open Main Window, Settings, Undo Last Change, and Close Capture.
+New Section in the dropdown creates a section. The More Actions menu has Capture Clipboard, Capture To, New Section, Open Main Window, Settings, Undo Last Change, and Close Capture.
 
 If Accessibility access is off, a tip at the top of the list has an Enable button. Select the close button to hide the tip. Settings > Capture keeps the permanent control.
 
@@ -104,11 +104,13 @@ If an app does not expose its selection, use the clipboard:
 
 Sections group notes.
 
-- To create a section, select the + tab. In the main window, select the + button beside Inbox in the sidebar.
-- To change the section for new notes, select its tab, or press Command-K.
+- To create a section, select New Section in the dropdown. In the main window, select the + button beside Inbox in the sidebar.
+- To change the section for new notes, choose it from the section dropdown, or press Command-K.
 - To create or select a section from the composer, type `# Research` alone and press Return.
 - To run a folder skill, type `/` and the skill name. See [Send notes to Claude](claude.md#run-a-skill-from-the-composer).
 - To find notes, press Command-F. Search matches note text in all sections and in the clipboard. To end the search, select Cancel or press Escape.
+
+Inbox stays visible at the top of the capture panel. The section dropdown shows the current section and a search field. Each section has a note count. Archived and New Section appear below the section list.
 
 Section names have 1 to 80 characters and ignore case.
 
@@ -117,7 +119,7 @@ In the sidebar, right-click a section to open Edit Section or Delete Section. Ed
 ## Act On Several Notes
 
 1. Click a note.
-2. Command-click more notes, or Shift-click to select a range.
+2. Click more notes, or Shift-click to select a range.
 3. Select an action in the selection bar.
 
 | Action | Result |
@@ -127,6 +129,10 @@ In the sidebar, right-click a section to open Edit Section or Delete Section. Ed
 | Copy | Copies the text of the notes |
 | Send | Runs the default Claude skill on each note. See [Send notes to Claude](claude.md). |
 | Delete | Deletes the notes, with no confirmation |
+
+The selection bar wraps its buttons to fit narrow panes.
+
+Click a selected note to deselect it. Command-C copies the selected notes. Delete removes the selected notes.
 
 Command-Shift-C copies the notes as a numbered list. The note context menu also has Copy as List, Mark as Done, Edit, and Open in Browser.
 
@@ -140,7 +146,9 @@ Undo reverses the last note change. Piper keeps one undo step, and a restart cle
 
 In the main window, the detail pane edits the selected note in place. Piper saves the change shortly after you stop typing.
 
-The circle on each row marks the note as done. Space marks the selected notes as done, or opens them again.
+The circle on each row marks the note as done. Completed notes leave the regular sections and appear in Archived.
+
+Archived is in the main window sidebar and the section dropdown of the capture panel. Search in Archived matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
 
 If you close a changed editor or quit Piper, Piper asks you to Save, Discard, or Cancel. A failed save keeps the draft.
 

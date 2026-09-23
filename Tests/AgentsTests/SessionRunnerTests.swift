@@ -72,6 +72,33 @@ final class SessionRunnerTests: XCTestCase {
 
     // MARK: - Turns
 
+    func testCompactFollowUpUsesTheSameSessionAndShowsCommandOutput() async throws {
+        let claude = try fakeClaude(turn: """
+        echo '{"type":"system","subtype":"init","session_id":"s-1","slash_commands":["compact","context"]}'
+        echo '{"type":"result","subtype":"success","is_error":false,"result":"Not enough messages to compact."}'
+        """)
+        let runner = runner(claude)
+        defer { runner.stopAll() }
+        let session = start(runner)
+        try await wait { session.state == .idle }
+        XCTAssertEqual(session.slashCommands, ["compact", "context"])
+
+        runner.send("/compact keep decisions", context: ["/tmp/page.md"], to: session)
+        try await wait { session.state == .idle && lines("inputs.txt").count == 2 }
+        XCTAssertEqual(lines("args.txt").count, 1)
+        let input = try XCTUnwrap(lines("inputs.txt").last?.data(using: .utf8))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: input) as? [String: Any])
+        let message = try XCTUnwrap(object["message"] as? [String: Any])
+        let content = try XCTUnwrap(message["content"] as? [[String: Any]])
+        XCTAssertEqual(content.first?["text"] as? String, "/compact keep decisions")
+        XCTAssertEqual(session.lastPrompt, "/compact keep decisions")
+        XCTAssertEqual(session.claudeSessionID, "s-1")
+        guard case .assistant(_, let output) = session.blocks[session.blocks.count - 2] else {
+            return XCTFail("The command output is missing")
+        }
+        XCTAssertEqual(output, "Not enough messages to compact.")
+    }
+
     func testTurnRecordsTextToolsAndResultThenReusesTheProcess() async throws {
         let claude = try fakeClaude(turn: """
         mkdir -p sources; printf 'x' > sources/page.md

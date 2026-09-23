@@ -53,8 +53,8 @@ public final class CaptureStore {
 
     // MARK: - Reading
 
-    public func visibleNotes(in section: String) -> [Note] {
-        notes.filter { $0.section == section && (query.isEmpty || ($0.text + section).localizedCaseInsensitiveContains(query)) }
+    public func visibleNotes(in section: String, archived: Bool = false) -> [Note] {
+        notes.filter { $0.section == section && $0.isDone == archived && (query.isEmpty || ($0.text + section).localizedCaseInsensitiveContains(query)) }
     }
 
     public func toggleSelection(_ id: UUID) {

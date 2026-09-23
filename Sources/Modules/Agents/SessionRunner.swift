@@ -124,6 +124,7 @@ public final class SessionRunner {
     public func send(_ text: String, context: [String] = [], to session: AgentSession) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        let context = ["compact", "clear", "context", "usage"].contains(SlashCommand(text)?.name ?? "") ? [] : context
         session.append(.user(id: UUID().uuidString, text: text, context: context))
         session.unread = false
         let waiting = pendingRequests(in: session)
@@ -271,6 +272,9 @@ public final class SessionRunner {
             case .started(let claudeID):
                 session.claudeSessionID = claudeID
                 persist(session, now: true)
+            case .commands(let names):
+                session.slashCommands = names
+                persist(session, now: true)
             case .text(let text):
                 session.append(.assistant(id: UUID().uuidString, text: text))
                 persist(session)
@@ -294,6 +298,14 @@ public final class SessionRunner {
                 let denied = deniedCalls.removeValue(forKey: id) ?? []
                 let refused = denials.filter { $0.toolUseID.map { !denied.contains($0) } ?? true }
                 if result.failure == nil { result.failure = SessionEvent.failure(for: refused) }
+                let turn = session.blocks.reversed().prefix {
+                    if case .user = $0 { return false }
+                    return true
+                }
+                let hasText = turn.contains { if case .assistant = $0 { return true }; return false }
+                if result.failure == nil, !result.text.isEmpty, !hasText {
+                    session.append(.assistant(id: UUID().uuidString, text: result.text))
+                }
                 endTurn(session, result, state: result.failure == nil ? .idle : .failed)
                 if queued[id]?.isEmpty == false { session.state = .waiting }
                 startWaitingSessions()

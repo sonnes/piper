@@ -28,6 +28,7 @@ public final class AgentSession: Identifiable {
         public var noteID: UUID?
         public var command: SlashCommand?
         public var claudeSessionID: String?
+        public var slashCommands: [String]?
         public var state: State
         public var createdAt: Date
         public var updatedAt: Date
@@ -46,6 +47,7 @@ public final class AgentSession: Identifiable {
     public let command: SlashCommand?
     /// The id that `--resume` takes.
     public internal(set) var claudeSessionID: String?
+    public internal(set) var slashCommands: [String]?
     public internal(set) var state: State
     public let createdAt: Date
     public internal(set) var updatedAt: Date
@@ -124,7 +126,7 @@ public final class AgentSession: Identifiable {
     }
 
     public var snapshot: Snapshot {
-        Snapshot(id: id, folder: folder, noteID: noteID, command: command, claudeSessionID: claudeSessionID,
+        Snapshot(id: id, folder: folder, noteID: noteID, command: command, claudeSessionID: claudeSessionID, slashCommands: slashCommands,
                  state: state, createdAt: createdAt, updatedAt: updatedAt, unread: unread, blocks: blocks)
     }
 
@@ -153,6 +155,7 @@ public final class AgentSession: Identifiable {
         self.init(id: snapshot.id, folder: snapshot.folder, noteID: snapshot.noteID, command: snapshot.command,
                   state: snapshot.state, createdAt: snapshot.createdAt)
         claudeSessionID = snapshot.claudeSessionID
+        slashCommands = snapshot.slashCommands
         updatedAt = snapshot.updatedAt
         unread = snapshot.unread
         blocks = snapshot.blocks

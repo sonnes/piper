@@ -143,7 +143,7 @@ final class MainWindowController: NSWindowController {
     func showNote(_ id: UUID) {
         guard let note = model.store.notes.first(where: { $0.id == id }) else { return }
         state.selectedNote = id
-        select(.section(note.section))
+        select(note.isDone ? .archived : .section(note.section))
         model.store.selection = [id]
     }
 
@@ -180,7 +180,7 @@ final class MainWindowController: NSWindowController {
     private func select(_ selection: SidebarSelection) {
         composerRequest = nil
         if case .folder = selection, selection != state.selection { model.wikiQuery = "" }
-        if selection.showsCaptures != state.selection.showsCaptures || selection == .clipboard || state.selection == .clipboard {
+        if selection.showsCaptures != state.selection.showsCaptures || selection == .clipboard || state.selection == .clipboard || selection == .archived || state.selection == .archived {
             model.store.query = ""
             model.store.selection.removeAll()
         }
@@ -236,11 +236,11 @@ final class MainWindowController: NSWindowController {
         switch state.selection {
         case .home:
             detailViewController.setContent(homeContent)
-        case .inbox, .section, .clipboard:
+        case .inbox, .section, .clipboard, .archived:
             let clipboard = state.selection == .clipboard
             fileListViewController.setContent(CaptureView(
                 model: model, embedded: true,
-                content: clipboard ? .clipboard : .sections,
+                content: clipboard ? .clipboard : (state.selection == .archived ? .archived : .sections),
                 scroll: clipboard ? nil : sectionScroll,
                 composerRequest: composerRequest,
                 acceptsKeyboard: { [weak self] window in
@@ -295,9 +295,11 @@ final class MainWindowController: NSWindowController {
         case .home:
             setTitle("Home", (model.vault.root.path as NSString).abbreviatingWithTildeInPath)
         case .inbox:
-            setTitle("Inbox", Self.count(store.notes.count, "note") + " in " + Self.count(store.sections.count, "section"))
+            setTitle("Inbox", Self.count(store.notes.filter { !$0.isDone }.count, "note") + " in " + Self.count(store.sections.count, "section"))
         case .section(let name):
-            setTitle(name, Self.count(store.notes.filter { $0.section == name }.count, "note"))
+            setTitle(name, Self.count(store.notes.filter { $0.section == name && !$0.isDone }.count, "note"))
+        case .archived:
+            setTitle("Archived", Self.count(store.notes.filter(\.isDone).count, "note"))
         case .clipboard:
             setTitle("Clipboard", Self.count(model.clipboard.entries.count, "copy", "copies") + " · not saved")
         case .allFiles:
@@ -560,7 +562,7 @@ extension MainWindowController: NSToolbarDelegate {
     }
 
     @objc func newDocument(_ sender: Any?) {
-        if !state.selection.showsCaptures || state.selection == .clipboard {
+        if !state.selection.showsCaptures || state.selection == .clipboard || state.selection == .archived {
             select(.inbox)
         }
         model.store.query = ""

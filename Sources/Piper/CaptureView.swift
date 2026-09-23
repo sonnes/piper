@@ -21,6 +21,7 @@ enum CaptureListContent: Equatable {
     case sections
     /// The whole clipboard history, grouped by day.
     case clipboard
+    case archived
 }
 
 /// A request to scroll the list to a section. A new identity scrolls again.
@@ -31,9 +32,9 @@ struct SectionScroll: Equatable {
 
 /// The capture list, in the capture panel and in the Inbox pane of the main window.
 ///
-/// One list holds every section under its own header. The panel header holds a
-/// tab for each section, and a tab scrolls the list to its header. The main
-/// window does the same from the children of Inbox in the sidebar.
+/// One list holds every section under its own header. The panel dropdown
+/// selects a section and scrolls to its header. The main window selects
+/// sections from the children of Inbox in the sidebar.
 struct CaptureView: View {
     @Bindable var store: CaptureStore
     @Bindable var model: AppModel
@@ -41,7 +42,7 @@ struct CaptureView: View {
     let acceptsKeyboard: (NSWindow) -> Bool
     let focusNotes: () -> Void
     let selectCapture: (UUID?) -> Void
-    /// What the main window shows. The panel keeps its own tab.
+    /// What the main window shows. The panel keeps its own selection.
     let embeddedContent: CaptureListContent
     /// The section that the sidebar selected in the main window.
     let embeddedScroll: SectionScroll?
@@ -69,6 +70,7 @@ struct CaptureView: View {
     @State private var keyMonitor: Any?
     @State private var selectionAnchor: UUID?
     @State private var showingSearch = false
+    @State private var showingSections = false
     @FocusState private var searching: Bool
     @State private var composing = false
     @State private var panelContent = CaptureListContent.sections
@@ -83,10 +85,11 @@ struct CaptureView: View {
     private var content: CaptureListContent { embedded ? embeddedContent : panelContent }
     private var searchMode: Bool { showingSearch || !store.query.isEmpty }
     private var displayedSections: [String] {
-        searchMode ? store.sections.filter { !store.visibleNotes(in: $0).isEmpty } : store.sections
+        searchMode || content == .archived
+            ? store.sections.filter { !store.visibleNotes(in: $0, archived: content == .archived).isEmpty } : store.sections
     }
     private var matchingNotes: [Note] {
-        content == .clipboard ? [] : displayedSections.flatMap { store.visibleNotes(in: $0) }
+        content == .clipboard ? [] : displayedSections.flatMap { store.visibleNotes(in: $0, archived: content == .archived) }
     }
     private var clipboardEntries: [ClipboardEntry] {
         model.clipboard.entries.filter {
@@ -95,7 +98,7 @@ struct CaptureView: View {
     }
     /// The clipboard texts at the top of the section list.
     private var recentClipboard: [ClipboardEntry] {
-        guard !embedded else { return [] }
+        guard !embedded, content == .sections else { return [] }
         return searchMode ? clipboardEntries : Array(clipboardEntries.prefix(AppDefaults.CaptureItem.recentClipboardCount))
     }
     private var showsComposer: Bool { content == .sections }
@@ -121,13 +124,13 @@ struct CaptureView: View {
             if embedded { paneHeader } else { panelHeader }
             if !embedded && !model.accessibilityEnabled && !tipDismissed { accessibilityTip }
             switch content {
-            case .sections:
+            case .sections, .archived:
                 sectionList.overlay(alignment: .bottom) { skillList }
             case .clipboard: clipboardHistory
             }
             if !store.selection.isEmpty { selectionBar }
             if showsComposer { composer }
-            if !embedded || showsComposer { hints }
+            if !embedded || content != .clipboard { hints }
         }
         .background {
             if embedded {
@@ -151,6 +154,7 @@ struct CaptureView: View {
             case .newSection:
                 NewSectionSheet(sections: store.sections) { name in
                     if store.chooseSection(name) {
+                        panelContent = .sections
                         store.status = "Capturing to \(store.activeSection)"
                         scrollTo(store.activeSection)
                         sheet = nil
@@ -172,6 +176,11 @@ struct CaptureView: View {
             if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
             keyMonitor = nil
             installKeyboardShortcuts()
+        }
+        .onChange(of: matchingNotes.map(\.id)) { _, ids in
+            guard let window = NSApp.keyWindow,
+                  embedded ? window.windowController is MainWindowController : window is CapturePanel else { return }
+            store.selection.formIntersection(ids)
         }
         .onChange(of: store.selection) { _, selection in
             selectCapture(selection.count == 1 ? selection.first : nil)
@@ -218,27 +227,48 @@ struct CaptureView: View {
     }
 
     private var tabs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 2) {
-                PanelTab(title: "Clipboard", icon: "doc.on.clipboard", count: 0, active: content == .clipboard) {
-                    panelContent = .clipboard
-                    composing = false
+        HStack(spacing: 2) {
+            PanelTab(title: "Clipboard", icon: "doc.on.clipboard", count: 0, active: content == .clipboard) {
+                panelContent = .clipboard
+                composing = false
+            }
+            PanelTab(title: "Inbox", icon: nil, count: openCount("Inbox"),
+                     active: content == .sections && store.activeSection == "Inbox") {
+                panelContent = .sections
+                chooseSection("Inbox")
+                composing = true
+            }
+            Button { showingSections = true } label: {
+                HStack(spacing: 4) {
+                    Text(content == .archived ? "Archived" : (store.activeSection == "Inbox" ? "Sections" : store.activeSection))
+                        .lineLimit(1).truncationMode(.tail)
+                    Image(systemName: "chevron.down")
                 }
-                Rectangle().fill(PiperTheme.rule).frame(width: 1, height: 16).padding(.horizontal, 4)
-                ForEach(store.sections, id: \.self) { section in
-                    PanelTab(title: section, icon: nil, count: openCount(section),
-                             active: content == .sections && section == store.activeSection) {
-                        panelContent = .sections
-                        chooseSection(section)
-                        composing = true
-                    }
-                }
-                Button { sheet = .newSection } label: {
-                    Image(systemName: "plus").font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(PiperTheme.secondary)
-                        .frame(width: 24, height: 24).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).help("New Section").accessibilityLabel("New Section")
+                .font(PiperTheme.ui(12.5))
+                .padding(.horizontal, 8)
+                .frame(height: AppDefaults.CaptureItem.buttonHitSize)
+                .background(PiperTheme.selection, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Choose Section")
+            .popover(isPresented: $showingSections, arrowEdge: .bottom) {
+                CaptureSectionMenu(sections: store.sections, current: content == .sections ? store.activeSection : nil,
+                                   archived: content == .archived, count: openCount,
+                                   archivedCount: store.notes.filter(\.isDone).count,
+                                   choose: { section in
+                                       showingSections = false
+                                       panelContent = .sections
+                                       chooseSection(section)
+                                       composing = true
+                                   }, showArchived: {
+                                       showingSections = false
+                                       panelContent = .archived
+                                       composing = false
+                                   }, newSection: {
+                                       showingSections = false
+                                       sheet = .newSection
+                                   })
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -344,9 +374,9 @@ struct CaptureView: View {
                         }
                     }
                     ForEach(displayedSections, id: \.self) { section in
-                        let notes = store.visibleNotes(in: section)
-                        SectionHeader(title: section, detail: openCount(section) > 0 ? "\(openCount(section))" : nil,
-                                      active: !embedded && !searchMode && section == store.activeSection, action: nil)
+                        let notes = store.visibleNotes(in: section, archived: content == .archived)
+                        SectionHeader(title: section, detail: notes.isEmpty ? nil : "\(notes.count)",
+                                      active: !embedded && content == .sections && !searchMode && section == store.activeSection, action: nil)
                             .id(Self.anchor(section))
                         CaptureCard {
                             if notes.isEmpty {
@@ -365,7 +395,9 @@ struct CaptureView: View {
                 .padding(.bottom, 12)
             }
             .overlay {
-                if searchMode && matchingNotes.isEmpty && recentClipboard.isEmpty && !store.query.isEmpty {
+                if content == .archived && matchingNotes.isEmpty && !searchMode {
+                    EmptyPane(title: "No Archived Notes", detail: "Completed notes appear here.")
+                } else if searchMode && matchingNotes.isEmpty && recentClipboard.isEmpty && !store.query.isEmpty {
                     EmptyPane(title: "No Results", detail: "Try another word.")
                 }
             }
@@ -454,23 +486,26 @@ struct CaptureView: View {
     // MARK: Selection, composer, hints
 
     private var selectionBar: some View {
-        HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: AppDefaults.CaptureItem.actionSpacing) {
             Text("\(store.selection.count) selected").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
-            Spacer(minLength: 0)
-            if !agents.folders.isEmpty {
-                SendButton(agents: agents, title: "Send", sendDefault: { agents.sendSelection() },
-                           send: { agents.sendSelection(action: $0) })
-                    .help("Send each note with its default skill · ⇧⌘Return")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: AppDefaults.CaptureItem.actionMinimumWidth),
+                                         spacing: AppDefaults.CaptureItem.actionSpacing)],
+                      spacing: AppDefaults.CaptureItem.actionSpacing) {
+                if !agents.folders.isEmpty {
+                    SendButton(agents: agents, title: "Send", sendDefault: { agents.sendSelection() },
+                               send: { agents.sendSelection(action: $0) })
+                        .help("Send each note with its default skill · ⇧⌘Return")
+                }
+                Button("Merge") { store.merge() }
+                    .disabled(store.selection.count < 2).help("Merge Notes · ⇧⌘M")
+                Button("Move…") { sheet = .sections(moving: true) }
+                Button("Copy") { store.copy(asList: false) }.help("Copy · ⌘C. Copy as List · ⇧⌘C")
+                Button("Delete") { store.deleteSelection() }.help("Delete Notes · Delete")
             }
-            Button("Merge") { store.merge() }
-                .disabled(store.selection.count < 2).help("Merge Notes · ⇧⌘M")
-            Button("Move…") { sheet = .sections(moving: true) }
-            Button("Copy") { store.copy(asList: false) }.help("Copy · ⌘C. Copy as List · ⇧⌘C")
-            Button("Delete") { store.deleteSelection() }.help("Delete Notes · Delete")
         }
-        .controlSize(.small)
+        .controlSize(.regular)
         .padding(.horizontal, embedded ? AppDefaults.ListSearch.horizontalInset : AppDefaults.CaptureItem.listInset + 2)
-        .padding(.vertical, 8)
+        .padding(.vertical, AppDefaults.CaptureItem.actionSpacing)
         .overlay(alignment: .top) { if embedded { Rule() } }
     }
 
@@ -522,7 +557,7 @@ struct CaptureView: View {
                 Text(store.status).help(store.status)
             }
             Spacer(minLength: 4)
-            if store.canUndo && content == .sections {
+            if store.canUndo && content != .clipboard {
                 Button("Undo") { store.undo() }.buttonStyle(.text).font(PiperTheme.ui(11)).help("Undo Last Change")
             } else {
                 Text("\(shortcutGlyphs) captures a selection")
@@ -649,11 +684,8 @@ struct CaptureView: View {
            let start = matchingNotes.firstIndex(where: { $0.id == anchor }),
            let end = matchingNotes.firstIndex(where: { $0.id == id }) {
             store.selection.formUnion(matchingNotes[min(start, end)...max(start, end)].map(\.id))
-        } else if flags.contains(.command) {
-            store.toggleSelection(id)
-            selectionAnchor = id
         } else {
-            store.selection = [id]
+            store.toggleSelection(id)
             selectionAnchor = id
         }
     }
@@ -688,7 +720,7 @@ struct CaptureView: View {
     private func installKeyboardShortcuts() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard let window = NSApp.keyWindow, window.attachedSheet == nil,
+            guard !showingSections, let window = NSApp.keyWindow, window.attachedSheet == nil,
                   acceptsKeyboard(window) else { return event }
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let textView = window.firstResponder as? NSTextView

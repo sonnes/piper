@@ -116,7 +116,8 @@ struct SidebarOutline: NSViewRepresentable {
                 library.children = [
                     Node(representedObject: SidebarSelection.home, parent: library),
                     inbox,
-                    Node(representedObject: SidebarSelection.clipboard, parent: library)
+                    Node(representedObject: SidebarSelection.clipboard, parent: library),
+                    Node(representedObject: SidebarSelection.archived, parent: library)
                 ]
                 let folderGroup = Node(representedObject: "Folders", parent: root)
                 folderGroup.isGroupItem = true
@@ -226,6 +227,7 @@ struct SidebarOutline: NSViewRepresentable {
                 case .home: row = ("Home", "house", 0)
                 case .inbox: row = ("Inbox", "tray", sections.reduce(0) { $0 + $1.count })
                 case .section(let name): row = (name, "tray", sections.first { $0.name == name }?.count ?? 0)
+                case .archived: row = ("Archived", "archivebox", 0)
                 case .clipboard: row = ("Clipboard", "clipboard", 0)
                 case .sessions(let path):
                     row = (URL(fileURLWithPath: path).lastPathComponent, "text.bubble",

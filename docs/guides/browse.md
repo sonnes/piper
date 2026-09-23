@@ -36,7 +36,7 @@ The window has three panes:
 
 | Pane | Content |
 | --- | --- |
-| Sidebar | Library (Home, Inbox with a row for each other section, and Clipboard) and Folders (every folder, and the tree of the active folder) |
+| Sidebar | Library (Home, Inbox with a row for each other section, Clipboard, and Archived) and Folders (every folder, and the tree of the active folder) |
 | List | The files of the selected folder, the captures, or the clipboard history |
 | Detail | The selected file, Home, or the selected capture |
 

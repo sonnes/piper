@@ -11,6 +11,7 @@ enum SidebarSelection: Codable, Equatable {
     case inbox
     /// One capture section. The Inbox list scrolls to it.
     case section(String)
+    case archived
     /// The clipboard texts that the reader has not saved.
     case clipboard
     case allFiles
@@ -28,7 +29,7 @@ enum SidebarSelection: Codable, Equatable {
     /// True for the rows that show captures in the file list.
     var showsCaptures: Bool {
         switch self {
-        case .inbox, .section, .clipboard: return true
+        case .inbox, .section, .clipboard, .archived: return true
         case .home, .allFiles, .folder, .sessions: return false
         }
     }

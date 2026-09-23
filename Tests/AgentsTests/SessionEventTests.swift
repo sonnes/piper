@@ -5,6 +5,13 @@ import XCTest
 
 final class SessionEventTests: XCTestCase {
 
+    func testSessionCommandsAndCompaction() {
+        let line = #"{"type":"system","subtype":"init","session_id":"s-1","slash_commands":["compact","clear","plugin:review","bad name"]}"#
+        XCTAssertEqual(SessionEvent.parse(line), [.started(sessionID: "s-1"), .commands(["compact", "clear", "plugin:review"])])
+        XCTAssertEqual(SessionEvent.parse(#"{"type":"system","subtype":"compact_boundary","compact_metadata":{"trigger":"manual","pre_tokens":1842}}"#),
+                       [.text("Conversation compacted.")])
+    }
+
     func testInitTextAndToolCalls() {
         XCTAssertEqual(SessionEvent.parse(#"{"type":"system","subtype":"init","session_id":"s-1"}"#),
                        [.started(sessionID: "s-1")])
@@ -213,8 +220,14 @@ final class AgentSessionTests: XCTestCase {
         session.update(TranscriptBlock.permission(request, decision: .pending).id) { $0 = .permission(request, decision: .allowed) }
         XCTAssertNil(session.pendingRequest)
 
+        session.slashCommands = ["compact", "context"]
         let data = try JSONEncoder().encode(session.snapshot)
         let copy = AgentSession(try JSONDecoder().decode(AgentSession.Snapshot.self, from: data))
         XCTAssertEqual(copy.snapshot, session.snapshot)
+        var old = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        old.removeValue(forKey: "slashCommands")
+        let oldData = try JSONSerialization.data(withJSONObject: old)
+        let restored = AgentSession(try JSONDecoder().decode(AgentSession.Snapshot.self, from: oldData))
+        XCTAssertNil(restored.slashCommands)
     }
 }

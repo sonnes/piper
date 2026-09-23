@@ -35,6 +35,8 @@ These shortcuts work in the capture panel or the main-window Inbox when no sheet
 | Command-K | Choose the section for new notes, or create one |
 | Command-F | Search notes and the clipboard |
 | Up / Down | Select the previous or next note |
+| Click | Select or deselect a note without a modifier key |
+| Shift-click | Select a range of notes |
 | Shift-Up / Shift-Down | Add the previous or next note to the selection |
 | Command-A | Select all matching notes |
 | Space | Mark the selected notes as done, or open them again |

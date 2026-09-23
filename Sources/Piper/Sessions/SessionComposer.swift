@@ -5,7 +5,7 @@ import SwiftUI
 /// The message field of a session.
 ///
 /// Return sends and Shift-Return inserts a new line. A `/` at the start lists
-/// the skills of the folder, and an `@` lists the files of the folder.
+/// the commands of the session, and an `@` lists the files of the folder.
 struct SessionComposer: View {
     @Bindable var model: AppModel
     let session: AgentSession?
@@ -24,14 +24,19 @@ struct SessionComposer: View {
     private var isActive: Bool { session?.isActive == true }
     private var folderName: String { URL(fileURLWithPath: folder).lastPathComponent }
 
-    /// The skills of the folder whose names start with the typed name.
-    private var skills: [FolderAgents.Action] {
-        guard focused, let partial = SlashCommand.partialName(text),
-              let owner = agents.available.first(where: { $0.path == folder }) else { return [] }
-        return owner.skills
-            .filter { $0.name.lowercased().hasPrefix(partial.lowercased()) }
+    /// The commands that Claude supports in this session.
+    private var commands: [FolderAgents.Action] {
+        guard focused, let partial = SlashCommand.partialName(text) else { return [] }
+        let owner = agents.available.first { $0.path == folder }
+            ?? FolderAgents.Folder(path: folder, skills: [])
+        let names = session?.slashCommands ?? owner.skills.map(\.name)
+        return Array(Set(names)).sorted()
+            .filter { $0.lowercased().hasPrefix(partial.lowercased()) }
             .prefix(AppDefaults.Agents.completionLimit)
-            .map { FolderAgents.Action(folder: owner, skill: $0) }
+            .map { name in
+                let skill = owner.skills.first { $0.name == name } ?? FolderSkill(name: name)
+                return FolderAgents.Action(folder: owner, skill: skill)
+            }
     }
 
     /// The files of the folder whose paths hold the typed text. Only the
@@ -45,7 +50,7 @@ struct SessionComposer: View {
             .prefix(AppDefaults.Sessions.fileCompletionLimit))
     }
 
-    private var completionCount: Int { skills.isEmpty ? files.count : skills.count }
+    private var completionCount: Int { commands.isEmpty ? files.count : commands.count }
 
     private var height: CGFloat {
         let metrics = AppDefaults.Composer.self
@@ -94,7 +99,7 @@ struct SessionComposer: View {
                     .padding(-3.5)
             }
             HStack(spacing: 6) {
-                Text(completionCount > 0 ? "Tab completes · ↑↓ choose" : "Return sends · / skills · @ files")
+                Text(completionCount > 0 ? "Tab completes · ↑↓ choose" : "Return sends · / commands · @ files")
                 Spacer(minLength: 4)
                 Text((agents.model.isEmpty ? "Default model" : agents.model.capitalized) + " · " + modeName)
                     .help("Change the model and the permissions in Settings > Claude")
@@ -111,8 +116,8 @@ struct SessionComposer: View {
 
     @ViewBuilder private var completions: some View {
         let index = min(completionIndex, max(completionCount - 1, 0))
-        if !skills.isEmpty {
-            SkillCompletions(actions: skills, selected: index) { choose(skill: $0) }
+        if !commands.isEmpty {
+            SkillCompletions(actions: commands, selected: index, label: "Commands") { choose(skill: $0) }
         } else if !files.isEmpty {
             FileCompletions(paths: files, selected: index) { choose(file: $0) }
         }
@@ -156,7 +161,7 @@ struct SessionComposer: View {
 
     /// Removes what the reader typed for the list, so the list closes.
     private func dismissCompletions() {
-        if !skills.isEmpty {
+        if !commands.isEmpty {
             text = ""
         } else if let at = text.lastIndex(of: "@") {
             text = String(text[..<at])
@@ -177,8 +182,9 @@ struct SessionComposer: View {
             case #selector(NSResponder.moveUp(_:)):
                 completionIndex = max(current - 1, 0)
                 return true
-            case #selector(NSResponder.insertTab(_:)), #selector(NSResponder.insertNewline(_:)) where !shift:
-                if !skills.isEmpty { choose(skill: skills[current]) } else { choose(file: files[current]) }
+            case #selector(NSResponder.insertTab(_:)) where !shift,
+                 #selector(NSResponder.insertNewline(_:)) where !shift:
+                if !commands.isEmpty { choose(skill: commands[current]) } else { choose(file: files[current]) }
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
                 dismissCompletions()

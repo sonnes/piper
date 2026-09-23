@@ -37,6 +37,74 @@ struct PanelTab: View {
     }
 }
 
+struct CaptureSectionMenu: View {
+    let sections: [String]
+    let current: String?
+    let archived: Bool
+    let count: (String) -> Int
+    let archivedCount: Int
+    let choose: (String) -> Void
+    let showArchived: () -> Void
+    let newSection: () -> Void
+    @State private var query = ""
+    @FocusState private var searching: Bool
+
+    private var matches: [String] {
+        sections.filter { query.isEmpty || $0.localizedCaseInsensitiveContains(query) }
+    }
+
+    var body: some View {
+        VStack(spacing: AppDefaults.CaptureItem.actionSpacing) {
+            TextField("Find a section", text: $query)
+                .textFieldStyle(.roundedBorder)
+                .focused($searching)
+            ScrollView {
+                VStack(spacing: AppDefaults.CaptureItem.rowSpacing) {
+                    ForEach(matches, id: \.self) { section in
+                        Button { choose(section) } label: {
+                            HStack {
+                                Image(systemName: current == section ? "checkmark" : "tray")
+                                Text(section).lineLimit(1).truncationMode(.middle)
+                                Spacer()
+                                Text("\(count(section))").foregroundStyle(PiperTheme.secondary)
+                            }
+                            .padding(.horizontal, AppDefaults.CaptureItem.actionSpacing)
+                            .frame(maxWidth: .infinity, minHeight: AppDefaults.CaptureItem.buttonHitSize)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(current == section ? .isSelected : [])
+                    }
+                    if matches.isEmpty {
+                        Text("No matching sections").foregroundStyle(PiperTheme.secondary)
+                            .padding(.vertical, AppDefaults.CaptureItem.actionSpacing)
+                    }
+                }
+            }
+            .frame(maxHeight: AppDefaults.CaptureItem.sectionMenuHeight)
+            Divider()
+            Button(action: showArchived) {
+                HStack {
+                    Image(systemName: archived ? "checkmark" : "archivebox")
+                    Text("Archived")
+                    Spacer()
+                    Text("\(archivedCount)").foregroundStyle(PiperTheme.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: AppDefaults.CaptureItem.buttonHitSize)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Button("New Section…", systemImage: "plus", action: newSection)
+                .controlSize(.regular)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(PiperTheme.ui(13))
+        .padding(AppDefaults.CaptureItem.horizontalPadding)
+        .frame(width: AppDefaults.CaptureItem.sectionMenuWidth)
+        .onAppear { searching = true }
+    }
+}
+
 /// The header over one section of the capture list.
 struct SectionHeader: View {
     let title: String
@@ -83,7 +151,8 @@ struct CaptureCard<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(spacing: 0) { content }
+        VStack(spacing: AppDefaults.CaptureItem.rowSpacing) { content }
+            .padding(AppDefaults.CaptureItem.cardInset)
             .background(PiperTheme.card)
             .clipShape(RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
             .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
@@ -142,7 +211,7 @@ struct ClipboardRow: View {
                     if canSend {
                         SendButton(agents: agents, title: agents.sendTitle, sendDefault: { send(nil) }, send: send)
                     }
-                    Button("Keep", action: keep).controlSize(.small).help("Save to Inbox")
+                    Button("Keep", action: keep).controlSize(.regular).help("Save to Inbox")
                 }
                 if showsSource, let source = entry.source {
                     Text(source).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint).lineLimit(1).fixedSize()
@@ -213,7 +282,9 @@ struct NoteRow: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if separated && !selected { RowSeparator(inset: AppDefaults.CaptureItem.textInset) }
+            if separated {
+                RowSeparator(inset: AppDefaults.CaptureItem.textInset).opacity(selected ? 0 : 1)
+            }
             HStack(alignment: .center, spacing: 10) {
                 Button(action: complete) {
                     Circle()
@@ -225,6 +296,7 @@ struct NoteRow: View {
                             }
                         }
                         .frame(width: AppDefaults.CaptureItem.circleSize, height: AppDefaults.CaptureItem.circleSize)
+                        .frame(width: AppDefaults.CaptureItem.buttonHitSize, height: AppDefaults.CaptureItem.buttonHitSize)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -256,7 +328,7 @@ struct NoteRow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selected ? .isSelected : [])
-                .accessibilityHint("Command-click adds to the selection. Return edits the note.")
+                .accessibilityHint("Click to select or deselect. Shift-click selects a range. Return edits the note.")
                 if let session {
                     RunBadge(session: session, open: openRun)
                 } else if showsSend {

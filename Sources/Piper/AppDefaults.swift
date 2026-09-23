@@ -133,13 +133,20 @@ final class AppDefaults {
         static let clipboardFontSize: CGFloat = 13
         static let clipboardCodeFontSize: CGFloat = 12
         static let lineSpacing: CGFloat = 2
-        static let circleSize: CGFloat = 18
+        static let circleSize: CGFloat = 22
+        static let buttonHitSize: CGFloat = 30
+        static let rowSpacing: CGFloat = 6
+        static let cardInset: CGFloat = 4
+        static let actionSpacing: CGFloat = 8
+        static let actionMinimumWidth: CGFloat = 72
+        static let sectionMenuWidth: CGFloat = 280
+        static let sectionMenuHeight: CGFloat = 320
         static let horizontalPadding: CGFloat = 12
         static let verticalPadding: CGFloat = 10
         static let minimumHeight: CGFloat = 42
-        static let clipboardHeight: CGFloat = 36
+        static let clipboardHeight: CGFloat = 42
         /// The space from the edge of a card to the text after the circle.
-        static let textInset: CGFloat = horizontalPadding + circleSize + 10
+        static let textInset: CGFloat = horizontalPadding + buttonHitSize + 10
         /// The inset of the list from the edge of the pane.
         static let listInset: CGFloat = 14
         /// Lifts the panel hint line clear of the rounded bottom corners.
