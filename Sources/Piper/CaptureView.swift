@@ -222,10 +222,11 @@ struct CaptureView: View {
                 moreMenu
             }
         }
-        .padding(.leading, 12).padding(.trailing, 8)
-        .frame(height: 46)
+        .padding(.leading, 16).padding(.trailing, 12).padding(.top, 4)
+        .frame(height: AppDefaults.CaptureItem.panelHeaderHeight)
     }
 
+    /// Clipboard, Inbox, and Sections, as the segments of one control.
     private var tabs: some View {
         HStack(spacing: 2) {
             PanelTab(title: "Clipboard", icon: "doc.on.clipboard", count: 0, active: content == .clipboard) {
@@ -238,19 +239,10 @@ struct CaptureView: View {
                 chooseSection("Inbox")
                 composing = true
             }
-            Button { showingSections = true } label: {
-                HStack(spacing: 4) {
-                    Text(content == .archived ? "Archived" : (store.activeSection == "Inbox" ? "Sections" : store.activeSection))
-                        .lineLimit(1).truncationMode(.tail)
-                    Image(systemName: "chevron.down")
-                }
-                .font(PiperTheme.ui(12.5))
-                .padding(.horizontal, 8)
-                .frame(height: AppDefaults.CaptureItem.buttonHitSize)
-                .background(PiperTheme.selection, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+            PanelTab(title: content == .archived ? "Archived" : (store.activeSection == "Inbox" ? "Sections" : store.activeSection),
+                     icon: nil, count: 0,
+                     active: content == .archived || (content == .sections && store.activeSection != "Inbox"),
+                     opensMenu: true) { showingSections = true }
             .accessibilityLabel("Choose Section")
             .popover(isPresented: $showingSections, arrowEdge: .bottom) {
                 CaptureSectionMenu(sections: store.sections, current: content == .sections ? store.activeSection : nil,
@@ -271,6 +263,8 @@ struct CaptureView: View {
                                    })
             }
         }
+        .padding(2)
+        .background(PiperTheme.tabTrack, in: RoundedRectangle(cornerRadius: PiperTheme.radius + 2, style: .continuous))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

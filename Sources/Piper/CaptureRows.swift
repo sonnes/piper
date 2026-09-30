@@ -11,23 +11,32 @@ struct PanelTab: View {
     let icon: String?
     let count: Int
     let active: Bool
+    /// Shows a chevron, for a tab that opens a menu.
+    var opensMenu = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 if let icon { Image(systemName: icon).font(.system(size: 11)) }
-                Text(title).lineLimit(1)
+                Text(title).lineLimit(1).truncationMode(.tail)
                 if count > 0 {
                     Text("\(count)").font(PiperTheme.ui(11)).monospacedDigit()
                         .foregroundStyle(active ? PiperTheme.secondary : PiperTheme.faint)
                 }
+                if opensMenu { Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)) }
             }
             .font(PiperTheme.ui(12.5, weight: active ? .semibold : .regular))
             .foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary)
-            .padding(.horizontal, 8)
-            .frame(height: 24)
-            .background(active ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+            .padding(.horizontal, 10)
+            .frame(height: AppDefaults.CaptureItem.tabHeight)
+            .background {
+                if active {
+                    RoundedRectangle(cornerRadius: PiperTheme.radius, style: .continuous)
+                        .fill(PiperTheme.card)
+                        .shadow(color: PiperTheme.tabShadow, radius: 1, y: 0.5)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -73,7 +73,6 @@ final class CapturePanelController: NSWindowController {
 
         let corners = RoundedRectangle(cornerRadius: AppDefaults.Window.cornerRadius * scale, style: .continuous)
         let hosting = NSHostingView(rootView: CaptureView(model: model)
-            .ignoresSafeArea()
             .clipShape(corners)
             .overlay(corners.strokeBorder(PiperTheme.rule, lineWidth: 0.5)))
         // The panel sets its own size. The SwiftUI size would pin the panel

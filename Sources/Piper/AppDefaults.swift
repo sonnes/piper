@@ -142,6 +142,8 @@ final class AppDefaults {
         static let lineSpacing: CGFloat = 2
         static let circleSize: CGFloat = 22
         static let buttonHitSize: CGFloat = 30
+        static let tabHeight: CGFloat = 26
+        static let panelHeaderHeight: CGFloat = 54
         static let rowSpacing: CGFloat = 6
         static let cardInset: CGFloat = 4
         static let actionSpacing: CGFloat = 8

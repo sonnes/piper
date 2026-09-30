@@ -78,6 +78,9 @@ enum PiperTheme {
     static let success = Color(nsColor: successNS)
     /// A row under the pointer.
     static let hover = Color.primary.opacity(0.045)
+    /// The track behind the tabs of the capture panel, and the shadow of the active tab.
+    static let tabTrack = Color.primary.opacity(0.06)
+    static let tabShadow = Color.black.opacity(0.12)
     /// The ring around a focused field.
     static let focusRing = accent.opacity(0.45)
 
