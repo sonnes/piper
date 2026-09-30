@@ -125,6 +125,7 @@ struct WikiEditor: View {
             (try? WikiLinks.resolve(link.target, from: document, files: model.files, vault: model.vault, wikiStyle: link.wikiStyle)) != nil
         }.flatMap { [$0.target, WikiEditorLinks.prefix + Data($0.target.utf8).base64EncodedString()] }
         config.services.wikiLinks = EditorLinkResolver(targets: Set(targets))
+        config.services.images = VaultImageProvider(root: model.vault.root, documentPath: document.relativePath)
         config.readingWidth = nil
         config.textInsets = TextInsets(horizontal: AppDefaults.Reader.horizontalInset, vertical: AppDefaults.Reader.topInset)
         config.paragraph.lineHeightExtraSpacing = fontSize * 0.3
@@ -153,6 +154,33 @@ private struct EditorLinkResolver: WikiLinkResolver {
         WikiLinkResolution(id: displayName, exists: targets.contains(displayName))
     }
     func fingerprint() -> AnyHashable { targets }
+}
+
+/// Loads the images that a page embeds from files in the vault.
+///
+/// A path resolves from the folder of the page, or from the vault root when it
+/// starts with `/`. A remote URL gets no image, because browsing needs no network.
+struct VaultImageProvider: EmbeddedImageProvider {
+    let root: URL
+    let documentPath: String
+
+    func image(for reference: EmbeddedImageRequest) -> NSImage? {
+        url(for: reference.name).flatMap(NSImage.init(contentsOf:))
+    }
+
+    func fingerprint() -> AnyHashable { [root.path, documentPath] }
+
+    /// The file for an image path, or nil when the path leaves the vault or names no file.
+    func url(for name: String) -> URL? {
+        // A Markdown image can carry a title after the path: `path "Title"`.
+        var path = name.trimmingCharacters(in: .whitespaces)
+        if let title = path.range(of: #"\s+["'(].*$"#, options: .regularExpression) { path.removeSubrange(title) }
+        path = path.trimmingCharacters(in: CharacterSet(charactersIn: "<>"))
+        guard !path.isEmpty, URL(string: path)?.scheme == nil else { return nil }
+        guard let url = try? Vault(root: root).containedURL(path.removingPercentEncoding ?? path, relativeTo: documentPath),
+              FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return url
+    }
 }
 
 private struct WikiEditorSetup: NSViewRepresentable {

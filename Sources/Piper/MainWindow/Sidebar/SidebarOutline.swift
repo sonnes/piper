@@ -1,6 +1,7 @@
 import AppKit
 import PiperTree
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// AppKit owns row geometry, selection, disclosure, and keyboard navigation.
 struct SidebarOutline: NSViewRepresentable {
@@ -11,6 +12,9 @@ struct SidebarOutline: NSViewRepresentable {
     let sessionFolders: [SidebarSessionFolder]
     @Binding var expanded: Set<String>
     let selection: SidebarSelection
+    /// The file open in the detail pane. A link can change it without a new
+    /// selection, so the tree follows it while a file is selected.
+    let openFile: String?
     let select: (SidebarSelection) -> Void
     let newSection: () -> Void
     let editSection: (String) -> Void
@@ -62,6 +66,20 @@ struct SidebarOutline: NSViewRepresentable {
         context.coordinator.update()
     }
 
+    /// The row title of a file. A Markdown file drops its extension, as a note name does.
+    static func fileTitle(_ name: String) -> String {
+        ["md", "markdown"].contains((name as NSString).pathExtension.lowercased()) ? (name as NSString).deletingPathExtension : name
+    }
+
+    /// The row symbol of a file, by its kind.
+    static func fileSymbol(_ name: String) -> String {
+        let type = UTType(filenameExtension: (name as NSString).pathExtension)
+        if ["md", "markdown"].contains((name as NSString).pathExtension.lowercased()) { return "doc.text" }
+        if type?.conforms(to: .image) == true { return "photo" }
+        if type?.conforms(to: .html) == true { return "globe" }
+        return "doc"
+    }
+
     @MainActor
     final class Coordinator: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
         var parent: SidebarOutline
@@ -74,6 +92,9 @@ struct SidebarOutline: NSViewRepresentable {
         private var unreadCounts: [String: Int] = [:]
         private var sections: [SidebarSection] = []
         private var sessionFolders: [SidebarSessionFolder] = []
+        /// The file whose folders the tree last opened, so a folder that the
+        /// reader closes stays closed.
+        private var revealedFile: String?
         private var updating = false
 
         init(_ parent: SidebarOutline) {
@@ -121,7 +142,7 @@ struct SidebarOutline: NSViewRepresentable {
                 ]
                 let folderGroup = Node(representedObject: "Folders", parent: root)
                 folderGroup.isGroupItem = true
-                let wiki = PathTreeBuilder.tree(paths: paths, folders: folders, includingFiles: false)
+                let wiki = PathTreeBuilder.tree(paths: paths, folders: folders)
                 wiki.parent = folderGroup
                 folderGroup.children = wikiPaths.map { path in
                     if path == wikiPath { return wiki }
@@ -153,16 +174,38 @@ struct SidebarOutline: NSViewRepresentable {
                 node.children.forEach(restore)
             }
             root.children.forEach(restore)
+            let treeFile: String? = {
+                guard case .file = parent.selection else { return nil }
+                return parent.openFile
+            }()
+            reveal(treeFile)
             let node = root.descendantNode { node in
                 if let selection = node.representedObject as? SidebarSelection { return selection == parent.selection }
-                guard !node.isGroupItem, let item = node.representedObject as? PathItem, item.isFolder else { return false }
-                return parent.selection == .folder(item.path)
+                guard !node.isGroupItem, let item = node.representedObject as? PathItem else { return false }
+                return item.isFolder ? parent.selection == .folder(item.path) : item.path == treeFile
             }
             let row = node.map { outline.row(forItem: $0) } ?? -1
             if outline.selectedRow != row {
                 if row >= 0 { outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) }
                 else { outline.deselectAll(nil) }
             }
+        }
+
+        /// Opens the folders above a file once, the first time the file is shown.
+        private func reveal(_ file: String?) {
+            guard let file, file != revealedFile else { return }
+            revealedFile = file
+            var folders: [String] = []
+            var folder = (file as NSString).deletingLastPathComponent
+            while !folder.isEmpty {
+                folders.append(folder)
+                folder = (folder as NSString).deletingLastPathComponent
+            }
+            let missing = folders.filter { !parent.expanded.contains($0) }
+            guard !missing.isEmpty else { return }
+            // The expansion set is view state, so it changes after this update.
+            let expanded = parent.$expanded
+            DispatchQueue.main.async { expanded.wrappedValue.formUnion(missing) }
         }
 
         func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
@@ -212,7 +255,11 @@ struct SidebarOutline: NSViewRepresentable {
             cell.identifier = identifier
             cell.addButton = node.representedObject as? SidebarSelection == .inbox
                 ? addButton("New Section", action: #selector(newSection)) : nil
-            if let item = node.representedObject as? PathItem {
+            if let item = node.representedObject as? PathItem, !item.isFolder {
+                cell.configure(title: SidebarOutline.fileTitle(item.name), symbol: SidebarOutline.fileSymbol(item.name),
+                               count: 0, rowSizeStyle: outlineView.effectiveRowSizeStyle)
+                cell.toolTip = item.path
+            } else if let item = node.representedObject as? PathItem {
                 cell.configure(title: item.path.isEmpty ? parent.model.vault.root.lastPathComponent : item.name,
                                symbol: "folder", count: unreadCounts[item.path, default: 0],
                                rowSizeStyle: outlineView.effectiveRowSizeStyle)
@@ -232,7 +279,7 @@ struct SidebarOutline: NSViewRepresentable {
                 case .sessions(let path):
                     row = (URL(fileURLWithPath: path).lastPathComponent, "text.bubble",
                            sessionFolders.first { $0.path == path }?.attention ?? 0)
-                case .allFiles, .folder: row = ("", "folder", 0)
+                case .allFiles, .folder, .file: row = ("", "folder", 0)
                 }
                 cell.configure(title: row.title, symbol: row.symbol, count: row.count,
                                rowSizeStyle: outlineView.effectiveRowSizeStyle)
@@ -260,7 +307,7 @@ struct SidebarOutline: NSViewRepresentable {
             } else if let selection = node.representedObject as? SidebarSelection {
                 parent.select(selection)
             } else if let item = node.representedObject as? PathItem {
-                parent.select(.folder(item.path))
+                parent.select(item.isFolder ? .folder(item.path) : .file(item.path))
             }
         }
 

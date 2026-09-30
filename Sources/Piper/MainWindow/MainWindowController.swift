@@ -42,6 +42,11 @@ final class MainWindowController: NSWindowController {
 
     /// True while the panes to the right of the sidebar hold the home page.
     private var showsHome: Bool { state.selection == .home }
+    /// True while the sidebar tree picked a file, so the file takes the list's width.
+    private var showsTreeFile: Bool {
+        if case .file = state.selection { return true }
+        return false
+    }
     /// True while the list and the detail pane show Claude sessions.
     private var showsSessions: Bool {
         if case .sessions = state.selection { return true }
@@ -195,6 +200,8 @@ final class MainWindowController: NSWindowController {
                 if section != model.store.activeSection { model.store.chooseSection(section) }
                 sectionScroll = SectionScroll(section: section)
             }
+        case .file(let path):
+            model.openDocument(path)
         default:
             break
         }
@@ -259,7 +266,7 @@ final class MainWindowController: NSWindowController {
                 }
             ))
             detailViewController.setContent(NoteDetailPane(model: model, id: clipboard ? nil : state.selectedNote).routeSheets(model))
-        case .folder, .allFiles:
+        case .folder, .file, .allFiles:
             let path: String? = state.selection == .allFiles ? nil : state.selection.folder
             fileListViewController.setContent(FileListView(model: model, folder: path) { [weak self] file in
                 guard let self else { return }
@@ -272,7 +279,7 @@ final class MainWindowController: NSWindowController {
         }
         sessionViewController.setContent(SessionInspector(model: model))
 
-        listItem?.isCollapsed = showsHome
+        listItem?.isCollapsed = showsHome || showsTreeFile
         updateSessionPane(animated: false)
         updateToolbarState()
     }
@@ -307,6 +314,12 @@ final class MainWindowController: NSWindowController {
         case .folder(let path):
             let name = path.isEmpty ? model.vault.root.lastPathComponent : (path as NSString).lastPathComponent
             setTitle(name, fileCount(model.files.filter { $0.folder == path }))
+        case .file:
+            // A link can open another file without a new sidebar selection,
+            // so the title follows the open file.
+            let document = model.currentDocument
+            let folder = document?.folder ?? state.selection.folder
+            setTitle(document?.title ?? "No File", folder.isEmpty ? model.vault.root.lastPathComponent : folder)
         case .sessions(let folder):
             let sessions = model.agents.runner.sessions(in: folder)
             let waiting = sessions.filter { $0.state == .needsYou }.count

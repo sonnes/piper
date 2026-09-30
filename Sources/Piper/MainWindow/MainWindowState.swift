@@ -17,20 +17,26 @@ enum SidebarSelection: Codable, Equatable {
     case allFiles
     /// One folder of the vault. The empty path is the root.
     case folder(String)
+    /// One file of the vault, picked in the sidebar tree. The detail pane
+    /// takes the width of the list.
+    case file(String)
     /// The Claude sessions of a folder, by its absolute path.
     case sessions(String)
 
-    /// The folder path, or the root for the inbox.
+    /// The folder path, the folder that holds the file, or the root for the inbox.
     var folder: String {
-        if case .folder(let path) = self { return path }
-        return ""
+        switch self {
+        case .folder(let path): return path
+        case .file(let path): return (path as NSString).deletingLastPathComponent
+        default: return ""
+        }
     }
 
     /// True for the rows that show captures in the file list.
     var showsCaptures: Bool {
         switch self {
         case .inbox, .section, .clipboard, .archived: return true
-        case .home, .allFiles, .folder, .sessions: return false
+        case .home, .allFiles, .folder, .file, .sessions: return false
         }
     }
 }

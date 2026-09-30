@@ -19,7 +19,7 @@ struct SidebarView: View {
             SidebarOutline(model: model, unreadCounts: model.unreadFolderCounts,
                            sections: sectionCounts,
                            sessionFolders: sessionFolders,
-                           expanded: $expanded, selection: selection, select: select,
+                           expanded: $expanded, selection: selection, openFile: model.selectedDocument, select: select,
                            newSection: { namingSection = true },
                            editSection: { section in
                                sectionName = section

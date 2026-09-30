@@ -53,7 +53,12 @@ The toolbar has these controls:
 | Mark as Done | Marks the selected capture as done, or opens it again |
 | More | New Section, Add Folder, Reveal in Finder, Refresh, and Settings |
 
-Select the vault root to see the files at the top level. The folder tree shows nested and empty folders. Files show only in the list.
+The folder tree shows every folder and every file, as in an editor. Folders come first, then files. A Markdown file shows its name without `.md`.
+
+- Select a folder to show its files in the list.
+- Select a file to open it. The list closes, and the file takes its width.
+
+When a link opens another file, the tree selects that file and opens the folders above it.
 
 Home hides the list. The window restores its frame, the pane widths, the selection, the open folders, and the last file.
 
@@ -91,6 +96,8 @@ The window subtitle shows the number of files and the number of unread files in 
 Select a file in the list. The sort menu next to the search field sorts by Name or by Date.
 
 A Markdown file opens in the editor, in a centered column. The modification date shows above the text. After a change that is not saved, the date line ends with "Edited". If the file has no heading, its title shows under the date.
+
+A standalone image line, such as `![Figure](assets/figure.png)`, shows the image. The path starts at the folder of the file, or at the vault root when it starts with `/`. Piper does not load remote images.
 
 Wiki links use `[[Note]]`, `[[folder/Note|Label]]`, and `[[Note#Heading]]`. Relative Markdown links open from the current file. HTTP, HTTPS, and `mailto` links open in your default app.
 
