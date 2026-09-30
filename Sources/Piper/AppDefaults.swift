@@ -72,7 +72,7 @@ final class AppDefaults {
             switch style {
             case .small: return (11, 16)
             case .large: return (15, 22)
-            default: return (13, 19)
+            default: return (13, 18)
             }
         }
 
@@ -95,6 +95,13 @@ final class AppDefaults {
 
         static let headerFontSize: CGFloat = 11
         static let addButtonSize: CGFloat = 20
+        /// The corner radius of a folder tile, as a fraction of its side.
+        static let tileCornerFraction: CGFloat = 0.28
+        /// The diameter of a section dot, as a fraction of the icon side.
+        static let dotFraction: CGFloat = 0.55
+        /// The size of the symbol in a tile, as a fraction of its side.
+        static let tileSymbolFraction: CGFloat = 0.62
+        static let attentionPadding = NSEdgeInsets(top: 0, left: 6, bottom: 0, right: 6)
         static let actionSpacing: CGFloat = 6
         static let trailingInset: CGFloat = 4
         /// The space over a group header. The first header needs less, because
@@ -109,7 +116,7 @@ final class AppDefaults {
         static let mainSize = NSSize(width: 1240, height: 800)
         static let mainMinimumSize = NSSize(width: 850, height: 620)
         static let detailMinimumThickness: CGFloat = 384
-        static let capturePanelSize = NSSize(width: 430, height: 932)
+        static let capturePanelSize = NSSize(width: 600, height: 960)
         static let capturePanelMinimumSize = NSSize(width: 340, height: 480)
         /// The corner radius of the main window and the capture panel.
         static let cornerRadius: CGFloat = 40

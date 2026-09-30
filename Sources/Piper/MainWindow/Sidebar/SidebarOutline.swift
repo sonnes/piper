@@ -29,7 +29,7 @@ struct SidebarOutline: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let outline = NSOutlineView()
+        let outline = SidebarOutlineView()
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("source"))
         column.resizingMask = .autoresizingMask
         outline.addTableColumn(column)
@@ -71,13 +71,29 @@ struct SidebarOutline: NSViewRepresentable {
         ["md", "markdown"].contains((name as NSString).pathExtension.lowercased()) ? (name as NSString).deletingPathExtension : name
     }
 
-    /// The row symbol of a file, by its kind.
-    static func fileSymbol(_ name: String) -> String {
+    /// The row icon of a file, by its kind. The name is an SVG in the resources, after `sidebar-`.
+    static func fileIcon(_ name: String) -> String {
         let type = UTType(filenameExtension: (name as NSString).pathExtension)
-        if ["md", "markdown"].contains((name as NSString).pathExtension.lowercased()) { return "doc.text" }
-        if type?.conforms(to: .image) == true { return "photo" }
-        if type?.conforms(to: .html) == true { return "globe" }
-        return "doc"
+        if ["md", "markdown"].contains((name as NSString).pathExtension.lowercased()) { return "note" }
+        if type?.conforms(to: .image) == true { return "image" }
+        if type?.conforms(to: .html) == true { return "web" }
+        return "file"
+    }
+
+    /// The color of the section dot or folder tile at a position in its group.
+    /// Neighbors get different colors, and the colors repeat after the last one.
+    static func tagColor(at index: Int) -> NSColor {
+        PiperTheme.tagsNS[max(index, 0) % PiperTheme.tagsNS.count]
+    }
+
+    /// The letter on a folder tile: the first letter or digit of the name, in capitals.
+    static func monogram(_ name: String) -> String {
+        name.first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "•"
+    }
+
+    /// The tile of the folder at a position under the Folders header.
+    static func folderIcon(_ name: String, at index: Int) -> SidebarIcon {
+        .monogram(monogram(name), tagColor(at: index))
     }
 
     @MainActor
@@ -238,10 +254,11 @@ struct SidebarOutline: NSViewRepresentable {
             if node.isGroupItem {
                 let label = NSTextField(labelWithString: node.representedObject as? String ?? (wikiPath as NSString).abbreviatingWithTildeInPath)
                 label.font = .systemFont(ofSize: AppDefaults.Sidebar.headerFontSize, weight: .semibold)
-                label.textColor = .secondaryLabelColor
+                label.textColor = .tertiaryLabelColor
                 label.lineBreakMode = .byTruncatingHead
                 if node.representedObject as? String == "Folders" {
                     let button = addButton("Add Folder", action: #selector(addFolder))
+                    (outlineView as? SidebarOutlineView)?.revealOnHover(button)
                     let header = NSStackView(views: [label, button])
                     header.spacing = AppDefaults.Sidebar.actionSpacing
                     header.edgeInsets.right = AppDefaults.Sidebar.trailingInset
@@ -253,36 +270,42 @@ struct SidebarOutline: NSViewRepresentable {
             let identifier = NSUserInterfaceItemIdentifier("sourceCell")
             let cell = (outlineView.makeView(withIdentifier: identifier, owner: self) as? SidebarCell) ?? SidebarCell()
             cell.identifier = identifier
-            cell.addButton = node.representedObject as? SidebarSelection == .inbox
-                ? addButton("New Section", action: #selector(newSection)) : nil
+            let style = outlineView.effectiveRowSizeStyle
             if let item = node.representedObject as? PathItem, !item.isFolder {
-                cell.configure(title: SidebarOutline.fileTitle(item.name), symbol: SidebarOutline.fileSymbol(item.name),
-                               count: 0, rowSizeStyle: outlineView.effectiveRowSizeStyle)
+                cell.configure(title: SidebarOutline.fileTitle(item.name),
+                               icon: .glyph(SidebarOutline.fileIcon(item.name), PiperTheme.sidebarFileNS),
+                               count: 0, rowSizeStyle: style)
                 cell.toolTip = item.path
             } else if let item = node.representedObject as? PathItem {
-                cell.configure(title: item.path.isEmpty ? parent.model.vault.root.lastPathComponent : item.name,
-                               symbol: "folder", count: unreadCounts[item.path, default: 0],
-                               rowSizeStyle: outlineView.effectiveRowSizeStyle)
+                let name = item.path.isEmpty ? parent.model.vault.root.lastPathComponent : item.name
+                cell.configure(title: name,
+                               icon: item.path.isEmpty ? SidebarOutline.folderIcon(name, at: wikiPaths.firstIndex(of: wikiPath) ?? 0) : .glyph("folder", PiperTheme.sidebarFolderNS),
+                               count: unreadCounts[item.path, default: 0], rowSizeStyle: style)
                 cell.toolTip = item.path.isEmpty ? wikiPath : item.path
             } else if let url = node.representedObject as? URL {
-                cell.configure(title: url.lastPathComponent, symbol: "folder", count: 0,
-                               rowSizeStyle: outlineView.effectiveRowSizeStyle)
+                cell.configure(title: url.lastPathComponent, icon: SidebarOutline.folderIcon(url.lastPathComponent, at: wikiPaths.firstIndex(of: url.path) ?? 0),
+                               count: 0, rowSizeStyle: style)
                 cell.toolTip = url.path
             } else if let selection = node.representedObject as? SidebarSelection {
-                let row: (title: String, symbol: String, count: Int)
+                let row: (title: String, icon: SidebarIcon, count: Int)
                 switch selection {
-                case .home: row = ("Home", "house", 0)
-                case .inbox: row = ("Inbox", "tray", sections.reduce(0) { $0 + $1.count })
-                case .section(let name): row = (name, "tray", sections.first { $0.name == name }?.count ?? 0)
-                case .archived: row = ("Archived", "archivebox", 0)
-                case .clipboard: row = ("Clipboard", "clipboard", 0)
+                case .home: row = ("Home", .glyph("home", PiperTheme.homeNS), 0)
+                case .inbox: row = ("Inbox", .glyph("inbox", PiperTheme.inboxNS), sections.reduce(0) { $0 + $1.count })
+                case .section(let name):
+                    let position = sections.filter { $0.name != SidebarOutline.inboxSection }.firstIndex { $0.name == name } ?? 0
+                    row = (name, .dot(SidebarOutline.tagColor(at: position)), sections.first { $0.name == name }?.count ?? 0)
+                case .archived: row = ("Archived", .glyph("archived", PiperTheme.archivedNS), 0)
+                case .clipboard: row = ("Clipboard", .glyph("clipboard", PiperTheme.clipboardNS), 0)
                 case .sessions(let path):
-                    row = (URL(fileURLWithPath: path).lastPathComponent, "text.bubble",
+                    row = (URL(fileURLWithPath: path).lastPathComponent, .tile("claude", PiperTheme.claudeNS),
                            sessionFolders.first { $0.path == path }?.attention ?? 0)
-                case .allFiles, .folder, .file: row = ("", "folder", 0)
+                case .allFiles, .folder, .file: row = ("", .glyph("folder", PiperTheme.sidebarFolderNS), 0)
                 }
-                cell.configure(title: row.title, symbol: row.symbol, count: row.count,
-                               rowSizeStyle: outlineView.effectiveRowSizeStyle)
+                if case .sessions = selection {
+                    cell.configure(title: row.title, icon: row.icon, count: row.count, attention: true, rowSizeStyle: style)
+                } else {
+                    cell.configure(title: row.title, icon: row.icon, count: row.count, rowSizeStyle: style)
+                }
                 cell.toolTip = nil
             }
             return cell
@@ -395,17 +418,123 @@ struct SidebarOutline: NSViewRepresentable {
     }
 }
 
+/// The icon at the start of a sidebar row.
+enum SidebarIcon: Equatable {
+    /// A Lucide SVG from the resources, in one color.
+    case glyph(String, NSColor)
+    /// A colored dot, for a capture section.
+    case dot(NSColor)
+    /// A rounded tile with a letter, for a top-level folder.
+    case monogram(String, NSColor)
+    /// A rounded tile with a white glyph, for a Claude folder.
+    case tile(String, NSColor)
+
+    /// The image of the icon. A drawn image resolves its colors each time it
+    /// draws, so it follows the dark appearance.
+    @MainActor
+    func image(side: CGFloat) -> NSImage? {
+        if case .glyph(let name, _) = self { return SidebarIcon.glyph(name) }
+        var tileGlyph: NSImage?
+        if case .tile(let name, _) = self, let glyph = SidebarIcon.glyph(name) {
+            // Paint white through the alpha of the template, in its own image so
+            // that the fill does not cover the tile.
+            tileGlyph = NSImage(size: glyph.size, flipped: false) { rect in
+                glyph.draw(in: rect)
+                NSColor.white.set()
+                rect.fill(using: .sourceAtop)
+                return true
+            }
+        }
+        let size = NSSize(width: side, height: side)
+        return NSImage(size: size, flipped: false) { rect in
+            let radius = side * AppDefaults.Sidebar.tileCornerFraction
+            switch self {
+            case .glyph:
+                break
+            case .dot(let color):
+                let diameter = side * AppDefaults.Sidebar.dotFraction
+                color.setFill()
+                NSBezierPath(ovalIn: NSRect(x: rect.midX - diameter / 2, y: rect.midY - diameter / 2,
+                                            width: diameter, height: diameter)).fill()
+            case .monogram(let letter, let color):
+                color.setFill()
+                NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+                let text = NSAttributedString(string: letter, attributes: [
+                    .font: NSFont.systemFont(ofSize: side * 0.6, weight: .bold),
+                    .foregroundColor: NSColor.white
+                ])
+                let textSize = text.size()
+                text.draw(at: NSPoint(x: rect.midX - textSize.width / 2, y: rect.midY - textSize.height / 2))
+            case .tile(_, let color):
+                color.setFill()
+                NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+                guard let glyph = tileGlyph else { break }
+                let glyphSide = side * AppDefaults.Sidebar.tileSymbolFraction
+                let glyphRect = NSRect(x: rect.midX - glyphSide / 2, y: rect.midY - glyphSide / 2, width: glyphSide, height: glyphSide)
+                glyph.draw(in: glyphRect)
+            }
+            return true
+        }
+    }
+
+    private static var glyphs: [String: NSImage] = [:]
+
+    /// A template image from `sidebar-<name>.svg` in the resources.
+    @MainActor
+    static func glyph(_ name: String) -> NSImage? {
+        if let image = glyphs[name] { return image }
+        guard let url = PiperTheme.resources.url(forResource: "sidebar-\(name)", withExtension: "svg"),
+              let image = NSImage(contentsOf: url) else { return nil }
+        image.isTemplate = true
+        glyphs[name] = image
+        return image
+    }
+}
+
+/// Shows the disclosure buttons and the header actions only while the pointer
+/// is over the sidebar. Keyboard navigation still opens and closes rows.
+private final class SidebarOutlineView: NSOutlineView {
+    private let hoverRevealed = NSHashTable<NSView>.weakObjects()
+    private lazy var hoverArea = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                                owner: self)
+    private var isHovered = false {
+        didSet { hoverRevealed.allObjects.forEach { $0.animator().alphaValue = isHovered ? 1 : 0 } }
+    }
+
+    func revealOnHover(_ view: NSView) {
+        view.alphaValue = isHovered ? 1 : 0
+        hoverRevealed.add(view)
+    }
+
+    override func makeView(withIdentifier identifier: NSUserInterfaceItemIdentifier, owner: Any?) -> NSView? {
+        let view = super.makeView(withIdentifier: identifier, owner: owner)
+        if identifier == NSOutlineView.disclosureButtonIdentifier, let view { revealOnHover(view) }
+        return view
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if !trackingAreas.contains(hoverArea) { addTrackingArea(hoverArea) }
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if event.trackingArea === hoverArea { isHovered = true } else { super.mouseEntered(with: event) }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if event.trackingArea === hoverArea { isHovered = false } else { super.mouseExited(with: event) }
+    }
+}
+
 private final class SidebarCell: NSTableCellView {
     private let title = NSTextField(labelWithString: "")
     private let icon = NSImageView()
     private let countLabel = NSTextField(labelWithString: "")
+    /// The orange count of the sessions that wait, on a Claude row.
+    private let attentionLabel = NSTextField(labelWithString: "")
+    private let attentionBadge = NSView()
     private let actions = NSStackView()
-    var addButton: NSButton? {
-        didSet {
-            oldValue?.removeFromSuperview()
-            if let addButton { actions.addArrangedSubview(addButton) }
-        }
-    }
+    private var tint: NSColor?
     private lazy var iconWidth = icon.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.metrics(for: .medium).imageSize)
     private lazy var iconHeight = icon.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.metrics(for: .medium).imageSize)
 
@@ -421,9 +550,24 @@ private final class SidebarCell: NSTableCellView {
         title.allowsDefaultTighteningForTruncation = false
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         countLabel.font = .monospacedDigitSystemFont(ofSize: AppDefaults.Sidebar.countFontSize, weight: .regular)
+        attentionLabel.font = .monospacedDigitSystemFont(ofSize: AppDefaults.Sidebar.headerFontSize, weight: .semibold)
+        attentionLabel.textColor = .white
+        attentionBadge.wantsLayer = true
+        attentionBadge.layer?.cornerRadius = AppDefaults.Sidebar.countCornerRadius
+        attentionLabel.translatesAutoresizingMaskIntoConstraints = false
+        attentionBadge.addSubview(attentionLabel)
+        let padding = AppDefaults.Sidebar.attentionPadding
+        NSLayoutConstraint.activate([
+            attentionLabel.leadingAnchor.constraint(equalTo: attentionBadge.leadingAnchor, constant: padding.left),
+            attentionLabel.trailingAnchor.constraint(equalTo: attentionBadge.trailingAnchor, constant: -padding.right),
+            attentionLabel.centerYAnchor.constraint(equalTo: attentionBadge.centerYAnchor),
+            attentionBadge.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.countCornerRadius * 2),
+            attentionBadge.widthAnchor.constraint(greaterThanOrEqualTo: attentionBadge.heightAnchor)
+        ])
         icon.imageScaling = .scaleProportionallyUpOrDown
         actions.spacing = AppDefaults.Sidebar.actionSpacing
         actions.addArrangedSubview(countLabel)
+        actions.addArrangedSubview(attentionBadge)
         for view in [title, icon, actions] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -433,7 +577,7 @@ private final class SidebarCell: NSTableCellView {
             icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
             iconWidth,
             iconHeight,
-            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: AppDefaults.Sidebar.imageMarginRight),
+            title.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: AppDefaults.Sidebar.imageMarginRight + 2),
             title.trailingAnchor.constraint(lessThanOrEqualTo: actions.leadingAnchor, constant: -AppDefaults.Sidebar.countMarginLeft),
             actions.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -AppDefaults.Sidebar.trailingInset)
         ])
@@ -441,15 +585,24 @@ private final class SidebarCell: NSTableCellView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
-    func configure(title: String, symbol: String, count: Int, rowSizeStyle: NSTableView.RowSizeStyle) {
+    /// - Parameter attention: Shows the count as an orange badge instead of gray text.
+    func configure(title: String, icon: SidebarIcon, count: Int, attention: Bool = false,
+                   rowSizeStyle: NSTableView.RowSizeStyle) {
         let metrics = AppDefaults.Sidebar.metrics(for: rowSizeStyle)
         self.title.stringValue = title
         self.title.font = .systemFont(ofSize: metrics.fontSize)
         iconWidth.constant = metrics.imageSize
         iconHeight.constant = metrics.imageSize
-        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        countLabel.stringValue = count > 0 ? count.formatted() : ""
-        countLabel.setAccessibilityLabel(count > 0 ? "\(count) unread" : nil)
+        self.icon.image = icon.image(side: metrics.imageSize)
+        if case .glyph(_, let color) = icon { tint = color } else { tint = nil }
+        let text = count > 0 ? count.formatted() : ""
+        countLabel.stringValue = attention ? "" : text
+        countLabel.isHidden = attention || count == 0
+        attentionLabel.stringValue = attention ? text : ""
+        attentionBadge.isHidden = !attention || count == 0
+        let label = count > 0 ? (attention ? "\(count) waiting" : "\(count) unread") : nil
+        countLabel.setAccessibilityLabel(label)
+        attentionBadge.setAccessibilityLabel(label)
         updateColors()
     }
 
@@ -457,6 +610,15 @@ private final class SidebarCell: NSTableCellView {
         let emphasized = backgroundStyle == .emphasized
         title.textColor = emphasized ? .selectedControlTextColor : .labelColor
         countLabel.textColor = emphasized ? .selectedControlTextColor : .secondaryLabelColor
-        icon.contentTintColor = emphasized ? .selectedControlTextColor : PiperTheme.accentNS
+        // A colored glyph would vanish on the accent fill. Tiles and dots keep their color.
+        icon.contentTintColor = emphasized ? .selectedControlTextColor : tint
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            attentionBadge.layer?.backgroundColor = PiperTheme.claudeNS.cgColor
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateColors()
     }
 }

@@ -126,25 +126,40 @@ final class FolderAgentsTests: XCTestCase {
 
     // MARK: - Sending
 
-    func testSendRunsTheDefaultSkillAndRemembersTheFolder() async throws {
+    func testSendPreparesAnEditableDraftAndRemembersTheFolder() async throws {
         let agents = try makeAgents()
         XCTAssertTrue(store.add("https://example.com/page"))
         let note = try XCTUnwrap(store.notes.last)
         let notesAction = try XCTUnwrap(agents.completions(for: "capture").last)
 
+        var shown: UUID?
+        agents.showDraft = { shown = $0 }
         let session = try XCTUnwrap(agents.send(note, action: notesAction))
         XCTAssertEqual(session.folder, notes.standardizedFileURL.path)
         XCTAssertEqual(session.command, SlashCommand(name: "capture", arguments: "https://example.com/page"))
         XCTAssertEqual(agents.defaultFolder?.name, "notes")
-        XCTAssertEqual(store.status, "Running /capture in notes")
+        XCTAssertEqual(store.status, "Draft in notes")
+        XCTAssertEqual(shown, session.id)
+        XCTAssertEqual(session.noteID, note.id)
+        XCTAssertEqual(session.draft, "/capture https://example.com/page")
+        XCTAssertTrue(session.blocks.isEmpty)
+        XCTAssertEqual(agents.runner.activeCount, 0)
+        XCTAssertEqual(try prompts(), [])
+
+        session.draft += " Summarize the examples"
+        agents.runner.send(session.draft, to: session)
+        XCTAssertEqual(session.draft, "")
         try await waitForRuns(agents)
 
         XCTAssertEqual(agents.latestSession(for: note)?.state, .idle)
-        XCTAssertEqual(try prompts(), ["/capture https://example.com/page"])
+        XCTAssertEqual(try prompts(), ["/capture https://example.com/page Summarize the examples"])
+        XCTAssertEqual(session.command?.arguments, "https://example.com/page Summarize the examples")
+        XCTAssertEqual(store.notes.count, 1)
+        XCTAssertEqual(store.notes[0].text, "https://example.com/page")
         XCTAssertEqual(FolderAgents(store: store, preferences: preferences).lastFolderPath, notes.standardizedFileURL.path)
     }
 
-    func testSendSelectionSendsEachNoteWithItsOwnSkill() async throws {
+    func testSendSelectionPreparesEachNoteWithItsOwnSkill() async throws {
         let agents = try makeAgents()
         XCTAssertTrue(store.add("https://example.com/a"))
         XCTAssertTrue(store.add("Decision keep runs"))
@@ -152,7 +167,9 @@ final class FolderAgentsTests: XCTestCase {
 
         XCTAssertEqual(agents.sendSelection(), 2)
         try await waitForRuns(agents)
-        XCTAssertEqual(try prompts().sorted(), ["/capture https://example.com/a", "/new Decision keep runs"])
+        XCTAssertEqual(try prompts(), [])
+        XCTAssertEqual(store.notes.compactMap { agents.latestSession(for: $0)?.draft }.sorted(),
+                       ["/capture https://example.com/a", "/new Decision keep runs"])
     }
 
     func testSendingAClipboardTextSavesItFirst() async throws {
@@ -166,7 +183,9 @@ final class FolderAgentsTests: XCTestCase {
         XCTAssertEqual(store.notes.first?.section, "Inbox")
         XCTAssertEqual(session.noteID, store.notes.first?.id)
         XCTAssertTrue(clipboard.entries.isEmpty)
-        try await waitForRuns(agents)
+        XCTAssertEqual(session.draft, "/capture https://example.com/copied")
+        XCTAssertTrue(session.blocks.isEmpty)
+        XCTAssertEqual(try prompts(), [])
     }
 
     func testSendingThePasteboardSkipsANoteThatWasSent() async throws {
@@ -176,7 +195,12 @@ final class FolderAgentsTests: XCTestCase {
         pasteboard.clearContents()
         pasteboard.setString("https://example.com/twice", forType: .string)
 
-        XCTAssertNotNil(agents.sendPasteboard(pasteboard))
+        let session = try XCTUnwrap(agents.sendPasteboard(pasteboard))
+        session.draft += " Added instructions"
+        XCTAssertEqual(agents.sendPasteboard(pasteboard)?.id, session.id)
+        XCTAssertTrue(session.draft.hasSuffix("Added instructions"))
+        XCTAssertEqual(try prompts(), [])
+        agents.runner.send(session.draft, to: session)
         try await waitForRuns(agents)
         XCTAssertNil(agents.sendPasteboard(pasteboard))
         XCTAssertEqual(store.status, "Already sent to wiki")

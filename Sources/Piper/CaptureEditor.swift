@@ -63,6 +63,7 @@ struct CaptureEditor: NSViewRepresentable {
             .paragraphStyle: paragraph
         ]
         editor.string = text
+        editor.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
         editor.placeholder = placeholder
         editor.delegate = context.coordinator
         editor.setAccessibilityLabel(label)
@@ -83,6 +84,7 @@ struct CaptureEditor: NSViewRepresentable {
         }
         if editor.string != text {
             editor.string = text
+            editor.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
             editor.undoManager?.removeAllActions()
             editor.needsDisplay = true
             editor.sizeToFit()

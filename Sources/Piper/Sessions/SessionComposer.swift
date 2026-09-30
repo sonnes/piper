@@ -16,7 +16,13 @@ struct SessionComposer: View {
     let send: (String) -> Void
     let stop: () -> Void
 
-    @State private var text = ""
+    @State private var newSessionText = ""
+    private var text: String {
+        get { session?.draft ?? newSessionText }
+        nonmutating set {
+            if let session { session.draft = newValue } else { newSessionText = newValue }
+        }
+    }
     @State private var focused = false
     @State private var completionIndex = 0
 
@@ -72,7 +78,7 @@ struct SessionComposer: View {
             completions
             if !context.isEmpty { contextChips }
             HStack(alignment: .bottom, spacing: 6) {
-                CaptureEditor(text: $text, focused: $focused, placeholder: "Ask Claude in \(folderName)",
+                CaptureEditor(text: Binding(get: { text }, set: { text = $0 }), focused: $focused, placeholder: "Ask Claude in \(folderName)",
                               label: "Message to Claude",
                               help: "Return sends the message. Shift-Return inserts a new line.",
                               command: handle)
@@ -109,6 +115,9 @@ struct SessionComposer: View {
             .lineLimit(1)
         }
         .padding(12)
+        .onChange(of: session?.id, initial: true) { _, _ in
+            focused = !text.isEmpty
+        }
         .onChange(of: text) { _, _ in completionIndex = 0 }
     }
 

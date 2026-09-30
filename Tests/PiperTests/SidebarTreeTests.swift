@@ -17,10 +17,30 @@ final class SidebarTreeTests: XCTestCase {
     func testFileRowsDropTheMarkdownExtensionAndShowTheKind() {
         XCTAssertEqual(SidebarOutline.fileTitle("claude-code.md"), "claude-code")
         XCTAssertEqual(SidebarOutline.fileTitle("2026-09-18-openui.html"), "2026-09-18-openui.html")
-        XCTAssertEqual(SidebarOutline.fileSymbol("claude-code.md"), "doc.text")
-        XCTAssertEqual(SidebarOutline.fileSymbol("figure.png"), "photo")
-        XCTAssertEqual(SidebarOutline.fileSymbol("page.html"), "globe")
-        XCTAssertEqual(SidebarOutline.fileSymbol("captions.vtt"), "doc")
+        XCTAssertEqual(SidebarOutline.fileIcon("claude-code.md"), "note")
+        XCTAssertEqual(SidebarOutline.fileIcon("figure.png"), "image")
+        XCTAssertEqual(SidebarOutline.fileIcon("page.html"), "web")
+        XCTAssertEqual(SidebarOutline.fileIcon("captions.vtt"), "file")
+    }
+
+    func testFolderTilesAndSectionDotsTakeAColorByPositionAndALetter() {
+        XCTAssertEqual(SidebarOutline.monogram("notes"), "N")
+        XCTAssertEqual(SidebarOutline.monogram(".config"), "C")
+        XCTAssertEqual(SidebarOutline.monogram("2026 journal"), "2")
+        XCTAssertEqual(SidebarOutline.monogram("---"), "•")
+        // Neighbors differ, and the colors repeat after the last one.
+        let count = PiperTheme.tagsNS.count
+        for index in 0..<count { XCTAssertNotEqual(SidebarOutline.tagColor(at: index), SidebarOutline.tagColor(at: index + 1)) }
+        XCTAssertEqual(SidebarOutline.tagColor(at: count), SidebarOutline.tagColor(at: 0))
+        XCTAssertEqual(SidebarOutline.tagColor(at: -1), SidebarOutline.tagColor(at: 0))
+    }
+
+    @MainActor
+    func testEverySidebarGlyphLoadsAsATemplate() throws {
+        for name in ["home", "inbox", "clipboard", "archived", "claude", "folder", "note", "image", "web", "file"] {
+            let image = try XCTUnwrap(SidebarIcon.glyph(name), name)
+            XCTAssertTrue(image.isTemplate, name)
+        }
     }
 
     func testTreeListsFilesUnderTheirFoldersAfterSubfolders() {

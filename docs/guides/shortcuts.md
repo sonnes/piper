@@ -13,7 +13,7 @@ read_when:
 | --- | --- |
 | Shift, Shift | Capture the selection in another app (default) |
 | Control-Option-Space | Capture the selection, if you choose it in Settings > Capture |
-| Control-Option-W | Save the clipboard to Inbox and send it to the default folder, while a folder has Claude skills |
+| Control-Option-W | Save the clipboard to Inbox and open a draft for the default folder, while a folder has Claude skills |
 | Command-1 | Show the capture panel |
 | Command-2 | Show the files in the main window |
 | Command-0 | Show Home in the main window |
@@ -43,7 +43,7 @@ These shortcuts work in the capture panel or the main-window Inbox when no sheet
 | Command-C | Copy the selected notes |
 | Command-Shift-C | Copy the selected notes as a numbered list |
 | Command-Shift-M | Merge the selected notes |
-| Command-Shift-Return | Send each selected note to the default folder |
+| Command-Shift-Return | Prepare a draft for each selected note in the default folder |
 | Command-Z | Undo the last note change |
 | Delete / Forward Delete | Delete the selected notes, with no confirmation |
 | Escape | Clear the selection, then clear the search. In the capture panel, another Escape closes the panel. |

@@ -37,6 +37,33 @@ enum PiperTheme {
     static let dangerNS = NSColor.systemRed
     static let successNS = NSColor.systemGreen
 
+    // The sidebar icons use the Tailwind CSS palette: shade 500 in the light
+    // appearance and shade 400 in the dark, unless a comment names others.
+
+    /// Amber.
+    static let homeNS = color(light: 0xF59E0B, dark: 0xFBBF24)
+    /// Blue.
+    static let inboxNS = color(light: 0x3B82F6, dark: 0x60A5FA)
+    /// Violet.
+    static let clipboardNS = color(light: 0x8B5CF6, dark: 0xA78BFA)
+    /// Amber 700 and 600.
+    static let archivedNS = color(light: 0xB45309, dark: 0xD97706)
+    /// Orange. The tile of a Claude folder and its count of sessions that wait.
+    static let claudeNS = color(light: 0xF97316, dark: 0xFB923C)
+    /// Zinc 500 and 400.
+    static let sidebarFolderNS = color(light: 0x71717A, dark: 0xA1A1AA)
+    /// Zinc 400 and 500.
+    static let sidebarFileNS = color(light: 0xA1A1AA, dark: 0x71717A)
+    /// The colors of section dots and folder tiles, in the order of the rows:
+    /// violet, emerald, orange, sky, rose, lime, fuchsia, and amber. Rows next
+    /// to each other get hues that are far apart.
+    static let tagsNS: [NSColor] = [
+        color(light: 0x8B5CF6, dark: 0xA78BFA), color(light: 0x10B981, dark: 0x34D399),
+        color(light: 0xF97316, dark: 0xFB923C), color(light: 0x0EA5E9, dark: 0x38BDF8),
+        color(light: 0xF43F5E, dark: 0xFB7185), color(light: 0x84CC16, dark: 0xA3E635),
+        color(light: 0xD946EF, dark: 0xE879F9), color(light: 0xF59E0B, dark: 0xFBBF24)
+    ]
+
     static let page = Color(nsColor: pageNS)
     static let panel = Color(nsColor: panelNS)
     static let card = Color(nsColor: cardNS)

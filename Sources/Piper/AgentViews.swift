@@ -38,7 +38,7 @@ struct SessionStateChip: View {
             case .failed: Image(systemName: "exclamationmark").font(.system(size: 9, weight: .bold))
             case .waiting: Image(systemName: "clock").font(.system(size: 9, weight: .semibold))
             }
-            Text(Self.title(session.state))
+            Text(session.blocks.isEmpty ? "Draft" : Self.title(session.state))
         }
         .font(PiperTheme.ui(11, weight: .medium))
         .foregroundStyle(color)
@@ -59,6 +59,7 @@ struct RunBadge: View {
 
     private var help: String {
         let name = session.command.map { "/" + $0.name } ?? "The session"
+        if session.blocks.isEmpty { return "Edit the draft in " + session.folderName }
         switch session.state {
         case .waiting: return "\(name) waits for another session to finish"
         case .running: return session.lastStep ?? "\(name) is running in \(session.folderName)"
@@ -75,7 +76,7 @@ struct RunBadge: View {
         .buttonStyle(.plain)
         .fixedSize()
         .help(help)
-        .accessibilityLabel("\(SessionStateChip.title(session.state)): \(help)")
+        .accessibilityLabel("\(session.blocks.isEmpty ? "Draft" : SessionStateChip.title(session.state)): \(help)")
     }
 }
 
@@ -128,7 +129,7 @@ struct SendMenuItems: View {
     }
 }
 
-/// A button that sends with the default action, with a menu of every skill.
+/// A button that opens a draft with the default skill or a skill from its menu.
 struct SendButton: View {
     let agents: FolderAgents
     let title: String
@@ -146,7 +147,7 @@ struct SendButton: View {
         .menuStyle(.borderedButton)
         .controlSize(.regular)
         .fixedSize()
-        .help("Send with the default skill. Open the menu to choose another skill.")
+        .help("Edit a draft with the default skill. Open the menu to choose another skill.")
     }
 }
 

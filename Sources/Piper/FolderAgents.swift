@@ -33,6 +33,8 @@ final class FolderAgents {
     /// The stored value that means "run nothing by default".
     static let noSkill = "-"
 
+    var showDraft: ((UUID) -> Void)?
+
     let runner: SessionRunner
     /// Every sidebar folder with skills, including the folders that are off.
     private(set) var available: [Folder] = []
@@ -156,7 +158,7 @@ final class FolderAgents {
 
     // MARK: - Sending
 
-    /// Runs a skill on a note. Without an action, the note runs its default action.
+    /// Opens a draft for a note with the chosen skill or its default skill.
     @discardableResult
     func send(_ note: Note, action: Action? = nil) -> AgentSession? {
         guard let action = action ?? defaultAction(for: note.text) else {
@@ -164,24 +166,29 @@ final class FolderAgents {
             return nil
         }
         let command = SlashCommand(name: action.skill.name, arguments: note.text)
-        return start(command, in: action.folder, noteID: note.id)
+        lastFolderPath = action.folder.path
+        let session = runner.newSession(in: action.folder.path, noteID: note.id, command: command)
+        session.draft = command.prompt
+        store.status = "Draft in \(action.folder.name)"
+        showDraft?(session.id)
+        return session
     }
 
-    /// Sends every selected note with its default action.
+    /// Prepares every selected note with its default action.
     @discardableResult
     func sendSelection(action: Action? = nil) -> Int {
         let notes = store.selectedNotes
         return notes.compactMap { send($0, action: action) }.count
     }
 
-    /// Saves a clipboard text to Inbox, then sends the new note.
+    /// Saves clipboard text to Inbox, then opens its draft.
     @discardableResult
     func send(_ entry: ClipboardEntry, from clipboard: ClipboardInbox, action: Action? = nil) -> AgentSession? {
         guard clipboard.save(entry.id), let note = store.notes.last(where: { $0.text == entry.text }) else { return nil }
         return send(note, action: action)
     }
 
-    /// Saves the text on the pasteboard to Inbox, then sends the new note.
+    /// Saves the pasteboard text to Inbox, then opens its draft.
     @discardableResult
     func sendPasteboard(_ pasteboard: NSPasteboard = .general) -> AgentSession? {
         guard defaultFolder != nil else {
@@ -195,6 +202,10 @@ final class FolderAgents {
         }
         if let note = store.notes.last(where: { $0.text == text }) {
             if let session = latestSession(for: note), session.state != .failed {
+                if session.blocks.isEmpty {
+                    showDraft?(session.id)
+                    return session
+                }
                 store.status = "Already sent to \(session.folderName)"
                 return nil
             }

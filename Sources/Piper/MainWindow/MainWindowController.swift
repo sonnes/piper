@@ -464,6 +464,7 @@ enum Toolbar {
 
 extension NSToolbarItem.Identifier {
     static let navigate = NSToolbarItem.Identifier("navigate")
+    static let add = NSToolbarItem.Identifier("add")
     static let capture = NSToolbarItem.Identifier("capture")
     static let viewMode = NSToolbarItem.Identifier("viewMode")
     static let markDone = NSToolbarItem.Identifier("markDone")
@@ -475,7 +476,7 @@ extension NSToolbarItem.Identifier {
 extension MainWindowController: NSToolbarDelegate {
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.toggleSidebar, .sidebarTrackingSeparator,
+        [.toggleSidebar, .add, .sidebarTrackingSeparator,
          .flexibleSpace, .capture, .readerSeparator,
          .navigate, .flexibleSpace, .viewMode, .markDone, .more, .claude]
     }
@@ -504,6 +505,8 @@ extension MainWindowController: NSToolbarDelegate {
             doneItem = item
             updateToolbarState()
             return item
+        case .add:
+            return addItem()
         case .more:
             return moreItem()
         case .claude:
@@ -543,11 +546,23 @@ extension MainWindowController: NSToolbarDelegate {
         return item
     }
 
-    /// Actions that apply to the whole window.
-    private func moreItem() -> NSToolbarItem {
+    /// New Section and Add Folder, beside the sidebar toggle.
+    private func addItem() -> NSToolbarItem {
         let menu = NSMenu()
         menu.addItem(withTitle: "New Section…", action: #selector(newSection), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Add Folder…", action: #selector(chooseFolder), keyEquivalent: "").target = self
+        let item = NSMenuToolbarItem(itemIdentifier: .add)
+        item.isBordered = true
+        item.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "Add")
+        item.label = "Add"
+        item.toolTip = "New Section or Add Folder"
+        item.menu = menu
+        return item
+    }
+
+    /// Actions that apply to the whole window.
+    private func moreItem() -> NSToolbarItem {
+        let menu = NSMenu()
         menu.addItem(withTitle: "Reveal in Finder", action: #selector(revealFolder), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Refresh", action: #selector(refreshVault), keyEquivalent: "").target = self

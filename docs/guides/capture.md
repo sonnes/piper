@@ -17,7 +17,9 @@ Open the panel with Command-1 or the menu bar icon.
 
 The panel and the main window take turns. When one opens, the other leaves the screen. Neither closes, so a draft stays as it is.
 
-To move the panel, drag an empty part of it. To resize the panel, drag an edge or a corner. Piper keeps the size and the position for the next launch.
+To move the panel, drag an empty part of it. To resize it, move the pointer to an edge or corner until the resize cursor appears. Drag to change the size. Piper keeps the size and the position for the next launch.
+
+The default panel size is 600 by 960 points in portrait orientation. On smaller screens, Piper reduces both dimensions to fit the available height. A saved size takes precedence over the default.
 
 ## Read The Panel
 
@@ -104,7 +106,7 @@ If an app does not expose its selection, use the clipboard:
 
 Sections group notes.
 
-- To create a section, select New Section in the dropdown. In the main window, select the + button beside Inbox in the sidebar.
+- To create a section, select New Section in the dropdown. In the main window, select New Section in the + menu of the toolbar, above the sidebar.
 - To change the section for new notes, choose it from the section dropdown, or press Command-K.
 - To create or select a section from the composer, type `# Research` alone and press Return.
 - To run a folder skill, type `/` and the skill name. See [Send notes to Claude](claude.md#run-a-skill-from-the-composer).

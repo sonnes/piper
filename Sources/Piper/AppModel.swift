@@ -124,6 +124,7 @@ final class AppModel {
         let stored = UserDefaults.standard.string(forKey: "captureShortcut") ?? "Shift, Shift"
         captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
         agents.refresh(paths: wikiPaths)
+        agents.showDraft = { [weak self] id in self?.showSession?(id) }
     }
 
     func requestAccessibility() {

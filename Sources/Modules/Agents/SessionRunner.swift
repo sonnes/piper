@@ -124,6 +124,8 @@ public final class SessionRunner {
     public func send(_ text: String, context: [String] = [], to session: AgentSession) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        if session.blocks.isEmpty { session.command = SlashCommand(text) }
+        session.draft = ""
         let context = ["compact", "clear", "context", "usage"].contains(SlashCommand(text)?.name ?? "") ? [] : context
         session.append(.user(id: UUID().uuidString, text: text, context: context))
         session.unread = false

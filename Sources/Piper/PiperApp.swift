@@ -228,7 +228,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         sendClipboardItem?.title = "Send Clipboard to " + (model.agents.defaultFolder?.name ?? "Folder")
     }
 
-    /// Saves the clipboard to Inbox and sends it to the default folder.
+    /// Saves the clipboard to Inbox and opens a draft in the default folder.
     @objc private func sendClipboard() {
         guard let run = model.agents.sendPasteboard() else {
             showToast(model.store.status)

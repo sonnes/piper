@@ -18,11 +18,11 @@ Open the window with Command-2. Command-0 opens it on the Home page.
 The default folder is `~/Desktop/Wiki`.
 
 1. Open the main window with Command-2.
-2. Select the + button beside the Folders heading in the sidebar.
+2. Select Add Folder in the + menu of the toolbar, above the sidebar.
 3. Select one or more folders.
 4. Select Add.
 
-Add Folder is also in the sidebar context menu, in the More menu of the toolbar, and in Settings > General.
+Add Folder is also in the sidebar context menu and in Settings > General. When the pointer is on the sidebar, a + button also shows beside the Folders heading.
 
 Piper keeps the added folders across restarts. Select a folder in the sidebar to show its folder tree.
 
@@ -47,13 +47,14 @@ The toolbar has these controls:
 | Control | Action |
 | --- | --- |
 | Toggle Sidebar | Hides or shows the sidebar |
+| + | New Section and Add Folder |
 | New Capture | Moves the focus to the note composer in the main window |
 | Back and Forward | Moves through the files you opened |
 | Preview and Source | Shows the formatted file or its text |
 | Mark as Done | Marks the selected capture as done, or opens it again |
-| More | New Section, Add Folder, Reveal in Finder, Refresh, and Settings |
+| More | Reveal in Finder, Refresh, and Settings |
 
-The folder tree shows every folder and every file, as in an editor. Folders come first, then files. A Markdown file shows its name without `.md`.
+The folder tree shows every folder and every file, as in an editor. Folders come first, then files. A Markdown file shows its name without `.md`. Each top-level folder shows a colored tile with the first letter of its name. The arrows that open and close folders show only when the pointer is on the sidebar. The arrow keys open and close folders at all times.
 
 - Select a folder to show its files in the list.
 - Select a file to open it. The list closes, and the file takes its width.

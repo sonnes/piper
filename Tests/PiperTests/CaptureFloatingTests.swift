@@ -19,6 +19,16 @@ final class CaptureFloatingTests: XCTestCase {
         let panel = try XCTUnwrap(controller.window as? CapturePanel)
         defer { panel.close() }
 
+        XCTAssertTrue(panel.styleMask.contains(.titled))
+        XCTAssertTrue(panel.styleMask.contains(.resizable))
+        XCTAssertTrue(panel.styleMask.contains(.nonactivatingPanel))
+        panel.setFrameAutosaveName("")
+        let size = NSSize(width: 500, height: 700)
+        panel.setContentSize(size)
+        XCTAssertEqual(panel.contentView?.bounds.size, size)
+        panel.setContentSize(NSSize(width: 600, height: 800))
+        XCTAssertEqual(panel.contentView?.bounds.size, NSSize(width: 600, height: 800))
+
         XCTAssertTrue(model.captureFloating)
         XCTAssertTrue(panel.isFloatingPanel)
         XCTAssertEqual(panel.level, .floating)

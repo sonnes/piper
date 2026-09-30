@@ -44,7 +44,9 @@ public final class AgentSession: Identifiable {
     /// The note that started the session.
     public let noteID: UUID?
     /// The skill of the first turn, for a session that a Send action started.
-    public let command: SlashCommand?
+    public internal(set) var command: SlashCommand?
+    /// The text in the composer before the reader sends it.
+    public var draft = ""
     /// The id that `--resume` takes.
     public internal(set) var claudeSessionID: String?
     public internal(set) var slashCommands: [String]?

@@ -71,7 +71,7 @@ To start another session, select New Session (the pencil icon). The title menu o
 
 ### Find A Session
 
-When a folder has sessions, the sidebar shows a Claude group with a row for that folder. The number on the row counts the sessions that wait for you.
+When a folder has sessions, the sidebar shows a Claude group with a row for that folder. An orange number on the row counts the sessions that wait for you.
 
 1. Select the folder in the Claude group.
 2. Select a session in the list.
@@ -137,19 +137,23 @@ CAUTION: Allow Every Tool lets Claude run any shell command in the folder. Use i
 
 ## Send A Note
 
-- In the capture panel, move the pointer over a clipboard row, then select Send to <folder>. Piper saves the text to Inbox, then runs the default skill.
+- In the capture panel, move the pointer over a clipboard row, then select Send to <folder>. Piper saves the text to Inbox and opens a draft.
 - A link note that has no session shows Send to <folder> on its row. Select it.
 - To send any note, Control-click it and select Send to <folder> with /<skill>.
-- To send several notes, select them, then select Send in the selection bar, or press Command-Shift-Return. Each note runs its own default skill.
-- To run a different skill, open the menu on the Send button, or select Send To in the context menu. The menu lists each folder and its skills.
+- To send several notes, select them, then select Send in the selection bar, or press Command-Shift-Return. Each note gets a draft with its default skill.
+- To choose a different skill, open the menu on the Send button, or select Send To in the context menu. The menu lists each folder and its skills.
+
+The Claude composer opens with the skill command and the note text. Edit the text or add instructions, then press Return or select Send.
+Claude starts only after you send the draft. The original note stays unchanged. Unsent drafts last until you quit Piper.
+For several notes, Piper opens the last draft. Select each other draft from the session menu to edit and send it.
 
 ## Send From Another App
 
-- Copy a link or text, then press Control-Option-W. Piper saves the clipboard text to Inbox and sends it.
+- Copy a link or text, then press Control-Option-W. Piper saves the clipboard text to Inbox and opens its draft.
 - The menu bar icon has the same action as Send Clipboard to <folder>.
 - After a selection capture, the toast shows a Send button for 6 seconds.
 
-Control-Option-W works only while a folder has skills. If the clipboard text is a note that was already sent, Piper does not send it again.
+Control-Option-W works only while a folder has skills. An unsent note opens its existing draft. If a note has a session that did not fail, Piper does not send it again.
 
 If another app holds Control-Option-W, Piper shows an error once. Use the menu bar icon instead.
 

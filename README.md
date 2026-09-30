@@ -112,6 +112,7 @@ The application bundles the components below. Their license texts are in [`Licen
 | [HighlighterSwift](https://github.com/smittytone/HighlighterSwift) | MIT and BSD 3-Clause |
 | [SwiftMath](https://github.com/mgriebling/SwiftMath) | MIT |
 | [IBM Plex Mono](https://github.com/IBM/plex) | SIL Open Font License 1.1 |
+| [Lucide](https://lucide.dev) 1.49.0, sidebar icons | ISC |
 
 ## Attribution
 

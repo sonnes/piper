@@ -44,13 +44,18 @@ final class CapturePanelController: NSWindowController {
                           height: AppDefaults.Window.capturePanelSize.height * scale)
         let panel = CapturePanel(
             contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.borderless, .nonactivatingPanel, .resizable],
+            styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel, .resizable],
             backing: .buffered,
             defer: false
         )
         super.init(window: panel)
 
         panel.title = "Piper"
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            panel.standardWindowButton(button)?.isHidden = true
+        }
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -68,6 +73,7 @@ final class CapturePanelController: NSWindowController {
 
         let corners = RoundedRectangle(cornerRadius: AppDefaults.Window.cornerRadius * scale, style: .continuous)
         let hosting = NSHostingView(rootView: CaptureView(model: model)
+            .ignoresSafeArea()
             .clipShape(corners)
             .overlay(corners.strokeBorder(PiperTheme.rule, lineWidth: 0.5)))
         // The panel sets its own size. The SwiftUI size would pin the panel

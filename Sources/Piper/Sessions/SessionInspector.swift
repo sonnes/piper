@@ -18,9 +18,10 @@ struct SessionInspector: View {
         return nil
     }
 
-    /// The folder of the page, or the default folder for Claude.
+    /// The folder of the selected note session, the page, or the default folder.
     private var folder: String {
-        page == nil ? model.agents.defaultFolder?.path ?? model.vault.root.path : model.vault.root.path
+        if let id = model.selectedSession, let session = runner.session(id), session.noteID != nil { return session.folder }
+        return page == nil ? model.agents.defaultFolder?.path ?? model.vault.root.path : model.vault.root.path
     }
 
     private var session: AgentSession? {
@@ -40,7 +41,7 @@ struct SessionInspector: View {
             .frame(height: 38)
             Rule()
             SessionPane(model: model, session: session, folder: folder,
-                        context: page.map { $0 == usedContext ? [] : [$0] } ?? [],
+                        context: session?.noteID == nil ? page.map { $0 == usedContext ? [] : [$0] } ?? [] : [],
                         contextUsed: { usedContext = page },
                         started: { model.selectedSession = $0.id })
         }
