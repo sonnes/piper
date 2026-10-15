@@ -190,6 +190,8 @@ The bar over the article shows the minutes left, and a line under it shows the p
 
 ### Highlight And Ask In The Reader Tab
 
+![Close-up of article highlights with personal notes in the margin](../images/reader-highlights.png)
+
 Select text in the article to show the selection bar. The bar has Ask, Explain, Define, three highlight colors, and Capture.
 
 - To mark the text, select a color.
@@ -243,6 +245,8 @@ The count on the Reading chip includes all three groups. When you scroll to the 
 Home shows the first three articles of Continue under Continue Reading. Select one to open it at your place.
 
 ### Use The Notes Tab
+
+![Close-up of the Notes tab with an article summary, highlighted quotes, and personal notes](../images/article-notes.png)
 
 Select Notes in the tabs at the bottom of the pane. The Notes tab shows one page for the article:
 

@@ -4,9 +4,9 @@ Piper is a native macOS application for capturing text. It saves selected text a
 
 Capture and browsing need no account, cloud service, telemetry, or network connection. Notes stay in a local SQLite database. Wiki files stay on disk as they are. The web reader connects to the pages you open.
 
-![The Piper capture panel with notes and links beside the main window with an architecture note about pi-go](docs/images/hero.jpg)
+![Piper Inbox with a fictional article and colored highlights in the Reader tab](docs/images/hero.jpg)
 
-The screenshots show fictional notes of my public projects.
+The screenshots use fictional articles, notes, and conversations in an isolated local database.
 
 ## Status
 
@@ -65,7 +65,17 @@ Both windows use the system font and colors, with one blue accent. Both follow t
 
 ![The Piper main window with an architecture note about pi-go open in the Architecture folder](docs/images/main-window.png)
 
-<img src="docs/images/capture-panel.png" alt="The Piper capture panel with clipboard texts, Inbox notes, and Read Later links" width="360">
+<img src="docs/images/capture-panel.png" alt="The Piper capture panel with fictional notes, article links, and highlights" width="360">
+
+## Highlights And Notes
+
+The Reader tab keeps highlights beside your notes. The Notes tab collects the article summary, highlights, and personal notes.
+
+![Close-up of colored highlights and personal notes beside a fictional article](docs/images/reader-highlights.png)
+
+![Close-up of the Notes tab with a summary, highlighted quotes, and personal notes](docs/images/article-notes.png)
+
+See [Highlight and ask in the Reader tab](docs/guides/browse.md#highlight-and-ask-in-the-reader-tab) for the controls.
 
 ## Claude Sessions
 
@@ -73,7 +83,7 @@ Piper can send notes to Claude Code in a selected folder. Sessions show tool act
 
 See [Work with agents](docs/guides/claude.md) for setup, ACP agents, and permission controls.
 
-![A Claude session that saves a link to Read Later and edits an architecture note](docs/images/claude-session.png)
+![A fictional Claude Code conversation about a research notebook outline](docs/images/claude-session.png)
 
 ## Documentation
 
