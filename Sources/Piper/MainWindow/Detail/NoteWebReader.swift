@@ -10,7 +10,6 @@ struct NoteWebReader: View {
     // MARK: - Properties
 
     let url: URL
-    let showNote: () -> Void
     let capture: (String, String, URL) -> Bool
     @State private var page = NoteWebPage()
     @State private var isCapturing = false
@@ -19,11 +18,6 @@ struct NoteWebReader: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
-                Button(action: showNote) {
-                    Label("Note", systemImage: "chevron.left").labelStyle(.titleAndIcon)
-                }
-                .buttonStyle(.text)
-                .help("Show the note")
                 Group {
                     Button { page.webView?.goBack() } label: { Image(systemName: "chevron.left") }
                         .disabled(!page.canGoBack)

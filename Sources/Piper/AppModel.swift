@@ -12,6 +12,15 @@ final class AppModel {
     let clipboard: ClipboardInbox
     let agents: FolderAgents
     let fileReadState: FileReadState
+    /// The highlights and questions of link captures.
+    let reader: ReaderAssistant
+    /// The tab that a link capture shows: the article, the web page, or the notes.
+    var articleTab = ArticleTab.reader
+    /// The chip of the Inbox list for each section. The empty key is Inbox
+    /// with every section.
+    var inboxFilters: [String: InboxStream.Filter] = [:]
+    /// The child note that the Reader tab scrolls to.
+    var readerScroll: ReaderScroll?
     var files: [VaultFile] = []
     /// Every folder of the vault, including the ones that hold no file.
     var folders: [String] = []
@@ -78,10 +87,24 @@ final class AppModel {
     var showFile: ((String) -> Void)?
     /// Shows a note in the Inbox of the main window.
     var showNote: ((UUID) -> Void)?
-    /// Shows a session in the Claude pane of the main window.
+    /// Shows a link capture in Reading, at a highlight when one is given.
+    var showArticle: ((UUID, UUID?) -> Void)?
+    /// Shows a session in the session pane of the main window.
     var showSession: ((UUID) -> Void)?
-    /// The session that the Claude pane and the Claude list show. Nil starts a new session.
+    /// The session that the session card and the Sessions list show. Nil starts a new session.
     var selectedSession: UUID?
+    /// The note whose session card the reader cleared with New Session. The
+    /// card stays empty for that note until a message starts a session.
+    var newSessionNote: UUID?
+    /// The pill, the card, or the detached panel. The choice survives a restart.
+    var sessionPresentation = SessionPresentation(rawValue: UserDefaults.standard.string(forKey: AppDefaults.Key.sessionPresentation) ?? "") ?? .pill {
+        didSet {
+            UserDefaults.standard.set(sessionPresentation.rawValue, forKey: AppDefaults.Key.sessionPresentation)
+            if oldValue != sessionPresentation { sessionPresentationChanged?(sessionPresentation) }
+        }
+    }
+    /// Opens or closes the detached panel when the presentation changes.
+    @ObservationIgnored var sessionPresentationChanged: ((SessionPresentation) -> Void)?
     @ObservationIgnored private let preferences: UserDefaults
     var wikiPath: String {
         didSet {
@@ -123,8 +146,29 @@ final class AppModel {
         // longer matches a preset leaves the capture shortcut dead.
         let stored = UserDefaults.standard.string(forKey: "captureShortcut") ?? "Shift, Shift"
         captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
+        reader = ReaderAssistant(store: store, agents: agents)
+        archiveFinishedReading()
         agents.refresh(paths: wikiPaths)
         agents.showDraft = { [weak self] id in self?.showSession?(id) }
+        // A question goes to the folder of the Send buttons, or else to the open folder.
+        reader.folder = { [weak self] in self.map { $0.agents.defaultFolder?.path ?? $0.vault.root.path } }
+    }
+
+    /// Moves the articles that the reader finished more than a week ago to
+    /// Archived. Launch runs it, and so does each return to the main window.
+    func archiveFinishedReading(now: Date = Date()) {
+        store.archiveFinishedReading(before: now.addingTimeInterval(-Double(ReadingList.finishedDays) * 86_400))
+    }
+
+    /// The chip of the Inbox list of a section, or of every section when the section is nil.
+    func inboxFilter(for section: String?) -> InboxStream.Filter {
+        inboxFilters[section ?? "", default: .all]
+    }
+
+    /// Changes the chip of Inbox when it hides the note, so that the note shows.
+    func showInInbox(_ note: Note) {
+        let filter = inboxFilter(for: nil)
+        if (filter == .notes && note.isArticle) || (filter == .reading && !note.isArticle) { inboxFilters[""] = .all }
     }
 
     func requestAccessibility() {
@@ -414,5 +458,36 @@ final class AppModel {
     func jump(to anchor: String?) {
         requestedAnchor = anchor
         anchorRequest = UUID()
+    }
+}
+
+/// The tabs of a link capture in the detail pane.
+enum ArticleTab: Int {
+    case reader
+    case web
+    case notes
+}
+
+/// A request to scroll the Reader tab to a child note. Each request is new, so
+/// a second click on the same note scrolls again.
+struct ReaderScroll: Equatable {
+    /// The link capture that the request is for. Another article ignores it.
+    let article: UUID
+    /// The child note to show. Nil scrolls to the block.
+    let note: UUID?
+    /// The block to show when no note is given. Zero is the top.
+    let block: Int?
+    let request = UUID()
+
+    init(note: UUID, in article: UUID) {
+        self.article = article
+        self.note = note
+        block = nil
+    }
+
+    init(block: Int, in article: UUID) {
+        self.article = article
+        note = nil
+        self.block = block
     }
 }

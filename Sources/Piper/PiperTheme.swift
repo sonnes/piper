@@ -33,6 +33,21 @@ enum PiperTheme {
     /// The selection of a row without keyboard focus.
     static let selectionNS = NSColor.unemphasizedSelectedContentBackgroundColor
     static let ruleNS = NSColor.separatorColor
+    /// The paper of the Reader tab. The reader page uses the same colors.
+    static let readerNS = color(light: 0xFBFAF7, dark: 0x1B1B1C)
+    /// Selected text on the reader page and in a Markdown file: the accent at 20 percent, and 30 percent in the dark.
+    static let readerSelectionNS = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? hex(0x5E9EF4).withAlphaComponent(0.3) : hex(0x086AEE).withAlphaComponent(0.2)
+    }
+    /// The fill of code in a Markdown file: the code fill of the reader page
+    /// over its paper. It is opaque, because the editor paints each line of a
+    /// code block, and a clear fill doubles where two lines meet.
+    static let readerCodeNS = color(light: 0xF0EFEC, dark: 0x262627)
+    /// A yellow highlight on the reader page, and `==text==` in a Markdown file.
+    static let readerMarkNS = NSColor(name: nil) { appearance in
+        hex(0xFACC15).withAlphaComponent(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? 0.28 : 0.38)
+    }
     static let warningNS = NSColor.systemOrange
     static let dangerNS = NSColor.systemRed
     static let successNS = NSColor.systemGreen
@@ -48,8 +63,10 @@ enum PiperTheme {
     static let clipboardNS = color(light: 0x8B5CF6, dark: 0xA78BFA)
     /// Amber 700 and 600.
     static let archivedNS = color(light: 0xB45309, dark: 0xD97706)
-    /// Orange. The tile of a Claude folder and its count of sessions that wait.
+    /// Orange. The tile of a sessions folder, its count of sessions that wait, and the mark of Claude Code.
     static let claudeNS = color(light: 0xF97316, dark: 0xFB923C)
+    /// Teal 600 and 400. The mark of an agent that speaks ACP.
+    static let acpAgentNS = color(light: 0x0D9488, dark: 0x2DD4BF)
     /// Zinc 500 and 400.
     static let sidebarFolderNS = color(light: 0x71717A, dark: 0xA1A1AA)
     /// Zinc 400 and 500.
@@ -64,6 +81,20 @@ enum PiperTheme {
         color(light: 0xD946EF, dark: 0xE879F9), color(light: 0xF59E0B, dark: 0xFBBF24)
     ]
 
+    // The tags of child notes and the highlight colors. The reader page uses
+    // the same values. Highlight is amber 700 and yellow 400, question is
+    // orange 700 and 400, and other tags are sky 700 and 400.
+
+    static let markYellow = Color(nsColor: hex(0xFACC15))
+    static let markGreen = Color(nsColor: hex(0x4ADE80))
+    static let markPink = Color(nsColor: hex(0xF472B6))
+    static let tagHighlight = Color(nsColor: color(light: 0xA16207, dark: 0xFACC15))
+    static let tagHighlightFill = Color(nsColor: hex(0xEAB308)).opacity(0.16)
+    static let tagQuestion = Color(nsColor: color(light: 0xC2410C, dark: 0xFB923C))
+    static let tagQuestionFill = Color(nsColor: hex(0xF97316)).opacity(0.14)
+    static let tagOther = Color(nsColor: color(light: 0x0369A1, dark: 0x38BDF8))
+    static let tagOtherFill = Color(nsColor: hex(0x0EA5E9)).opacity(0.14)
+
     static let page = Color(nsColor: pageNS)
     static let panel = Color(nsColor: panelNS)
     static let card = Color(nsColor: cardNS)
@@ -73,9 +104,20 @@ enum PiperTheme {
     static let accent = Color(nsColor: accentNS)
     static let selection = Color(nsColor: selectionNS)
     static let rule = Color(nsColor: ruleNS)
+    static let reader = Color(nsColor: readerNS)
     static let warning = Color(nsColor: warningNS)
     static let danger = Color(nsColor: dangerNS)
     static let success = Color(nsColor: successNS)
+    static let claude = Color(nsColor: claudeNS)
+    static let acpAgent = Color(nsColor: acpAgentNS)
+    /// The fill and the ring of a request that waits in a session.
+    static let requestFill = Color(nsColor: color(light: 0xF97316, dark: 0xFB923C)).opacity(0.12)
+    static let requestRing = Color(nsColor: hex(0xF97316)).opacity(0.35)
+    /// The lines that an edit adds and removes.
+    static let diffAdded = Color(nsColor: hex(0x22C55E)).opacity(0.14)
+    static let diffRemoved = Color(nsColor: hex(0xEF4444)).opacity(0.12)
+    /// The mark of a finished tool call. Green 600.
+    static let toolDone = Color(nsColor: color(light: 0x16A34A, dark: 0x4ADE80))
     /// A row under the pointer.
     static let hover = Color.primary.opacity(0.045)
     /// The track behind the tabs of the capture panel, and the shadow of the active tab.
@@ -83,6 +125,17 @@ enum PiperTheme {
     static let tabShadow = Color.black.opacity(0.12)
     /// The ring around a focused field.
     static let focusRing = accent.opacity(0.45)
+    /// Text and symbols on an accent fill, such as a check or a toast button.
+    static let onAccent = Color.white
+    /// Faint text on an accent or warning fill, such as the shortcut in the Needs You pill.
+    static let onAccentSecondary = onAccent.opacity(0.8)
+    /// The shadows of the session card and of its pill.
+    static let sessionCardShadow = Color.black.opacity(0.2)
+    static let sessionPillShadow = Color.black.opacity(0.16)
+    /// The shadow of a control that floats over content, such as the tabs of the detail pane.
+    static let floatingShadow = Color.black.opacity(0.14)
+    /// The line over an article that says where it opened.
+    static let resumeFill = accent.opacity(0.1)
 
     // MARK: Shapes
 

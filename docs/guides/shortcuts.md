@@ -11,7 +11,7 @@ read_when:
 
 | Shortcut | Action |
 | --- | --- |
-| Shift, Shift | Capture the selection in another app (default) |
+| Shift, Shift | Capture the selection in another app (default). On a web page, highlight the selection, or save the page when no text is selected. While a highlight toast shows, add a note to the highlight. |
 | Control-Option-Space | Capture the selection, if you choose it in Settings > Capture |
 | Control-Option-W | Save the clipboard to Inbox and open a draft for the default folder, while a folder has Claude skills |
 | Command-1 | Show the capture panel |
@@ -35,7 +35,9 @@ These shortcuts work in the capture panel or the main-window Inbox when no sheet
 | Command-K | Choose the section for new notes, or create one |
 | Command-F | Search notes and the clipboard |
 | Up / Down | Select the previous or next note |
-| Click | Select or deselect a note without a modifier key |
+| Click | In the main window, open a note. In the capture panel, select or deselect it. |
+| Click the circle or ring | Mark a note as done, or mark an article as read |
+| Command-click | In the main window, select or deselect a note for an action on several notes |
 | Shift-click | Select a range of notes |
 | Shift-Up / Shift-Down | Add the previous or next note to the selection |
 | Command-A | Select all matching notes |
@@ -66,7 +68,11 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 | Command-] | Go forward |
 | Command-Z | Undo an edit |
 | Command-W | Close the window |
-| Option-Command-C | Open or close the Claude pane |
+| Option-Command-C | Open or close the session card, or bring the detached session panel to the front |
+| Command-K | In the Reader tab, ask about the selected text |
+| N | In the Reader tab, write a note on the selected text |
+| Option-Down Arrow / Option-Up Arrow | In the Reader tab, move to the next or the previous mark |
+| Escape | In the Reader tab, close the selection bar |
 
 The main window has no find command for the open file.
 

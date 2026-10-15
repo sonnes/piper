@@ -2,8 +2,10 @@ import AppKit
 import Captures
 import SwiftUI
 
-/// The Inbox detail pane: one note that the reader edits in place, or the web
-/// page that the note links to.
+/// The Inbox detail pane: a link capture in the Reader, Web, and Notes tabs,
+/// or any other note in an editor.
+///
+/// The session of the note shows in the session card, not in this pane.
 struct NoteDetail: View {
 
     // MARK: Properties
@@ -11,10 +13,20 @@ struct NoteDetail: View {
     @Bindable var model: AppModel
     let note: Note
     @State private var session: CaptureEditSession?
-    @State private var selectedURL: URL?
     @State private var pendingSave: Task<Void, Never>?
+    /// True when the note was a link capture as the pane opened it. The pane
+    /// keeps this mode, so a note that the reader edits down to one link
+    /// stays in the editor while they type.
+    @State private var opensAsArticle: Bool
 
-    private var links: CaptureLinks { CaptureLinks(note.text) }
+    /// The page of a link capture. Nil for a note that is not a link capture.
+    private var articleURL: URL? { opensAsArticle ? note.articleURL : nil }
+
+    init(model: AppModel, note: Note) {
+        self.model = model
+        self.note = note
+        _opensAsArticle = State(initialValue: note.isArticle)
+    }
 
     private var dateLine: String {
         let date = note.modifiedAt.formatted(date: .long, time: .shortened)
@@ -23,20 +35,30 @@ struct NoteDetail: View {
 
     var body: some View {
         Group {
-            if let selectedURL {
-                NoteWebReader(url: selectedURL, showNote: { self.selectedURL = nil }) { text, title, url in
-                    model.store.add(text, source: title, sourceURL: url.absoluteString,
-                                    to: "Inbox", interpretSection: false)
+            if let articleURL {
+                switch model.articleTab {
+                case .reader:
+                    ArticleReader(model: model, note: note, url: articleURL, showWebPage: { model.articleTab = .web })
+                case .web:
+                    NoteWebReader(url: articleURL) { text, title, url in
+                        model.store.add(text, source: title, sourceURL: url.absoluteString,
+                                        to: "Inbox", interpretSection: false)
+                    }
+                case .notes:
+                    ArticleNotebook(model: model, note: note, url: articleURL)
                 }
             } else {
                 page
             }
         }
         .background(PiperTheme.page)
+        .overlay(alignment: .bottom) {
+            if articleURL != nil {
+                TabIsland(selection: $model.articleTab, cardPresented: model.sessionPresentation == .card)
+            }
+        }
         .onAppear {
-            session = model.editCapture(note)
-            // A note with a session opens on its page, so the reader sees the session.
-            if model.agents.latestSession(for: note) == nil { selectedURL = links.standaloneURL }
+            if articleURL == nil { session = model.editCapture(note) }
         }
         .onDisappear(perform: finish)
         .onChange(of: note.text) { _, text in
@@ -56,10 +78,6 @@ struct NoteDetail: View {
                 .foregroundStyle(PiperTheme.secondary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, AppDefaults.Reader.topInset)
-            ForEach(links.urls.prefix(3), id: \.self) { url in
-                LinkCard(url: url, open: { selectedURL = url })
-                    .padding(.top, 12)
-            }
             if let session {
                 NoteTextEditor(text: Binding(get: { session.text }, set: { text in
                     session.text = text
@@ -81,11 +99,6 @@ struct NoteDetail: View {
                     .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
                     .lineLimit(1).truncationMode(.middle)
                     .padding(.vertical, 10)
-            }
-            if let session = model.agents.latestSession(for: note) {
-                SessionPane(model: model, session: session, folder: session.folder)
-                    .frame(maxHeight: .infinity)
-                    .overlay(alignment: .top) { Rule() }
             }
         }
         .frame(maxWidth: AppDefaults.Reader.columnWidth, alignment: .leading)
@@ -177,37 +190,5 @@ struct NoteTextEditor: NSViewRepresentable {
             guard let editor = notification.object as? NSTextView else { return }
             parent.text = editor.string
         }
-    }
-}
-
-/// A web link in a note, with a button that opens it in the reader.
-private struct LinkCard: View {
-    let url: URL
-    let open: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "globe")
-                .font(.system(size: 16))
-                .foregroundStyle(PiperTheme.secondary)
-                .frame(width: 32, height: 32)
-                .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(url.host() ?? url.absoluteString)
-                    .font(PiperTheme.ui(13, weight: .semibold))
-                Text(url.path().isEmpty ? url.absoluteString : url.path())
-                    .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
-                    .lineLimit(1).truncationMode(.middle)
-            }
-            Spacer(minLength: 8)
-            Button("Open Reader", action: open)
-            Button { NSWorkspace.shared.open(url) } label: { Image(systemName: "safari") }
-                .buttonStyle(.borderless)
-                .help("Open in Browser").accessibilityLabel("Open in Browser")
-        }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .background(PiperTheme.panel, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .accessibilityElement(children: .contain)
     }
 }

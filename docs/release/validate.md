@@ -42,37 +42,58 @@ The tests do not cover the UI or the global shortcut path.
 
 ## Main-Window Inbox
 
-1. Select Inbox in the main window. Make sure that every section shows in one list, and that the title shows the note count.
-2. Select a section under Inbox. Make sure that the list scrolls to it.
-3. Select New Section at the bottom of the sidebar. Make sure that the new section shows under Inbox.
-4. Select several notes. Use Merge, Move, Copy, Delete, and Undo.
-5. Search from the field at the top of the Inbox list. Make sure that results come from every section.
-6. Select one note and type in the detail pane. Make sure that the change is saved after a pause.
-7. Select text in the detail pane. Make sure that Command-C copies the text and Delete does not remove a note.
-8. Select Mark as Done in the toolbar. Make sure that the note circle fills.
-9. Select Clipboard in the sidebar. Make sure that the history shows.
+1. Select Inbox in the main window. Make sure that the captures of every section show in one list, in day groups, and that the title shows the item count.
+2. Select a section under Inbox. Make sure that the list shows only the captures of that section, and that the composer saves to it.
+3. Select each chip: All, Notes, and Reading. Make sure that each count matches the list.
+4. Select New Section at the bottom of the sidebar. Make sure that the new section shows under Inbox.
+5. Select several notes. Use Merge, Move, Copy, Delete, and Undo.
+6. Search from the field at the top of the Inbox list. Make sure that results come from every section.
+7. Select one note and type in the detail pane. Make sure that the change is saved after a pause.
+8. Select text in the detail pane. Make sure that Command-C copies the text and Delete does not remove a note.
+9. Select Mark as Done in the toolbar. Make sure that the note moves to Archived.
+10. Select Clipboard in the sidebar. Make sure that the history shows.
 
 ## Claude Checks
 
 Use a copy of a folder with skills, because a session changes files.
 
-1. Add the copy to the sidebar. Make sure that Settings > Claude shows the folder and the path of `claude`.
+1. Add the copy to the sidebar. Make sure that Settings > AI shows the folder, the path of `claude`, and a green dot for Claude Code.
 2. Copy a URL. Open the capture panel and select Send on the clipboard row. Make sure that the note shows Running, then Done or Failed.
 3. With Auto, send a link to a skill that fetches the page. Make sure that the note shows Done.
-4. Select Ask Every Time in Settings > Claude. Send a link to a skill that needs a shell command. Make sure that the note shows Needs you.
+4. Select Ask Every Time in Settings > AI > Claude Code > Permissions. Send a link to a skill that needs a shell command. Make sure that the note shows Needs you.
 5. Select the note. In the detail pane, select Deny on the card. Make sure that Claude continues and names the denied call.
 6. Send the link again. Select Always in <folder> on the card. Make sure that `.claude/settings.local.json` in the folder has the rule.
 7. Select the Done badge on a note. Make sure that the main window opens the file that the session wrote.
-8. Press Option-Command-C. Make sure that the Claude pane opens with a chip for the file.
+8. Press Option-Command-C. Make sure that the session card opens with a chip for the file. Select Pop Out, then Dock. Make sure that the card returns to the main window.
 9. Type a question and press Return. Make sure that the transcript shows the tool calls and the answer. Send a second message in the same session.
 10. Type `@` and a part of a file name. Make sure that the file list shows, and that Tab puts the path in the message.
-11. Select the folder in the Claude group of the sidebar. Make sure that the list shows the sessions and the detail pane shows the selected one.
+11. Select the folder in the Sessions group of the sidebar. Make sure that the list shows the sessions and the detail pane shows the selected one.
 12. Type `/` in the composer. Make sure that the skill list shows. Press Tab, type a URL, and press Return.
 13. Copy a URL in another app and press Control-Option-W. Make sure that a toast shows, and that Show opens the note.
 14. Capture a selection with double Shift. Make sure that the toast shows a Send button, and that the button starts a session.
 15. Start a turn and quit Piper. Make sure that Piper asks before it stops the turn. Open Piper again. Make sure that the session shows "Piper quit before the turn finished." and continues after a new message.
 
 To test resume, start a turn and select Stop. Send another message. Make sure that `ps` shows `--resume` in the new `claude` process, and that Claude knows the earlier messages.
+
+## ACP Agent Checks
+
+Use a copy of a folder, because a session changes files. Install an ACP agent, such as OpenCode, and sign in to it in Terminal.
+
+1. In Settings > AI, select Add ACP Agent, then OpenCode. Select Add. Make sure that the OpenCode row shows a green dot and a version.
+2. Open the session card. In the composer footer, select OpenCode in the agent menu.
+3. Send a message that needs a file edit. Make sure that the model and mode menus show the lists of OpenCode after the agent starts.
+4. If the agent asks for approval, make sure that the drawer over the composer shows the buttons of OpenCode. Select the allow button.
+5. Make sure that the finished turn shows one line for its tool calls. Select the line, and make sure that the tool calls show.
+6. Select Stop during a turn. Make sure that the transcript shows "Stopped." and that the next message continues in the same process.
+7. Quit Piper and open it again. Send a message in the same session. Make sure that the agent knows the earlier messages and that the transcript does not show them twice.
+
+## Margin Answer Checks
+
+1. Open a link capture in the Reader tab. Select a passage, then select Explain.
+2. Make sure that the card names the model and the agent, for example "Haiku · Claude Code".
+3. Ask a question that needs the web. Make sure that the card shows a line for the tools, and that no approval request shows.
+4. Make sure that the Sessions list does not show the margin session.
+5. Select Continue in Session. Make sure that a draft session opens with the question thread and the address of the page.
 
 ## Selection Capture Checks
 
@@ -104,15 +125,15 @@ The middle-pane search filters the selected folder. A matching file in another f
 3. Search from Home and from the field over the list.
 4. Open a file. Make sure that its unread dot goes away.
 5. Follow a Wiki link, then use Command-[ and Command-].
-6. Switch Markdown and HTML files between Preview and Source in the toolbar. Make sure that Source shows their text, and that long lines wrap.
+6. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the pane. Make sure that Source shows their text, and that long lines wrap.
 7. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
 8. Control-click the added folder and select Remove Folder. Make sure that the folder stays on disk.
 
 ## Editing Checks
 
 1. Edit a Markdown file that has frontmatter.
-2. Make sure that the date line ends with Edited and the file on disk has not changed.
-3. Press Command-S. Compare the file: the frontmatter and Wiki links must be unchanged.
+2. Make sure that the byline shows Edited and Save, and that the file on disk has not changed.
+3. Select Save in the byline. Compare the file: the frontmatter and Wiki links must be unchanged.
 4. Make sure that Command-Z still reverses the edit after the save.
 5. Edit again, open another file, and select Cancel. Make sure that the draft stays.
 6. Open another file and select Discard. Make sure that the first file has not changed.
@@ -123,7 +144,7 @@ The middle-pane search filters the selected folder. A matching file in another f
 
 1. Open Settings > Reading.
 2. Switch among Paper, Sepia, and Slate.
-3. Change the font, the size, and the appearance.
+3. Change the font, the size, and the appearance. Make sure that Serif shows a serif font.
 4. Make sure that an unsaved edit keeps its text and scroll position.
 5. Select Reset to Defaults and make sure that the defaults return.
 6. Switch the system appearance between Light and Dark. Make sure that both windows update.
@@ -131,10 +152,25 @@ The middle-pane search filters the selected folder. A matching file in another f
 ## Inbox Reader Checks
 
 1. Capture a note that contains only a URL, and a note that contains text with two URLs.
-2. Select Inbox in the main window, then select each note. Select Open Reader on a link card.
+2. Select Inbox in the main window, then select each note. Make sure that the note with only a URL opens in the Reader tab, and that the other note opens in the editor. Control-click the other note and select Add Link to Reading.
 3. Follow a redirect, use Back and Forward, and select Reload.
 4. Load a page that fails, then select Try Again.
 5. Select text on a page and select Capture in the reader bar. Make sure that a new Inbox note has the page title and URL.
+
+## Reading Checks
+
+Before you start, allow Accessibility access. Do these steps in Safari, Chrome, and Arc:
+
+1. Open an article. Select one sentence, then press Shift twice.
+2. Make sure that the toast shows the page title and "1 on this page". Make sure that the browser keeps the focus.
+3. Press Shift twice again. Type a note, then press Return. Make sure that the browser gets the focus back.
+4. Select text that runs over two paragraphs, then press Shift twice.
+5. Select Continue in Piper. Make sure that the Reader tab opens at the highlight, and that the note shows as a card.
+6. Open another page with no selection, then press Shift twice. Make sure that it shows in Up Next.
+7. Open a page behind a login, then press Shift twice. Open it in Piper. Make sure that the Reader tab shows its text.
+8. Scroll the article, select another capture, then select the article again. Make sure that it opens at the same place.
+9. In the Notes tab, type a summary and select Save as File. Make sure that the file has the source, the summary, and the highlights.
+10. Add a highlight, then select Update File. Make sure that the file has the new highlight at its end.
 
 ## Distribution Checks
 

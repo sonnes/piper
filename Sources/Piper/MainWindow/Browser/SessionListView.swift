@@ -2,7 +2,7 @@ import Agents
 import AppKit
 import SwiftUI
 
-/// The middle pane while the sidebar selects a Claude folder: its sessions,
+/// The middle pane while the sidebar selects a sessions folder: its sessions,
 /// the most recently changed first.
 struct SessionListView: View {
     @Bindable var model: AppModel
@@ -47,7 +47,7 @@ struct SessionListView: View {
     }
 }
 
-/// One session in the list: the unread dot, the title, the last message, and the state.
+/// One session in the list: the unread dot, the agent, the title, the last message, and the state.
 private struct SessionRow: View {
     let session: AgentSession
 
@@ -60,6 +60,7 @@ private struct SessionRow: View {
                 .padding(.top, 5)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
+                    AgentMark(agentID: session.agentID).font(PiperTheme.ui(11))
                     Text(session.title).font(PiperTheme.ui(13, weight: .semibold)).lineLimit(1)
                     Spacer(minLength: 4)
                     Text(RowTime.text(session.updatedAt))

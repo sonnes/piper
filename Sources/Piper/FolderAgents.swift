@@ -4,12 +4,13 @@ import Captures
 import Observation
 import PiperCore
 
-/// The sidebar folders that offer Claude skills, and every action that sends a
-/// note to one of them.
+/// The agents that Piper runs, the sidebar folders that offer Claude skills,
+/// and every action that sends a note to one of them.
 ///
 /// A folder takes part when it has at least one skill in `.claude/skills` and
 /// the reader has not turned it off. The folder used last is the default, so a
-/// Send button needs one click.
+/// Send button needs one click. A skill always runs in Claude Code, because
+/// the skills are Claude Code skills.
 @MainActor @Observable
 final class FolderAgents {
 
@@ -71,6 +72,30 @@ final class FolderAgents {
             runner.permissionMode = permissionMode
         }
     }
+    /// The agents that speak ACP, which the reader added in Settings.
+    private(set) var acpAgents: [AgentDefinition] {
+        didSet {
+            preferences.set(try? JSONEncoder().encode(acpAgents), forKey: AppDefaults.Key.acpAgents)
+            runner.agents = acpAgents
+        }
+    }
+    /// The agent of a new session in the session pane.
+    var sessionAgentID: String {
+        didSet { preferences.set(sessionAgentID, forKey: AppDefaults.Key.sessionAgent) }
+    }
+    /// The agent that answers margin questions in the reader.
+    var marginAgentID: String {
+        didSet { preferences.set(marginAgentID, forKey: AppDefaults.Key.marginAgent) }
+    }
+    /// The model of a margin answer. An empty string leaves the choice to the agent.
+    var marginModel: String {
+        didSet { preferences.set(marginModel, forKey: AppDefaults.Key.marginModel) }
+    }
+    /// The last health check of each agent, by id.
+    private(set) var health: [String: AgentStatus] = [:]
+
+    /// Claude Code, then the agents that the reader added.
+    var allAgents: [AgentDefinition] { [.claudeCode] + acpAgents }
 
     /// The folders that take part.
     var folders: [Folder] { available.filter { !disabledPaths.contains($0.path) } }
@@ -90,12 +115,87 @@ final class FolderAgents {
         permissionMode = preferences.string(forKey: AppDefaults.Key.claudePermissionMode)
             .flatMap(PermissionMode.init(rawValue:)) ?? .auto
         model = preferences.string(forKey: AppDefaults.Key.claudeModel) ?? AppDefaults.Agents.model
+        acpAgents = preferences.data(forKey: AppDefaults.Key.acpAgents)
+            .flatMap { try? JSONDecoder().decode([AgentDefinition].self, from: $0) } ?? []
+        sessionAgentID = preferences.string(forKey: AppDefaults.Key.sessionAgent) ?? AgentDefinition.claudeCodeID
+        marginAgentID = preferences.string(forKey: AppDefaults.Key.marginAgent) ?? AgentDefinition.claudeCodeID
+        marginModel = preferences.string(forKey: AppDefaults.Key.marginModel) ?? AppDefaults.Agents.marginModel
         runner = SessionRunner(database: store.database) { [weak store] error in store?.report(error) }
         runner.executable = Self.executable(chosen: claudePath)
         runner.permissionMode = permissionMode
         runner.model = model
+        runner.agents = acpAgents
         runner.turnTimeout = AppDefaults.Agents.timeout
         runner.concurrency = AppDefaults.Agents.concurrency
+    }
+
+    // MARK: - Agents
+
+    /// The agent with an id. Nil for an agent that the reader removed.
+    func agent(_ id: String) -> AgentDefinition? { allAgents.first { $0.id == id } }
+
+    /// The agents that can answer in the margin: Claude Code, and each ACP
+    /// agent that is not known to lack a read-only mode.
+    var marginAgents: [AgentDefinition] { allAgents.filter { canAnswerInMargin($0.id) } }
+
+    /// The agent of the next margin session.
+    var marginAgent: AgentDefinition {
+        canAnswerInMargin(marginAgentID) ? agent(marginAgentID) ?? .claudeCode : .claudeCode
+    }
+
+    func canAnswerInMargin(_ id: String) -> Bool {
+        id == AgentDefinition.claudeCodeID || (agent(id) != nil && !runner.agentsWithoutReadOnlyMode.contains(id))
+    }
+
+    func addAgent(name: String, command: String, arguments: [String]) {
+        let agent = AgentDefinition(name: name, command: command, arguments: arguments)
+        acpAgents.append(agent)
+        checkHealth(of: agent)
+    }
+
+    func removeAgent(_ agent: AgentDefinition) {
+        acpAgents.removeAll { $0.id == agent.id }
+        health.removeValue(forKey: agent.id)
+        if sessionAgentID == agent.id { sessionAgentID = AgentDefinition.claudeCodeID }
+        if marginAgentID == agent.id { marginAgentID = AgentDefinition.claudeCodeID }
+    }
+
+    /// Checks every agent again, for Settings.
+    func refreshHealth() {
+        allAgents.forEach(checkHealth)
+    }
+
+    private func checkHealth(of agent: AgentDefinition) {
+        health[agent.id] = .checking
+        let executable = runner.executable
+        Task {
+            let status = agent.isClaudeCode
+                ? await AgentProbe.claudeCode(executable: executable)
+                : await AgentProbe.acp(agent)
+            health[agent.id] = status
+        }
+    }
+
+    /// Makes a session for the session pane, with the chosen agent, model, and mode.
+    /// A note ties the session to that note, so the session card shows it
+    /// again when the note is open.
+    func newSession(in folder: String, noteID: UUID? = nil, agentID: String? = nil, model: String? = nil, mode: String? = nil) -> AgentSession {
+        let session = runner.newSession(in: folder, noteID: noteID, agentID: agentID ?? sessionAgentID)
+        if let model { runner.setModel(model, for: session) }
+        if let mode { runner.setMode(mode, for: session) }
+        return session
+    }
+
+    /// Makes the hidden session that answers the margin questions of a capture.
+    /// A margin agent that cannot answer there changes back to Claude Code.
+    func newMarginSession(in folder: String, noteID: UUID) -> AgentSession {
+        if !canAnswerInMargin(marginAgentID) {
+            marginAgentID = AgentDefinition.claudeCodeID
+            marginModel = AppDefaults.Agents.marginModel
+        }
+        let session = runner.newSession(in: folder, noteID: noteID, agentID: marginAgentID, purpose: .margin)
+        if !marginModel.isEmpty { runner.setModel(marginModel, for: session) }
+        return session
     }
 
     // MARK: - Folders
@@ -162,7 +262,7 @@ final class FolderAgents {
     @discardableResult
     func send(_ note: Note, action: Action? = nil) -> AgentSession? {
         guard let action = action ?? defaultAction(for: note.text) else {
-            store.report(PiperError("No folder has a skill for this note. Choose one in Settings > Claude."))
+            store.report(PiperError("No folder has a skill for this note. Choose one in Settings > AI."))
             return nil
         }
         let command = SlashCommand(name: action.skill.name, arguments: note.text)

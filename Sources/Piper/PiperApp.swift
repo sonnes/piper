@@ -31,6 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var refresh: Timer?
     private var toast: NSPanel?
     private var toastDismiss: DispatchWorkItem?
+    private var readingToast: ReadingToast?
+    private var sessionPanel: SessionPanelController?
     private let model = AppModel()
     private var capture: CaptureService?
     private let sendShortcut = SendShortcut()
@@ -52,12 +54,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             self?.showLibrary()
             self?.mainWindowController?.showNote(id)
         }
+        model.sessionPresentationChanged = { [weak self] presentation in self?.updateSessionPanel(presentation) }
+        if model.sessionPresentation == .detached { DispatchQueue.main.async { [weak self] in self?.showSessionPanel() } }
         model.showSession = { [weak self] id in
-            self?.showLibrary()
-            self?.mainWindowController?.showSession(id)
+            guard let self else { return }
+            if model.sessionPresentation == .detached {
+                model.selectedSession = id
+                return showSessionPanel()
+            }
+            showLibrary()
+            mainWindowController?.showSession(id)
         }
+        model.showArticle = { [weak self] id, highlight in
+            self?.showLibrary()
+            self?.mainWindowController?.showArticle(id, at: highlight)
+        }
+        let readingToast = ReadingToast(store: model.store)
+        readingToast.open = { [weak self] id, highlight in self?.model.showArticle?(id, highlight) }
+        self.readingToast = readingToast
         let capture = CaptureService(model: model)
-        capture.didCapture = { [weak self] text, noteID in self?.captured(text, noteID: noteID) }
+        capture.didCapture = { [weak self] outcome in self?.captured(outcome) }
+        capture.shownHighlight = { [weak readingToast] in readingToast?.shownHighlight }
         sendShortcut.action = { [weak self] in self?.sendClipboard() }
         sendShortcut.failure = { [weak self] message in self?.model.store.report(PiperError(message)) }
         sendShortcut.update(enabled: !model.agents.folders.isEmpty)
@@ -122,9 +139,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
         windowMenu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "2").target = self
         windowMenu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "0").target = self
-        let claudePane = windowMenu.addItem(withTitle: "Claude Pane", action: #selector(toggleClaudePane), keyEquivalent: "c")
-        claudePane.keyEquivalentModifierMask = [.command, .option]
-        claudePane.target = self
+        let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
+        sessionCard.keyEquivalentModifierMask = [.command, .option]
+        sessionCard.target = self
         let windowItem = NSMenuItem(title: "Window", action: nil, keyEquivalent: "")
         windowItem.submenu = windowMenu
         main.addItem(windowItem)
@@ -194,11 +211,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         mainWindowController?.showHome()
     }
 
-    /// Opens or closes the Claude pane. A hidden window comes back with the pane open.
-    @objc private func toggleClaudePane() {
+    /// Opens or collapses the session card. A hidden window comes back with
+    /// the card open. A detached panel comes to the front instead.
+    @objc private func toggleSessionCard() {
+        if model.sessionPresentation == .detached { return showSessionPanel() }
         let visible = mainWindowController?.window?.isVisible == true
         showLibrary()
-        if visible { mainWindowController?.toggleSessionPane() } else { mainWindowController?.showSessionPane() }
+        if visible { mainWindowController?.toggleSessionCard() } else { mainWindowController?.showSessionCard() }
+    }
+
+    /// Shows the detached panel, or takes it off the screen when the card
+    /// goes back to the main window.
+    private func updateSessionPanel(_ presentation: SessionPresentation) {
+        if presentation == .detached { showSessionPanel() } else { sessionPanel?.dismiss() }
+    }
+
+    private func showSessionPanel() {
+        if sessionPanel == nil { sessionPanel = SessionPanelController(model: model) }
+        sessionPanel?.present()
     }
 
     /// Shows the window and its browser. Showing the window alone leaves the
@@ -237,6 +267,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         showRunToast(run)
     }
 
+    /// Confirms a capture. A web page capture shows the reading toast.
+    private func captured(_ outcome: CaptureOutcome) {
+        switch outcome {
+        case .note(let text, let noteID):
+            captured(text, noteID: noteID)
+        case .highlight(let article, let highlight):
+            closeToast()
+            readingToast?.show(.highlight(article: article, highlight: highlight))
+        case .article(let article, let isNew):
+            closeToast()
+            readingToast?.show(.article(article, isNew: isNew))
+        case .comment(let highlight):
+            readingToast?.show(.comment(highlight: highlight))
+        }
+    }
+
     /// Confirms a selection capture. A note that a folder can take gets a Send button.
     private func captured(_ text: String, noteID: UUID?) {
         guard let noteID, let note = model.store.notes.first(where: { $0.id == noteID }),
@@ -256,9 +302,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         })
     }
 
-    private func showToast(_ text: String, action: ToastAction? = nil) {
+    private func closeToast() {
         toastDismiss?.cancel()
         toast?.close()
+    }
+
+    private func showToast(_ text: String, action: ToastAction? = nil) {
+        closeToast()
+        readingToast?.close()
         let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 44), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.level = .floating
@@ -330,7 +381,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         return .terminateCancel
     }
 
-    /// Stops the Claude runs when the process gets SIGTERM, for example from
+    /// Stops the agent runs when the process gets SIGTERM, for example from
     /// `kill`. A child process otherwise keeps writing to its folder after
     /// Piper exits.
     private func stopRunsOnTerminateSignal() {
@@ -346,12 +397,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         terminateSignal = source
     }
 
-    /// Asks before quitting stops Claude sessions that are in a turn.
+    /// Asks before quitting stops agent sessions that are in a turn.
     private func confirmStoppingRuns() -> Bool {
         let count = model.agents.runner.activeCount
         guard count > 0 else { return true }
         let alert = NSAlert()
-        alert.messageText = count == 1 ? "Stop the Claude session and quit?" : "Stop \(count) Claude sessions and quit?"
+        alert.messageText = count == 1 ? "Stop the agent session and quit?" : "Stop \(count) agent sessions and quit?"
         alert.informativeText = "A stopped turn can leave some files changed in its folder. You can continue the session after you open Piper again."
         alert.addButton(withTitle: "Stop and Quit")
         alert.addButton(withTitle: "Cancel").keyEquivalent = "\u{1b}"

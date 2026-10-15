@@ -7,12 +7,24 @@ import Foundation
 /// caller chooses the encoding. Every save compares the stored blob against the
 /// blob that the last load or save returned. A different blob means another
 /// Piper instance wrote first, and the save fails instead of overwriting.
+///
+/// Every save writes the current version. A build that does not know the
+/// version refuses the database, so it cannot drop fields that it does not
+/// read and save over them.
 public final class Database {
 
     // MARK: - Properties
 
+    /// The version that each save writes. Version 2 adds the parent, the tags,
+    /// the anchor, and the reading state of a note.
+    public static let version: Int32 = 2
+    /// The versions that a load accepts. A save upgrades version 1 to the current version.
+    public static let readableVersions: ClosedRange<Int32> = 1...version
+
     private var handle: OpaquePointer?
     private var savedData: Data?
+    /// The version of the stored blob, from the last load or save.
+    private var savedVersion = Database.version
 
     // MARK: - Initialization
 
@@ -42,33 +54,38 @@ public final class Database {
         let result = sqlite3_step(statement)
         if result == SQLITE_DONE { savedData = nil; try createClipboardTable(); return nil }
         guard result == SQLITE_ROW else { throw failure() }
-        guard sqlite3_column_int(statement, 0) == 1 else { throw DatabaseError("This database needs a newer version of Piper. Notes remain unchanged.") }
+        let version = sqlite3_column_int(statement, 0)
+        guard Self.readableVersions.contains(version) else { throw DatabaseError("This database needs a newer version of Piper. Notes remain unchanged.") }
         try createClipboardTable()
         guard let bytes = sqlite3_column_blob(statement, 1) else { throw DatabaseError("The note database has no readable data.") }
         let data = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 1)))
         savedData = data
+        savedVersion = version
         return data
     }
 
     public func save(_ data: Data) throws {
         var statement: OpaquePointer?
         let sql = savedData == nil
-            ? "INSERT INTO state VALUES(1,1,?) ON CONFLICT(id) DO NOTHING"
-            : "UPDATE state SET data=? WHERE id=1 AND version=1 AND data=?"
+            ? "INSERT INTO state VALUES(1,?2,?1) ON CONFLICT(id) DO NOTHING"
+            : "UPDATE state SET data=?1, version=?2 WHERE id=1 AND version=?3 AND data=?4"
         guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK else { throw failure() }
         defer { sqlite3_finalize(statement) }
         let result = data.withUnsafeBytes { bytes in
             sqlite3_bind_blob(statement, 1, bytes.baseAddress, Int32(bytes.count), unsafeBitCast(-1, to: sqlite3_destructor_type.self))
         }
+        guard sqlite3_bind_int(statement, 2, Self.version) == SQLITE_OK else { throw failure() }
         if let savedData {
+            guard sqlite3_bind_int(statement, 3, savedVersion) == SQLITE_OK else { throw failure() }
             let bound = savedData.withUnsafeBytes { bytes in
-                sqlite3_bind_blob(statement, 2, bytes.baseAddress, Int32(bytes.count), unsafeBitCast(-1, to: sqlite3_destructor_type.self))
+                sqlite3_bind_blob(statement, 4, bytes.baseAddress, Int32(bytes.count), unsafeBitCast(-1, to: sqlite3_destructor_type.self))
             }
             guard bound == SQLITE_OK else { throw failure() }
         }
         guard result == SQLITE_OK, sqlite3_step(statement) == SQLITE_DONE else { throw failure() }
         guard sqlite3_changes(handle) == 1 else { throw DatabaseError("Notes changed in another Piper instance. Restart Piper before saving. Your existing notes remain unchanged.") }
         savedData = data
+        savedVersion = Self.version
     }
 }
 
@@ -203,9 +220,64 @@ public extension Database {
     }
 }
 
+// MARK: - Pages
+
+public extension Database {
+
+    /// Writes the text of a web page, replacing the text stored for the link.
+    func savePage(url: String, text: String) throws {
+        try createPagesTable()
+        let statement = try prepare("INSERT OR REPLACE INTO pages VALUES(?,?,?)")
+        defer { sqlite3_finalize(statement) }
+        bind(url, at: 1, in: statement)
+        bind(text, at: 2, in: statement)
+        sqlite3_bind_double(statement, 3, Date().timeIntervalSince1970)
+        guard sqlite3_step(statement) == SQLITE_DONE else { throw failure() }
+    }
+
+    /// Removes the stored text of a web page.
+    func deletePage(url: String) throws {
+        try createPagesTable()
+        let statement = try prepare("DELETE FROM pages WHERE url=?")
+        defer { sqlite3_finalize(statement) }
+        bind(url, at: 1, in: statement)
+        guard sqlite3_step(statement) == SQLITE_DONE else { throw failure() }
+    }
+
+    /// Returns the links that have stored text.
+    func pageURLs() throws -> [String] {
+        try createPagesTable()
+        let statement = try prepare("SELECT url FROM pages")
+        defer { sqlite3_finalize(statement) }
+        var urls: [String] = []
+        while true {
+            let result = sqlite3_step(statement)
+            if result == SQLITE_DONE { return urls }
+            guard result == SQLITE_ROW else { throw failure() }
+            urls.append(text(statement, 0))
+        }
+    }
+
+    /// Returns the stored text of a web page, or nil.
+    func loadPage(url: String) throws -> String? {
+        try createPagesTable()
+        let statement = try prepare("SELECT text FROM pages WHERE url=?")
+        defer { sqlite3_finalize(statement) }
+        bind(url, at: 1, in: statement)
+        let result = sqlite3_step(statement)
+        if result == SQLITE_DONE { return nil }
+        guard result == SQLITE_ROW else { throw failure() }
+        return text(statement, 0)
+    }
+}
+
 // MARK: - Private
 
 private extension Database {
+
+    func createPagesTable() throws {
+        try execute("CREATE TABLE IF NOT EXISTS pages (url TEXT PRIMARY KEY, text TEXT NOT NULL, saved_at REAL NOT NULL)")
+    }
 
     func createSessionsTable() throws {
         try execute("CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, folder TEXT NOT NULL, updated_at REAL NOT NULL, data BLOB NOT NULL)")

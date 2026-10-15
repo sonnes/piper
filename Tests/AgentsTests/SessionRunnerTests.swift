@@ -92,7 +92,7 @@ final class SessionRunnerTests: XCTestCase {
         let content = try XCTUnwrap(message["content"] as? [[String: Any]])
         XCTAssertEqual(content.first?["text"] as? String, "/compact keep decisions")
         XCTAssertEqual(session.lastPrompt, "/compact keep decisions")
-        XCTAssertEqual(session.claudeSessionID, "s-1")
+        XCTAssertEqual(session.resumeToken, "s-1")
         guard case .assistant(_, let output) = session.blocks[session.blocks.count - 2] else {
             return XCTFail("The command output is missing")
         }
@@ -113,7 +113,7 @@ final class SessionRunnerTests: XCTestCase {
         XCTAssertEqual(session.state, .running)
 
         try await wait { session.state == .idle }
-        XCTAssertEqual(session.claudeSessionID, "s-1")
+        XCTAssertEqual(session.resumeToken, "s-1")
         XCTAssertTrue(session.unread)
         XCTAssertEqual(session.files, ["sources/page.md"])
         XCTAssertEqual(session.title, "Save this page")
@@ -263,7 +263,7 @@ final class SessionRunnerTests: XCTestCase {
         let missing = self.runner(nil)
         let lost = start(missing)
         XCTAssertEqual(lost.state, .failed)
-        XCTAssertTrue(lost.failure?.contains("Settings > Claude") == true)
+        XCTAssertTrue(lost.failure?.contains("Settings > AI") == true)
     }
 
     func testTurnTimeoutStopsTheTurn() async throws {

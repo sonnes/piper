@@ -1,11 +1,11 @@
 import Foundation
 
-/// One `claude` child process with open pipes.
+/// One agent child process with open pipes.
 ///
 /// Standard output arrives line by line on the main actor. Standard input
 /// stays open, so the caller can send more lines while the process runs.
 @MainActor
-public final class ClaudeProcess {
+public final class AgentProcess {
 
     // MARK: - Properties
 
@@ -20,18 +20,25 @@ public final class ClaudeProcess {
 
     // MARK: - Initialization
 
-    /// Makes a process that runs in `folder`. With `usesLoginShell`, the process
-    /// starts through `zsh -l`, so the child gets the reader's PATH.
-    public init(executable: URL, arguments: [String], folder: URL, usesLoginShell: Bool) {
+    /// Makes a process that runs in `folder`. See `setCommand(of:to:arguments:usesLoginShell:)`.
+    public init(command: String, arguments: [String], folder: URL, usesLoginShell: Bool) {
         self.arguments = arguments
+        Self.setCommand(of: process, to: command, arguments: arguments, usesLoginShell: usesLoginShell)
+        process.currentDirectoryURL = folder
+    }
+
+    /// Sets the executable and the arguments of a process. With `usesLoginShell`,
+    /// the process starts through `zsh -l`, and the command can be a name on the
+    /// PATH of the reader. Without it, the command is a path.
+    nonisolated static func setCommand(of process: Process, to command: String, arguments: [String],
+                                       usesLoginShell: Bool) {
         if usesLoginShell {
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            process.arguments = ["-lc", "exec \"$0\" \"$@\"", executable.path] + arguments
+            process.arguments = ["-lc", "exec \"$0\" \"$@\"", command] + arguments
         } else {
-            process.executableURL = executable
+            process.executableURL = URL(fileURLWithPath: command)
             process.arguments = arguments
         }
-        process.currentDirectoryURL = folder
     }
 
     // MARK: - Running
@@ -75,7 +82,7 @@ public final class ClaudeProcess {
         try? input.fileHandleForWriting.write(contentsOf: Data((line + "\n").utf8))
     }
 
-    /// Closes standard input. Claude Code then ends after the current turn.
+    /// Closes standard input. The agent then ends after the current turn.
     public func closeInput() {
         guard isInputOpen else { return }
         isInputOpen = false

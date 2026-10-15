@@ -26,6 +26,16 @@ The `state` table holds one versioned JSON snapshot. The snapshot contains the n
 | `sourceURLs` | HTTP and HTTPS URLs |
 | `isDone` | The done state |
 | `createdAt`, `modifiedAt` | Creation and modification times |
+| `parent` | The UUID of the link capture that holds a highlight or a question. A note without a parent has no value. |
+| `tags` | Tags in lowercase, such as `highlight`, `yellow`, or `question` |
+| `anchor` | The quoted text, the paragraph index, and the offset in UTF-16 units, for a highlight or a question |
+| `reading` | For a link capture: the title, the reading time, the first paragraph on the screen, the progress from 0 to 1, the open and finish times, and the path and time of Save as File |
+
+A highlight note holds the quote. If you add a note to the highlight, your note follows the quote after a blank line. A highlight from a browser has the paragraph index -1, because Piper finds its place when the Reader tab opens. The `sources` value of a highlight names the app where you made it, such as `Safari` or `Piper`.
+
+A summary note has the tag `summary` and no anchor.
+
+A question note keeps its thread as text. The first line names the action and the quote, such as `Explain: wal-index`. A paragraph that starts with `Q: ` is a follow-up question. The paragraphs after a question are the answer. A note saved before these fields existed has no `parent`, `tags`, `anchor`, or `reading` value.
 
 A new database has the Inbox section and no notes.
 
@@ -35,24 +45,33 @@ Piper writes a new snapshot before the UI shows the change. A save compares the 
 
 If the database is locked, Piper waits three seconds. Then the save fails, the current notes stay, and you can try again.
 
-The schema is version 1. Piper refuses to open a snapshot with an unknown version, and it does not overwrite that snapshot. Piper adds the `clipboard` and `sessions` tables the first time it opens a version 1 database. Piper has no general schema migration. The database uses the default SQLite journal mode.
+The schema is version 2. Version 2 adds the parent, the tags, the anchor, and the reading state of a note. Piper opens a version 1 or a version 2 snapshot, and each save writes version 2. Piper 0.3 and earlier refuse a version 2 snapshot, so they cannot remove these fields. Piper refuses to open a snapshot with an unknown version, and it does not overwrite that snapshot. Piper adds the `clipboard`, `sessions`, and `pages` tables the first time it opens the database or uses the table. Piper has no general schema migration. The database uses the default SQLite journal mode.
+
+### Page Text
+
+The `pages` table keeps the text of each web page that a capture read from a browser. Each row has the `url` in the form that Piper compares, the `text`, and a `saved_at` time. A new capture of the page replaces its row. The Reader tab uses this text when Piper cannot load the page. The capture of a page keeps at most 400,000 characters.
+
+At launch, and after you delete a link capture, Piper removes the row of each page that no link capture holds. Undo can restore a deleted capture, so its row stays until the next delete of a link capture or the next launch.
 
 ### Undo
 
 Piper keeps one earlier state in memory. Undo saves that state to the database. A restart clears the undo step.
 
-Selecting an existing section does not replace the undo step. An editor save with no change adds no undo step.
+Selecting an existing section does not replace the undo step. A change to the reading state, such as a new place in an article, adds no undo step. An editor save with no change adds no undo step.
 
-## Claude Sessions
+## Agent Sessions
 
-The `sessions` table in the capture database holds each Claude session. Each row has an `id`, the `folder`, an `updated_at` time, and a JSON `data` value with these fields:
+The `sessions` table in the capture database holds each agent session. Each row has an `id`, the `folder`, an `updated_at` time, and a JSON `data` value with these fields:
 
 | Field | Content |
 | --- | --- |
 | `folder` | The absolute path of the folder |
 | `noteID` | The note that started the session, if a note started it |
 | `command` | The skill of the first turn, if a skill started the session |
-| `claudeSessionID` | The session id that `claude --resume` takes |
+| `agentID` | `claude-code`, or the id of an ACP agent in `acpAgents`. A row with no value is a Claude Code session. |
+| `purpose` | `session`, or `margin` for the hidden session that answers the margin questions of one capture |
+| `model`, `mode` | The model and the mode that you chose in the composer, if you chose one |
+| `claudeSessionID` | The session id that `claude --resume`, `session/load`, or `session/resume` takes. The key keeps this name for every agent, so older rows still resume. |
 | `state` | `waiting`, `running`, `needsYou`, `idle`, or `failed` |
 | `createdAt`, `updatedAt` | The start time and the time of the last change |
 | `unread` | True when a turn ended after you last looked at the session |
@@ -62,7 +81,7 @@ Piper writes a row at each change of state. Text and tool calls wait 250 millise
 
 An older version of Piper kept its runs in a `runs` table. Piper does not read that table and does not remove it.
 
-Claude Code keeps its own copy of each conversation in `~/.claude`. Piper uses that copy only through `--resume`.
+Claude Code keeps its own copy of each conversation in `~/.claude`. Piper uses that copy only through `--resume`. An ACP agent keeps its own copy too, and Piper uses it only through `session/load` or `session/resume`.
 
 ### Allow Rules
 
@@ -104,6 +123,9 @@ UserDefaults holds these keys:
 | `showsFileSource` | True while the main window shows the Source view of a file |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
 | `wikiFileSort` | Name or Date |
+| `claudePath`, `claudeModel`, `claudePermissionMode` | The `claude` command that you chose, and the default model and permissions of Claude Code |
+| `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |
+| `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |
 | `mainWindowState` | The sidebar selection, open file, open folders, and pane widths |
 | `wikiReadTimestamps` | Read state |
 | `NSWindow Frame PiperCapturePanel`, `NSWindow Frame PiperLibrary` | Window frames |

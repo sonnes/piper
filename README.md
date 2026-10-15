@@ -71,7 +71,7 @@ Both windows use the system font and colors, with one blue accent. Both follow t
 
 Piper can send notes to Claude Code in a selected folder. Sessions show tool activity, permission requests, and questions inside the main window. Claude Code requires a separate installation and authentication. Text that you send to Claude leaves local storage for processing through Claude Code.
 
-See [Send notes to Claude](docs/guides/claude.md) for setup and permission controls.
+See [Work with agents](docs/guides/claude.md) for setup, ACP agents, and permission controls.
 
 ![A Claude session that saves a link to Read Later and edits an architecture note](docs/images/claude-session.png)
 

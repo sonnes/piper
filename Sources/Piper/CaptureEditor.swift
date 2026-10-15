@@ -8,6 +8,7 @@ struct CaptureEditor: NSViewRepresentable {
     let placeholder: String
     var label = "New note text"
     var help = "Return saves the note. Shift-Return inserts a new line."
+    var compact = false
     /// Handles a key command such as `insertNewline:` or `moveUp:`. Returns
     /// true when it handled the command. The coordinator reads the newest
     /// value on each update, so the handler never sees an old view.
@@ -17,6 +18,8 @@ struct CaptureEditor: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let metrics = AppDefaults.Composer.self
+        let fontSize = compact ? metrics.inboxFontSize : AppDefaults.CaptureItem.fontSize
+        let lineHeight = compact ? metrics.inboxLineHeight : metrics.lineHeight
         let scroll = CaptureScrollView(frame: NSRect(x: 0, y: 0, width: metrics.width, height: metrics.height))
         scroll.borderType = .noBorder
         scroll.drawsBackground = false
@@ -34,7 +37,7 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isRichText = false
         editor.importsGraphics = false
         editor.drawsBackground = false
-        editor.font = PiperTheme.uiNS(AppDefaults.CaptureItem.fontSize)
+        editor.font = PiperTheme.uiNS(fontSize)
         editor.textColor = PiperTheme.inkNS
         editor.insertionPointColor = PiperTheme.accentNS
         editor.selectedTextAttributes = [.backgroundColor: PiperTheme.selectionNS, .foregroundColor: PiperTheme.inkNS]
@@ -45,7 +48,7 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isVerticallyResizable = true
         editor.isHorizontallyResizable = false
         editor.autoresizingMask = [.width]
-        editor.minSize = NSSize(width: 0, height: metrics.textHeight)
+        editor.minSize = NSSize(width: 0, height: compact ? lineHeight : metrics.textHeight)
         editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         editor.allowsUndo = true
         editor.isAutomaticQuoteSubstitutionEnabled = false
@@ -54,11 +57,11 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isAutomaticSpellingCorrectionEnabled = false
 
         let paragraph = NSMutableParagraphStyle()
-        paragraph.minimumLineHeight = metrics.lineHeight
-        paragraph.maximumLineHeight = metrics.lineHeight
+        paragraph.minimumLineHeight = lineHeight
+        paragraph.maximumLineHeight = lineHeight
         editor.defaultParagraphStyle = paragraph
         editor.typingAttributes = [
-            .font: PiperTheme.uiNS(AppDefaults.CaptureItem.fontSize),
+            .font: PiperTheme.uiNS(fontSize),
             .foregroundColor: PiperTheme.inkNS,
             .paragraphStyle: paragraph
         ]

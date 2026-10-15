@@ -8,7 +8,7 @@ struct SidebarOutline: NSViewRepresentable {
     let model: AppModel
     let unreadCounts: [String: Int]
     let sections: [SidebarSection]
-    /// The folders that have Claude sessions.
+    /// The folders that have agent sessions.
     let sessionFolders: [SidebarSessionFolder]
     @Binding var expanded: Set<String>
     let selection: SidebarSelection
@@ -167,7 +167,7 @@ struct SidebarOutline: NSViewRepresentable {
                 if sessionFolders.isEmpty {
                     root.children = [library, folderGroup]
                 } else {
-                    let claude = Node(representedObject: "Claude", parent: root)
+                    let claude = Node(representedObject: "Sessions", parent: root)
                     claude.isGroupItem = true
                     claude.children = sessionFolders.map {
                         Node(representedObject: SidebarSelection.sessions($0.path), parent: claude)
@@ -426,7 +426,7 @@ enum SidebarIcon: Equatable {
     case dot(NSColor)
     /// A rounded tile with a letter, for a top-level folder.
     case monogram(String, NSColor)
-    /// A rounded tile with a white glyph, for a Claude folder.
+    /// A rounded tile with a white glyph, for a sessions folder.
     case tile(String, NSColor)
 
     /// The image of the icon. A drawn image resolves its colors each time it
@@ -530,7 +530,7 @@ private final class SidebarCell: NSTableCellView {
     private let title = NSTextField(labelWithString: "")
     private let icon = NSImageView()
     private let countLabel = NSTextField(labelWithString: "")
-    /// The orange count of the sessions that wait, on a Claude row.
+    /// The orange count of the sessions that wait, on a sessions row.
     private let attentionLabel = NSTextField(labelWithString: "")
     private let attentionBadge = NSView()
     private let actions = NSStackView()

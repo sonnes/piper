@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Carbon
+import Captures
 import PiperCore
 
 struct ShiftGesture {
@@ -39,8 +40,11 @@ final class CaptureService {
     private let model: AppModel
     private let queue = DispatchQueue(label: "piper.capture")
     private var busy = false
-    /// Reports the result of a capture, with the id of the saved note.
-    var didCapture: ((String, UUID?) -> Void)?
+    /// Reports what a capture saved.
+    var didCapture: ((CaptureOutcome) -> Void)?
+    /// The highlight that the toast shows, while the toast is on the screen. A
+    /// second capture of the same text then asks for a note on it.
+    var shownHighlight: (() -> (id: UUID, quote: String)?)?
 
     init(model: AppModel) { self.model = model }
 
@@ -112,7 +116,7 @@ final class CaptureService {
         guard AXIsProcessTrusted() else {
             model.accessibilityEnabled = false
             model.store.status = "Enable Accessibility in Settings"
-            didCapture?(model.store.status, nil)
+            didCapture?(.note(model.store.status, nil))
             return
         }
         guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
@@ -130,26 +134,97 @@ final class CaptureService {
                 self.busy = false
                 switch result {
                 case .success(let selection):
-                    let saved = self.model.store.add(selection.text, source: source, sourceURL: selection.sourceURL, to: section, interpretSection: false)
-                    self.didCapture?(self.model.store.status, saved ? self.model.store.notes.last?.id : nil)
+                    self.didCapture?(Self.save(selection, source: source, section: section,
+                                               store: self.model.store, shown: self.shownHighlight?()))
                 case .failure(let error):
                     self.model.store.status = error.localizedDescription
-                    self.didCapture?(error.localizedDescription, nil)
+                    self.didCapture?(.note(error.localizedDescription, nil))
                 }
             }
         }
     }
 
+    /// Saves a selection. On a web page, the selection is a highlight under the
+    /// article, and a capture with no selection saves the page to Reading.
+    ///
+    /// While the toast shows a highlight, a second capture on the page of that
+    /// highlight asks for a note on it. The capture has no selection or the
+    /// same text. A capture on another page saves as usual.
+    static func save(_ selection: CapturedSelection, source: String, section: String,
+                     store: CaptureStore, shown: (id: UUID, quote: String)?) -> CaptureOutcome {
+        let quote = NoteAnchor.normalized(selection.text)
+        if let shown, quote.isEmpty || quote == shown.quote,
+           isOnPage(of: shown.id, selection.sourceURL, in: store) {
+            return .comment(shown.id)
+        }
+        guard let url = selection.sourceURL.flatMap(URL.init(string:)) else {
+            guard !quote.isEmpty else {
+                store.status = "No readable selection. Copy the text, then choose Capture Clipboard."
+                return .note(store.status, nil)
+            }
+            let saved = store.add(selection.text, source: source, sourceURL: nil, to: section, interpretSection: false)
+            return .note(store.status, saved ? store.notes.last?.id : nil)
+        }
+        if let text = selection.pageText { store.savePageText(text, for: url) }
+        if quote.isEmpty {
+            let isNew = store.article(for: url) == nil
+            guard let article = store.saveArticle(url, title: selection.title, source: source, to: section) else {
+                return .note(store.status, nil)
+            }
+            if let minutes = selection.minutes { store.updateReading(article.id) { if $0.minutes == nil { $0.minutes = minutes } } }
+            return .article(article.id, isNew: isNew)
+        }
+        guard let saved = store.saveHighlight(selection.text, in: url, title: selection.title, source: source, to: section,
+                                              tags: [ReaderAssistant.highlightTag, ReaderAssistant.colors[0]]) else {
+            return .note(store.status, nil)
+        }
+        if let minutes = selection.minutes { store.updateReading(saved.article.id) { if $0.minutes == nil { $0.minutes = minutes } } }
+        return .highlight(article: saved.article.id, highlight: saved.highlight.id)
+    }
+
+    /// True when the link is the page of the article that holds the highlight.
+    private static func isOnPage(of highlight: UUID, _ link: String?, in store: CaptureStore) -> Bool {
+        guard let url = link.flatMap(URL.init(string:)),
+              let parent = store.notes.first(where: { $0.id == highlight })?.parent,
+              let page = store.notes.first(where: { $0.id == parent })?.articleURL else { return false }
+        return CaptureLinks.canonical(url) == CaptureLinks.canonical(page)
+    }
+
+    /// Reads the selection of an application, and the web page that holds it.
+    ///
+    /// A web page needs no selection: the capture then saves the page. The
+    /// text of the page comes along, for a page that Piper cannot load itself.
     nonisolated static func selection(pid: pid_t) -> Result<CapturedSelection, Error> {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.4)
-        guard let element = axElement(attribute(kAXFocusedUIElementAttribute, on: app)) else {
-            return .failure(PiperError("Selection unavailable. Use Capture Clipboard."))
+        let element = axElement(attribute(kAXFocusedUIElementAttribute, on: app))
+        if let element {
+            AXUIElementSetMessagingTimeout(element, 0.4)
+            guard attribute(kAXSubroleAttribute, on: element) as? String != kAXSecureTextFieldSubrole else {
+                return .failure(PiperError("Secure text cannot be captured."))
+            }
         }
-        AXUIElementSetMessagingTimeout(element, 0.4)
-        guard attribute(kAXSubroleAttribute, on: element) as? String != kAXSecureTextFieldSubrole else {
-            return .failure(PiperError("Secure text cannot be captured."))
+        let text = element.flatMap(selectedText) ?? ""
+        let window = axElement(attribute(kAXFocusedWindowAttribute, on: app))
+        let area = webArea(from: element, in: window)
+        let sourceURL = [element.flatMap { attribute(kAXDocumentAttribute, on: $0) }, area.flatMap { attribute("AXURL", on: $0) },
+                         window.flatMap { attribute(kAXDocumentAttribute, on: $0) }]
+            .compactMap { value -> String? in
+                let url = (value as? URL) ?? (value as? String).flatMap(URL.init(string:))
+                guard let url, ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
+                return url.absoluteString
+            }.first
+        guard sourceURL != nil || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return .failure(PiperError(element == nil
+                ? "Selection unavailable. Use Capture Clipboard."
+                : "No readable selection. Copy the text, then choose Capture Clipboard."))
         }
+        let title = window.flatMap { attribute(kAXTitleAttribute, on: $0) as? String }
+        let page = sourceURL == nil ? nil : area.flatMap(pageText)
+        return .success(CapturedSelection(text: text, sourceURL: sourceURL, title: title, pageText: page))
+    }
+
+    nonisolated private static func selectedText(of element: AXUIElement) -> String? {
         var text = attribute(kAXSelectedTextAttribute, on: element) as? String
         if text?.isEmpty != false,
            let value = attribute(kAXSelectedTextRangeAttribute, on: element), CFGetTypeID(value) == AXValueGetTypeID() {
@@ -164,18 +239,45 @@ final class CaptureService {
                 }
             }
         }
-        guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return .failure(PiperError("No readable selection. Copy the text, then choose Capture Clipboard."))
-        }
-        let window = axElement(attribute(kAXFocusedWindowAttribute, on: app))
-        let sourceURL = [attribute(kAXDocumentAttribute, on: element), window.flatMap { attribute(kAXDocumentAttribute, on: $0) }]
-            .compactMap { value -> String? in
-                let url = (value as? URL) ?? (value as? String).flatMap(URL.init(string:))
-                guard let url, ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
-                return url.absoluteString
-            }.first
-        return .success(CapturedSelection(text: text, sourceURL: sourceURL))
+        return text
     }
+
+    /// The web area that holds the focus, or else the first web area in the window.
+    nonisolated private static func webArea(from element: AXUIElement?, in window: AXUIElement?) -> AXUIElement? {
+        var current = element
+        for _ in 0..<60 {
+            guard let node = current else { break }
+            if attribute(kAXRoleAttribute, on: node) as? String == webAreaRole { return node }
+            current = axElement(attribute(kAXParentAttribute, on: node))
+        }
+        guard let window else { return nil }
+        var queue = [(window, 0)]
+        var visited = 0
+        while !queue.isEmpty, visited < 400 {
+            let (node, depth) = queue.removeFirst()
+            visited += 1
+            if attribute(kAXRoleAttribute, on: node) as? String == webAreaRole { return node }
+            guard depth < 10, let children = attribute(kAXChildrenAttribute, on: node) as? [AXUIElement] else { continue }
+            queue += children.map { ($0, depth + 1) }
+        }
+        return nil
+    }
+
+    /// The text of a whole web area, through the text markers of WebKit and Chromium.
+    nonisolated private static func pageText(of area: AXUIElement) -> String? {
+        AXUIElementSetMessagingTimeout(area, 1.5)
+        var range: CFTypeRef?
+        guard AXUIElementCopyParameterizedAttributeValue(area, "AXTextMarkerRangeForUIElement" as CFString, area, &range) == .success,
+              let range else { return nil }
+        var value: CFTypeRef?
+        guard AXUIElementCopyParameterizedAttributeValue(area, "AXStringForTextMarkerRange" as CFString, range, &value) == .success,
+              let text = (value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        return String(text.prefix(pageTextLimit))
+    }
+
+    nonisolated private static let webAreaRole = "AXWebArea"
+    /// The most page text that Piper keeps for one page.
+    nonisolated private static let pageTextLimit = 400_000
 
     nonisolated private static func attribute(_ name: String, on element: AXUIElement) -> CFTypeRef? {
         var value: CFTypeRef?
@@ -188,9 +290,32 @@ final class CaptureService {
     }
 }
 
+/// What one capture saved.
+enum CaptureOutcome: Equatable {
+    /// A plain note with its id, or a message and no id when nothing was saved.
+    case note(String, UUID?)
+    /// A highlight under the link capture of a web page.
+    case highlight(article: UUID, highlight: UUID)
+    /// A web page that the capture saved to Reading. A page that Reading
+    /// already held is not new.
+    case article(UUID, isNew: Bool)
+    /// A second capture of the highlight on the toast: the reader wants to add a note.
+    case comment(UUID)
+}
+
 struct CapturedSelection {
     let text: String
     let sourceURL: String?
+    var title: String?
+    /// The text of the whole web page, as the browser shows it.
+    var pageText: String?
+
+    /// The reading time of the page text.
+    var minutes: Int? {
+        guard let pageText else { return nil }
+        let words = pageText.split(whereSeparator: \.isWhitespace).count
+        return max(1, Int((Double(words) / AppDefaults.ArticleReader.wordsPerMinute).rounded()))
+    }
 
     static func substring(_ text: String, range: CFRange) -> String? {
         let source = text as NSString

@@ -25,6 +25,21 @@ final class WikiEditingTests: XCTestCase {
         XCTAssertEqual(SummaryText.plain("Standing orders for any agent."), "Standing orders for any agent.")
     }
 
+    /// The editor loads a font by its name. A font that the name does not
+    /// load shows as the system sans serif.
+    func testEveryReadingFontLoadsByName() {
+        for choice in WikiReadingFont.allCases {
+            let font = choice.font(size: 18)
+            XCTAssertEqual(NSFont(name: font.fontName, size: 18)?.fontName, font.fontName, choice.rawValue)
+        }
+    }
+
+    func testReadingTimeRoundsToWholeMinutes() {
+        XCTAssertNil(DetailHeader.readingTime(of: " \n "))
+        XCTAssertEqual(DetailHeader.readingTime(of: "One word."), "1 min read")
+        XCTAssertEqual(DetailHeader.readingTime(of: Array(repeating: "word", count: 1_400).joined(separator: " ")), "6 min read")
+    }
+
     func testNativeEngineRoundtripPreservesWikiAliasesAndCode() {
         let markdown = "[[topics/Reading#A heading|Read more]] [[Plain]] [[研究/🍵|Tea]]\n`[[Code|example]]`\n```md\n[[Code|sample]]\n```\n![[image.png|200]]\n"
         let encoded = WikiEditorLinks.encode(markdown)

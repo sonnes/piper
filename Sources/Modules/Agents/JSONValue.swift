@@ -76,6 +76,14 @@ public enum JSONValue: Codable, Equatable, Sendable {
         return []
     }
 
+    public var double: Double? {
+        if case .number(let value) = self { return value }
+        return nil
+    }
+
+    /// The number as an integer. Nil for a fraction, or for a number out of the range of `Int`.
+    public var int: Int? { double.flatMap { Int(exactly: $0) } }
+
     /// A copy of an object with one more key. Other values stay unchanged.
     public func setting(_ key: String, to value: JSONValue) -> JSONValue {
         guard case .object(var object) = self else { return self }

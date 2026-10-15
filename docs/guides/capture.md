@@ -1,9 +1,10 @@
 ---
 title: "Capture Notes"
-summary: "Save text in the capture panel, from the clipboard, and from a selection in another app"
+summary: "Save text in the capture panel, from the clipboard, from a selection in another app, and from a web page"
 read_when:
   - Saving a note
   - Capturing a selection from another application
+  - Highlighting a web page or saving it to read later
   - Organizing, merging, or copying notes
 ---
 
@@ -69,7 +70,7 @@ Home also has a Capture Clipboard action. It saves the current clipboard text to
 1. Type `>` in Home search.
 2. Select Capture Clipboard.
 
-If a sidebar folder has Claude Code skills, the row also shows Send to <folder>. See [Send notes to Claude](claude.md).
+If a sidebar folder has Claude Code skills, the row also shows Send to <folder>. See [Work with agents](claude.md).
 
 Double-click a row to paste the text into the app in front. The row context menu has Paste and Keep in Inbox. Paste needs Accessibility access. Without it, Piper copies the text, and you paste it with Command-V.
 
@@ -93,7 +94,9 @@ Before you start, allow Accessibility access. See [Install Piper](install.md#all
 
 To use Control-Option-Space instead, change Shortcut in Settings > Capture. If another app holds Control-Option-Space, Piper reports the conflict.
 
-Piper reads the selection directly. It does not simulate Copy, and it does not change the clipboard or the focus. The note records the source app, and its row shows "From" and the app name. If the source app exposes an HTTP or HTTPS document URL, the note records it too.
+Piper reads the selection directly. It does not simulate Copy, and it does not change the clipboard or the focus. The note records the source app, and its row shows "From" and the app name.
+
+If the app in front shows a web page, such as Safari, Chrome, or Arc, the selection becomes a highlight of that page. See [Capture from a web page](#capture-from-a-web-page).
 
 A secure text field or an empty selection creates no note. A small toast confirms each capture for three seconds.
 
@@ -102,6 +105,50 @@ If an app does not expose its selection, use the clipboard:
 1. Copy the text in the source app.
 2. Select Capture Clipboard in the menu bar icon, or in the More Actions menu of the panel.
 
+## Capture From A Web Page
+
+Piper finds the web page in front through Accessibility. Each web page has one link capture, which shows in Inbox and under the Reading chip. The highlights, the notes, and the reading position of the page belong to that capture. See [Keep a reading list](browse.md#keep-a-reading-list).
+
+Two links name the same page when they differ only in tracking parameters, such as `utm_source`, in the fragment, or in `www.`.
+
+### Highlight Text
+
+1. Select text on the web page.
+2. Press Shift twice.
+
+Piper saves the selection as a highlight under the link capture of the page. If Piper does not have the page, it adds the page to Inbox first. The link capture goes to the selected section.
+
+The toast shows the page title and the number of highlights from the page, for six seconds. The toast does not take the focus, so you can continue to read in the browser. Continue in Piper opens the page in the Reader tab, at the highlight.
+
+The page in the browser shows no mark. The mark shows in the Reader tab.
+
+### Add A Note To A Highlight
+
+1. While the highlight toast shows, press Shift twice again on the same page. Do not select other text.
+2. Type the note.
+3. Press Return.
+
+On another page, Shift twice saves that page or its selection, as usual. The note field takes the focus. After Return, the focus goes back to the browser. Escape closes the field and saves no note. If you click another window, Piper saves the text that you typed.
+
+Piper adds the note to the highlight, after the quote.
+
+### Save A Page For Later
+
+1. Open the page in the browser. Do not select text.
+2. Press Shift twice.
+
+Piper adds the page to Up Next in Reading, with its title and reading time. Read Now opens the page in the main window. If Reading already has the page, the toast shows Already in Reading.
+
+### Read A Page Behind A Login
+
+Piper loads a page in its own web view, and that web view does not have the sign-ins of your browser. For this reason, each capture from a web page also keeps the page text that the browser shows. If the page does not load in Piper, or if it gives much less text, the Reader tab shows the kept text. The kept text has no headings or lists.
+
+### Save A Link From Piper
+
+- In the capture panel, move the pointer over a copied link and select Read. Piper adds the page to Inbox and opens it.
+- Control-click a note that holds a link and more text, then select Add Link to Reading.
+- Save a note that holds only a link. The Reading chip shows each capture that holds only a link.
+
 ## Organize Notes
 
 Sections group notes.
@@ -109,7 +156,7 @@ Sections group notes.
 - To create a section, select New Section in the dropdown. In the main window, select New Section in the + menu of the toolbar, above the sidebar.
 - To change the section for new notes, choose it from the section dropdown, or press Command-K.
 - To create or select a section from the composer, type `# Research` alone and press Return.
-- To run a folder skill, type `/` and the skill name. See [Send notes to Claude](claude.md#run-a-skill-from-the-composer).
+- To run a folder skill, type `/` and the skill name. See [Work with agents](claude.md#run-a-skill-from-the-composer).
 - To find notes, press Command-F. Search matches note text in all sections and in the clipboard. To end the search, select Cancel or press Escape.
 
 Inbox stays visible at the top of the capture panel. The section dropdown shows the current section and a search field. Each section has a note count. Archived and New Section appear below the section list.
@@ -120,6 +167,16 @@ In the sidebar, right-click a section to open Edit Section or Delete Section. Ed
 
 ## Act On Several Notes
 
+In the main window:
+
+1. Command-click a note to add it to the selection. The selection bar opens.
+2. Command-click more notes, or Shift-click to select a range. Shift-Up and Shift-Down also add notes.
+3. Select an action in the selection bar.
+
+A click on a note itself opens the note, and it ends the selection of several. To end the selection, select Cancel or press Escape.
+
+In the capture panel:
+
 1. Click a note.
 2. Click more notes, or Shift-click to select a range.
 3. Select an action in the selection bar.
@@ -127,14 +184,15 @@ In the sidebar, right-click a section to open Edit Section or Delete Section. Ed
 | Action | Result |
 | --- | --- |
 | Merge | Joins the notes with blank lines between them |
+| Mark as Done | Marks the notes as done. In Archived, Reopen opens them again. |
 | Move | Moves the notes to another section |
 | Copy | Copies the text of the notes |
-| Send | Runs the default Claude skill on each note. See [Send notes to Claude](claude.md). |
+| Send | Runs the default Claude Code skill on each note. See [Work with agents](claude.md). |
 | Delete | Deletes the notes, with no confirmation |
 
 The selection bar wraps its buttons to fit narrow panes.
 
-Click a selected note to deselect it. Command-C copies the selected notes. Delete removes the selected notes.
+In the capture panel, click a selected note to deselect it. In the main window, Command-click a selected note to deselect it. Command-C copies the selected notes. Delete removes the selected notes.
 
 Command-Shift-C copies the notes as a numbered list. The note context menu also has Copy as List, Mark as Done, Edit, and Open in Browser.
 
@@ -146,11 +204,11 @@ Undo reverses the last note change. Piper keeps one undo step, and a restart cle
 - To open the note in a separate editor window, press Command-Return.
 - To write the edit, select Save.
 
-In the main window, the detail pane edits the selected note in place. Piper saves the change shortly after you stop typing.
+In the main window, the detail pane edits the selected note in place. Piper saves the change shortly after you stop typing. A note that holds only a link opens in the Reader tab, and it has no editor.
 
-The circle on each row marks the note as done. Completed notes leave the regular sections and appear in Archived.
+The circle on a note row marks the note as done. The ring on an article marks it as read. In the main window, Space marks the open note as done. Mark as Done is also in the selection bar and the context menu. Completed notes leave the regular sections and appear in Archived.
 
-Archived is in the main window sidebar and the section dropdown of the capture panel. Search in Archived matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
+Archived is in the main window sidebar and the section dropdown of the capture panel. Archived groups the completed notes by the month in which you marked them as done. The newest month is first. A completed note shows a filled circle with a check. Search in Archived matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
 
 If you close a changed editor or quit Piper, Piper asks you to Save, Discard, or Cancel. A failed save keeps the draft.
 

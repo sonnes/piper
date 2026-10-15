@@ -46,9 +46,19 @@ Acceptance: every visible control does what its label says, and no edit is lost 
 - [ ] Test the toast Send button when Piper is not the active app.
 - [ ] Decide on a notice when a turn ends or needs an answer while the main window is hidden.
 - [ ] Decide whether Stop sends an interrupt and keeps the process. Today Stop ends the process.
-- [ ] Decide whether the Claude pane restores the session that it showed before a restart.
+- [ ] Decide whether the session card restores the session that it showed before a restart.
+- [ ] Decide whether the detached session panel takes its context from the app in front, through Accessibility. Today it takes the page of the main window.
 
 Acceptance: a link from the clipboard reaches the folder with one action, a card waits for an answer, and a failed turn names its cause.
+
+## Reading
+
+- [ ] Run the Reading checks in [Validate a build](validate.md#reading-checks) in Safari, Chrome, and Arc, with Accessibility access.
+- [ ] Make sure that the page text arrives from a page behind a login in each browser.
+- [ ] Decide whether the note field of the toast also has Ask Claude. Today it saves a note only.
+- [ ] Add a Share menu extension. It needs a new signed extension target in the release build.
+
+Acceptance: a highlight from each browser finds its place in the Reader tab, the browser keeps the focus, and the article opens again at the place where the reader stopped.
 
 ## Distribution
 

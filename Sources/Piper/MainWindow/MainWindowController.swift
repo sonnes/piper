@@ -4,7 +4,7 @@ import Captures
 import SwiftUI
 import Vault
 
-/// Owns the main window: three panes and the Claude pane.
+/// Owns the main window: three panes and the session card.
 ///
 /// The window holds an `NSSplitViewController` with one view controller per
 /// pane. A pane never calls another pane. Each one reports upward through a
@@ -26,18 +26,13 @@ final class MainWindowController: NSWindowController {
     private let sidebarViewController = SidebarViewController()
     private let fileListViewController = FileListViewController()
     private let detailViewController = DetailViewController()
-    private let sessionViewController = SessionPaneViewController()
     private var listItem: NSSplitViewItem?
-    private var sessionItem: NSSplitViewItem?
     /// The initial query for Home.
     private var homeSeed = ""
     /// Changes with every seed, so that the home page takes the new text.
     private var homeIdentity = UUID()
     private var appliedPaneWidths = false
-    /// The last section that the sidebar selected. A new value scrolls the list.
-    private var sectionScroll: SectionScroll?
     private var composerRequest: UUID?
-    private var viewModeControl: NSSegmentedControl?
     private var doneItem: NSToolbarItem?
 
     /// True while the panes to the right of the sidebar hold the home page.
@@ -47,7 +42,7 @@ final class MainWindowController: NSWindowController {
         if case .file = state.selection { return true }
         return false
     }
-    /// True while the list and the detail pane show Claude sessions.
+    /// True while the list and the detail pane show agent sessions.
     private var showsSessions: Bool {
         if case .sessions = state.selection { return true }
         return false
@@ -66,6 +61,8 @@ final class MainWindowController: NSWindowController {
         super.init(window: window)
         NotificationCenter.default.addObserver(self, selector: #selector(vaultChanged),
                                                name: .vaultPathDidChange, object: model)
+        NotificationCenter.default.addObserver(self, selector: #selector(windowBecameKey),
+                                               name: NSWindow.didBecomeKeyNotification, object: window)
 
         // The title names what the sidebar selected, as in Mail. The subtitle
         // says where it lives.
@@ -148,58 +145,59 @@ final class MainWindowController: NSWindowController {
     func showNote(_ id: UUID) {
         guard let note = model.store.notes.first(where: { $0.id == id }) else { return }
         state.selectedNote = id
-        select(note.isDone ? .archived : .section(note.section))
+        if !note.isDone { model.showInInbox(note) }
+        select(note.isDone ? .archived : .inbox)
         model.store.selection = [id]
     }
 
-    /// Shows a session: in the Claude list when it is selected, or else in the Claude pane.
+    /// Shows a link capture in Inbox, in the Reader tab. A highlight scrolls
+    /// the article to its text.
+    func showArticle(_ id: UUID, at highlight: UUID?) {
+        guard let note = model.store.notes.first(where: { $0.id == id }) else { return }
+        model.articleTab = .reader
+        if let highlight { model.readerScroll = ReaderScroll(note: highlight, in: id) }
+        showNote(note.id)
+    }
+
+    /// Shows a session: in the Sessions list when it is selected, or else in the session card.
     func showSession(_ id: UUID) {
         model.selectedSession = id
-        guard showsSessions else { return showSessionPane() }
+        guard showsSessions else { return showSessionCard() }
         if let session = model.agents.runner.session(id), state.selection != .sessions(session.folder) {
             select(.sessions(session.folder))
         }
     }
 
-    /// Opens or closes the Claude pane.
-    func toggleSessionPane() {
-        state.inspectorVisible.toggle()
-        state.save()
-        updateSessionPane(animated: true)
+    /// Opens the collapsed session card, or collapses the open one. A
+    /// detached panel stays as it is.
+    func toggleSessionCard() {
+        switch model.sessionPresentation {
+        case .pill: model.sessionPresentation = .card
+        case .card: model.sessionPresentation = .pill
+        case .detached: break
+        }
     }
 
-    func showSessionPane() {
-        guard !state.inspectorVisible else { return }
-        toggleSessionPane()
-    }
-
-    /// Collapses the Claude pane while it is closed, and while the Claude list
-    /// shows the same sessions in the detail pane.
-    private func updateSessionPane(animated: Bool) {
-        let collapsed = !state.inspectorVisible || showsSessions
-        guard let sessionItem, sessionItem.isCollapsed != collapsed else { return }
-        if animated { sessionItem.animator().isCollapsed = collapsed } else { sessionItem.isCollapsed = collapsed }
+    func showSessionCard() {
+        if model.sessionPresentation == .pill { model.sessionPresentation = .card }
     }
 
     /// Records what the sidebar picked and redraws the panes for it.
     private func select(_ selection: SidebarSelection) {
         composerRequest = nil
         if case .folder = selection, selection != state.selection { model.wikiQuery = "" }
-        if selection.showsCaptures != state.selection.showsCaptures || selection == .clipboard || state.selection == .clipboard || selection == .archived || state.selection == .archived {
+        let separate: [SidebarSelection] = [.clipboard, .archived]
+        if selection.showsCaptures != state.selection.showsCaptures || separate.contains(selection) || separate.contains(state.selection) {
             model.store.query = ""
             model.store.selection.removeAll()
         }
         switch selection {
         case .section(let name):
             if name != model.store.activeSection { model.store.chooseSection(name) }
-            sectionScroll = SectionScroll(section: name)
         case .inbox:
             let section = model.store.sections.contains(SidebarOutline.inboxSection)
                 ? SidebarOutline.inboxSection : model.store.sections.first
-            if let section {
-                if section != model.store.activeSection { model.store.chooseSection(section) }
-                sectionScroll = SectionScroll(section: section)
-            }
+            if let section, section != model.store.activeSection { model.store.chooseSection(section) }
         case .file(let path):
             model.openDocument(path)
         default:
@@ -245,10 +243,16 @@ final class MainWindowController: NSWindowController {
             detailViewController.setContent(homeContent)
         case .inbox, .section, .clipboard, .archived:
             let clipboard = state.selection == .clipboard
+            let content: CaptureListContent
+            switch state.selection {
+            case .clipboard: content = .clipboard
+            case .archived: content = .archived
+            case .section(let name): content = .stream(section: name)
+            default: content = .stream(section: nil)
+            }
             fileListViewController.setContent(CaptureView(
                 model: model, embedded: true,
-                content: clipboard ? .clipboard : (state.selection == .archived ? .archived : .sections),
-                scroll: clipboard ? nil : sectionScroll,
+                content: content,
                 composerRequest: composerRequest,
                 acceptsKeyboard: { [weak self] window in
                     guard let self, state.selection.showsCaptures, window === self.window else { return false }
@@ -277,10 +281,10 @@ final class MainWindowController: NSWindowController {
             fileListViewController.setContent(SessionListView(model: model, folder: folder))
             detailViewController.setContent(SessionDetailPane(model: model, folder: folder).routeSheets(model))
         }
-        sessionViewController.setContent(SessionInspector(model: model))
+        // The Sessions list already shows the sessions in the detail pane.
+        detailViewController.setOverlay(showsSessions ? AnyView(EmptyView()) : AnyView(SessionOverlay(model: model)))
 
         listItem?.isCollapsed = showsHome || showsTreeFile
-        updateSessionPane(animated: false)
         updateToolbarState()
     }
 
@@ -302,11 +306,11 @@ final class MainWindowController: NSWindowController {
         case .home:
             setTitle("Home", (model.vault.root.path as NSString).abbreviatingWithTildeInPath)
         case .inbox:
-            setTitle("Inbox", Self.count(store.notes.filter { !$0.isDone }.count, "note") + " in " + Self.count(store.sections.count, "section"))
+            setTitle("Inbox", Self.count(store.notes.filter { $0.parent == nil && !$0.isDone }.count, "item"))
         case .section(let name):
-            setTitle(name, Self.count(store.notes.filter { $0.section == name && !$0.isDone }.count, "note"))
+            setTitle(name, Self.count(store.notes.filter { $0.parent == nil && $0.section == name && !$0.isDone }.count, "item"))
         case .archived:
-            setTitle("Archived", Self.count(store.notes.filter(\.isDone).count, "note"))
+            setTitle("Archived", Self.count(store.notes.filter { $0.parent == nil && $0.isDone }.count, "item"))
         case .clipboard:
             setTitle("Clipboard", Self.count(model.clipboard.entries.count, "copy", "copies") + " · not saved")
         case .allFiles:
@@ -346,21 +350,14 @@ final class MainWindowController: NSWindowController {
     /// Enables the toolbar controls that act on the current selection, and
     /// hides the ones that have no meaning there.
     private func updateToolbarState() {
-        let showsFile = !state.selection.showsCaptures && !showsHome && model.currentDocument.map {
-            FilePresentation.sourceText(for: $0) != nil
-        } == true
-        let showsFiles = !state.selection.showsCaptures && !showsHome && !showsSessions
         let showsNotes = state.selection.showsCaptures && state.selection != .clipboard
+        let note = state.selectedNote.flatMap { id in model.store.notes.first { $0.id == id } }
         if #available(macOS 15.0, *), let items = window?.toolbar?.items {
             for item in items {
-                if item.itemIdentifier == .viewMode { item.isHidden = !showsFiles }
                 if item.itemIdentifier == .markDone { item.isHidden = !showsNotes }
                 if item.itemIdentifier == .claude { item.isHidden = showsSessions }
             }
         }
-        viewModeControl?.isEnabled = showsFile
-        viewModeControl?.selectedSegment = model.showsFileSource ? 1 : 0
-        let note = state.selectedNote.flatMap { id in model.store.notes.first { $0.id == id } }
         let canComplete = state.selection.showsCaptures && state.selection != .clipboard && note != nil
         doneItem?.isEnabled = canComplete
         doneItem?.image = NSImage(systemSymbolName: note?.isDone == true ? "checkmark.circle.fill" : "checkmark.circle",
@@ -370,7 +367,7 @@ final class MainWindowController: NSWindowController {
         model.actionTarget = actionTarget(note: note)
     }
 
-    /// What the Claude pane takes as context: the note in the inbox, the file
+    /// What the session card takes as context: the note in the inbox, the file
     /// in the folder, or the folder alone.
     private func actionTarget(note: Note?) -> SkillTarget {
         if state.selection.showsCaptures {
@@ -421,7 +418,7 @@ private extension MainWindowController {
         sidebarItem.holdingPriority = NSLayoutConstraint.Priority(260)
 
         let list = NSSplitViewItem(contentListWithViewController: fileListViewController)
-        list.minimumThickness = 240
+        list.minimumThickness = AppDefaults.Window.listMinimumThickness
         list.holdingPriority = NSLayoutConstraint.Priority(255)
         if #available(macOS 26.0, *) { list.automaticallyAdjustsSafeAreaInsets = true }
         // The home page takes the width of the window, so its selection
@@ -432,17 +429,9 @@ private extension MainWindowController {
         let detailItem = NSSplitViewItem(viewController: detailViewController)
         detailItem.minimumThickness = AppDefaults.Window.detailMinimumThickness
 
-        let session = NSSplitViewItem(inspectorWithViewController: sessionViewController)
-        session.minimumThickness = AppDefaults.Sessions.paneMinimumWidth
-        session.maximumThickness = AppDefaults.Sessions.paneMaximumWidth
-        session.canCollapse = true
-        session.isCollapsed = true
-        sessionItem = session
-
         splitViewController.addSplitViewItem(sidebarItem)
         splitViewController.addSplitViewItem(list)
         splitViewController.addSplitViewItem(detailItem)
-        splitViewController.addSplitViewItem(session)
         refreshPanes()
     }
 
@@ -466,7 +455,6 @@ extension NSToolbarItem.Identifier {
     static let navigate = NSToolbarItem.Identifier("navigate")
     static let add = NSToolbarItem.Identifier("add")
     static let capture = NSToolbarItem.Identifier("capture")
-    static let viewMode = NSToolbarItem.Identifier("viewMode")
     static let markDone = NSToolbarItem.Identifier("markDone")
     static let more = NSToolbarItem.Identifier("more")
     static let readerSeparator = NSToolbarItem.Identifier("readerSeparator")
@@ -478,7 +466,7 @@ extension MainWindowController: NSToolbarDelegate {
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [.toggleSidebar, .add, .sidebarTrackingSeparator,
          .flexibleSpace, .capture, .readerSeparator,
-         .navigate, .flexibleSpace, .viewMode, .markDone, .more, .claude]
+         .navigate, .flexibleSpace, .markDone, .more, .claude]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -497,8 +485,6 @@ extension MainWindowController: NSToolbarDelegate {
         case .capture:
             return button(identifier, symbol: "square.and.pencil",
                           label: "New Capture · ⌘N", action: #selector(newDocument(_:)))
-        case .viewMode:
-            return viewModeItem()
         case .markDone:
             let item = button(identifier, symbol: "checkmark.circle", label: "Mark as Done", action: #selector(toggleDone))
             item.autovalidates = false
@@ -510,7 +496,7 @@ extension MainWindowController: NSToolbarDelegate {
         case .more:
             return moreItem()
         case .claude:
-            return button(identifier, symbol: "sidebar.right", label: "Claude Pane · ⌥⌘C", action: #selector(toggleSessionPaneAction))
+            return button(identifier, symbol: "text.bubble", label: "Session Card · ⌥⌘C", action: #selector(toggleSessionCardAction))
         default:
             return nil
         }
@@ -527,22 +513,6 @@ extension MainWindowController: NSToolbarDelegate {
         item.toolTip = label
         item.target = self
         item.action = action
-        return item
-    }
-
-    /// Preview and Source for a text file.
-    private func viewModeItem() -> NSToolbarItem {
-        let control = NSSegmentedControl(labels: ["Preview", "Source"], trackingMode: .selectOne,
-                                         target: self, action: #selector(changeViewMode(_:)))
-        control.controlSize = .regular
-        control.selectedSegment = model.showsFileSource ? 1 : 0
-        control.setToolTip("Show the formatted file", forSegment: 0)
-        control.setToolTip("Show the text of the file", forSegment: 1)
-        viewModeControl = control
-        let item = NSToolbarItem(itemIdentifier: .viewMode)
-        item.view = control
-        item.label = "View"
-        updateToolbarState()
         return item
     }
 
@@ -590,7 +560,7 @@ extension MainWindowController: NSToolbarDelegate {
     }
 
     @objc func newDocument(_ sender: Any?) {
-        if !state.selection.showsCaptures || state.selection == .clipboard || state.selection == .archived {
+        if !state.selection.showsCaptures || [.clipboard, .archived].contains(state.selection) {
             select(.inbox)
         }
         model.store.query = ""
@@ -601,7 +571,7 @@ extension MainWindowController: NSToolbarDelegate {
         refreshPanes()
     }
 
-    @objc private func toggleSessionPaneAction() { toggleSessionPane() }
+    @objc private func toggleSessionCardAction() { toggleSessionCard() }
 
     @objc private func openSettings() { model.openSettings?() }
 
@@ -625,9 +595,10 @@ extension MainWindowController: NSToolbarDelegate {
         updateToolbarState()
     }
 
-    @objc private func changeViewMode(_ sender: NSSegmentedControl) {
-        model.showsFileSource = sender.selectedSegment == 1
-        refreshPanes()
+    /// An article that the reader finished a week ago leaves Reading when
+    /// the reader comes back to the window.
+    @objc private func windowBecameKey() {
+        model.archiveFinishedReading()
     }
 
     @objc private func vaultChanged() {
@@ -646,7 +617,7 @@ extension MainWindowController: NSToolbarDelegate {
     }
 }
 
-/// The detail pane while the sidebar selects a Claude folder: the selected
+/// The detail pane while the sidebar selects a sessions folder: the selected
 /// session, or a new one.
 private struct SessionDetailPane: View {
     @Bindable var model: AppModel
@@ -750,9 +721,9 @@ private struct SidebarPane: View {
 private struct DetailPane: View {
     @Bindable var model: AppModel
 
-    @AppStorage(AppDefaults.Key.readerSize) private var readerSize = 18.0
+    @AppStorage(AppDefaults.Key.readerSize) private var readerSize = AppDefaults.Reader.defaultSize
     @AppStorage(AppDefaults.Key.readerTheme) private var readerTheme = WikiReadingTheme.paper
-    @AppStorage(AppDefaults.Key.readerFont) private var readerFont = WikiReadingFont.sans
+    @AppStorage(AppDefaults.Key.readerFont) private var readerFont = AppDefaults.Reader.defaultFont
     @AppStorage(AppDefaults.Key.readerAppearance) private var readerAppearance = WikiReadingAppearance.system
     @Environment(\.colorScheme) private var colorScheme
 
@@ -765,16 +736,18 @@ private struct DetailPane: View {
                 } else if FilePresentation(document) != .markdown {
                     FilePreview(model: model, document: document)
                 } else {
-                    VStack(spacing: 0) {
-                        DetailHeader(file: document, hasChanges: model.wikiEdit?.hasChanges ?? false)
-                        WikiEditor(model: model, document: document, fontSize: readerSize,
-                                   fontName: readerFont.font(size: readerSize).fontName, paper: paper)
-                    }
-                    .background(paper)
-                    .preferredColorScheme(readerAppearance.colorScheme)
+                    WikiEditor(model: model, document: document, fontSize: readerSize,
+                               font: readerFont.font(size: readerSize), paper: paper)
+                        .preferredColorScheme(readerAppearance.colorScheme)
                 }
             } else {
                 NoSelection()
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let document = model.currentDocument,
+               FilePresentation.sourceText(for: document, markdown: model.wikiEdit?.markdown) != nil {
+                TabIsland(showsSource: $model.showsFileSource, cardPresented: model.sessionPresentation == .card)
             }
         }
         .onChange(of: model.currentDocument?.id, initial: true) { _, _ in

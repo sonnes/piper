@@ -146,17 +146,30 @@ public enum SessionEvent: Equatable, Sendable {
         }
         return "Needs permission for \(tools.joined(separator: ", ")).\n"
             + lines.joined(separator: "\n")
-            + "\nAllow the tools in the folder's .claude/settings.json, or choose another permission mode in Settings > Claude."
+            + "\nAllow the tools in the folder's .claude/settings.json, or choose another mode in the composer or in Settings > AI."
     }
 
     // MARK: - Paths
 
     /// The path of `path` inside `folder`, or nil for a path outside it.
+    /// A file that does not exist yet still resolves, through the folders above it.
     public static func relativePath(_ path: String, in folder: URL) -> String? {
-        let root = folder.resolvingSymlinksInPath().standardizedFileURL.path
+        let root = resolved(folder).path
         let absolute = path.hasPrefix("/") ? URL(fileURLWithPath: path) : folder.appendingPathComponent(path)
-        let file = absolute.resolvingSymlinksInPath().standardizedFileURL.path
+        let file = resolved(absolute).path
         guard file.hasPrefix(root + "/") else { return nil }
         return String(file.dropFirst(root.count + 1))
+    }
+
+    /// The path with its symbolic links resolved. The links resolve only in the
+    /// part of the path that exists, so the rest goes back on after it.
+    private static func resolved(_ url: URL) -> URL {
+        var existing = url.standardizedFileURL
+        var rest: [String] = []
+        while !FileManager.default.fileExists(atPath: existing.path), existing.path != "/" {
+            rest.insert(existing.lastPathComponent, at: 0)
+            existing.deleteLastPathComponent()
+        }
+        return rest.reduce(existing.resolvingSymlinksInPath()) { $0.appendingPathComponent($1) }
     }
 }

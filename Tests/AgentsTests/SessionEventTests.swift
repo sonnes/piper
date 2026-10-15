@@ -154,9 +154,9 @@ final class SessionHelperTests: XCTestCase {
             let content = (object?["message"] as? [String: Any])?["content"] as? [[String: Any]]
             return content?.first?["text"] as? String
         }
-        XCTAssertEqual(try text(SessionRunner.userLine("Why?", context: [])), "Why?")
-        XCTAssertEqual(try text(SessionRunner.userLine("Why?", context: ["/w/a.md"])), "Why?\n\nContext file: /w/a.md")
-        XCTAssertEqual(try text(SessionRunner.userLine("/verify", context: ["/w/a.md"])), "/verify /w/a.md")
+        XCTAssertEqual(try text(ClaudeCodeConnection.userLine("Why?", context: [])), "Why?")
+        XCTAssertEqual(try text(ClaudeCodeConnection.userLine("Why?", context: ["/w/a.md"])), "Why?\n\nContext file: /w/a.md")
+        XCTAssertEqual(try text(ClaudeCodeConnection.userLine("/verify", context: ["/w/a.md"])), "/verify /w/a.md")
     }
 }
 

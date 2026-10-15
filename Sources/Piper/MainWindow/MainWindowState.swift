@@ -20,7 +20,7 @@ enum SidebarSelection: Codable, Equatable {
     /// One file of the vault, picked in the sidebar tree. The detail pane
     /// takes the width of the list.
     case file(String)
-    /// The Claude sessions of a folder, by its absolute path.
+    /// The agent sessions of a folder, by its absolute path.
     case sessions(String)
 
     /// The folder path, the folder that holds the file, or the root for the inbox.
@@ -59,10 +59,8 @@ struct MainWindowState: Codable, Equatable {
     /// The folders the sidebar had open. A nil value means the window has not
     /// opened before, so the sidebar opens every folder.
     var expandedFolders: [String]?
-    var sidebarWidth: CGFloat = 216
-    var listWidth: CGFloat = 340
-    /// True while the Claude pane is open on the right.
-    var inspectorVisible = false
+    var sidebarWidth: CGFloat = 210
+    var listWidth: CGFloat = 350
 
     // MARK: - Persistence
 

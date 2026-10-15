@@ -8,8 +8,6 @@ struct TranscriptBlockView: View {
     let session: AgentSession
     let block: TranscriptBlock
 
-    private var runner: SessionRunner { model.agents.runner }
-
     var body: some View {
         switch block {
         case .user(_, let text, let context):
@@ -21,42 +19,51 @@ struct TranscriptBlockView: View {
                 model.openRunFile(path, in: session.folder)
             }
         case .permission(let request, let decision):
-            PermissionCard(request: request, decision: decision, folderName: session.folderName,
-                           allow: { always in runner.allow(request, always: always, in: session) },
-                           deny: { runner.deny(request, in: session) })
+            PermissionCard(request: request, decision: decision, folderName: session.folderName)
         case .question(let request, let answers):
-            QuestionCard(request: request, answers: answers) { runner.answer(request, answers: $0, in: session) }
+            if let answers {
+                QuestionCard(request: request, answers: answers) { _ in }
+            } else {
+                WaitingLine(text: "A question waits for your answer below the transcript")
+            }
         case .result(_, let result):
             ResultRow(result: result)
         }
     }
 }
 
-/// A message from the reader, with the files it named as context.
+/// A message from the reader, as a bubble on the right, with the files it
+/// named as context under it.
 struct UserTurnView: View {
     let text: String
     let context: [String]
+
+    private typealias Metrics = AppDefaults.Sessions
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
             Text(text)
                 .font(PiperTheme.ui(13))
+                .lineSpacing(3)
+                .foregroundStyle(PiperTheme.onAccent)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 10).padding(.vertical, 7)
-                .background(PiperTheme.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+                .padding(Metrics.bubblePadding)
+                .background(PiperTheme.accent, in: UnevenRoundedRectangle(
+                    topLeadingRadius: Metrics.bubbleRadius, bottomLeadingRadius: Metrics.bubbleRadius,
+                    bottomTrailingRadius: Metrics.bubbleTailRadius, topTrailingRadius: Metrics.bubbleRadius))
             ForEach(context, id: \.self) { path in
                 Label(URL(fileURLWithPath: path).lastPathComponent, systemImage: "doc.text")
-                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
                     .help(path)
             }
         }
+        .padding(.leading, Metrics.bubbleLeadingSpace)
         .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.leading, 24)
     }
 }
 
-/// A message from Claude. Inline Markdown shows as formatted text.
+/// A message from the agent, as plain text. Inline Markdown shows as formatted text.
 struct AssistantTextView: View {
     let text: String
 
@@ -68,14 +75,15 @@ struct AssistantTextView: View {
     var body: some View {
         Text(formatted)
             .font(PiperTheme.ui(13))
-            .lineSpacing(2)
+            .lineSpacing(3.5)
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-/// One tool call. A click shows the start of its result.
+/// One tool call, as a small gray chip in a monospaced font. A call with an
+/// edit shows its lines in a diff card. A click shows the start of the result.
 struct ToolCallRow: View {
     let call: ToolCall
     /// True while the session can still finish the call.
@@ -83,42 +91,52 @@ struct ToolCallRow: View {
     let open: (String) -> Void
     @State private var expanded = false
 
+    private typealias Metrics = AppDefaults.Sessions
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                status.frame(width: 14)
-                Text(call.name).font(PiperTheme.ui(12, weight: .semibold))
-                Text(call.detail)
-                    .font(Font(PiperTheme.manuscript(size: 11.5)))
-                    .foregroundStyle(PiperTheme.secondary)
-                    .lineLimit(1).truncationMode(.middle)
-                Spacer(minLength: 4)
-                if let path = call.path, path.lowercased().hasSuffix(".md"), !call.isError {
-                    Button("Open") { open(path) }.buttonStyle(.link).font(PiperTheme.ui(11))
-                }
+            if let diff = call.diff {
+                DiffView(diff: diff) { header }
+            } else {
+                header
+                    .padding(Metrics.chipPadding)
+                    .background(PiperTheme.hover, in: RoundedRectangle(cornerRadius: Metrics.chipRadius))
             }
-            .contentShape(Rectangle())
-            .onTapGesture { if call.resultPreview != nil { expanded.toggle() } }
-            if let diff = call.diff { DiffView(diff: diff) }
             if expanded, let preview = call.resultPreview {
                 Text(preview)
                     .font(Font(PiperTheme.manuscript(size: 11)))
                     .foregroundStyle(call.isError ? PiperTheme.danger : PiperTheme.secondary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .background(PiperTheme.panel, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+                    .padding(Metrics.chipPadding)
+                    .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.rule, lineWidth: 1))
             }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(call.line)
     }
 
+    private var header: some View {
+        HStack(spacing: 7) {
+            status.frame(width: 12)
+            Text(call.line)
+                .font(Font(PiperTheme.manuscript(size: 12)))
+                .foregroundStyle(PiperTheme.secondary)
+                .lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 4)
+            if let path = call.path, path.lowercased().hasSuffix(".md"), !call.isError {
+                Button("Open") { open(path) }.buttonStyle(.link).font(PiperTheme.ui(11))
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { if call.resultPreview != nil { expanded.toggle() } }
+    }
+
     @ViewBuilder private var status: some View {
         if call.isError {
-            Image(systemName: "xmark.circle").foregroundStyle(PiperTheme.danger)
+            Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(PiperTheme.danger)
         } else if call.isFinished {
-            Image(systemName: "checkmark").foregroundStyle(PiperTheme.faint)
+            Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(PiperTheme.toolDone)
         } else if isLive {
             ProgressView().controlSize(.mini)
         } else {
@@ -127,73 +145,101 @@ struct ToolCallRow: View {
     }
 }
 
-/// The lines that an Edit call removes and adds.
-struct DiffView: View {
+/// The lines that an edit removes and adds, in a card with a header row.
+struct DiffView<Header: View>: View {
     let diff: ToolCall.Diff
+    @ViewBuilder let header: Header
 
+    private typealias Metrics = AppDefaults.Sessions
     private var lines: [DiffText.Line] { DiffText.lines(old: diff.old, new: diff.new) }
 
     var body: some View {
-        let shown = Array(lines.prefix(AppDefaults.Sessions.diffLineLimit))
+        let shown = Array(lines.filter(Self.isChange).prefix(Metrics.diffLineLimit))
+        let changes = lines.filter(Self.isChange).count
         VStack(alignment: .leading, spacing: 0) {
+            header
+                .font(PiperTheme.ui(11.5))
+                .foregroundStyle(PiperTheme.secondary)
+                .padding(Metrics.chipPadding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(PiperTheme.hover)
             ForEach(Array(shown.enumerated()), id: \.offset) { _, line in row(line) }
-            if lines.count > shown.count {
-                Text("\(lines.count - shown.count) more lines")
-                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint).padding(.horizontal, 6).padding(.top, 2)
+            if changes > shown.count {
+                Text("\(changes - shown.count) more lines")
+                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+                    .padding(.horizontal, 9).padding(.vertical, 3)
             }
         }
-        .padding(.vertical, 4)
-        .background(PiperTheme.panel, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.chipRadius))
+        .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.rule, lineWidth: 1))
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Changes")
     }
 
+    private static func isChange(_ line: DiffText.Line) -> Bool {
+        if case .context = line { return false }
+        return true
+    }
+
     private func row(_ line: DiffText.Line) -> some View {
-        let (mark, text, color): (String, String, Color?) = {
+        let (mark, text, fill): (String, String, Color) = {
             switch line {
-            case .context(let text): return (" ", text, nil)
-            case .removed(let text): return ("-", text, PiperTheme.danger)
-            case .added(let text): return ("+", text, PiperTheme.success)
+            case .context(let text): return (" ", text, .clear)
+            case .removed(let text): return ("-", text, PiperTheme.diffRemoved)
+            case .added(let text): return ("+", text, PiperTheme.diffAdded)
             }
         }()
         return Text(mark + " " + text)
-            .font(Font(PiperTheme.manuscript(size: 11)))
-            .foregroundStyle(color ?? PiperTheme.secondary)
+            .font(Font(PiperTheme.manuscript(size: 11.5)))
+            .foregroundStyle(PiperTheme.ink)
             .lineLimit(1).truncationMode(.tail)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 6)
-            .background((color ?? .clear).opacity(0.1))
+            .padding(.horizontal, 9).padding(.vertical, 1)
+            .background(fill)
     }
 }
 
-/// A tool call that waits for the reader to allow or deny it.
+extension DiffView where Header == EmptyView {
+    init(diff: ToolCall.Diff) {
+        self.init(diff: diff) { EmptyView() }
+    }
+}
+
+/// A permission request in the transcript, as one line. The request that
+/// waits shows in the approval drawer over the composer.
 struct PermissionCard: View {
     let request: PermissionRequest
     let decision: PermissionDecision
     let folderName: String
-    let allow: (_ always: Bool) -> Void
-    let deny: () -> Void
 
     private var rule: String? { PermissionRule.rule(toolName: request.toolName, input: request.input) }
 
-    private var diff: ToolCall.Diff? {
-        if request.toolName == "Edit", let old = request.input["old_string"]?.string,
-           let new = request.input["new_string"]?.string { return ToolCall.Diff(old: old, new: new) }
-        if request.toolName == "Write", let content = request.input["content"]?.string {
-            return ToolCall.Diff(old: "", new: content)
+    /// The text that a call changes, with the path of each file. An ACP agent
+    /// gives its diffs. For Claude Code, the diff comes from the input of
+    /// Edit or Write, and the title is empty.
+    static func diffs(of request: PermissionRequest) -> [(title: String, diff: ToolCall.Diff)] {
+        if let diffs = request.diffs, !diffs.isEmpty {
+            return diffs.map { (title: $0.path, diff: ToolCall.Diff(old: $0.oldText ?? "", new: $0.newText)) }
         }
-        return nil
+        if request.toolName == "Edit", let old = request.input["old_string"]?.string,
+           let new = request.input["new_string"]?.string { return [(title: "", diff: ToolCall.Diff(old: old, new: new))] }
+        if request.toolName == "Write", let content = request.input["content"]?.string {
+            return [(title: "", diff: ToolCall.Diff(old: "", new: content))]
+        }
+        return []
     }
 
     var body: some View {
         if decision == .pending {
-            card
+            WaitingLine(text: ApprovalDrawer.title(request))
         } else {
             HStack(spacing: 6) {
                 Image(systemName: decision == .denied ? "hand.raised" : "lock.open")
-                    .foregroundStyle(decision == .denied ? PiperTheme.danger : PiperTheme.secondary)
-                Text(summary).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                    .foregroundStyle(decision == .denied ? PiperTheme.danger : PiperTheme.faint)
+                Text(summary).foregroundStyle(PiperTheme.faint)
                     .lineLimit(1).truncationMode(.middle)
             }
+            .font(PiperTheme.ui(11))
         }
     }
 
@@ -206,37 +252,18 @@ struct PermissionCard: View {
         case .denied: return "Denied " + call
         }
     }
+}
 
-    private var card: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "lock").foregroundStyle(PiperTheme.warning)
-                Text("Allow \(request.toolName)?").font(PiperTheme.ui(13, weight: .semibold))
-            }
-            if !request.detail.isEmpty {
-                Text(request.detail)
-                    .font(Font(PiperTheme.manuscript(size: 11.5)))
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let diff { DiffView(diff: diff) }
-            HStack(spacing: 6) {
-                Button("Deny", action: deny)
-                Spacer(minLength: 0)
-                if let rule {
-                    Button("Always in \(folderName)") { allow(true) }
-                        .help("Adds \(rule) to .claude/settings.local.json in \(folderName)")
-                }
-                Button("Allow Once") { allow(false) }
-                    .buttonStyle(.borderedProminent)
-            }
-            .controlSize(.small)
+/// A line in the transcript for a request that waits in the drawer.
+struct WaitingLine: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "lock.shield").foregroundStyle(PiperTheme.warning)
+            Text(text).foregroundStyle(PiperTheme.secondary).lineLimit(1)
         }
-        .padding(10)
-        .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.warning.opacity(0.6), lineWidth: 1))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Claude asks to use \(request.toolName)")
+        .font(PiperTheme.ui(11))
     }
 }
 
@@ -324,7 +351,7 @@ struct QuestionCard: View {
     }
 }
 
-/// The end of a turn: its time and cost, or why it failed.
+/// The end of a turn: its time and cost in small faint text, or why it failed.
 struct ResultRow: View {
     let result: TurnResult
 
@@ -345,11 +372,7 @@ struct ResultRow: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
-            HStack(spacing: 6) {
-                Rule().frame(width: 16)
-                Text(summary).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
-                Rule()
-            }
+            Text(summary).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
         }
     }
 }

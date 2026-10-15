@@ -77,11 +77,11 @@ struct SidebarView: View {
     /// Every capture section and the number of notes that are not done.
     private var sectionCounts: [SidebarSection] {
         model.store.sections.map { section in
-            SidebarSection(name: section, count: model.store.notes.filter { $0.section == section && !$0.isDone }.count)
+            SidebarSection(name: section, count: model.store.notes.filter { $0.parent == nil && $0.section == section && !$0.isDone }.count)
         }
     }
 
-    /// The folders with Claude sessions, and the sessions in each that need the reader.
+    /// The folders with agent sessions, and the sessions in each that need the reader.
     private var sessionFolders: [SidebarSessionFolder] {
         let runner = model.agents.runner
         return runner.folders().map { folder in
@@ -103,7 +103,7 @@ struct SidebarView: View {
     }
 }
 
-/// One folder in the Claude group of the sidebar.
+/// One folder in the Sessions group of the sidebar.
 struct SidebarSessionFolder: Equatable {
     let path: String
     /// The sessions that wait for an answer.

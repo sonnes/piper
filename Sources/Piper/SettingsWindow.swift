@@ -20,8 +20,8 @@ final class SettingsWindowController: NSWindowController {
                     content: CaptureSettings(model: model))
         tabs.addTab("Reading", symbol: "book", size: NSSize(width: 560, height: 300),
                     content: ReadingSettings())
-        tabs.addTab("Claude", symbol: "sparkles", size: NSSize(width: 560, height: 480),
-                    content: ClaudeSettings(model: model))
+        tabs.addTab("AI", symbol: "sparkles", size: NSSize(width: 600, height: 640),
+                    content: AISettings(model: model))
 
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: 560, height: 330)),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
@@ -154,52 +154,107 @@ private struct CaptureSettings: View {
     }
 }
 
-/// The claude command, what a run may do, and the folders that take part.
-private struct ClaudeSettings: View {
+/// The agents, their health, the defaults of a new session and of a margin
+/// answer, and the folders whose skills Send runs.
+private struct AISettings: View {
     @Bindable var model: AppModel
+    @State private var adding: AgentDefinition?
     private var agents: FolderAgents { model.agents }
 
     var body: some View {
         Form {
             Section {
-                LabeledContent {
-                    HStack {
+                AgentRow(agent: .claudeCode, status: agents.health[AgentDefinition.claudeCodeID]) {
+                    HStack(spacing: 6) {
+                        Text(agents.runner.executable.map { ($0.path as NSString).abbreviatingWithTildeInPath }
+                             ?? "No claude command")
+                            .foregroundStyle(agents.runner.executable == nil ? PiperTheme.danger : PiperTheme.secondary)
+                            .lineLimit(1).truncationMode(.middle)
+                        Spacer(minLength: 4)
                         if agents.claudePath != nil {
-                            Button("Find Automatically") { agents.claudePath = nil }
+                            Button("Find Automatically") { agents.claudePath = nil; agents.refreshHealth() }
                         }
                         Button("Choose…", action: chooseExecutable)
                     }
-                } label: {
-                    Text("Claude Code")
-                    Text(agents.runner.executable.map { ($0.path as NSString).abbreviatingWithTildeInPath }
-                         ?? "Not found. Install Claude Code, or choose the claude command.")
-                        .foregroundStyle(agents.runner.executable == nil ? PiperTheme.danger : PiperTheme.secondary)
                 }
+                ForEach(agents.acpAgents) { agent in
+                    AgentRow(agent: agent, status: agents.health[agent.id]) {
+                        HStack(spacing: 6) {
+                            Text(([agent.command] + agent.arguments).joined(separator: " "))
+                                .font(Font(PiperTheme.manuscript(size: 11)))
+                                .foregroundStyle(PiperTheme.secondary)
+                                .lineLimit(1).truncationMode(.middle)
+                            Spacer(minLength: 4)
+                            Button("Remove") { agents.removeAgent(agent) }
+                        }
+                    }
+                }
+                HStack {
+                    Menu("Add ACP Agent") {
+                        ForEach(Self.presets, id: \.name) { preset in
+                            Button(preset.name) { adding = preset }
+                        }
+                        Divider()
+                        Button("Other…") { adding = AgentDefinition(name: "", command: "") }
+                    }
+                    .fixedSize()
+                    Spacer()
+                    Button("Check Again") { agents.refreshHealth() }
+                }
+            } header: {
+                Text("Agents")
+            } footer: {
+                Text("An ACP agent is a command that speaks the Agent Client Protocol on standard input and output.")
+                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+            }
+            Section {
+                Picker("New sessions", selection: Binding(get: { agents.sessionAgentID }, set: { agents.sessionAgentID = $0 })) {
+                    ForEach(agents.allAgents) { Text($0.name).tag($0.id) }
+                }
+                Picker(selection: Binding(get: { agents.marginAgentID }, set: { id in
+                    agents.marginAgentID = id
+                    agents.marginModel = id == AgentDefinition.claudeCodeID ? AppDefaults.Agents.marginModel : ""
+                })) {
+                    ForEach(agents.marginAgents) { Text($0.name).tag($0.id) }
+                } label: {
+                    Text("Margin answers")
+                    Text("Answers in the reader margin can read files and the web, and change nothing. An ACP agent must offer a read-only mode, such as Plan.")
+                }
+                if agents.marginAgentID == AgentDefinition.claudeCodeID {
+                    Picker("Margin model", selection: Binding(get: { agents.marginModel }, set: { agents.marginModel = $0 })) {
+                        ForEach(ClaudeCodeConnection.models) { Text($0.name).tag($0.id) }
+                    }
+                }
+            } header: {
+                Text("Defaults")
+            } footer: {
+                Text("The composer of a session can change its agent before the first message, and its model and mode at any time.")
+                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+            }
+            Section {
                 Picker(selection: Binding(get: { agents.model }, set: { agents.model = $0 })) {
-                    Text("Sonnet").tag("sonnet")
-                    Text("Opus").tag("opus")
-                    Text("Haiku").tag("haiku")
-                    Text("Claude Code Default").tag("")
+                    ForEach(ClaudeCodeConnection.models) { Text($0.name).tag($0.id) }
                 } label: {
                     Text("Model")
                     Text("Claude Code Default uses the model in your Claude Code settings.")
                 }
                 Picker(selection: Binding(get: { agents.permissionMode }, set: { agents.permissionMode = $0 })) {
-                    Text("Auto").tag(PermissionMode.auto)
-                    Text("Edit Files Only").tag(PermissionMode.acceptEdits)
-                    Text("Ask Every Time").tag(PermissionMode.ask)
-                    Text("Allow Every Tool").tag(PermissionMode.bypassPermissions)
+                    ForEach(PermissionMode.allCases, id: \.self) { Text($0.name).tag($0) }
                 } label: {
                     Text("Permissions")
                     switch agents.permissionMode {
                     case .auto: Text("Claude Code allows safe tools and asks about risky ones. Use Sonnet or Opus.")
-                    case .acceptEdits: Text("Claude edits files without asking. Other tools show a card in the session.")
-                    case .ask: Text("Each tool that the folder settings do not allow shows a card in the session.")
+                    case .acceptEdits: Text("Claude edits files without asking. Other tools ask in the session.")
+                    case .ask: Text("Each tool that the folder settings do not allow asks in the session.")
+                    case .plan: Text("Claude Code reads and plans, and edits no files.")
                     case .bypassPermissions: Text("A session can use any tool, including shell commands, without asking.")
                     }
                 }
             } header: {
-                Text("Command")
+                Text("Claude Code")
+            } footer: {
+                Text("Skill runs from Send use these. A session can choose another model or mode in its composer.")
+                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
             }
             Section {
                 if agents.available.isEmpty {
@@ -212,13 +267,31 @@ private struct ClaudeSettings: View {
             } header: {
                 Text("Folders")
             } footer: {
-                Text("Send runs the skill for links or for text in the folder you used last. \(SendShortcut.glyphs) sends the clipboard.")
+                Text("Send runs a Claude Code skill for links or for text in the folder you used last. \(SendShortcut.glyphs) sends the clipboard.")
                     .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
             }
         }
         .formStyle(.grouped)
-        .onAppear { agents.refresh(paths: model.wikiPaths) }
+        .onAppear {
+            agents.refresh(paths: model.wikiPaths)
+            agents.refreshHealth()
+        }
+        .sheet(item: $adding) { draft in
+            AddAgentSheet(draft: draft) { name, command, arguments in
+                agents.addAgent(name: name, command: command, arguments: arguments)
+                adding = nil
+            } cancel: {
+                adding = nil
+            }
+        }
     }
+
+    /// Agents that speak ACP, with the command that starts each.
+    static let presets = [
+        AgentDefinition(name: "Gemini CLI", command: "gemini", arguments: ["--experimental-acp"]),
+        AgentDefinition(name: "OpenCode", command: "opencode", arguments: ["acp"]),
+        AgentDefinition(name: "Codex", command: "codex-acp")
+    ]
 
     private func chooseExecutable() {
         let panel = NSOpenPanel()
@@ -230,6 +303,88 @@ private struct ClaudeSettings: View {
         panel.prompt = "Choose"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         agents.claudePath = url.path
+        agents.refreshHealth()
+    }
+}
+
+/// One agent: its health, its name, its version, and a line of controls.
+private struct AgentRow<Controls: View>: View {
+    let agent: AgentDefinition
+    let status: AgentStatus?
+    @ViewBuilder let controls: Controls
+
+    private var color: Color {
+        switch status?.health {
+        case .ready?: return PiperTheme.success
+        case .warning?: return PiperTheme.warning
+        case .error?: return PiperTheme.danger
+        case .checking?, nil: return PiperTheme.faint
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Circle().fill(color).frame(width: 8, height: 8)
+                    .accessibilityLabel(status?.headline ?? "Not checked")
+                AgentMark(agentID: agent.id)
+                Text(agent.name).font(PiperTheme.ui(13, weight: .semibold))
+                Text(status?.headline ?? "Not checked")
+                    .foregroundStyle(PiperTheme.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+                Spacer(minLength: 4)
+                if let version = status?.version {
+                    Text(version).font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.secondary)
+                }
+            }
+            controls.font(PiperTheme.ui(12))
+        }
+    }
+}
+
+/// The name, the command, and the arguments of a new ACP agent.
+private struct AddAgentSheet: View {
+    @State private var name: String
+    @State private var command: String
+    @State private var arguments: String
+    let add: (String, String, [String]) -> Void
+    let cancel: () -> Void
+
+    init(draft: AgentDefinition, add: @escaping (String, String, [String]) -> Void, cancel: @escaping () -> Void) {
+        _name = State(initialValue: draft.name)
+        _command = State(initialValue: draft.command)
+        _arguments = State(initialValue: draft.arguments.joined(separator: " "))
+        self.add = add
+        self.cancel = cancel
+    }
+
+    private var isComplete: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && !command.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Add ACP Agent").font(PiperTheme.ui(15, weight: .semibold))
+            Form {
+                TextField("Name", text: $name)
+                TextField("Command", text: $command, prompt: Text("A path, or a name on your PATH"))
+                TextField("Arguments", text: $arguments, prompt: Text("Separated by spaces"))
+            }
+            Text("Piper starts the command in the folder of each session, through your login shell.")
+                .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+            HStack {
+                Spacer()
+                Button("Cancel", action: cancel).keyboardShortcut(.cancelAction)
+                Button("Add") {
+                    add(name.trimmingCharacters(in: .whitespaces), command.trimmingCharacters(in: .whitespaces),
+                        arguments.split(whereSeparator: \.isWhitespace).map(String.init))
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!isComplete)
+            }
+        }
+        .padding(20)
+        .frame(width: 420)
     }
 }
 
@@ -265,9 +420,9 @@ private struct FolderAgentRow: View {
 
 /// Font, size, paper, and appearance for Markdown files.
 private struct ReadingSettings: View {
-    @AppStorage(AppDefaults.Key.readerSize) private var fontSize = 18.0
+    @AppStorage(AppDefaults.Key.readerSize) private var fontSize = AppDefaults.Reader.defaultSize
     @AppStorage(AppDefaults.Key.readerTheme) private var theme = WikiReadingTheme.paper
-    @AppStorage(AppDefaults.Key.readerFont) private var font = WikiReadingFont.sans
+    @AppStorage(AppDefaults.Key.readerFont) private var font = AppDefaults.Reader.defaultFont
     @AppStorage(AppDefaults.Key.readerAppearance) private var appearance = WikiReadingAppearance.system
 
     var body: some View {
@@ -300,7 +455,7 @@ private struct ReadingSettings: View {
                     Text("These settings change how Piper shows a file. The file does not change.")
                         .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
                     Spacer()
-                    Button("Reset to Defaults") { theme = .paper; font = .sans; fontSize = 18; appearance = .system }
+                    Button("Reset to Defaults") { theme = .paper; font = AppDefaults.Reader.defaultFont; fontSize = AppDefaults.Reader.defaultSize; appearance = .system }
                 }
             }
         }

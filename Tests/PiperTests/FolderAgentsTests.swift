@@ -251,6 +251,76 @@ final class FolderAgentsTests: XCTestCase {
         XCTAssertEqual(FolderAgents(store: store, preferences: preferences).model, "")
     }
 
+    func testAgentsPersistAndSetTheDefaultsOfNewSessions() throws {
+        let agents = FolderAgents(store: store, preferences: preferences)
+        agents.addAgent(name: "Fake", command: "/usr/bin/true", arguments: ["acp"])
+        let added = try XCTUnwrap(agents.acpAgents.first)
+        XCTAssertEqual(agents.runner.agents, [added])
+
+        let reloaded = FolderAgents(store: store, preferences: preferences)
+        XCTAssertEqual(reloaded.acpAgents, [added])
+        XCTAssertEqual(reloaded.runner.agents, [added])
+
+        reloaded.sessionAgentID = added.id
+        let session = reloaded.newSession(in: wiki.path, mode: "plan")
+        XCTAssertEqual(session.agentID, added.id)
+        XCTAssertEqual(session.mode, "plan")
+        XCTAssertEqual(session.purpose, .session)
+
+        let margin = reloaded.newMarginSession(in: wiki.path, noteID: UUID())
+        XCTAssertEqual(margin.agentID, AgentDefinition.claudeCodeID)
+        XCTAssertEqual(margin.purpose, .margin)
+        XCTAssertEqual(margin.model, "haiku")
+
+        reloaded.marginAgentID = added.id
+        reloaded.removeAgent(added)
+        XCTAssertTrue(reloaded.acpAgents.isEmpty)
+        XCTAssertEqual(reloaded.sessionAgentID, AgentDefinition.claudeCodeID)
+        XCTAssertEqual(reloaded.marginAgentID, AgentDefinition.claudeCodeID)
+    }
+
+    func testRemovedAgentReadsAsMissing() throws {
+        let agents = FolderAgents(store: store, preferences: preferences)
+        agents.addAgent(name: "Fake", command: "/usr/bin/true", arguments: [])
+        let added = try XCTUnwrap(agents.acpAgents.first)
+        XCTAssertEqual(agents.agent(added.id), added)
+        agents.removeAgent(added)
+        XCTAssertNil(agents.agent(added.id))
+        XCTAssertEqual(agents.agent(AgentDefinition.claudeCodeID), .claudeCode)
+    }
+
+    func testAgentWithoutAReadOnlyModeCannotAnswerInTheMargin() async throws {
+        let script = root.appendingPathComponent("acp-agent")
+        try """
+        #!/bin/sh
+        while IFS= read -r line; do
+          id=$(printf '%s' "$line" | sed -n 's/.*"id":\\([0-9]*\\).*/\\1/p')
+          case "$line" in
+            *'"method":"initialize"'*) echo '{"jsonrpc":"2.0","id":'$id',"result":{"protocolVersion":1}}' ;;
+            *'"method":"session/new"'*) echo '{"jsonrpc":"2.0","id":'$id',"result":{"sessionId":"a","modes":{"currentModeId":"code","availableModes":[{"id":"code","name":"Code"}]}}}' ;;
+            *'"method":"session/prompt"'*) echo '{"jsonrpc":"2.0","id":'$id',"result":{"stopReason":"end_turn"}}' ;;
+          esac
+        done
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        let agents = try makeAgents()
+        agents.addAgent(name: "Coder", command: script.path, arguments: [])
+        let coder = try XCTUnwrap(agents.acpAgents.first)
+        agents.marginAgentID = coder.id
+        XCTAssertEqual(agents.marginAgents.map(\.id), [AgentDefinition.claudeCodeID, coder.id])
+
+        let session = agents.newSession(in: wiki.path, agentID: coder.id)
+        agents.runner.send("Hello", to: session)
+        try await waitForRuns(agents)
+        XCTAssertEqual(agents.marginAgents.map(\.id), [AgentDefinition.claudeCodeID])
+        XCTAssertEqual(agents.marginAgent, .claudeCode)
+
+        let margin = agents.newMarginSession(in: wiki.path, noteID: UUID())
+        XCTAssertEqual(margin.agentID, AgentDefinition.claudeCodeID)
+        XCTAssertEqual(agents.marginAgentID, AgentDefinition.claudeCodeID)
+        XCTAssertEqual(margin.model, AppDefaults.Agents.marginModel)
+    }
+
     func testFindsClaudeInTheUsualPlaces() {
         let found = FolderAgents.executable(chosen: nil, home: "/Users/me") { $0 == "/opt/homebrew/bin/claude" }
         XCTAssertEqual(found?.path, "/opt/homebrew/bin/claude")

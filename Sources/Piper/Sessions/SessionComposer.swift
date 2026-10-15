@@ -13,8 +13,11 @@ struct SessionComposer: View {
     /// The files that the next message names, as absolute paths.
     let context: [String]
     let removeContext: () -> Void
-    let send: (String) -> Void
+    /// Sends the text. A new session takes the agent, model, and mode of the choice.
+    let send: (String, SessionChoice) -> Void
     let stop: () -> Void
+    /// The agent, model, and mode of a session that does not exist yet.
+    @Binding var choice: SessionChoice?
 
     @State private var newSessionText = ""
     private var text: String {
@@ -29,8 +32,11 @@ struct SessionComposer: View {
     private var agents: FolderAgents { model.agents }
     private var isActive: Bool { session?.isActive == true }
     private var folderName: String { URL(fileURLWithPath: folder).lastPathComponent }
+    private var currentChoice: SessionChoice { choice ?? SessionChoice(agentID: agents.sessionAgentID) }
+    /// Nil for an agent that the reader removed.
+    private var agentName: String? { agents.agent(session?.agentID ?? currentChoice.agentID)?.name }
 
-    /// The commands that Claude supports in this session.
+    /// The commands that the agent supports in this session.
     private var commands: [FolderAgents.Action] {
         guard focused, let partial = SlashCommand.partialName(text) else { return [] }
         let owner = agents.available.first { $0.path == folder }
@@ -64,22 +70,15 @@ struct SessionComposer: View {
             + metrics.regionInset * 2
     }
 
-    private var modeName: String {
-        switch agents.permissionMode {
-        case .auto: return "Auto"
-        case .acceptEdits: return "Edit Files Only"
-        case .ask: return "Ask Every Time"
-        case .bypassPermissions: return "Allow Every Tool"
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             completions
             if !context.isEmpty { contextChips }
             HStack(alignment: .bottom, spacing: 6) {
-                CaptureEditor(text: Binding(get: { text }, set: { text = $0 }), focused: $focused, placeholder: "Ask Claude in \(folderName)",
-                              label: "Message to Claude",
+                CaptureEditor(text: Binding(get: { text }, set: { text = $0 }), focused: $focused,
+                              placeholder: agentName.map { "Ask \($0) in \(folderName)" }
+                                  ?? "The agent was removed. Add it again in Settings > AI.",
+                              label: agentName.map { "Message to \($0)" } ?? "Message",
                               help: "Return sends the message. Shift-Return inserts a new line.",
                               command: handle)
                     .frame(height: height)
@@ -105,13 +104,15 @@ struct SessionComposer: View {
                     .padding(-3.5)
             }
             HStack(spacing: 6) {
-                Text(completionCount > 0 ? "Tab completes · ↑↓ choose" : "Return sends · / commands · @ files")
+                AgentControls(agents: agents, session: session,
+                              choice: Binding(get: { currentChoice }, set: { choice = $0 }),
+                              openSettings: { model.openSettings?() })
                 Spacer(minLength: 4)
-                Text((agents.model.isEmpty ? "Default model" : agents.model.capitalized) + " · " + modeName)
-                    .help("Change the model and the permissions in Settings > Claude")
+                Text(completionCount > 0 ? "Tab completes · ↑↓ choose" : "Return sends · / commands · @ files")
+                    .font(PiperTheme.ui(11))
+                    .foregroundStyle(PiperTheme.faint)
+                    .layoutPriority(-1)
             }
-            .font(PiperTheme.ui(11))
-            .foregroundStyle(PiperTheme.faint)
             .lineLimit(1)
         }
         .padding(12)
@@ -156,7 +157,7 @@ struct SessionComposer: View {
     private func submit() {
         let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return }
-        send(message)
+        send(message, currentChoice)
         text = ""
     }
 

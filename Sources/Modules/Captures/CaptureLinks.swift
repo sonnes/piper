@@ -56,4 +56,30 @@ public struct CaptureLinks {
     public static func isWebURL(_ url: URL) -> Bool {
         ["http", "https"].contains(url.scheme?.lowercased() ?? "") && url.host?.isEmpty == false
     }
+
+    /// The form of a web link that Piper compares. Two links to one article
+    /// have the same form.
+    ///
+    /// The form has no fragment, no tracking parameters, no `www.`, and no
+    /// slash at the end of the path. The scheme and the host are in lowercase.
+    public static func canonical(_ url: URL) -> String {
+        guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url.absoluteString }
+        parts.fragment = nil
+        parts.scheme = "https"
+        parts.host = parts.host.map { host in
+            let host = host.lowercased()
+            return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        }
+        if parts.port == 80 || parts.port == 443 { parts.port = nil }
+        let items = parts.queryItems?.filter { item in
+            let name = item.name.lowercased()
+            return !name.hasPrefix("utm_") && !trackingParameters.contains(name)
+        }
+        parts.queryItems = items?.isEmpty == false ? items : nil
+        while parts.path.count > 1, parts.path.hasSuffix("/") { parts.path.removeLast() }
+        if parts.path == "/" { parts.path = "" }
+        return parts.string ?? url.absoluteString
+    }
+
+    private static let trackingParameters: Set<String> = ["fbclid", "gclid", "dclid", "mc_cid", "mc_eid", "ref_src", "igshid"]
 }

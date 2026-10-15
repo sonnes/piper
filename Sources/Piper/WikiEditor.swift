@@ -79,7 +79,7 @@ struct WikiEditor: View {
     let model: AppModel
     let document: VaultFile
     let fontSize: Double
-    let fontName: String
+    let font: NSFont
     let paper: Color
 
     private var text: Binding<String> {
@@ -92,7 +92,7 @@ struct WikiEditor: View {
             NativeTextViewWrapper(
                 text: text,
                 configuration: configuration,
-                fontName: fontName,
+                fontName: font.fontName,
                 fontSize: fontSize,
                 documentId: document.id,
                 isEditable: true,
@@ -109,7 +109,12 @@ struct WikiEditor: View {
                         item.action = #selector(NSTextView.pasteAsPlainText(_:))
                     }
                     return menu
-                }
+                },
+                placeholder: NSAttributedString(string: "Write in Markdown", attributes: [
+                    .font: font, .foregroundColor: PiperTheme.faintNS
+                ]),
+                header: AnyView(DetailHeader(file: document, hasChanges: model.wikiEdit?.hasChanges ?? false,
+                                             font: font, save: { model.saveWikiEdit() }))
             )
             .frame(width: min(AppDefaults.Reader.columnWidth + AppDefaults.Reader.horizontalInset * 2, geometry.size.width), height: geometry.size.height)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -126,9 +131,12 @@ struct WikiEditor: View {
         }.flatMap { [$0.target, WikiEditorLinks.prefix + Data($0.target.utf8).base64EncodedString()] }
         config.services.wikiLinks = EditorLinkResolver(targets: Set(targets))
         config.services.images = VaultImageProvider(root: model.vault.root, documentPath: document.relativePath)
+        config.services.syntaxHighlighter = ReaderCodeStyle()
         config.readingWidth = nil
         config.textInsets = TextInsets(horizontal: AppDefaults.Reader.horizontalInset, vertical: AppDefaults.Reader.topInset)
-        config.paragraph.lineHeightExtraSpacing = fontSize * 0.3
+        config.paragraph.lineHeightExtraSpacing = fontSize * AppDefaults.Reader.lineSpacing
+        config.lists.extraLineHeight = fontSize * AppDefaults.Reader.lineSpacing
+        config.blockquote.extraLineHeight = fontSize * AppDefaults.Reader.lineSpacing
         config.paragraph.spacingFactor = 0
         config.headings.fontMultipliers = AppDefaults.Reader.headingMultipliers
         config.overscroll.percent = 0.35
@@ -139,13 +147,37 @@ struct WikiEditor: View {
         config.theme.disabledText = PiperTheme.secondaryNS
         config.theme.headingMarker = PiperTheme.secondaryNS
         config.theme.strikethroughColor = PiperTheme.secondaryNS
-        config.theme.findMatchHighlight = PiperTheme.selectionNS
-        config.theme.findCurrentMatchHighlight = PiperTheme.selectionNS
-        config.theme.highlightColor = PiperTheme.selectionNS
-        config.spellChecking.automaticSpellingCorrection = false
-        config.extensions = [StrikethroughExtension()]
+        config.theme.findMatchHighlight = PiperTheme.readerMarkNS
+        config.theme.findCurrentMatchHighlight = PiperTheme.readerMarkNS
+        config.theme.highlightColor = PiperTheme.readerMarkNS
+        // A page reads as on the reader page, without spelling marks. The
+        // context menu turns the checks on for the session.
+        config.spellChecking = SpellCheckingPolicy(continuousSpellChecking: false, grammarChecking: false,
+                                                   automaticSpellingCorrection: false)
+        config.extensions = [StrikethroughExtension(), HighlightExtension(), FootnoteExtension()]
         return config
     }
+}
+
+/// A footnote reference, `[^id]`, in small accent text as on a web page.
+private struct FootnoteExtension: MarkdownExtension {
+    var id: String { "footnote" }
+    var inline: InlineSyntax? { InlineSyntax(open: "[^", close: "]", parsesContent: false) }
+
+    func contentAttributes(theme: MarkdownEditorTheme) -> [NSAttributedString.Key: Any] {
+        [.foregroundColor: theme.link, .baselineOffset: AppDefaults.Reader.footnoteBaselineOffset,
+         .font: NSFont.systemFont(ofSize: AppDefaults.Reader.footnoteFontSize, weight: .medium)]
+    }
+
+    func html(childrenHTML: String) -> String { "<sup>\(childrenHTML)</sup>" }
+}
+
+/// Code in IBM Plex Mono on a faint fill, as on the reader page.
+private struct ReaderCodeStyle: SyntaxHighlighter {
+    func codeFont(size: CGFloat) -> NSFont { PiperTheme.manuscript(size: size) }
+    func backgroundColor() -> NSColor { PiperTheme.readerCodeNS }
+    func highlight(code: String, language: String?) -> NSAttributedString? { nil }
+    var appearanceDidChangeNotification: Notification.Name? { nil }
 }
 
 private struct EditorLinkResolver: WikiLinkResolver {
@@ -207,8 +239,9 @@ private struct WikiEditorSetup: NSViewRepresentable {
             guard let root = window?.contentView, let editor = findEditor(in: root), let scroll = editor.enclosingScrollView else { return }
             self.editor = editor
             editor.setAccessibilityLabel("Markdown text")
-            editor.selectedTextAttributes = [.backgroundColor: PiperTheme.selectionNS, .foregroundColor: PiperTheme.inkNS]
+            editor.selectedTextAttributes = [.backgroundColor: PiperTheme.readerSelectionNS]
             editor.linkTextAttributes = [.foregroundColor: PiperTheme.accentNS]
+            editor.insertionPointColor = PiperTheme.accentNS
             editor.isAutomaticQuoteSubstitutionEnabled = false
             scroll.scrollerStyle = .overlay
             scroll.verticalScroller?.controlSize = .small

@@ -1,4 +1,5 @@
 import AppKit
+import Captures
 import PiperCore
 import SwiftUI
 import Vault
@@ -39,6 +40,11 @@ struct HomeView: View {
         parser.suggestions(for: text, files: candidates)
     }
 
+    /// The articles that the reader started, the newest activity first.
+    private var reading: [Note] {
+        Array(ReadingList(notes: model.store.notes).inProgress.prefix(AppDefaults.Reading.homeCount))
+    }
+
     private var recent: [VaultFile] {
         Array(model.files.sorted { $0.modifiedAt > $1.modifiedAt }.prefix(Self.recentCount))
     }
@@ -73,6 +79,7 @@ struct HomeView: View {
                         .font(PiperTheme.ui(11))
                         .foregroundStyle(PiperTheme.faint)
                         .padding(.top, 8)
+                    if !reading.isEmpty { readingRow }
                     if !recent.isEmpty { recentList }
                 }
                 .frame(maxWidth: .infinity)
@@ -135,6 +142,26 @@ private extension HomeView {
                 .strokeBorder(focused ? PiperTheme.focusRing : .clear, lineWidth: 3)
                 .padding(-2)
         }
+    }
+
+    var readingRow: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("CONTINUE READING")
+                .font(PiperTheme.ui(11, weight: .semibold))
+                .tracking(0.4)
+                .foregroundStyle(PiperTheme.secondary)
+                .padding(.horizontal, 6)
+                .padding(.bottom, 6)
+            HStack(alignment: .top, spacing: 10) {
+                ForEach(reading) { article in
+                    Button { model.showArticle?(article.id, nil) } label: { ReadingCard(article: article) }
+                        .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(maxWidth: Self.recentWidth, alignment: .leading)
+        .padding(.horizontal, AppDefaults.Reader.horizontalInset)
+        .padding(.top, AppDefaults.Reading.homeTopInset)
     }
 
     var recentList: some View {
@@ -254,5 +281,42 @@ private extension HomeView {
 
     func browseFiles() {
         showBrowser()
+    }
+}
+
+/// One article in the Continue Reading row of Home.
+private struct ReadingCard: View {
+    let article: Note
+
+    var body: some View {
+        let host = article.articleURL.map(ArticleBadge.host) ?? ""
+        let reading = article.reading ?? Reading()
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                ArticleBadge(host: host, size: 16)
+                Text(host).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+            }
+            Text(reading.title ?? host)
+                .font(PiperTheme.ui(13, weight: .semibold))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 34, alignment: .topLeading)
+            HStack(spacing: 6) {
+                GeometryReader { proxy in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(PiperTheme.rule)
+                        Capsule().fill(PiperTheme.accent).frame(width: proxy.size.width * min(max(reading.progress, 0), 1))
+                    }
+                }
+                .frame(height: AppDefaults.Reading.progressHeight)
+                if let left = reading.minutesLeft {
+                    Text("\(left) min").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint).fixedSize()
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(PiperTheme.panel, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }

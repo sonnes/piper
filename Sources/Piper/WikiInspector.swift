@@ -9,7 +9,7 @@ enum WikiReadingTheme: String, CaseIterable {
 
     func background(dark: Bool) -> NSColor {
         switch self {
-        case .paper: return PiperTheme.pageNS
+        case .paper: return PiperTheme.readerNS
         case .sepia: return hex(dark ? 0x29231e : 0xf4edde)
         case .slate: return hex(dark ? 0x1e252d : 0xedf1f5)
         }
@@ -29,10 +29,12 @@ enum WikiReadingFont: String, CaseIterable {
         switch self {
         case .mono: return PiperTheme.manuscript(size: size, weight: weight)
         case .sans: return .systemFont(ofSize: size, weight: weight)
+        // The editor loads a font by its name, and the system serif has no
+        // public name. Georgia ships with macOS, the reader page falls back
+        // to it, and its bullet fits in the place of a list marker.
         case .serif:
-            let system = NSFont.systemFont(ofSize: size, weight: weight)
-            guard let descriptor = system.fontDescriptor.withDesign(.serif) else { return system }
-            return NSFont(descriptor: descriptor, size: size) ?? system
+            let regular = NSFont(name: "Georgia", size: size) ?? .systemFont(ofSize: size, weight: weight)
+            return weight >= .semibold ? NSFontManager.shared.convert(regular, toHaveTrait: .boldFontMask) : regular
         }
     }
 }

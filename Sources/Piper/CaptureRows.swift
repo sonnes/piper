@@ -195,6 +195,8 @@ struct ClipboardRow: View {
     let separated: Bool
     let paste: () -> Void
     let keep: () -> Void
+    /// Saves a copied web link to Reading and opens it. Nil for other text.
+    var read: (() -> Void)?
     let agents: FolderAgents
     /// Saves the text and runs a skill on it. Nil runs the default skill.
     let send: (FolderAgents.Action?) -> Void
@@ -217,6 +219,7 @@ struct ClipboardRow: View {
                     .lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if hovered {
+                    if let read { Button("Read", action: read).controlSize(.regular).help("Save to Reading and open it") }
                     if canSend {
                         SendButton(agents: agents, title: agents.sendTitle, sendDefault: { send(nil) }, send: send)
                     }
@@ -274,6 +277,10 @@ struct NoteRow: View {
     let send: (FolderAgents.Action?) -> Void
     let openRun: () -> Void
     let stopRun: () -> Void
+    /// The number of highlights and questions under the note.
+    var childCount = 0
+    var showsChildren = true
+    var toggleChildren: () -> Void = {}
 
     private var link: URL? { CaptureLinks(note.text).standaloneURL }
     /// A link that no run has taken yet gets a Send button on the row.
@@ -314,14 +321,28 @@ struct NoteRow: View {
                     HStack(alignment: .center, spacing: 8) {
                         VStack(alignment: .leading, spacing: 1) {
                             if let link {
-                                Text((link.host() ?? "") + link.path())
-                                    .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.accent)
+                                Text(note.reading?.title ?? (link.host() ?? "") + link.path())
+                                    .foregroundStyle(PiperTheme.accent)
                                     .lineLimit(1).truncationMode(.middle)
                             } else {
                                 Text(formattedText)
-                                    .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.ink)
+                                    .foregroundStyle(PiperTheme.ink)
                                     .lineSpacing(AppDefaults.CaptureItem.lineSpacing)
                                     .lineLimit(3)
+                            }
+                            if childCount > 0 {
+                                Button(action: toggleChildren) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: showsChildren ? "chevron.down" : "chevron.right")
+                                            .font(.system(size: 8, weight: .semibold))
+                                        Text(childCount == 1 ? "1 note" : "\(childCount) notes")
+                                    }
+                                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.top, 2)
+                                .accessibilityLabel(showsChildren ? "Hide notes" : "Show notes")
                             }
                             if let session {
                                 RunLine(session: session)
@@ -330,7 +351,6 @@ struct NoteRow: View {
                             }
                         }
                         .font(PiperTheme.ui(AppDefaults.CaptureItem.fontSize))
-                        .strikethrough(note.isDone, color: PiperTheme.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .contentShape(Rectangle())
@@ -358,32 +378,148 @@ struct NoteRow: View {
             }
         }
         .contextMenu {
-            Button("Copy") { copy(false) }
-            Button("Copy as List") { copy(true) }
+            NoteContextMenu(note: note, completeTitle: note.isDone ? "Reopen" : "Mark as Done", canMerge: canMerge,
+                            session: session, agents: agents, copy: copy, complete: complete, edit: edit,
+                            newWindow: newWindow, merge: merge, prepareActions: prepareActions, move: move,
+                            send: send, stopRun: stopRun, delete: delete)
+        }
+    }
+}
+
+/// The context menu of a capture row, in the capture panel and in Inbox.
+struct NoteContextMenu: View {
+    let note: Note
+    let completeTitle: String
+    let canMerge: Bool
+    let session: AgentSession?
+    let agents: FolderAgents
+    let copy: (Bool) -> Void
+    let complete: () -> Void
+    let edit: () -> Void
+    let newWindow: () -> Void
+    let merge: () -> Void
+    let prepareActions: () -> Void
+    let move: () -> Void
+    let send: (FolderAgents.Action?) -> Void
+    let stopRun: () -> Void
+    let delete: () -> Void
+    /// Saves the first web link of a note that holds more than a link.
+    var addToReading: (() -> Void)?
+
+    var body: some View {
+        Button("Copy") { copy(false) }
+        Button("Copy as List") { copy(true) }
+        Divider()
+        Button(completeTitle, action: complete)
+        Button("Edit", action: edit)
+        Button("Edit in New Window", action: newWindow)
+        Divider()
+        Button("Merge Notes", action: merge).disabled(!canMerge)
+        Button("Move To…") { prepareActions(); move() }
+        if !agents.folders.isEmpty {
             Divider()
-            Button(note.isDone ? "Reopen" : "Mark as Done", action: complete)
-            Button("Edit", action: edit)
-            Button("Edit in New Window", action: newWindow)
+            if let action = agents.defaultAction(for: note.text) {
+                Button("Send to \(action.folder.name) with /\(action.skill.name)") { send(nil) }
+            }
+            Menu("Send To") { SendMenuItems(agents: agents, send: send) }
+        }
+        if session?.isActive == true {
+            Button("Stop Session", action: stopRun)
+        }
+        if let source = note.sourceURLs.first, let url = URL(string: source), CaptureLinks.isWebURL(url) {
             Divider()
-            Button("Merge Notes", action: merge).disabled(!canMerge)
-            Button("Move To…") { prepareActions(); move() }
-            if !agents.folders.isEmpty {
-                Divider()
-                if let action = agents.defaultAction(for: note.text) {
-                    Button("Send to \(action.folder.name) with /\(action.skill.name)") { send(nil) }
+            Button("Open in Browser") { NSWorkspace.shared.open(url) }
+        }
+        if let addToReading {
+            Button("Add Link to Reading", action: addToReading)
+        }
+        Divider()
+        Button("Delete", role: .destructive, action: delete)
+    }
+}
+
+/// A highlight or a question under a link capture.
+struct ChildNoteRow: View {
+    let note: Note
+    let open: () -> Void
+    let openNote: () -> Void
+    let addTag: () -> Void
+    let copy: () -> Void
+    let delete: () -> Void
+
+    /// The quote of a highlight, or the first line of a question.
+    private var line: String {
+        note.text.components(separatedBy: "\n\n").first ?? note.text
+    }
+
+    var body: some View {
+        let metrics = AppDefaults.ChildNote.self
+        Button(action: open) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(line)
+                    .font(.system(size: metrics.fontSize, design: .serif))
+                    .foregroundStyle(PiperTheme.ink)
+                    .lineSpacing(metrics.lineSpacing)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if !note.tags.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(note.tags, id: \.self) { TagChip(tag: $0) }
+                    }
                 }
-                Menu("Send To") { SendMenuItems(agents: agents, send: send) }
             }
-            if session?.isActive == true {
-                Button("Stop Session", action: stopRun)
-            }
-            if let source = note.sourceURLs.first, let url = URL(string: source), CaptureLinks.isWebURL(url) {
-                Divider()
-                Button("Open in Browser") { NSWorkspace.shared.open(url) }
-            }
+            .padding(.leading, 12).padding(.trailing, 10).padding(.top, 6).padding(.bottom, 7)
+            .overlay(alignment: .leading) { Rectangle().fill(PiperTheme.rule).frame(width: metrics.ruleWidth) }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, AppDefaults.CaptureItem.textInset - AppDefaults.CaptureItem.cardInset)
+        .padding(.trailing, AppDefaults.CaptureItem.horizontalPadding)
+        .accessibilityHint("Shows the note in the article")
+        .contextMenu {
+            Button("Open Note", action: openNote)
+            Button("Add Tag…", action: addTag)
+            Button("Copy", action: copy)
             Divider()
             Button("Delete", role: .destructive, action: delete)
         }
+    }
+}
+
+/// One tag of a note. Highlight, question, and the highlight colors have their
+/// own colors. Every other tag is blue.
+struct TagChip: View {
+    let tag: String
+
+    private var swatch: Color? { Self.markColor(tag) }
+
+    private var colors: (text: Color, fill: Color) {
+        switch tag {
+        case ReadingList.highlightTag: return (PiperTheme.tagHighlight, PiperTheme.tagHighlightFill)
+        case ReadingList.questionTag: return (PiperTheme.tagQuestion, PiperTheme.tagQuestionFill)
+        default: return swatch == nil ? (PiperTheme.tagOther, PiperTheme.tagOtherFill) : (PiperTheme.secondary, PiperTheme.hover)
+        }
+    }
+
+    /// The color of a highlight color tag, in the order of `ReaderAssistant.colors`. Nil for any other tag.
+    static func markColor(_ tag: String) -> Color? {
+        let marks = [PiperTheme.markYellow, PiperTheme.markGreen, PiperTheme.markPink]
+        return ReaderAssistant.colors.firstIndex(of: tag).flatMap { marks.indices.contains($0) ? marks[$0] : nil }
+    }
+
+    var body: some View {
+        let metrics = AppDefaults.ChildNote.self
+        HStack(spacing: 4) {
+            if let swatch {
+                Circle().fill(swatch).frame(width: metrics.swatchSize, height: metrics.swatchSize)
+            }
+            Text(tag)
+        }
+        .font(PiperTheme.ui(metrics.tagFontSize, weight: .medium))
+        .foregroundStyle(colors.text)
+        .padding(.horizontal, 6)
+        .frame(height: metrics.tagHeight)
+        .background(colors.fill, in: Capsule())
     }
 }
 

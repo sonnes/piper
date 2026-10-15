@@ -71,7 +71,7 @@ final class CapturePanelController: NSWindowController {
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        let corners = RoundedRectangle(cornerRadius: AppDefaults.Window.cornerRadius * scale, style: .continuous)
+        let corners = RoundedRectangle(cornerRadius: AppDefaults.Window.captureCornerRadius * scale, style: .continuous)
         let hosting = NSHostingView(rootView: CaptureView(model: model)
             .clipShape(corners)
             .overlay(corners.strokeBorder(PiperTheme.rule, lineWidth: 0.5)))
