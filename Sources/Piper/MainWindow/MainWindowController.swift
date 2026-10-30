@@ -27,16 +27,12 @@ final class MainWindowController: NSWindowController {
     private let fileListViewController = FileListViewController()
     private let detailViewController = DetailViewController()
     private var listItem: NSSplitViewItem?
-    /// The initial query for Home.
-    private var homeSeed = ""
-    /// Changes with every seed, so that the home page takes the new text.
-    private var homeIdentity = UUID()
     private var appliedPaneWidths = false
     private var composerRequest: UUID?
     private var doneItem: NSToolbarItem?
 
-    /// True while the panes to the right of the sidebar hold the home page.
-    private var showsHome: Bool { state.selection == .home }
+    /// True while the panes to the right of the sidebar hold the brief.
+    private var showsBrief: Bool { state.selection == .brief }
     /// True while the sidebar tree picked a file, so the file takes the list's width.
     private var showsTreeFile: Bool {
         if case .file = state.selection { return true }
@@ -123,17 +119,18 @@ final class MainWindowController: NSWindowController {
 
     /// Shows the files in place of the home page.
     func showBrowser() {
-        guard showsHome else { return }
+        guard showsBrief else { return }
         select(.folder(state.selectedFolder))
     }
 
-    /// Shows the home page in the panes beside the sidebar.
-    ///
-    /// The seed supplies the initial query.
-    func showHome(seed: String = "") {
-        homeSeed = seed
-        homeIdentity = UUID()
-        select(.home)
+    /// Shows the brief in the panes beside the sidebar.
+    func showBrief() {
+        select(.brief)
+    }
+
+    /// Shows the list that searches every file.
+    func showAllFiles() {
+        select(.allFiles)
     }
 
     /// Shows a file in its folder.
@@ -239,8 +236,8 @@ final class MainWindowController: NSWindowController {
         ).id(model.vault.root))
 
         switch state.selection {
-        case .home:
-            detailViewController.setContent(homeContent)
+        case .brief:
+            detailViewController.setContent(BriefPage(model: model).routeSheets(model))
         case .inbox, .section, .clipboard, .archived:
             let clipboard = state.selection == .clipboard
             let content: CaptureListContent
@@ -284,7 +281,7 @@ final class MainWindowController: NSWindowController {
         // The Sessions list already shows the sessions in the detail pane.
         detailViewController.setOverlay(showsSessions ? AnyView(EmptyView()) : AnyView(SessionOverlay(model: model)))
 
-        listItem?.isCollapsed = showsHome || showsTreeFile
+        listItem?.isCollapsed = showsBrief || showsTreeFile
         updateToolbarState()
     }
 
@@ -303,8 +300,8 @@ final class MainWindowController: NSWindowController {
         guard window != nil else { return }
         let store = model.store
         switch state.selection {
-        case .home:
-            setTitle("Home", (model.vault.root.path as NSString).abbreviatingWithTildeInPath)
+        case .brief:
+            setTitle("Brief", "")
         case .inbox:
             setTitle("Inbox", Self.count(store.notes.filter { $0.parent == nil && !$0.isDone }.count, "item"))
         case .section(let name):
@@ -374,26 +371,8 @@ final class MainWindowController: NSWindowController {
             guard let note else { return .folder }
             return .text(note.text, noteID: note.id)
         }
-        guard !showsHome, !showsSessions, let document = model.currentDocument else { return .folder }
+        guard !showsBrief, !showsSessions, let document = model.currentDocument else { return .folder }
         return .page(model.vault.root.appendingPathComponent(document.relativePath).path)
-    }
-
-    /// The Home page and its initial query.
-    private var homeContent: some View {
-        HomeView(
-            model: model,
-            initialText: homeSeed,
-            openFile: { [weak self] path in self?.open(path) },
-            showBrowser: { [weak self] in self?.showBrowser() },
-            searchFiles: { [weak self] query in
-                guard let self else { return }
-                model.wikiQuery = query
-                select(.allFiles)
-            },
-            newCapture: { [weak self] in self?.newDocument(nil) }
-        )
-        .id(homeIdentity)
-        .routeSheets(model)
     }
 
     /// Opens a file and shows the folder that holds it.
@@ -604,8 +583,6 @@ extension MainWindowController: NSToolbarDelegate {
     @objc private func vaultChanged() {
         state.resetForVault()
         state.save()
-        homeSeed = ""
-        homeIdentity = UUID()
         refreshPanes()
     }
 

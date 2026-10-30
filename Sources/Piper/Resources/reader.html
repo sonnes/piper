@@ -57,6 +57,7 @@ html, body { margin: 0; background: var(--reader); }
 body { font: 13px/1.4 var(--font); color: var(--label); -webkit-font-smoothing: antialiased; }
 .page { display: grid; grid-template-columns: minmax(0, 560px) 250px; gap: 36px; padding: 36px 40px 80px 56px; position: relative; max-width: 942px; margin: 0 auto; }
 .article { font: 16.5px/1.6 var(--serif); position: relative; min-width: 0; }
+.article a.link { color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .article ::selection { background: var(--textsel); }
 .kicker { font: 600 11px var(--font); letter-spacing: .04em; text-transform: uppercase; color: var(--tertiary); }
 .article h1 { font: 600 30px/1.15 var(--serif); margin: 6px 0 8px; letter-spacing: -.01em; }
@@ -298,6 +299,15 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
       const el = document.createElement(tag);
       el.dataset.b = index;
       el.textContent = block.text;
+      for (const link of block.links || []) {
+        wrapRange(el, link.offset, link.length, () => {
+          const a = document.createElement('a');
+          a.className = 'link';
+          a.dataset.url = link.url;
+          a.title = link.url;
+          return a;
+        });
+      }
       fresh.append(el);
     });
     article.replaceWith(fresh);
@@ -313,8 +323,8 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     if (entering) enter(fresh);
   }
 
-  // Wraps the text from offset to offset + length of one block in marks.
-  function markRange(block, offset, length, className, id) {
+  // Wraps the text from offset to offset + length of one block in new elements.
+  function wrapRange(block, offset, length, make) {
     const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
     const end = offset + length;
     let position = 0, node, parts = [];
@@ -328,13 +338,25 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
       let target = text;
       if (to < target.data.length) target.splitText(to);
       if (from > 0) target = target.splitText(from);
+      const wrapper = make();
+      target.replaceWith(wrapper);
+      wrapper.append(target);
+    }
+  }
+
+  function markRange(block, offset, length, className, id) {
+    wrapRange(block, offset, length, () => {
       const mark = document.createElement('mark');
       mark.className = className;
       mark.dataset.n = id;
-      target.replaceWith(mark);
-      mark.append(target);
-    }
+      return mark;
+    });
   }
+
+  document.addEventListener('click', event => {
+    const link = event.target.closest?.('a.link');
+    if (link && getSelection().isCollapsed) post({ action: 'link', url: link.dataset.url });
+  });
 
   function applyMarks() {
     const key = JSON.stringify(notes.map(n => [n.id, n.kind, n.color, n.block, n.offset, n.length]));

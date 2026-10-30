@@ -16,7 +16,7 @@ read_when:
 | Control-Option-W | Save the clipboard to Inbox and open a draft for the default folder, while a folder has Claude skills |
 | Command-1 | Show the capture panel |
 | Command-2 | Show the files in the main window |
-| Command-0 | Show Home in the main window |
+| Command-0 | Show the brief in the main window |
 | Command-comma | Open Settings |
 | Command-Q | Quit Piper |
 
@@ -59,9 +59,8 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 
 | Shortcut | Action |
 | --- | --- |
-| Command-O | Open Home and move the focus to its search field |
+| Command-O | Open All Files and move the focus to its search field |
 | Command-N | Open the note composer in the selected Inbox section, or in Inbox from another pane |
-| Up / Down, Return | Select and open a Home search result |
 | Command-S | Save the open Markdown file |
 | Command-R | Scan the folder again |
 | Command-[ | Go back |

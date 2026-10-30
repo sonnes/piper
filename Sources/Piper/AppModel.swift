@@ -14,6 +14,7 @@ final class AppModel {
     let fileReadState: FileReadState
     /// The highlights and questions of link captures.
     let reader: ReaderAssistant
+    let brief: BriefBuilder
     /// The tab that a link capture shows: the article, the web page, or the notes.
     var articleTab = ArticleTab.reader
     /// The chip of the Inbox list for each section. The empty key is Inbox
@@ -147,6 +148,7 @@ final class AppModel {
         let stored = UserDefaults.standard.string(forKey: "captureShortcut") ?? "Shift, Shift"
         captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
         reader = ReaderAssistant(store: store, agents: agents)
+        brief = BriefBuilder(agents: agents, preferences: preferences)
         archiveFinishedReading()
         agents.refresh(paths: wikiPaths)
         agents.showDraft = { [weak self] id in self?.showSession?(id) }

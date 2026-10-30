@@ -23,6 +23,15 @@ final class CaptureStoreTests: XCTestCase {
 
     // MARK: - Tests
 
+    func testPageNoteIsAddedOnceAndIsNotAnArticle() throws {
+        let store = CaptureStore(url: url())
+        let first = try XCTUnwrap(store.pageNote(for: "piper-brief://2026-10-30", title: "Brief for today", source: "Brief"))
+        let second = store.pageNote(for: "piper-brief://2026-10-30", title: "Brief for today", source: "Brief")
+        XCTAssertEqual(first.id, second?.id)
+        XCTAssertEqual(store.notes.count, 1)
+        XCTAssertFalse(first.isArticle)
+    }
+
     func testArchivedNotesStayOutOfSectionsAndSearch() {
         let store = CaptureStore(url: url())
         XCTAssertTrue(store.add("active note"))

@@ -48,8 +48,8 @@ final class ReleaseTests: XCTestCase {
         XCTAssertEqual(store.notes.count, 1)
     }
 
-    func testHomeClipboardCaptureSavesWithoutAnAppDelegate() {
-        let pasteboard = NSPasteboard(name: .init("com.piper.home-test." + UUID().uuidString))
+    func testClipboardCaptureSavesWithoutAnAppDelegate() {
+        let pasteboard = NSPasteboard(name: .init("com.piper.model-test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
         let store = CaptureStore(url: databaseURL)
         let model = AppModel(store: store, wikiPath: folder.path)

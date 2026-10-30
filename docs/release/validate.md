@@ -20,8 +20,9 @@ The tests use temporary folders and temporary databases. Each module has a test 
 
 | Target | Covers |
 | --- | --- |
-| `PiperCoreTests` | Frontmatter parsing, line endings, and Home search |
+| `PiperCoreTests` | Frontmatter parsing and line endings |
 | `PiperTreeTests` | Folder trees and counts |
+| `BriefsTests` | Browser and NetNewsWire sources, Hacker News, the brief blocks, the digest, blocked sites, link cleaning, the schedule, and the brief files |
 | `CapturesTests` | The capture store, clipboard entries, and capture links |
 | `VaultTests` | Scans, path safety, reads, writes, and the watcher |
 | `PiperTests` | The app model: editing, refresh, read state, previews, and quit safety |
@@ -118,11 +119,11 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 
 ## Main Window Checks
 
-The middle-pane search filters the selected folder. A matching file in another folder must stay outside the results. Home search still finds files across the vault.
+The middle-pane search filters the selected folder. A matching file in another folder must stay outside the results. All Files search still finds files across the vault.
 
 1. Add a disposable folder with Add Folder at the bottom of the sidebar.
 2. Add, rename, and delete a file in Finder. Make sure that the tree and the file list update.
-3. Search from Home and from the field over the list.
+3. Search from All Files and from the field over the list.
 4. Open a file. Make sure that its unread dot goes away.
 5. Follow a Wiki link, then use Command-[ and Command-].
 6. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the pane. Make sure that Source shows their text, and that long lines wrap.

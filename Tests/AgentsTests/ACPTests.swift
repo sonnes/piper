@@ -108,6 +108,11 @@ final class ACPMessageTests: XCTestCase {
         XCTAssertEqual(margin.split(separator: "--tools").count, 2)
         XCTAssertTrue(margin.joined(separator: " ").contains("--tools \(tools) --allowedTools \(tools) --strict-mcp-config"))
         XCTAssertTrue(margin.joined(separator: " ").contains("--model haiku"))
+        let brief = ClaudeCodeConnection.arguments(for: SessionConfig(folder: folder, model: "sonnet", mode: "auto", purpose: .brief))
+        XCTAssertTrue(brief.contains("--restricted"))
+        XCTAssertEqual(brief[(brief.firstIndex(of: "--tools") ?? 0) + 1], "")
+        XCTAssertFalse(brief.contains("--allowedTools"))
+        XCTAssertTrue(brief.contains("--no-session-persistence"))
         let session = ClaudeCodeConnection.arguments(for: SessionConfig(folder: folder, resumeToken: "s-1", mode: "plan",
                                                                         purpose: .session))
         XCTAssertFalse(session.contains("--tools"))

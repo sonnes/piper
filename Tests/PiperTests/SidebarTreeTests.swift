@@ -37,7 +37,7 @@ final class SidebarTreeTests: XCTestCase {
 
     @MainActor
     func testEverySidebarGlyphLoadsAsATemplate() throws {
-        for name in ["home", "inbox", "clipboard", "archived", "claude", "folder", "note", "image", "web", "file"] {
+        for name in ["brief", "inbox", "clipboard", "archived", "claude", "folder", "note", "image", "web", "file"] {
             let image = try XCTUnwrap(SidebarIcon.glyph(name), name)
             XCTAssertTrue(image.isTemplate, name)
         }

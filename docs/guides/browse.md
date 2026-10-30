@@ -12,7 +12,7 @@ read_when:
 
 The main window keeps one or more folders in the sidebar. The selected folder is the active vault. Any folder works: Piper needs no index, no frontmatter, and no folder names. See [Wiki files](../concepts/files.md) for the scan rules.
 
-Open the window with Command-2. Command-0 opens it on the Home page.
+Open the window with Command-2. Command-0 opens it on the [Brief page](brief.md).
 
 ## Add A Folder
 
@@ -29,7 +29,7 @@ Piper keeps the added folders across restarts. Select a folder in the sidebar to
 
 To take a folder out of the sidebar, Control-click it and select Remove Folder. You can also select it in Settings > General and select the minus button. The folder on disk does not change. The last folder cannot be removed.
 
-Home search uses the selected folder. Switching folders clears the previous search and asks you to resolve unsaved edits.
+All Files search uses the selected folder. Switching folders clears the previous search and asks you to resolve unsaved edits.
 
 ## Find Your Way Around
 
@@ -37,11 +37,11 @@ The window has three panes:
 
 | Pane | Content |
 | --- | --- |
-| Sidebar | Library (Home, Inbox with a row for each other section, Clipboard, and Archived) and Folders (every folder, and the tree of the active folder) |
+| Sidebar | Library (Brief, Inbox with a row for each other section, Clipboard, and Archived) and Folders (every folder, and the tree of the active folder) |
 | List | The files of the selected folder, the captures, or the clipboard history |
-| Detail | The selected file, Home, or the selected capture |
+| Detail | The selected file, the brief, or the selected capture |
 
-The window title names the sidebar selection. The subtitle shows a count, or the folder path on Home.
+The window title names the sidebar selection. The subtitle shows a count.
 
 The toolbar has these controls:
 
@@ -63,20 +63,7 @@ The folder tree shows every folder and every file, as in an editor. Folders come
 
 When a link opens another file, the tree selects that file and opens the folders above it.
 
-Home hides the list. The window restores its frame, the pane widths, the selection, the open folders, and the last file.
-
-## Search From Home
-
-Home has one search field and a list of the six most recent files.
-
-1. Press Command-0, or select Home in the sidebar.
-2. Type text.
-3. Use the Up and Down keys to select a result.
-4. Press Return.
-
-Plain text lists files that match by name, then files that match by text. Then it lists matching app actions. If nothing matches, the last row searches every file for the text.
-
-Type `>` to list app actions: New Capture, Browse Files, Add Folder, Reveal in Finder, Capture Clipboard, and Settings.
+Brief hides the list. The window restores its frame, the pane widths, the selection, the open folders, and the last file.
 
 ## Search The Current List
 
@@ -86,7 +73,7 @@ File search filters only the files in the selected folder. Each word must match 
 
 In Inbox, search filters the notes of every section. In Clipboard, search filters the clipboard history.
 
-Home searches the whole vault. Its Search All Files action opens an All Files list with the same search field. A leading `>` selects actions only in Home.
+Command-O opens the All Files list, which searches the whole vault with the same words.
 
 ## Track Unread Files
 
@@ -241,8 +228,6 @@ Select the Reading chip over the Inbox list. Reading shows each capture that hol
 | Finished This Week | The articles that you read to the end in the last seven days |
 
 The count on the Reading chip includes all three groups. When you scroll to the end of an article, or select its ring, Piper moves it to Finished This Week. Seven days later, Piper marks it as done, and it moves to Archived. Piper makes this check at launch and each time the main window becomes active.
-
-Home shows the first three articles of Continue under Continue Reading. Select one to open it at your place.
 
 ### Use The Notes Tab
 

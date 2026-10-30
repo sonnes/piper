@@ -161,7 +161,29 @@ struct ArticleReader: View {
     /// The child notes, as the reader page draws them.
     private var payload: [ReaderPageNote] {
         guard case .loaded(let article) = loader.state else { return [] }
-        let children = children
+        return ReaderMarks.payload(model: model, parent: note.id, article: article, places: places)
+    }
+
+    // MARK: - Actions
+
+    private func perform(_ message: [String: Any]) {
+        guard case .loaded(let article) = loader.state else { return }
+        if message["action"] as? String == "position" {
+            guard let block = message["block"] as? Int, let progress = message["progress"] as? Double else { return }
+            savePosition(block: block, progress: progress)
+        } else {
+            ReaderMarks.perform(message, model: model, article: article) { note.id }
+        }
+    }
+}
+
+/// The marks and the actions of a reader page, for a link capture and a brief.
+@MainActor
+enum ReaderMarks {
+
+    /// The child notes of the parent, as the reader page draws them.
+    static func payload(model: AppModel, parent: UUID, article: ReaderArticle, places: NotePlaces) -> [ReaderPageNote] {
+        let children = model.store.children(of: parent)
         let found = places.places(in: article, for: children)
         return children.compactMap { child -> ReaderPageNote? in
             let isQuestion = child.tags.contains(ReaderAssistant.questionTag)
@@ -188,38 +210,34 @@ struct ArticleReader: View {
                 turns: thread.turns.map { ReaderPageNote.Turn(question: $0.question, answer: $0.answer) },
                 pending: model.reader.waitingNotes.contains(child.id),
                 failure: model.reader.failures[child.id],
-                agent: isQuestion ? model.reader.answererName(for: note.id) : "",
+                agent: isQuestion ? model.reader.answererName(for: parent) : "",
                 tools: model.reader.toolLines[child.id] ?? ""
             )
         }
     }
 
-    // MARK: - Actions
-
-    private func perform(_ message: [String: Any]) {
-        guard case .loaded(let article) = loader.state, let action = message["action"] as? String else { return }
+    /// Runs an action of the reader. The parent function adds the parent note when a page has none yet.
+    static func perform(_ message: [String: Any], model: AppModel, article: ReaderArticle, parent: () -> UUID?) {
+        guard let action = message["action"] as? String else { return }
         switch action {
         case "highlight":
-            guard let anchor = Self.anchor(message["anchor"]) else { return }
-            model.reader.highlight(anchor, color: message["color"] as? String ?? "", in: note.id)
+            guard let anchor = Self.anchor(message["anchor"]), let parent = parent() else { return }
+            model.reader.highlight(anchor, color: message["color"] as? String ?? "", in: parent)
         case "note":
             guard let anchor = Self.anchor(message["anchor"]), let text = message["text"] as? String,
-                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            model.reader.highlight(anchor, color: ReaderAssistant.colors[0], in: note.id, comment: text)
-        case "position":
-            guard let block = message["block"] as? Int, let progress = message["progress"] as? Double else { return }
-            savePosition(block: block, progress: progress)
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let parent = parent() else { return }
+            model.reader.highlight(anchor, color: ReaderAssistant.colors[0], in: parent, comment: text)
         case "explain", "define":
-            guard let anchor = Self.anchor(message["anchor"]) else { return }
-            model.reader.ask(action == "explain" ? .explain : .define, about: anchor, in: note.id, article: article)
+            guard let anchor = Self.anchor(message["anchor"]), let parent = parent() else { return }
+            model.reader.ask(action == "explain" ? .explain : .define, about: anchor, in: parent, article: article)
         case "ask":
             guard let anchor = Self.anchor(message["anchor"]), let question = message["question"] as? String,
-                  !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            model.reader.ask(.ask(question), about: anchor, in: note.id, article: article)
+                  !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let parent = parent() else { return }
+            model.reader.ask(.ask(question), about: anchor, in: parent, article: article)
         case "followup":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)),
-                  let question = message["question"] as? String else { return }
-            model.reader.followUp(question, on: id, in: note.id, article: article)
+                  let question = message["question"] as? String, let parent = parent() else { return }
+            model.reader.followUp(question, on: id, in: parent, article: article)
         case "continue":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
             model.reader.continueInSession(id, article: article)
@@ -479,7 +497,7 @@ extension ArticleLoader: WKNavigationDelegate {
 
 /// The reader page in a web view. Piper draws the article and the notes, and
 /// the page reports each action of the reader.
-private struct ReaderPageView: NSViewRepresentable {
+struct ReaderPageView: NSViewRepresentable {
     let state: ArticleLoader.State
     let placeholder: ReaderPlaceholder
     let notes: [ReaderPageNote]

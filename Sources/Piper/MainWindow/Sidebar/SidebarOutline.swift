@@ -151,7 +151,7 @@ struct SidebarOutline: NSViewRepresentable {
                 inbox.children = sections.filter { $0.name != SidebarOutline.inboxSection }
                     .map { Node(representedObject: SidebarSelection.section($0.name), parent: inbox) }
                 library.children = [
-                    Node(representedObject: SidebarSelection.home, parent: library),
+                    Node(representedObject: SidebarSelection.brief, parent: library),
                     inbox,
                     Node(representedObject: SidebarSelection.clipboard, parent: library),
                     Node(representedObject: SidebarSelection.archived, parent: library)
@@ -289,7 +289,7 @@ struct SidebarOutline: NSViewRepresentable {
             } else if let selection = node.representedObject as? SidebarSelection {
                 let row: (title: String, icon: SidebarIcon, count: Int)
                 switch selection {
-                case .home: row = ("Home", .glyph("home", PiperTheme.homeNS), 0)
+                case .brief: row = ("Brief", .glyph("brief", PiperTheme.briefNS), 0)
                 case .inbox: row = ("Inbox", .glyph("inbox", PiperTheme.inboxNS), sections.reduce(0) { $0 + $1.count })
                 case .section(let name):
                     let position = sections.filter { $0.name != SidebarOutline.inboxSection }.firstIndex { $0.name == name } ?? 0

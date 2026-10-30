@@ -21,11 +21,12 @@ let package = Package(
         .target(name: "Captures", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Captures"),
         .target(name: "Vault", dependencies: ["PiperCore", "Yams"], path: "Sources/Modules/Vault"),
         .target(name: "Agents", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Agents"),
+        .target(name: "Briefs", dependencies: ["PiperCore", "CSQLite"], path: "Sources/Modules/Briefs"),
 
         // Application target.
         .executableTarget(name: "Piper", dependencies: [
             "CSQLite", "Yams",
-            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "Agents",
+            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "Agents", "Briefs",
             .product(name: "MarkdownEngine", package: "swift-markdown-engine")
         ], resources: [.process("Resources")]),
 
@@ -33,6 +34,7 @@ let package = Package(
         .testTarget(name: "PiperTreeTests", dependencies: ["PiperTree"], path: "Tests/PiperTreeTests"),
         .testTarget(name: "CapturesTests", dependencies: ["Captures"], path: "Tests/CapturesTests"),
         .testTarget(name: "AgentsTests", dependencies: ["Agents"], path: "Tests/AgentsTests"),
+        .testTarget(name: "BriefsTests", dependencies: ["Briefs", "CSQLite"], path: "Tests/BriefsTests"),
         .testTarget(name: "VaultTests", dependencies: ["Vault"], path: "Tests/VaultTests"),
         .testTarget(name: "PiperCoreTests", dependencies: ["PiperCore"], path: "Tests/PiperCoreTests")
     ]

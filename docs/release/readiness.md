@@ -35,8 +35,10 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Decide whether the main window needs find in the open file.
 - [ ] Decide whether the capture tabs follow the section at the top of the list while it scrolls. Today a tab changes only on a click.
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
+- [ ] Make sure that a daily brief reads a real NetNewsWire database: the folder path, the date format, and the macOS permission.
+- [ ] Measure if agent sessions get the Full Disk Access of Piper.
 - [ ] Make a link from the editor update the sidebar and the file list.
-- [x] Connect the Capture Clipboard action on Home. `ReleaseTests.testHomeClipboardCaptureSavesWithoutAnAppDelegate` covers the model action and an empty clipboard.
+- [x] Connect the Capture Clipboard action. `ReleaseTests.testClipboardCaptureSavesWithoutAnAppDelegate` covers the model action and an empty clipboard.
 
 Acceptance: every visible control does what its label says, and no edit is lost on navigation, close, or quit.
 

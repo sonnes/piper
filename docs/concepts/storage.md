@@ -11,6 +11,10 @@ read_when:
 
 Piper keeps captures in a SQLite database and preferences in UserDefaults. Wiki files stay in their folder. Piper never copies them into the database.
 
+## Briefs
+
+Each brief is a Markdown file in `~/Library/Application Support/Piper/Briefs`, with the date as its name. Piper does not delete old briefs. The folder is not part of the vault, so the sidebar and file search do not show it.
+
 ## Capture Database
 
 The database is `~/Library/Application Support/Piper/notes.sqlite`. Settings > Local Data > Show in Finder opens its folder.
@@ -123,6 +127,8 @@ UserDefaults holds these keys:
 | `showsFileSource` | True while the main window shows the Source view of a file |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
 | `wikiFileSort` | Name or Date |
+| `briefBlockedSites`, `briefDisabledSources` | The sites that a brief never reads, and the sources that are off |
+| `briefMorning`, `briefMorningAsked`, `briefLastTry`, `briefLastBuilt` | Morning builds, and the time of the last try and the last brief |
 | `claudePath`, `claudeModel`, `claudePermissionMode` | The `claude` command that you chose, and the default model and permissions of Claude Code |
 | `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |
 | `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |

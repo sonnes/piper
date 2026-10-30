@@ -57,7 +57,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | --- | --- | --- |
 | Folder tree with any folder structure | Implemented | `VaultTests`, `PathTreeBuilderTests`, `TreeControllerTests` |
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |
-| Home file search and `>` actions | Implemented | `HomeSearchTests` |
+| Daily brief from browser history and NetNewsWire | Implemented | `BriefsTests`. Not checked on a real NetNewsWire database. |
 | Vault search across titles, paths, descriptions, and text | Implemented | `WikiWorkspaceTests` (multiple words) |
 | Unread state and folder counts | Implemented | `FileReadStateTests` |
 | Back and forward history | Implemented | `WikiWorkspaceTests` |
@@ -82,7 +82,6 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Reader tab with highlights and questions | Partial | `CaptureStoreTests` (child notes), `NoteAnchorTests` (anchors and threads). The reader page was checked in WebKit on sqlite.org and paulgraham.com. Not checked in the app window with Claude Code answers. |
 | Notes on highlights, reading position, and progress | Implemented | `ReadingTests` (reading state, comments). The reader page was checked in Chrome with sample notes. The saved position is not checked in the app window. |
 | Inbox stream with day groups, chips, and section filters | Implemented | `InboxStreamTests`, `ReadingTests` (groups, archive after seven days). Rendered offscreen. Not checked in the app window. |
-| Continue Reading on Home | Implemented | `ReadingTests`. Rendered offscreen. Not checked in the app window. |
 | Notes tab, Save as File, and Update File | Implemented | `ReadingTests` (Markdown file and update). Rendered offscreen. Not checked in the app window. |
 | Text style popover and Summary in the Reader tab | Not implemented | The reader has one font, one size, and no summary |
 

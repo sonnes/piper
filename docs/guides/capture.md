@@ -50,7 +50,7 @@ If you close the panel with Escape, Piper keeps the unfinished text in the compo
 2. Type or paste text into the composer below the note list.
 3. Press Return.
 
-New Capture keeps the main window open. It uses the selected Inbox section, or opens Inbox from another pane. Home has the same New Capture action.
+New Capture keeps the main window open. It uses the selected Inbox section, or opens Inbox from another pane.
 
 The composer uses the same draft and controls as the capture panel. Shift-Return adds a new line. Command-K chooses a section. Section commands and folder skills work in both composers.
 
@@ -65,10 +65,7 @@ Piper shows the texts that you copy while it runs. These texts are not saved.
 
 Keep always saves to Inbox, even when another section is selected. The row goes away after a successful save.
 
-Home also has a Capture Clipboard action. It saves the current clipboard text to the active capture section.
-
-1. Type `>` in Home search.
-2. Select Capture Clipboard.
+The menu bar item has a Capture Clipboard command. It saves the current clipboard text to the active capture section.
 
 If a sidebar folder has Claude Code skills, the row also shows Send to <folder>. See [Work with agents](claude.md).
 

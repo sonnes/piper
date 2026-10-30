@@ -56,7 +56,7 @@ enum PiperTheme {
     // appearance and shade 400 in the dark, unless a comment names others.
 
     /// Amber.
-    static let homeNS = color(light: 0xF59E0B, dark: 0xFBBF24)
+    static let briefNS = color(light: 0xF59E0B, dark: 0xFBBF24)
     /// Blue.
     static let inboxNS = color(light: 0x3B82F6, dark: 0x60A5FA)
     /// Violet.

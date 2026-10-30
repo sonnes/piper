@@ -2,11 +2,11 @@ import AppKit
 
 /// What the source list has selected, and what the file list therefore shows.
 ///
-/// The home page and the capture inbox sit over the vault, because both hold
+/// The brief and the capture inbox sit over the vault, because both hold
 /// items that no folder holds.
 enum SidebarSelection: Codable, Equatable {
-    /// The search page, which the window opens on.
-    case home
+    /// The daily brief, which the window opens on.
+    case brief
     /// The captures, which live in the database rather than in the vault.
     case inbox
     /// One capture section. The Inbox list scrolls to it.
@@ -36,7 +36,7 @@ enum SidebarSelection: Codable, Equatable {
     var showsCaptures: Bool {
         switch self {
         case .inbox, .section, .clipboard, .archived: return true
-        case .home, .allFiles, .folder, .file, .sessions: return false
+        case .brief, .allFiles, .folder, .file, .sessions: return false
         }
     }
 }
@@ -49,7 +49,7 @@ struct MainWindowState: Codable, Equatable {
     // MARK: - Properties
 
     /// What the sidebar had selected. The window opens on the home page.
-    var selection = SidebarSelection.home
+    var selection = SidebarSelection.brief
     /// The folder the sidebar had selected. An empty string is the vault root.
     var selectedFolder: String { selection.folder }
     /// The file the list had selected, as a path relative to the vault root.

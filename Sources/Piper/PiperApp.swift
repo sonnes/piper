@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var terminateSignal: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        model.brief.startSchedule()
         NSApp.setActivationPolicy(.regular)
         installMenus()
         model.openNoteEditor = { [weak self] note in self?.showEditor(note) }
@@ -138,7 +139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
         windowMenu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "2").target = self
-        windowMenu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "0").target = self
+        windowMenu.addItem(withTitle: "Brief", action: #selector(showBrief), keyEquivalent: "0").target = self
         let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
         sessionCard.keyEquivalentModifierMask = [.command, .option]
         sessionCard.target = self
@@ -156,7 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let menu = NSMenu()
         menu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Home", action: #selector(showHome), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Brief", action: #selector(showBrief), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Capture Clipboard", action: #selector(clipboard), keyEquivalent: "").target = self
         let send = menu.addItem(withTitle: "Send Clipboard", action: #selector(sendClipboard), keyEquivalent: "w")
         send.keyEquivalentModifierMask = [.control, .option]
@@ -206,9 +207,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         mainWindowController?.show()
     }
 
-    @objc func showHome() {
+    @objc func showBrief() {
         showLibrary()
-        mainWindowController?.showHome()
+        mainWindowController?.showBrief()
     }
 
     /// Opens or collapses the session card. A hidden window comes back with
@@ -242,7 +243,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     @objc private func refreshVault() { model.reload(); mainWindowController?.refreshPanes() }
     @objc private func goBack() { model.navigate(-1); mainWindowController?.refreshPanes() }
     @objc private func goForward() { model.navigate(1); mainWindowController?.refreshPanes() }
-    @objc private func searchWiki() { showHome() }
+    @objc private func searchWiki() {
+        showLibrary()
+        mainWindowController?.showAllFiles()
+    }
 
     @objc private func settings() {
         if settingsWindowController == nil { settingsWindowController = SettingsWindowController(model: model) }

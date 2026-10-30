@@ -4,7 +4,7 @@ summary: "Modules, window ownership, and the flow between captures and the vault
 read_when:
   - Changing window behavior
   - Deciding which module new code belongs in
-  - Tracing capture persistence, file saves, or Home search
+  - Tracing capture persistence, file saves, or the daily brief
 ---
 
 # Architecture
@@ -33,9 +33,10 @@ flowchart LR
 | `Captures` | `Note`, `CaptureStore`, `ClipboardInbox`, `CaptureLinks`, and edit sessions | `PiperCore`, `CapturesDatabase` |
 | `Vault` | One folder: scan, read, write, and watch | `PiperCore`, Yams |
 | `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, and `PermissionRule` | `PiperCore`, `CapturesDatabase` |
+| `Briefs` | `BrowserCatalog`, `HistoryReader`, `NetNewsWireReader`, `HackerNews`, `BriefDocument`, `HistoryDigest`, `BlockedSites`, `BriefLinks`, `BriefPrompts`, `BriefSchedule`, and `BriefStore` | `PiperCore`, `CSQLite` |
 | `Piper` | Windows, panes, views, and app state | All modules, Yams, and `MarkdownEngine` |
 
-`PiperCore`, `PiperTree`, and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser and Home search models.
+`PiperCore`, `PiperTree`, and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser.
 
 Each module has a test target with the same name and a `Tests` suffix. `PiperTests` tests the application target.
 
@@ -64,18 +65,18 @@ The panel is a non-activating `NSPanel` on every Space. Its initial size is 600 
 | --- | --- | --- |
 | Sidebar | `SidebarViewController` | `SidebarOutline`, an `NSOutlineView` |
 | List | `FileListViewController` | `FileListView`, `CaptureView`, or `SessionListView` |
-| Detail | `DetailViewController` | `HomeView`, `WikiEditor`, `FilePreview`, `NoteDetail`, or a session |
+| Detail | `DetailViewController` | `BriefPage`, `WikiEditor`, `FilePreview`, `NoteDetail`, or a session |
 | Session card | `DetailViewController` | `SessionOverlay`, in a hosting view over the bottom right corner of the detail pane |
 
 Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostingView`. A pane reports upward through a delegate protocol, and `MainWindowController` decides what the other panes show. `WikiEditor` is an exception. It calls `AppModel.openDocument` directly, so a link does not move the sidebar or the file list.
 
-`SidebarSelection` decides the layout. Home collapses the file list because the search field needs the width. A Sessions folder hides the session card, because the list and the detail pane show the same sessions. `MainWindowState` saves the selection, the open file, the open folders, and the pane widths. `AppModel.selectedSession` holds the session that the session card and the Sessions list show.
+`SidebarSelection` decides the layout. Brief collapses the file list. A Sessions folder hides the session card, because the list and the detail pane show the same sessions. `MainWindowState` saves the selection, the open file, the open folders, and the pane widths. `AppModel.selectedSession` holds the session that the session card and the Sessions list show.
 
 `AppModel.sessionPresentation` is the pill, the card, or the detached panel, and preferences keep it. `DetailViewController` holds two hosting views: the content, and an overlay pinned to the bottom right corner. The overlay takes the intrinsic size of `SessionPill` or `SessionCard`, so a click outside it reaches the content. A constraint keeps the overlay at most 85% of the pane height. `DetailPaneLayout` shares the pane width between the card and the tabs. In a narrow pane, the card fits the width and sits above the tabs. `SessionCard` hosts `SessionPane`, and `SessionTarget` picks its folder, its session, and its context page. `SessionPanelController` shows the same card in a non-activating `NSPanel` on every Space. Its close button returns the presentation to the pill.
 
 The window title names the sidebar selection, as in Mail. The subtitle shows a count, and it updates through `withObservationTracking`. The toolbar has tracking separators that align with the split view dividers. Toggle Sidebar sits over the sidebar. New Capture sits over the list. Back and Forward, Mark as Done, and the More menu sit over the detail pane. `TabIsland` floats over the bottom of the detail pane, with Preview and Source for a file. The Session Card button at the end opens and collapses the session card, as does Option-Command-C. Each list has its own search field.
 
-The sidebar has up to three groups. Library holds Home, Inbox with one child for each capture section other than Inbox, Clipboard, and Archived. Claude holds one `SidebarSelection.sessions` row for each folder with sessions, and it shows only when a session exists. Folders holds every root and the tree of the active root. `SidebarSelection.section` shows the captures of one section, and `SidebarSelection.clipboard` shows the clipboard history.
+The sidebar has up to three groups. Library holds Brief, Inbox with one child for each capture section other than Inbox, Clipboard, and Archived. Claude holds one `SidebarSelection.sessions` row for each folder with sessions, and it shows only when a session exists. Folders holds every root and the tree of the active root. `SidebarSelection.section` shows the captures of one section, and `SidebarSelection.clipboard` shows the clipboard history.
 
 Sidebar fonts and icons follow the macOS sidebar size preference: 11 and 16 points, 13 and 19 points, or 15 and 22 points. `TimelineCell` draws every file row through `TimelineRow`.
 
@@ -217,19 +218,35 @@ The page reports the first block on the screen and the progress 250 milliseconds
 
 The Capture button runs JavaScript in an isolated content world. One call returns the selected text or the page text, the title, and the URL. `CaptureStore` saves the result to Inbox.
 
-`ReadingList` in the `Captures` module groups the link captures that are not done into Continue, Up Next, and Finished This Week. `Note.isArticle` is true for a capture without a parent that has a reading state or holds only a link. `InboxStream` and the Continue Reading row of Home read `ReadingList`. At launch, `AppModel` marks as done each article that the reader finished more than seven days before.
+`ReadingList` in the `Captures` module groups the link captures that are not done into Continue, Up Next, and Finished This Week. `Note.isArticle` is true for a capture without a parent that has a reading state or holds only a link. `InboxStream` reads `ReadingList`. At launch, `AppModel` marks as done each article that the reader finished more than seven days before.
 
 `ArticleNotebook` shows the Notes tab. Its summary is a child note with the tag `summary`. `ArticleMarkdown` builds the file of Save as File, and the text that Update File adds. `Vault.write` writes the file, and `Note.reading` records its path and the save time.
 
 `Info.plist` sets `NSAllowsArbitraryLoadsInWebContent`, so WebKit can load HTTP pages. Other network requests keep the default App Transport Security policy.
 
-## Home Search
+## Search
 
-`HomeSearch` in `PiperCore` ranks `HomeSuggestion` rows. A leading `>` lists local `HomeAction` values. Other text lists file name matches, file text matches, and local actions, in that order.
+The file-list search filters the selected folder. Inbox search filters the active capture section and temporary clipboard cards. The `allFiles` sidebar state applies the same search to the whole vault. Command-O opens it.
 
-The file-list search filters the selected folder. Inbox search filters the active capture section and temporary clipboard cards.
+## Daily Brief
 
-Home searches the whole vault. Its Search All Files action opens the `allFiles` sidebar state with a vault-wide list.
+`BriefBuilder` in the application target runs each build, and `BriefPage` shows the result. The build has these steps:
+
+1. `BrowserCatalog` finds each source. `HistoryReader` and `NetNewsWireReader` read a private copy of each database, so another app cannot lock the file and the original does not change. `HackerNews` gets the popular submissions of the last day from the public search API.
+2. `HistoryDigest` ranks the sites of the last 14 days. It drops blocked sites and full URLs, and it keeps 30 sites at most.
+3. The runner starts a session with the purpose `brief`. Claude Code starts with `--restricted --tools "" --strict-mcp-config --no-session-persistence`, so the agent has no tool. The runner stores no transcript and deletes the session after the build.
+4. The agent receives the digest and returns hosts. `BriefPrompts.hosts` keeps only the hosts in the digest.
+5. `BriefPageLoader` makes the root URL of each host and loads it in a `WKWebView` with the default data store, which the Web tab also uses. A navigation to a blocked or private host stops.
+6. The agent receives the page text, the feed articles, and the Hacker News stories, and returns Markdown.
+7. `BriefLinks` removes images, HTML, and each link that no page, feed, or story holds. `BriefStore` writes the file.
+
+The agent cannot put data in a URL, because Piper loads only URLs that it makes from known hosts. The Markdown can still hold false text from a page.
+
+`BriefStore.linksBefore` reads the links of the briefs of earlier days. The build removes these links from each source and from the links that `BriefLinks` accepts, so no later brief repeats them.
+
+`BriefDocument` converts the Markdown to the blocks of the reader page. The first highlight of a brief adds a parent note, and `ReaderMarks` handles its marks and actions for a brief and for a link capture. A selected link becomes a link capture that opens in the Web tab.
+
+`BriefSchedule` decides when a morning build runs. A timer in `BriefBuilder` checks it every 15 minutes.
 
 ## Source Map
 
@@ -257,7 +274,8 @@ Home searches the whole vault. Its Search All Files action opens the `allFiles` 
 | [MainWindow/MainWindowState.swift](../../Sources/Piper/MainWindow/MainWindowState.swift) | `SidebarSelection`, restored state, and pane delegate protocols |
 | [MainWindow/PaneViewControllers.swift](../../Sources/Piper/MainWindow/PaneViewControllers.swift) | One hosting view controller for each pane |
 | [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | The error alert |
-| [MainWindow/Home/](../../Sources/Piper/MainWindow/Home) | The Home page and its suggestion list |
+| [Brief/](../../Sources/Piper/Brief) | The Brief page, its settings, the sign-in sheet, the builder, and the page loader |
+| [Modules/Briefs/](../../Sources/Modules/Briefs) | Sources, history and feed reads, the digest, blocked sites, link cleaning, prompts, the schedule, and the files |
 | [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | Library rows, the folder tree, unread counts, and file warnings |
 | [MainWindow/Browser/](../../Sources/Piper/MainWindow/Browser) | The file list and the session list |
 | [InboxRow.swift](../../Sources/Piper/InboxRow.swift) | The rows of the Inbox stream and the progress ring |

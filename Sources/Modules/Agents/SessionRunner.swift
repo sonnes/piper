@@ -489,6 +489,13 @@ public final class SessionRunner {
     /// Shows a card. A margin session shows none: it allows a call that only
     /// reads, and denies any other.
     private func ask(_ request: PermissionRequest, in session: AgentSession) {
+        if session.purpose == .brief {
+            let options = request.options ?? ClaudeCodeConnection.options(in: URL(fileURLWithPath: session.folder))
+            if let option = options.first(where: { !$0.kind.allows }) {
+                connections[session.id]?.respond(to: request, with: option, message: nil)
+            }
+            return
+        }
         if session.purpose == .margin {
             let options = request.options ?? ClaudeCodeConnection.options(in: URL(fileURLWithPath: session.folder))
             let readOnly = !request.isQuestion && (request.kind ?? ClaudeCodeConnection.kind(of: request.toolName)).isReadOnly
@@ -582,7 +589,7 @@ public final class SessionRunner {
     /// Stores a session. A change of state stores it at once. Text and tool
     /// calls wait a short time, so a fast stream writes less often.
     private func persist(_ session: AgentSession, now: Bool = false) {
-        guard database != nil, !session.blocks.isEmpty else { return }
+        guard database != nil, !session.blocks.isEmpty, session.purpose != .brief else { return }
         saves.removeValue(forKey: session.id)?.cancel()
         guard !now else { return save(session) }
         saves[session.id] = Task { [weak self, weak session] in

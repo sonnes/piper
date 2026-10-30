@@ -19,7 +19,7 @@ struct FileListView: View {
     // MARK: Properties
 
     @Bindable var model: AppModel
-    /// A nil folder shows the results of a vault-wide search from Home.
+    /// A nil folder shows the results of a vault-wide search.
     let folder: String?
     let selectFile: (VaultFile) -> Void
 
@@ -45,6 +45,7 @@ struct FileListView: View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
                 searchField
+                    .onAppear { if folder == nil { searching = true } }
                 sortMenu
             }
             .padding(.leading, AppDefaults.ListSearch.horizontalInset)

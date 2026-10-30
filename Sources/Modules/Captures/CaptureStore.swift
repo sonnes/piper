@@ -128,6 +128,14 @@ public final class CaptureStore {
         return note
     }
 
+    /// Finds the note that holds the highlights of a local page, or adds one.
+    /// The link names the page and is not a web link.
+    public func pageNote(for link: String, title: String, source: String) -> Note? {
+        if let existing = notes.first(where: { $0.parent == nil && $0.sourceURLs.contains(link) }) { return existing }
+        let note = Note(text: title, section: activeSection, sources: [source], sourceURLs: [link])
+        return change({ $0.notes.append(note) }) ? note : nil
+    }
+
     /// Adds a paragraph to the end of a note, such as an answer from Claude.
     @discardableResult public func append(_ paragraph: String, to id: UUID) -> Bool {
         let paragraph = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)

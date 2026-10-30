@@ -22,6 +22,8 @@ final class SettingsWindowController: NSWindowController {
                     content: ReadingSettings())
         tabs.addTab("AI", symbol: "sparkles", size: NSSize(width: 600, height: 640),
                     content: AISettings(model: model))
+        tabs.addTab("Brief", symbol: "newspaper", size: AppDefaults.Brief.settingsSize,
+                    content: BriefSettings(brief: model.brief))
 
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: 560, height: 330)),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
