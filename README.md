@@ -12,7 +12,7 @@ The screenshots use fictional articles, notes, and conversations in an isolated 
 
 Piper is an early preview at version 0.1.1. Each release has a signed and notarized DMG for Apple silicon. To run the current source, build it with the steps in [Quick Start](#quick-start).
 
-Selection capture works, but its compatibility across applications is unverified. Markdown rendering does not cover all of CommonMark. Piper captures text only. The [capability status](docs/release/status.md) page records each feature and its evidence.
+Selection capture works, but its compatibility across applications is unverified. The Markdown editor opens footnotes, link titles, and table alignment as read-only. Piper captures text only. The [capability status](docs/release/status.md) page records each feature and its evidence.
 
 The [release checklist](docs/release/readiness.md) tracks the remaining acceptance and distribution checks.
 
@@ -118,9 +118,8 @@ The application bundles the components below. Their license texts are in [`Licen
 | --- | --- |
 | [Yams](https://github.com/jpsim/Yams) | MIT |
 | [libyaml](https://github.com/yaml/libyaml), vendored in Yams | MIT |
-| [swift-markdown-engine](https://github.com/nodes-app/swift-markdown-engine) | Apache 2.0 |
-| [HighlighterSwift](https://github.com/smittytone/HighlighterSwift) | MIT and BSD 3-Clause |
-| [SwiftMath](https://github.com/mgriebling/SwiftMath) | MIT |
+| [Hubble.md](https://github.com/bholmesdev/hubble.md), the Markdown editor | MIT |
+| The packages of the editor page, such as Tiptap, ProseMirror, React, and remark. `Licenses/Editor.txt` lists each one. | MIT, ISC, Apache 2.0, and others |
 | [IBM Plex Mono](https://github.com/IBM/plex) | SIL Open Font License 1.1 |
 | [Lucide](https://lucide.dev) 1.49.0, sidebar icons | ISC |
 

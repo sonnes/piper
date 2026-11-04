@@ -707,29 +707,37 @@ private struct DetailPane: View {
     var body: some View {
         Group {
             if let document = model.currentDocument {
-                let source = FilePresentation.sourceText(for: document, markdown: model.wikiEdit?.markdown)
-                if model.showsFileSource, let source {
+                if FilePresentation(document) == .markdown, let session = model.editor {
+                    VStack(spacing: 0) {
+                        EditorBanner(model: model, session: session)
+                        EditorPane(page: model.editorPage,
+                                   request: EditorPane.request(for: session, model: model, source: model.showsFileSource),
+                                   session: session, theme: theme, anchorRequest: model.anchorRequest,
+                                   notes: model.fileNotes(document))
+                    }
+                    .background(paper)
+                } else if model.showsFileSource, let source = FilePresentation.sourceText(for: document) {
                     PlainTextPreview(text: source)
-                } else if FilePresentation(document) != .markdown {
-                    FilePreview(model: model, document: document)
                 } else {
-                    WikiEditor(model: model, document: document, fontSize: readerSize,
-                               font: readerFont.font(size: readerSize), paper: paper)
-                        .preferredColorScheme(readerAppearance.colorScheme)
+                    FilePreview(model: model, document: document)
                 }
             } else {
                 NoSelection()
             }
         }
         .overlay(alignment: .bottom) {
-            if let document = model.currentDocument,
-               FilePresentation.sourceText(for: document, markdown: model.wikiEdit?.markdown) != nil {
+            if let document = model.currentDocument, FilePresentation.sourceText(for: document) != nil {
                 TabIsland(showsSource: $model.showsFileSource, cardPresented: model.sessionPresentation == .card)
             }
         }
         .onChange(of: model.currentDocument?.id, initial: true) { _, _ in
             model.markCurrentDocumentRead()
         }
+    }
+
+    private var theme: EditorTheme {
+        EditorTheme(theme: readerTheme.rawValue, font: readerFont.rawValue, size: readerSize,
+                    appearance: readerAppearance.rawValue)
     }
 
     private var paper: Color {

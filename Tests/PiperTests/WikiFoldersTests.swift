@@ -92,20 +92,20 @@ final class WikiFoldersTests: XCTestCase {
         XCTAssertEqual(model.wikiPath, root.path)
     }
 
-    func testCancelKeepsTheDraftAndFolderList() async throws {
+    func testAConflictKeepsTheDraftAndFolderList() async throws {
         preferences.set(root.path, forKey: AppDefaults.Key.vaultPath)
         try Data("# Original".utf8).write(to: root.appendingPathComponent("note.md"))
         let model = makeModel()
         model.reload()
         try await waitForScan(model)
         model.openDocument("note.md")
-        let edit = try XCTUnwrap(model.wikiEdit)
+        let edit = try XCTUnwrap(model.editor)
         edit.text = "# Unsaved"
-        model.confirmWikiChanges = { _ in .alertThirdButtonReturn }
+        try Data("# Agent edit".utf8).write(to: root.appendingPathComponent("note.md"))
         model.addWikiFolders([root.appendingPathComponent("next")])
         XCTAssertEqual(model.wikiPaths, [root.path])
         XCTAssertEqual(model.wikiPath, root.path)
-        XCTAssertTrue(model.wikiEdit === edit)
+        XCTAssertTrue(model.editor === edit)
         XCTAssertTrue(edit.hasChanges)
         XCTAssertNil(preferences.array(forKey: AppDefaults.Key.wikiPaths))
     }

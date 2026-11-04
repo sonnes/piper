@@ -38,6 +38,12 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Make sure that a daily brief reads a real NetNewsWire database: the folder path, the date format, and the macOS permission.
 - [ ] Measure if agent sessions get the Full Disk Access of Piper.
 - [ ] Make a link from the editor update the sidebar and the file list.
+- [ ] Do the Editing Checks in [validate.md](validate.md) that are not done in the built app: Japanese input, Command-F, and Reload in the conflict bar.
+- [ ] Decide whether Piper turns off text replacement and smart quotes in the editor page. Today a macOS text replacement changes the Markdown that you type.
+- [ ] Hide `<note>.assets` folders in the sidebar.
+- [ ] Show footnotes in a read-only Preview. Today Preview hides the marker and the footnote text.
+- [ ] Decide whether the editor escapes Markdown characters in plain text. Today a literal `*` that you type can become emphasis when the file opens again.
+- [ ] Decide whether an HTML embed can read files of the folder, as in Hubble.md. Today an embed has no access.
 - [x] Connect the Capture Clipboard action. `ReleaseTests.testClipboardCaptureSavesWithoutAnAppDelegate` covers the model action and an empty clipboard.
 
 Acceptance: every visible control does what its label says, and no edit is lost on navigation, close, or quit.

@@ -86,25 +86,4 @@ final class PiperTests: XCTestCase {
         let vault = Vault(root: folder)
         XCTAssertThrowsError(try vault.containedURL("../../outside.md"))
     }
-
-    // MARK: Saving a body
-
-    func testSavingKeepsFrontmatterAndRefusesAnExternalChange() throws {
-        let vault = Vault(root: folder)
-        let url = folder.appendingPathComponent("note.md")
-        let raw = "---\ntitle: A note\ncustom: keep\n---\n\nOriginal body.\n"
-        try Data(raw.utf8).write(to: url)
-        let file = try vault.read("note.md")
-
-        let saved = try WikiSave.body("\nA new body.\n", of: file, in: vault)
-        let onDisk = try String(contentsOf: url, encoding: .utf8)
-        XCTAssertTrue(onDisk.hasPrefix("---\ntitle: A note\ncustom: keep\n---\n"), "Frontmatter survives byte for byte")
-        XCTAssertTrue(onDisk.contains("A new body."))
-        XCTAssertEqual(saved.body, "\nA new body.\n")
-
-        // Another editor writes, so the stale session must refuse.
-        try Data("---\ntitle: A note\n---\n\nSomeone else wrote.\n".utf8).write(to: url)
-        XCTAssertThrowsError(try WikiSave.body("\nMy edit.\n", of: file, in: vault))
-        XCTAssertTrue(try String(contentsOf: url, encoding: .utf8).contains("Someone else wrote."))
-    }
 }

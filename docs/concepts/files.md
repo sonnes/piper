@@ -25,7 +25,7 @@ If Piper cannot read one file, it adds a problem to the list and continues. The 
 
 `VaultWatcher` watches the folder with `FSEventStream`. It groups changes for about 0.5 seconds, then Piper scans again. A change during a scan starts one more scan after that scan finishes. Piper also scans every four seconds while the main window shows.
 
-A scan updates the tree, the file list, previews, and unread counts. It keeps unsaved edits, including a draft whose file was deleted.
+A scan updates the tree, the file list, previews, and unread counts. If the open file changed, the scan loads the new text into the editor, or marks a conflict. See [Saving An Edit](#saving-an-edit). A deleted file stays open while the editor has text that is not on disk.
 
 ## Text And Previews
 
@@ -60,18 +60,21 @@ The main window has one history. Opening a new file clears the forward history. 
 
 ## Saving An Edit
 
-The editor holds the body of the file. The frontmatter stays outside the editor.
+The editor holds the whole text of the file, with the frontmatter. It sends the text to Piper 120 ms after the last edit, and again when it closes the file.
 
-A save goes through these steps:
+Piper keeps three texts for an open file: the text that it last read or wrote (the baseline), the text of the editor, and the text on disk. A save reads the disk first, then compares the three texts:
 
-1. Piper reads the file from disk again.
-2. It compares those bytes with the bytes it opened.
-3. If they differ, or the file is gone, the save stops and the draft stays open.
-4. Otherwise, Piper joins the original frontmatter bytes with the new body.
-5. It replaces the file atomically.
+| Condition | Result |
+| --- | --- |
+| The disk holds the baseline | Piper writes the editor text atomically. |
+| The disk holds the editor text | Nothing to write. |
+| The disk changed, and the editor has no edits | Piper loads the disk text into the editor. |
+| The disk changed, and the editor has edits | A conflict. Piper writes nothing until you select Reload or Keep Mine. |
 
-The original frontmatter keeps its comments, key order, and line endings. The splitter works on the original text, so a CRLF file stays CRLF.
+A deleted file with edits is also a conflict. Keep Mine writes the file again.
 
-The editor library uses its own syntax for Wiki aliases. Piper translates between that syntax and `[[target|label]]`, so the file keeps `[[target|label]]`.
+After a save, the baseline is the written text. So the scan after the save of Piper finds no change. Hubble.md uses the same rules.
 
-Other apps do not share a lock with Piper. A change between the compare and the replace is possible. Piper does not detect it.
+The frontmatter keeps its comments, key order, and line endings, unless you change a property. Then the editor writes the frontmatter again.
+
+Other apps do not share a lock with Piper. A change between the compare and the write is possible. Piper does not detect it.

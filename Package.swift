@@ -6,8 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [.executable(name: "Piper", targets: ["Piper"])],
     dependencies: [
-        .package(url: "https://github.com/jpsim/Yams.git", exact: "6.2.2"),
-        .package(url: "https://github.com/nodes-app/swift-markdown-engine.git", exact: "0.12.0")
+        .package(url: "https://github.com/jpsim/Yams.git", exact: "6.2.2")
     ],
     targets: [
         .systemLibrary(name: "CSQLite", pkgConfig: "sqlite3"),
@@ -26,8 +25,7 @@ let package = Package(
         // Application target.
         .executableTarget(name: "Piper", dependencies: [
             "CSQLite", "Yams",
-            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "Agents", "Briefs",
-            .product(name: "MarkdownEngine", package: "swift-markdown-engine")
+            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "Agents", "Briefs"
         ], resources: [.process("Resources")]),
 
         .testTarget(name: "PiperTests", dependencies: ["Piper"]),

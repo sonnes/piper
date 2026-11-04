@@ -27,14 +27,14 @@ flowchart LR
 | Module | Responsibility | Depends on |
 | --- | --- | --- |
 | `CSQLite` | System SQLite, through `pkg-config` | nothing |
-| `PiperCore` | `PiperError` and the frontmatter parser | Yams |
+| `PiperCore` | `PiperError`, the frontmatter parser, and `PaletteSearch` | Yams |
 | `PiperTree` | `Node`, `TreeController`, and `PathTreeBuilder` | nothing |
 | `CapturesDatabase` | One versioned blob in SQLite, with compare-and-swap | `CSQLite` |
 | `Captures` | `Note`, `CaptureStore`, `ClipboardInbox`, `CaptureLinks`, and edit sessions | `PiperCore`, `CapturesDatabase` |
 | `Vault` | One folder: scan, read, write, and watch | `PiperCore`, Yams |
 | `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, and `PermissionRule` | `PiperCore`, `CapturesDatabase` |
 | `Briefs` | `BrowserCatalog`, `HistoryReader`, `NetNewsWireReader`, `HackerNews`, `BriefDocument`, `HistoryDigest`, `BlockedSites`, `BriefLinks`, `BriefPrompts`, `BriefSchedule`, and `BriefStore` | `PiperCore`, `CSQLite` |
-| `Piper` | Windows, panes, views, and app state | All modules, Yams, and `MarkdownEngine` |
+| `Piper` | Windows, panes, views, and app state | All modules and Yams |
 
 `PiperCore`, `PiperTree`, and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser.
 
@@ -65,10 +65,10 @@ The panel is a non-activating `NSPanel` on every Space. Its initial size is 600 
 | --- | --- | --- |
 | Sidebar | `SidebarViewController` | `SidebarOutline`, an `NSOutlineView` |
 | List | `FileListViewController` | `FileListView`, `CaptureView`, or `SessionListView` |
-| Detail | `DetailViewController` | `BriefPage`, `WikiEditor`, `FilePreview`, `NoteDetail`, or a session |
+| Detail | `DetailViewController` | `BriefPage`, `EditorPane`, `FilePreview`, `NoteDetail`, or a session |
 | Session card | `DetailViewController` | `SessionOverlay`, in a hosting view over the bottom right corner of the detail pane |
 
-Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostingView`. A pane reports upward through a delegate protocol, and `MainWindowController` decides what the other panes show. `WikiEditor` is an exception. It calls `AppModel.openDocument` directly, so a link does not move the sidebar or the file list.
+Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostingView`. A pane reports upward through a delegate protocol, and `MainWindowController` decides what the other panes show. The editor page is an exception. A link in it calls `AppModel.openDocument` directly, so a link does not move the sidebar or the file list.
 
 `SidebarSelection` decides the layout. Brief collapses the file list. A Sessions folder hides the session card, because the list and the detail pane show the same sessions. `MainWindowState` saves the selection, the open file, the open folders, and the pane widths. `AppModel.selectedSession` holds the session that the session card and the Sessions list show.
 
@@ -192,11 +192,47 @@ The `sessions` table stores each session at each change of state. Quit asks befo
 
 ## Reading And Editing
 
-`FilePresentation` decides how the detail pane shows a file. Markdown and HTML also have a read-only Source view through `PlainTextPreview`. `AppModel.showsFileSource` holds the choice. Markdown opens in the editor, other text in a read-only text view, and everything else in Quick Look.
+`FilePresentation` decides how the detail pane shows a file. Markdown opens in the editor, other text in a read-only text view, and everything else in Quick Look. `AppModel.showsFileSource` holds the choice of the Source tab. For Markdown, Source is the source mode of the editor. For HTML, it is `PlainTextPreview`.
 
-`WikiEditor` embeds SwiftMarkdownEngine 0.12.0 through its AppKit bridge. The page is a centered column, at most 640 points wide, with 48-point side margins. `WikiEditor` passes `DetailHeader` to the engine as a header that scrolls with the text. The header shows the date, the reading time, the save state, and a Save button. It also shows the title when the body has no heading. The fonts, the paper, and the selection, code, and highlight colors match `reader.html`. The engine loads a font by its name, so each `WikiReadingFont` must name an installed font.
+### The Editor Page
 
-Only a Markdown text file gets an edit session. `WikiSave.body` writes the original frontmatter bytes and the new body. It refuses to write if the file on disk no longer matches what the editor opened. Navigation, folder changes, window close, and quit resolve an unsaved session through Save, Discard, or Cancel.
+The Markdown editor is the editor of Hubble.md, a Tiptap and React editor, in a `WKWebView`. `web/` holds its source:
+
+- `web/vendor/hubble/` is a copy of `packages/editor` and `packages/ui` of Hubble.md. Its `README.md` names the source commit and the local changes.
+- `web/src/` is the host: the bridge, the image and embed nodes, the loss guard, and the theme of Piper.
+- `make web` builds one file, `Sources/Piper/Resources/editor.html`, with the JS and CSS inline. The repository holds this file. The build also writes `Licenses/Editor.txt`.
+
+`EditorPage` owns one web view for the main window. A change of file sends a new `open` call to the same page, so the page loads once. `EditorPane` moves the web view into the detail pane. Piper calls the functions on `window.piper`, and the page sends messages to the `editor` handler, which answers each message:
+
+| From Piper | Effect |
+| --- | --- |
+| `open` | Shows a file, with its full text, its mode, the byline, and the link targets. |
+| `replace` | Puts the disk text into the open file with no undo step. |
+| `header`, `theme`, `scrollTo`, `command`, `assetChanged` | Change the byline, the reading theme, the scroll position, run Find, and reload an embed. |
+| `setNotes` | Draws the margin cards of the file. |
+| `flush` | Returns the current text, for quit and Command-S. |
+
+| From the page | Piper does |
+| --- | --- |
+| `change` | `AppModel.editorChanged` saves the text. |
+| `link` | Opens a wiki link or a URL. |
+| `image` | Writes a pasted image to `<note>.assets/` and answers with its path. |
+| `lossy` | Sets `EditorSession.lossy`. |
+| `note`, `ask`, `explain`, `define`, `followup`, `continue`, `capture`, `open`, `copy` | `AppModel.performFileAction` runs the action of the selection bar or the card. |
+
+`AssetSchemeHandler` serves the files of the folder at `piper-asset://folder/<path>`, for images and embeds, through `Vault.containedURL`. An HTML file gets a `sandbox` content security policy, and the iframe has no `allow-same-origin`.
+
+`ReaderLayer.tsx` ports the selection bar and the margin cards of `reader.html` to the editor page. A highlight is the `highlight` mark, which `HighlightMarkdown.ts` reads and writes as `==text==` or `<mark class="color">`. The other actions go to `AppModel.performFileAction`, which calls `ReaderMarks.perform` with a page note for the file (`AppModel.fileLink`). `AppModel.fileNotes` sends the cards to the page through `setNotes`.
+
+`lossGuard.ts` parses a file, writes it back, and compares the text, the link targets, and the structure. If they differ, or the file has footnotes, link titles, or table alignment, the rich editor is read-only. `EditorBanner` then offers the Source tab.
+
+### Saving
+
+`EditorSession` holds one Markdown file: its baseline, the editor text, its status, and its revision. `DiskChange.classify` compares the baseline, the editor text, and the disk text. `AppModel.editors` keeps the session of the open file, and each session with text that is not on disk. The page sends the last edit of a file after it opens the next file, so a session stays until that edit saves. A scan calls `EditorSession.diskChanged` for each file that changed. A conflict stops saves, and `EditorBanner` offers Reload or Keep Mine. `AppModel.settleEditors` saves each session before a folder change and before quit. It stops on a conflict.
+
+### Command Palette
+
+`CommandPaletteController` shows `CommandPaletteView` in a borderless child panel of the main window. `PaletteResults` ranks files with `PaletteSearch.score` and finds lines with `PaletteSearch.excerpts`, off the main thread. The scores copy `fuzzy.ts` of Hubble.md.
 
 `WikiWorkspace` owns the navigation history. `WikiLinks` resolves links and computes backlinks. `WikiMarkdown` parses blocks for the outline, heading anchors, and backlinks.
 
@@ -283,11 +319,13 @@ The agent cannot put data in a URL, because Piper loads only URLs that it makes 
 | [Modules/Captures/ReadingList.swift](../../Sources/Modules/Captures/ReadingList.swift) | The Reading groups and the Markdown of Save as File |
 | [Modules/Captures/InboxStream.swift](../../Sources/Modules/Captures/InboxStream.swift) | The groups and the chip counts of the Inbox stream |
 | [MainWindow/TimelineCell.swift](../../Sources/Piper/MainWindow/TimelineCell.swift) | File and capture rows |
-| [WikiEditor.swift](../../Sources/Piper/WikiEditor.swift) | The Markdown editor page |
-| [WikiInspector.swift](../../Sources/Piper/WikiInspector.swift) | Reading themes and fonts, and the unused inspector view |
+| [MainWindow/Detail/EditorPage.swift](../../Sources/Piper/MainWindow/Detail/EditorPage.swift) | The editor page, its bridge, the asset scheme, and the conflict bar |
+| [EditorSession.swift](../../Sources/Piper/EditorSession.swift) | The save of a Markdown file and the conflict rules |
+| [MainWindow/CommandPalette.swift](../../Sources/Piper/MainWindow/CommandPalette.swift) | The command palette |
+| [ReadingAppearance.swift](../../Sources/Piper/ReadingAppearance.swift) | Reading themes, fonts, and appearance |
+| [web/](../../web) | The source of the editor page |
 | [WikiWorkspace.swift](../../Sources/Piper/WikiWorkspace.swift) | Navigation history, link resolution, and backlinks |
 | [WikiMarkdown.swift](../../Sources/Piper/WikiMarkdown.swift) | Block parsing, heading anchors, and inline text |
-| [Wiki.swift](../../Sources/Piper/Wiki.swift) | File metadata and the guarded body save |
+| [Wiki.swift](../../Sources/Piper/Wiki.swift) | File metadata |
 | [SettingsWindow.swift](../../Sources/Piper/SettingsWindow.swift) | The Settings window and its panes |
 
-`WikiReader.swift` and `MarkdownView.swift` are not used by any other file.

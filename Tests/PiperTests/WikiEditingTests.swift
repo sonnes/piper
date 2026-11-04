@@ -1,5 +1,4 @@
 import AppKit
-import MarkdownEngine
 import XCTest
 @testable import Piper
 import PiperCore
@@ -25,42 +24,10 @@ final class WikiEditingTests: XCTestCase {
         XCTAssertEqual(SummaryText.plain("Standing orders for any agent."), "Standing orders for any agent.")
     }
 
-    /// The editor loads a font by its name. A font that the name does not
-    /// load shows as the system sans serif.
-    func testEveryReadingFontLoadsByName() {
-        for choice in WikiReadingFont.allCases {
-            let font = choice.font(size: 18)
-            XCTAssertEqual(NSFont(name: font.fontName, size: 18)?.fontName, font.fontName, choice.rawValue)
-        }
-    }
-
     func testReadingTimeRoundsToWholeMinutes() {
-        XCTAssertNil(DetailHeader.readingTime(of: " \n "))
-        XCTAssertEqual(DetailHeader.readingTime(of: "One word."), "1 min read")
-        XCTAssertEqual(DetailHeader.readingTime(of: Array(repeating: "word", count: 1_400).joined(separator: " ")), "6 min read")
-    }
-
-    func testNativeEngineRoundtripPreservesWikiAliasesAndCode() {
-        let markdown = "[[topics/Reading#A heading|Read more]] [[Plain]] [[研究/🍵|Tea]]\n`[[Code|example]]`\n```md\n[[Code|sample]]\n```\n![[image.png|200]]\n"
-        let encoded = WikiEditorLinks.encode(markdown)
-        let display = WikiLinkService.makeDisplayState(from: encoded)
-        let stored = WikiLinkService.makeStorageState(from: display.display, existingMetadata: display.metadata, textStorage: nil)
-        XCTAssertEqual(WikiEditorLinks.decode(stored.storage), markdown)
-        XCTAssertEqual(WikiEditorLinks.decode("[[New#Heading|A new alias]]"), "[[New#Heading|A new alias]]")
-    }
-
-    func testEditingAliasKeepsOriginalTarget() {
-        let encoded = WikiEditorLinks.encode("[[topics/Reading#A heading|Read more]]")
-        let edited = encoded.replacingOccurrences(of: "Read more", with: "A different label")
-        XCTAssertEqual(WikiEditorLinks.decode(edited), "[[topics/Reading#A heading|A different label]]")
-    }
-
-    func testMarkdownDestinationsKeepRelativePathsAndFragments() {
-        for destination in ["../topics/Tea%20notes.md", "/Start%20Here.md#capture-first", "#details", "https://example.com/a(b)", "mailto:hello@example.com"] {
-            let text = "Tea 🍵 [Read more](\(destination))"
-            let label = (text as NSString).range(of: "Read more")
-            XCTAssertEqual(WikiEditorLinks.markdownURL(in: text, after: label)?.absoluteString, destination)
-        }
+        XCTAssertNil(ReadingTime.text(of: " \n "))
+        XCTAssertEqual(ReadingTime.text(of: "One word."), "1 min read")
+        XCTAssertEqual(ReadingTime.text(of: Array(repeating: "word", count: 1_400).joined(separator: " ")), "6 min read")
     }
 
     func testPageAnchorsUseVisibleTextOffsets() {
@@ -76,164 +43,195 @@ final class WikiEditingTests: XCTestCase {
         XCTAssertNil(WikiMarkdown.range(ofAnchor: "missing", in: text))
     }
 
-    @MainActor func testSamePageAnchorKeepsUnsavedEdit() throws {
-        let raw = "# Note\n\n## Details\nOriginal.\n"
-        let path = root.appendingPathComponent("Note.md")
-        try Data(raw.utf8).write(to: path)
-        let document = makeFile(raw, path: "Note.md")
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = [document]
-        model.openDocument(document.id)
-        let session = model.wikiEdit
-        session?.text += "Unsaved thought.\n"
-        model.openDocument(document.id, anchor: "details")
-        XCTAssertTrue(model.wikiEdit === session)
-        XCTAssertEqual(model.requestedAnchor, "details")
-        XCTAssertTrue(model.wikiEdit?.hasChanges == true)
-        XCTAssertEqual(try String(contentsOf: path), raw)
-    }
+    // MARK: Saving
 
-    func testSavingPreservesFrontmatterBytesAndOtherFiles() throws {
-        let prefix = "---\r\n# Keep this comment\r\ntitle: 'Tea 🍵'\r\ncustom: [one, two]\r\n---\r\n"
-        let raw = prefix + "\r\n# Tea\r\n\r\nOriginal.\r\n"
-        let url = root.appendingPathComponent("Tea.md")
-        try Data(raw.utf8).write(to: url)
-        let neighbor = root.appendingPathComponent("Other.md")
-        try Data("untouched".utf8).write(to: neighbor)
-        let document = makeFile(raw, path: "Tea.md")
-        XCTAssertEqual(document.frontmatterPrefix, prefix)
-        let body = document.editableBody.replacingOccurrences(of: "Original.", with: "Updated **text** and [[Other|other note]].")
-        let saved = try WikiSave.body(body, of: document, in: Vault(root: root))
-        XCTAssertEqual(try Data(contentsOf: url), Data((prefix + body).utf8))
-        XCTAssertEqual(saved.metadata["custom"] as? [String], ["one", "two"])
-        XCTAssertEqual(try String(contentsOf: neighbor), "untouched")
-    }
-
-    func testSavingRefusesExternalChangesAndDeletedFiles() throws {
-        let document = makeFile("# Original\n", path: "Note.md")
-        let url = root.appendingPathComponent("Note.md")
-        try Data("# External edit\n".utf8).write(to: url)
-        let vault = Vault(root: root)
-        XCTAssertThrowsError(try WikiSave.body("# My edit\n", of: document, in: vault))
-        XCTAssertEqual(try String(contentsOf: url), "# External edit\n")
-        try FileManager.default.removeItem(at: url)
-        XCTAssertThrowsError(try WikiSave.body("# My edit\n", of: document, in: vault))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
-    }
-
-    @MainActor func testEditorStartsOnOpenAndSavesOnlyOnRequest() async throws {
-        let path = root.appendingPathComponent("Note.md")
-        let raw = "# Note\nOriginal.\n"
-        try Data(raw.utf8).write(to: path)
-        let document = makeFile(raw, path: "Note.md")
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = [document]
-        model.openDocument(document.id)
-        let session = try XCTUnwrap(model.wikiEdit)
-        XCTAssertFalse(session.hasChanges)
-        session.text += "Unsaved thought.\n"
-        model.openDocument(document.id)
-        model.reload()
-        for _ in 0..<100 where model.loading { try await Task.sleep(for: .milliseconds(10)) }
-        XCTAssertTrue(model.wikiEdit === session)
-        XCTAssertFalse(model.loading)
-        XCTAssertEqual(try String(contentsOf: path), raw)
-        XCTAssertTrue(model.saveWikiEdit())
-        XCTAssertEqual(try String(contentsOf: path), raw + "Unsaved thought.\n")
-        XCTAssertTrue(model.wikiEdit === session)
-        XCTAssertFalse(session.hasChanges)
-    }
-
-    @MainActor func testNavigationRequiresSaveDiscardOrCancel() throws {
-        for choice in [NSApplication.ModalResponse.alertFirstButtonReturn, .alertSecondButtonReturn, .alertThirdButtonReturn] {
-            let path = root.appendingPathComponent("First.md")
-            let raw = "---\ntitle: First\n---\n\nOriginal.\n"
-            try Data(raw.utf8).write(to: path)
-            let first = makeFile(raw, path: "First.md")
-            let second = makeFile("# Second", path: "Second.md")
-            let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-            model.files = [first, second]
-            var prompts = 0
-            model.confirmWikiChanges = { document in
-                XCTAssertEqual(document.id, first.id)
-                prompts += 1
-                return choice
-            }
-            model.openDocument(first.id)
-            model.wikiEdit?.text = "\nChanged text.\n"
-            model.openDocument(second.id)
-            XCTAssertEqual(prompts, 1)
-            if choice == .alertThirdButtonReturn {
-                XCTAssertEqual(model.selectedDocument, first.id)
-                XCTAssertEqual(model.wikiEdit?.markdown, "\nChanged text.\n")
-            } else {
-                XCTAssertEqual(model.selectedDocument, second.id)
-                XCTAssertEqual(model.wikiEdit?.document.id, second.id)
-                XCTAssertFalse(try XCTUnwrap(model.wikiEdit).hasChanges)
-                model.navigate(-1)
-                XCTAssertEqual(model.wikiEdit?.document.id, first.id)
-            }
-            XCTAssertEqual(try String(contentsOf: path), choice == .alertFirstButtonReturn ? first.frontmatterPrefix + "\nChanged text.\n" : raw)
+    @MainActor private func makeModel(_ files: [(String, String)]) throws -> AppModel {
+        for (path, raw) in files {
+            let url = root.appendingPathComponent(path)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(raw.utf8).write(to: url)
         }
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        model.files = files.map { makeFile($0.1, path: $0.0) }
+        return model
     }
 
-    @MainActor func testFailedSaveKeepsDraftOpen() throws {
-        let path = root.appendingPathComponent("First.md")
-        let first = makeFile("# First\n", path: "First.md")
-        try Data(first.raw.utf8).write(to: path)
-        let second = makeFile("# Second", path: "Second.md")
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = [first, second]
-        model.confirmWikiChanges = { _ in .alertFirstButtonReturn }
-        model.openDocument(first.id)
-        model.wikiEdit?.text = "My newer edit."
-        try Data("External edit.".utf8).write(to: path)
-        model.openDocument(second.id)
-        XCTAssertEqual(model.selectedDocument, first.id)
-        XCTAssertEqual(model.wikiEdit?.markdown, "My newer edit.")
+    private func disk(_ path: String) throws -> String {
+        try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
+    }
+
+    private func write(_ text: String, to path: String) throws {
+        try Data(text.utf8).write(to: root.appendingPathComponent(path))
+    }
+
+    @MainActor private func settle(_ model: AppModel) async throws {
+        for _ in 0..<100 where model.loading { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertFalse(model.loading)
+    }
+
+    func testDiskChangeClassification() {
+        XCTAssertEqual(DiskChange.classify(baseline: "a", editor: "b", disk: "a"), .unchanged)
+        XCTAssertEqual(DiskChange.classify(baseline: "a", editor: "b", disk: "b"), .match)
+        XCTAssertEqual(DiskChange.classify(baseline: "a", editor: "a", disk: "c"), .clean)
+        XCTAssertEqual(DiskChange.classify(baseline: "a", editor: "b", disk: "c"), .conflict)
+        XCTAssertEqual(DiskChange.classify(baseline: "a", editor: "a", disk: nil), .clean)
+        XCTAssertEqual(DiskChange.classify(baseline: "a", editor: "b", disk: nil), .conflict)
+    }
+
+    @MainActor func testSamePageAnchorKeepsTheSession() throws {
+        let model = try makeModel([("Note.md", "# Note\n\n## Details\nOriginal.\n")])
+        model.openDocument("Note.md")
+        let session = model.editor
+        XCTAssertNotNil(session)
+        model.openDocument("Note.md", anchor: "details")
+        XCTAssertTrue(model.editor === session)
+        XCTAssertEqual(model.requestedAnchor, "details")
+    }
+
+    @MainActor func testAnEditSavesTheWholeTextAndLeavesOtherFilesAlone() throws {
+        let raw = "---\r\n# Keep this comment\r\ntitle: 'Tea 🍵'\r\n---\r\n\r\n# Tea\r\n\r\nOriginal.\r\n"
+        let model = try makeModel([("Tea.md", raw), ("Other.md", "untouched")])
+        model.openDocument("Tea.md")
+        let edited = raw.replacingOccurrences(of: "Original.", with: "Updated **text** and [[Other|other note]].")
+        model.editorChanged(path: "Tea.md", text: edited)
+        XCTAssertEqual(try disk("Tea.md"), edited)
+        XCTAssertEqual(try disk("Other.md"), "untouched")
+        XCTAssertEqual(model.editor?.status, .saved)
+        XCTAssertFalse(try XCTUnwrap(model.editor).hasChanges)
+        XCTAssertEqual(model.files.first { $0.id == "Tea.md" }?.raw, edited)
+    }
+
+    @MainActor func testAChangeOnDiskStopsSavesUntilTheReaderChooses() throws {
+        let model = try makeModel([("Note.md", "# Original\n")])
+        model.openDocument("Note.md")
+        try write("# External edit\n", to: "Note.md")
+        model.editorChanged(path: "Note.md", text: "# My edit\n")
+        XCTAssertEqual(model.editor?.status, .conflict)
+        XCTAssertEqual(try disk("Note.md"), "# External edit\n")
+        model.editorChanged(path: "Note.md", text: "# My newer edit\n")
+        XCTAssertEqual(try disk("Note.md"), "# External edit\n", "A conflict blocks each save")
+
+        model.keepEditorText()
+        XCTAssertEqual(try disk("Note.md"), "# My newer edit\n")
+        XCTAssertEqual(model.editor?.status, .saved)
+    }
+
+    @MainActor func testReloadDropsTheEditsAndLoadsTheDisk() throws {
+        let model = try makeModel([("Note.md", "# Original\n")])
+        model.openDocument("Note.md")
+        let session = try XCTUnwrap(model.editor)
+        try write("# External edit\n", to: "Note.md")
+        model.editorChanged(path: "Note.md", text: "# My edit\n")
+        let revision = session.revision
+        model.reloadEditorFromDisk()
+        XCTAssertEqual(session.text, "# External edit\n")
+        XCTAssertEqual(session.revision, revision + 1, "The page loads the disk text")
+        XCTAssertEqual(session.status, .opened)
+        XCTAssertEqual(try disk("Note.md"), "# External edit\n")
+    }
+
+    @MainActor func testADeletedFileWithEditsIsAConflict() throws {
+        let model = try makeModel([("Note.md", "# Original\n")])
+        model.openDocument("Note.md")
+        try FileManager.default.removeItem(at: root.appendingPathComponent("Note.md"))
+        model.editorChanged(path: "Note.md", text: "# My edit\n")
+        XCTAssertEqual(model.editor?.status, .conflict)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Note.md").path))
+        model.keepEditorText()
+        XCTAssertEqual(try disk("Note.md"), "# My edit\n")
+    }
+
+    /// The page saves the last edit of a file after it opens the next file.
+    @MainActor func testTheLastEditOfAClosedFileStillSaves() throws {
+        let model = try makeModel([("First.md", "# First\n"), ("Second.md", "# Second\n")])
+        model.openDocument("First.md")
+        model.editors["First.md"]?.text = "# First, edited\n"
+        model.openDocument("Second.md")
+        XCTAssertNotNil(model.editors["First.md"], "A session with edits stays until it saves")
+        model.editorChanged(path: "First.md", text: "# First, edited\n")
+        XCTAssertEqual(try disk("First.md"), "# First, edited\n")
+        XCTAssertNil(model.editors["First.md"], "A saved session of a closed file goes away")
+        XCTAssertEqual(model.selectedDocument, "Second.md")
+    }
+
+    @MainActor func testRefreshLoadsADiskChangeIntoACleanEditor() async throws {
+        let model = try makeModel([("Note.md", "# Note\n")])
+        model.openDocument("Note.md")
+        let session = try XCTUnwrap(model.editor)
+        model.reload()
+        try await settle(model)
+        XCTAssertTrue(model.editor === session)
+        XCTAssertEqual(session.revision, 0)
+        try write("# External update\n", to: "Note.md")
+        model.reload()
+        try await settle(model)
+        XCTAssertEqual(session.text, "# External update\n")
+        XCTAssertEqual(session.revision, 1)
+        XCTAssertEqual(session.status, .opened)
+    }
+
+    @MainActor func testRefreshAfterAnOwnSaveIsNotAConflict() async throws {
+        let model = try makeModel([("Note.md", "# Note\n")])
+        model.openDocument("Note.md")
+        model.editorChanged(path: "Note.md", text: "# Note\nMore.\n")
+        model.reload()
+        try await settle(model)
+        XCTAssertEqual(model.editor?.status, .saved)
+        XCTAssertEqual(model.editor?.revision, 0)
+    }
+
+    @MainActor func testRefreshMarksAConflictWhenTheEditorHasEdits() async throws {
+        let model = try makeModel([("Note.md", "# Note\n")])
+        model.openDocument("Note.md")
+        model.editors["Note.md"]?.text = "# Note\nUnsent edit.\n"
+        try write("# Agent edit\n", to: "Note.md")
+        model.reload()
+        try await settle(model)
+        XCTAssertEqual(model.editor?.status, .conflict)
+        XCTAssertEqual(model.editor?.text, "# Note\nUnsent edit.\n")
+    }
+
+    @MainActor func testSettlingSavesEditsAndStopsOnAConflict() throws {
+        let model = try makeModel([("First.md", "# First\n"), ("Second.md", "# Second\n")])
+        model.openDocument("First.md")
+        model.editors["First.md"]?.text = "# First, edited\n"
+        XCTAssertTrue(model.settleEditors())
+        XCTAssertEqual(try disk("First.md"), "# First, edited\n")
+
+        model.openDocument("Second.md")
+        model.openDocument("First.md")
+        model.editors["First.md"]?.text = "# Mine\n"
+        model.openDocument("Second.md")
+        try write("# Theirs\n", to: "First.md")
+        XCTAssertFalse(model.settleEditors())
+        XCTAssertEqual(model.selectedDocument, "First.md", "Piper shows the file that needs a choice")
+        XCTAssertEqual(try disk("First.md"), "# Theirs\n")
         XCTAssertNotNil(model.store.errorMessage)
-        XCTAssertEqual(try String(contentsOf: path), "External edit.")
-        model.discardWikiEdit()
-        XCTAssertEqual(model.wikiEdit?.markdown, "External edit.")
-        XCTAssertFalse(try XCTUnwrap(model.wikiEdit).hasChanges)
     }
 
-    @MainActor func testCloseCanCancelAndDiscardWithoutSaving() throws {
-        let path = root.appendingPathComponent("Note.md")
-        let document = makeFile("# Note\n", path: "Note.md")
-        try Data(document.raw.utf8).write(to: path)
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = [document]
-        model.openDocument(document.id)
-        model.wikiEdit?.text += "Unsaved."
-        model.confirmWikiChanges = { _ in .alertThirdButtonReturn }
-        XCTAssertFalse(model.finishWikiEdit())
-        XCTAssertTrue(try XCTUnwrap(model.wikiEdit).hasChanges)
-        model.confirmWikiChanges = { _ in .alertSecondButtonReturn }
-        XCTAssertTrue(model.finishWikiEdit())
-        XCTAssertNil(model.wikiEdit)
-        XCTAssertEqual(try String(contentsOf: path), document.raw)
-        model.openDocument(document.id)
-        XCTAssertEqual(model.wikiEdit?.markdown, document.editableBody)
+    @MainActor func testAPastedImageGoesNextToTheNote() throws {
+        let model = try makeModel([("notes/Tea time.md", "# Tea\n")])
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 1, 2, 3])
+        let path = try model.saveEditorImage(for: "notes/Tea time.md", type: "image/png", base64: png.base64EncodedString())
+        XCTAssertTrue(path.hasPrefix("Tea%20time.assets/"), path)
+        XCTAssertTrue(path.hasSuffix(".png"))
+        let file = root.appendingPathComponent("notes").appendingPathComponent(path.removingPercentEncoding ?? path)
+        XCTAssertEqual(try Data(contentsOf: file), png)
+        XCTAssertEqual(try model.saveEditorImage(for: "notes/Tea time.md", type: "image/png", base64: png.base64EncodedString()), path,
+                       "The same image gets the same name")
+        XCTAssertThrowsError(try model.saveEditorImage(for: "notes/Tea time.md", type: "image/png", base64: ""))
     }
 
-    @MainActor func testRefreshUpdatesCleanEditorAndPreservesUnchangedSession() async throws {
-        let path = root.appendingPathComponent("Note.md")
-        let document = makeFile("# Note\n", path: "Note.md")
-        try Data(document.raw.utf8).write(to: path)
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = [document]
-        model.openDocument(document.id)
-        let session = try XCTUnwrap(model.wikiEdit)
-        model.reload()
-        for _ in 0..<100 where model.loading { try await Task.sleep(for: .milliseconds(10)) }
-        XCTAssertFalse(model.loading)
-        XCTAssertTrue(model.wikiEdit === session)
-        try Data("# External update\n".utf8).write(to: path)
-        model.reload()
-        for _ in 0..<100 where model.loading { try await Task.sleep(for: .milliseconds(10)) }
-        XCTAssertFalse(model.loading)
-        XCTAssertEqual(model.wikiEdit?.markdown, "# External update\n")
-        XCTAssertFalse(try XCTUnwrap(model.wikiEdit).hasChanges)
+    func testTheAssetSchemeServesOnlyFilesOfTheFolder() throws {
+        try FileManager.default.createDirectory(at: root.appendingPathComponent("img"), withIntermediateDirectories: true)
+        try Data("png".utf8).write(to: root.appendingPathComponent("img/a b.png"))
+        try Data("<p>app</p>".utf8).write(to: root.appendingPathComponent("app.html"))
+        let vault = Vault(root: root)
+        let (data, type) = try AssetSchemeHandler.load(URL(string: "piper-asset://folder/img/a%20b.png")!, from: vault)
+        XCTAssertEqual(data, Data("png".utf8))
+        XCTAssertEqual(type, "image/png")
+        XCTAssertEqual(try AssetSchemeHandler.load(URL(string: "piper-asset://folder/app.html")!, from: vault).1, "text/html")
+        XCTAssertThrowsError(try AssetSchemeHandler.load(URL(string: "piper-asset://folder/../secret.txt")!, from: vault))
+        XCTAssertThrowsError(try AssetSchemeHandler.load(URL(string: "piper-asset://folder/")!, from: vault))
     }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import Agents
+import CryptoKit
 import ApplicationServices
 import Observation
 import PiperCore
@@ -35,21 +36,23 @@ final class AppModel {
     @ObservationIgnored private var reloadPending = false
     var route = "wiki"
     var workspace = WikiWorkspace()
-    var wikiEdit: WikiEditSession?
-    var confirmWikiChanges: (VaultFile) -> NSApplication.ModalResponse = { document in
-        let alert = NSAlert()
-        alert.messageText = "Save changes to “\(document.title)”?"
-        alert.informativeText = "Your changes have not been saved to the Markdown file."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Discard")
-        alert.addButton(withTitle: "Cancel").keyEquivalent = "\u{1b}"
-        return alert.runModal()
-    }
+    /// The editor sessions by path: the open file, and each file with text that is not on disk.
+    var editors: [String: EditorSession] = [:]
     var captureEdits: [UUID: CaptureEditSession] = [:]
     var selectedDocument: String? { workspace.location?.path }
+    /// The open file. A deleted file stays open while the editor holds text that is not on disk.
     var currentDocument: VaultFile? {
-        if let edit = wikiEdit, edit.hasChanges, edit.document.id == selectedDocument { return edit.document }
-        return files.first { $0.id == selectedDocument }
+        files.first { $0.id == selectedDocument } ?? selectedDocument.flatMap { editors[$0]?.document }
+    }
+    /// The editor session of the open file.
+    var editor: EditorSession? { selectedDocument.flatMap { editors[$0] } }
+    /// The web page of the editor. Piper creates it when the main window first shows a Markdown file.
+    @ObservationIgnored private(set) var loadedEditorPage: EditorPage?
+    var editorPage: EditorPage {
+        if let loadedEditorPage { return loadedEditorPage }
+        let page = EditorPage(model: self)
+        loadedEditorPage = page
+        return page
     }
     /// What the actions in the toolbar run on. The window sets it with the selection.
     var actionTarget = SkillTarget.folder
@@ -242,35 +245,41 @@ final class AppModel {
         guard !loading else { reloadPending = true; return }
         reloadPending = false
         loading = true
-        let edit = wikiEdit
-        let original = edit?.document.raw
         Task {
             defer {
                 loading = false
                 if reloadPending { reload() }
             }
             let result = await Task.detached { Result { try repo.scan() } }.value
-            guard repo.root == vault.root, wikiEdit === edit, wikiEdit?.document.raw == original else {
+            guard repo.root == vault.root else {
                 reloadPending = true
                 return
             }
-            let hasDraft = wikiEdit?.hasChanges == true
             switch result {
             case .success(let scan):
                 wikiProblems = scan.problems
                 wikiError = nil
                 let firstLoad = files.isEmpty && workspace.history.isEmpty
+                let previous = Dictionary(files.map { ($0.id, $0.modifiedAt) }, uniquingKeysWith: { first, _ in first })
+                for file in scan.files where ["html", "htm"].contains((file.id as NSString).pathExtension.lowercased()) {
+                    if let date = previous[file.id], date != file.modifiedAt { loadedEditorPage?.assetChanged(file.id) }
+                }
                 files = scan.files
                 folders = scan.folders
                 let previousLocation = workspace.location
                 var paths = Set(files.map(\.id))
-                // A deleted file can still have an unsaved draft in the editor.
-                if hasDraft, let edit = wikiEdit { paths.insert(edit.document.id) }
-                workspace.reconcile(paths: paths)
-                if !hasDraft {
-                    if currentDocument?.id != wikiEdit?.document.id || currentDocument?.raw != wikiEdit?.document.raw { wikiEdit = nil }
-                    beginWikiEdit()
+                for (path, session) in editors {
+                    if let file = files.first(where: { $0.id == path }) {
+                        if file.raw != session.baseline { session.diskChanged(in: repo) }
+                        if !session.hasChanges { session.document = file }
+                    } else if session.hasChanges {
+                        // A deleted file stays open while the editor holds text that is not on disk.
+                        paths.insert(path)
+                    }
                 }
+                workspace.reconcile(paths: paths)
+                pruneEditors()
+                beginEdit()
                 if previousLocation != workspace.location { jump(to: workspace.location?.anchor) }
                 if let pending = pendingDocument, files.contains(where: { $0.id == pending }) {
                     pendingDocument = nil
@@ -285,7 +294,6 @@ final class AppModel {
             case .failure(let error):
                 files = []
                 folders = []
-                if !hasDraft { wikiEdit = nil }
                 wikiError = error.localizedDescription
             }
         }
@@ -317,7 +325,7 @@ final class AppModel {
     }
 
     func addWikiFolders(_ urls: [URL]) {
-        guard let first = urls.first, finishWikiEdit() else { return }
+        guard let first = urls.first, settleEditors() else { return }
         for url in urls { registerWikiFolder(url) }
         changeWiki(to: first)
     }
@@ -334,7 +342,7 @@ final class AppModel {
     }
 
     func changeWiki(to url: URL) {
-        guard finishWikiEdit() else { return }
+        guard settleEditors() else { return }
         wikiPath = registerWikiFolder(url)
         workspace = WikiWorkspace()
         initialDocument = nil
@@ -366,9 +374,9 @@ final class AppModel {
     }
 
     func createWiki() {
-        guard finishWikiEdit() else { return }
+        guard settleEditors() else { return }
         do { try vault.create(); reload() }
-        catch { beginWikiEdit(); store.report(error) }
+        catch { store.report(error) }
     }
 
     func openLink(_ url: URL, from document: VaultFile) {
@@ -393,15 +401,16 @@ final class AppModel {
     func openDocument(_ path: String, anchor: String? = nil, markAsRead: Bool = true) {
         if path == selectedDocument {
             route = "wiki"
-            beginWikiEdit()
+            beginEdit()
             if markAsRead { markCurrentDocumentRead() }
             if let anchor { jump(to: anchor) }
             return
         }
-        guard files.contains(where: { $0.id == path }), finishWikiEdit() else { return }
+        guard files.contains(where: { $0.id == path }) else { return }
         route = "wiki"
         workspace.open(WikiLocation(path: path, anchor: anchor))
-        beginWikiEdit()
+        pruneEditors()
+        beginEdit()
         jump(to: anchor)
         if markAsRead { markCurrentDocumentRead() }
     }
@@ -409,52 +418,161 @@ final class AppModel {
     func navigate(_ offset: Int) {
         let next = workspace.position + offset
         guard workspace.history.indices.contains(next) else { return }
-        if workspace.history[next].path != selectedDocument, !finishWikiEdit() { return }
         workspace.move(offset)
-        beginWikiEdit()
+        pruneEditors()
+        beginEdit()
         jump(to: workspace.location?.anchor)
         markCurrentDocumentRead()
     }
 
-    func beginWikiEdit() {
-        guard wikiEdit == nil, let document = currentDocument, document.isMarkdown, document.isText else { return }
-        wikiEdit = WikiEditSession(document: document)
+    // MARK: - Editor
+
+    /// Starts an editor session for the open Markdown file, if it has none.
+    func beginEdit() {
+        guard let document = currentDocument, document.isMarkdown, document.isText,
+              editors[document.id] == nil else { return }
+        editors[document.id] = EditorSession(document: document)
     }
 
-    @discardableResult func saveWikiEdit() -> Bool {
-        guard let edit = wikiEdit, edit.hasChanges else { return true }
-        do {
-            let saved = try WikiSave.body(edit.markdown, of: edit.document, in: vault)
-            if let index = files.firstIndex(where: { $0.id == saved.id }) { files[index] = saved }
-            edit.document = saved
-            fileReadState.markRead(saved, in: vault.root)
-            return true
-        } catch {
-            store.report(error)
+    /// Takes the text of a file from the editor and saves it.
+    ///
+    /// The editor sends its text 120 ms after the last edit, and again when it
+    /// closes a file. The text can be for a file that is no longer open.
+    func editorChanged(path: String, text: String) {
+        guard let session = editors[path] else { return }
+        session.text = text
+        saveEditor(session)
+    }
+
+    @discardableResult func saveEditor(_ session: EditorSession) -> Bool {
+        let saved = session.save(in: vault)
+        refreshFile(of: session)
+        pruneEditors()
+        return saved
+    }
+
+    /// Writes the editor text over a change on disk.
+    func keepEditorText() {
+        guard let session = editor else { return }
+        session.keepMine(in: vault)
+        refreshFile(of: session)
+    }
+
+    /// Drops the edits of the open file and loads the text on disk.
+    func reloadEditorFromDisk() {
+        guard let session = editor else { return }
+        session.reloadFromDisk(in: vault)
+        refreshFile(of: session)
+    }
+
+    /// True when a Piper session wrote the file in the last 10 minutes, or is still running.
+    func sessionWrote(_ path: String) -> Bool {
+        let recent = Date().addingTimeInterval(-AppDefaults.Editor.sessionWriteWindow)
+        return agents.runner.sessions(in: vault.root.path).contains { session in
+            session.files.contains(path) && (session.isActive || session.updatedAt > recent)
+        }
+    }
+
+    /// Saves each edit before the folder changes or Piper quits.
+    ///
+    /// A change on disk blocks the save of a file with edits. Piper then shows
+    /// that file and returns false, so the reader can choose Reload or Keep Mine.
+    func settleEditors() -> Bool {
+        for session in editors.values where session.hasChanges { saveEditor(session) }
+        if let blocked = editors.values.first(where: { $0.hasChanges || $0.status == .conflict }) {
+            if blocked.path != selectedDocument { openDocument(blocked.path) }
+            showFile?(blocked.path)
+            store.report(PiperError("“\(blocked.document.title)” changed on disk while you edited it. Choose Reload or Keep Mine first."))
             return false
         }
-    }
-
-    @discardableResult func finishWikiEdit() -> Bool {
-        if let edit = wikiEdit, edit.hasChanges {
-            switch confirmWikiChanges(edit.document) {
-            case .alertFirstButtonReturn: guard saveWikiEdit() else { return false }
-            case .alertSecondButtonReturn: break
-            default: return false
-            }
-        }
-        wikiEdit = nil
+        editors = [:]
         return true
     }
 
-    func discardWikiEdit() {
-        guard let edit = wikiEdit else { return }
-        do {
-            let saved = try vault.read(edit.document.id)
-            if let index = files.firstIndex(where: { $0.id == saved.id }) { files[index] = saved }
-            edit.document = saved
-            edit.text = WikiEditorLinks.encode(saved.editableBody)
-        } catch { store.report(error) }
+    /// Drops the sessions of the files that are not open and that hold no text off disk.
+    func pruneEditors() {
+        let kept = editors.filter { $0.key == selectedDocument || $0.value.hasChanges || $0.value.status == .conflict }
+        if kept.count != editors.count { editors = kept }
+    }
+
+    private func refreshFile(of session: EditorSession) {
+        guard !session.hasChanges, session.status == .saved, let file = try? vault.read(session.path) else { return }
+        session.document = file
+        if let index = files.firstIndex(where: { $0.id == file.id }) { files[index] = file }
+        fileReadState.markRead(file, in: vault.root)
+    }
+
+    // MARK: - Margin notes of a file
+
+    /// The link of the page note that holds the margin notes of a file.
+    func fileLink(_ path: String) -> String {
+        let absolute = vault.root.appendingPathComponent(path).path
+        return "piper-file://" + (absolute.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? absolute)
+    }
+
+    /// A file as the margin agent reads it: its title and its blocks.
+    func fileArticle(_ document: VaultFile) -> ReaderArticle {
+        let blocks = WikiMarkdown.parse(document.body)
+            .filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+            .map { ReaderArticle.Block(kind: $0.kind == .heading ? "heading" : "paragraph", text: $0.text) }
+        return ReaderArticle(url: URL(string: fileLink(document.id)) ?? vault.root, site: vault.root.lastPathComponent,
+                             title: document.title, author: "", blocks: blocks)
+    }
+
+    /// The margin notes of a file, as the editor page draws them.
+    func fileNotes(_ document: VaultFile) -> [ReaderPageNote] {
+        let link = fileLink(document.id)
+        guard let parent = store.notes.first(where: { $0.parent == nil && $0.sourceURLs.contains(link) }) else { return [] }
+        return ReaderMarks.payload(model: self, parent: parent.id, article: fileArticle(document), places: NotePlaces())
+    }
+
+    /// Runs an action of the selection bar or a margin card of the editor page.
+    func performFileAction(_ message: [String: Any], path: String) {
+        guard let document = editors[path]?.document ?? files.first(where: { $0.id == path }) else { return }
+        let link = fileLink(path)
+        ReaderMarks.perform(message, model: self, article: fileArticle(document)) {
+            store.pageNote(for: link, title: document.title, source: ReaderAssistant.source)?.id
+        }
+    }
+
+    /// Follows a link that the reader clicked in the editor.
+    func openEditorLink(kind: String, target: String) {
+        guard let document = currentDocument else { return }
+        if kind == "wiki" {
+            do {
+                let location = try WikiLinks.resolve(target, from: document, files: files, vault: vault, wikiStyle: true)
+                openDocument(location.path, anchor: location.anchor)
+            } catch { store.report(error) }
+            return
+        }
+        let encoded = target.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed)
+        guard let url = URL(string: target) ?? encoded.flatMap(URL.init(string:)) else { return }
+        openLink(url, from: document)
+    }
+
+    /// Writes a pasted image next to a note, as `<note>.assets/<hash>.<ext>`,
+    /// and returns the path for the Markdown, relative to the note.
+    func saveEditorImage(for path: String, type: String, base64: String) throws -> String {
+        guard let data = Data(base64Encoded: base64), !data.isEmpty else { throw PiperError("The image is empty.") }
+        let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined().prefix(12)
+        let stem = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
+        let name = "\(stem).assets/\(hash).\(Self.imageExtension(for: type))"
+        let url = try vault.containedURL(name, relativeTo: path)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if !FileManager.default.fileExists(atPath: url.path) { try data.write(to: url, options: .atomic) }
+        return name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
+    }
+
+    static func imageExtension(for type: String) -> String {
+        switch type.lowercased() {
+        case "image/jpeg", "image/jpg": return "jpg"
+        case "image/gif": return "gif"
+        case "image/webp": return "webp"
+        case "image/heic": return "heic"
+        case "image/svg+xml": return "svg"
+        case "image/tiff": return "tiff"
+        default: return "png"
+        }
     }
 
     func jump(to anchor: String?) {

@@ -1,0 +1,199 @@
+import { getCaretFormattingState } from "@hubble.md/editor";
+import type { Editor } from "@tiptap/core";
+import { useEffect, useState } from "react";
+import MingcuteBoldLine from "~icons/mingcute/bold-line";
+import MingcuteEarth2Line from "~icons/mingcute/earth-2-line";
+import MingcuteItalicLine from "~icons/mingcute/italic-line";
+import MingcuteLinkLine from "~icons/mingcute/link-line";
+import MingcuteStrikethroughLine from "~icons/mingcute/strikethrough-line";
+import { shouldShowFooterDivider } from "../lib/scrollOverflow";
+import { Button } from "../primitives/button";
+
+type CountMode = "words" | "chars";
+
+type CountState = {
+	wordCount: number;
+	charCount: number;
+	isSelectionCount: boolean;
+};
+
+type PaletteState = CountState & {
+	activeMarkNames: string[];
+	canEscapeBoundary: boolean;
+	showDashedDivider: boolean;
+};
+
+export type SpellcheckStatus = {
+	languages: string[];
+	openSettings: () => void;
+};
+
+export function FormattingStatusBar({
+	editor,
+	scrollContainer,
+	spellcheckStatus,
+}: {
+	editor: Editor | null;
+	scrollContainer: HTMLDivElement | null;
+	spellcheckStatus?: SpellcheckStatus | null;
+}) {
+	const [countMode, setCountMode] = useState<CountMode>("words");
+	const [paletteState, setPaletteState] = useState<PaletteState>({
+		wordCount: 0,
+		charCount: 0,
+		isSelectionCount: false,
+		activeMarkNames: [],
+		canEscapeBoundary: false,
+		showDashedDivider: false,
+	});
+
+	useEffect(() => {
+		if (!editor) return;
+		const resolvedScrollContainer =
+			scrollContainer ??
+			(editor.view.dom.closest(".editorViewport") as HTMLDivElement | null) ??
+			null;
+
+		const update = () => {
+			const counts = getFormattingStatusCounts(editor);
+			const { state } = editor;
+			const showDashedDivider = shouldShowFooterDivider(
+				resolvedScrollContainer,
+			);
+			if (!editor.isFocused || !state.selection.empty) {
+				setPaletteState({
+					...counts,
+					activeMarkNames: [],
+					canEscapeBoundary: false,
+					showDashedDivider,
+				});
+				return;
+			}
+
+			const caretState = getCaretFormattingState(state);
+			setPaletteState({
+				...counts,
+				activeMarkNames: caretState.activeMarkNames,
+				canEscapeBoundary: caretState.canEscapeBoundary,
+				showDashedDivider,
+			});
+		};
+
+		update();
+		requestAnimationFrame(update);
+		editor.on("selectionUpdate", update);
+		editor.on("transaction", update);
+		editor.on("focus", update);
+		editor.on("blur", update);
+		resolvedScrollContainer?.addEventListener("scroll", update, {
+			passive: true,
+		});
+		window.addEventListener("scroll", update, true);
+		window.addEventListener("resize", update);
+
+		return () => {
+			editor.off("selectionUpdate", update);
+			editor.off("transaction", update);
+			editor.off("focus", update);
+			editor.off("blur", update);
+			resolvedScrollContainer?.removeEventListener("scroll", update);
+			window.removeEventListener("scroll", update, true);
+			window.removeEventListener("resize", update);
+		};
+	}, [editor, scrollContainer]);
+	if (!editor) return null;
+	const dividerClass = paletteState.showDashedDivider
+		? "[border-block-start:1px_dashed_var(--border)]"
+		: "border-transparent";
+
+	return (
+		<div
+			className={`z-3 flex h-8 items-center justify-between bg-background/95 px-2 text-[12px] backdrop-blur-[2px] ${dividerClass}`}
+		>
+			<div className="flex items-center gap-1">
+				<Button
+					variant="ghost"
+					size="xs"
+					className="text-muted-foreground"
+					title={
+						countMode === "words" ? "Show character count" : "Show word count"
+					}
+					onClick={() =>
+						setCountMode((m) => (m === "words" ? "chars" : "words"))
+					}
+				>
+					{formatCountLabel(countMode, paletteState)}
+				</Button>
+				{spellcheckStatus && <SpellcheckLabel status={spellcheckStatus} />}
+			</div>
+			<div className="flex items-center gap-2 text-muted-foreground">
+				{paletteState.canEscapeBoundary && (
+					<span className="inline-flex h-4 items-center rounded-sm border border-border bg-secondary px-1 text-[11px] leading-none text-foreground shadow-overlay">
+						esc
+					</span>
+				)}
+				{paletteState.activeMarkNames.includes("bold") && (
+					<MingcuteBoldLine className="size-4" />
+				)}
+				{paletteState.activeMarkNames.includes("italic") && (
+					<MingcuteItalicLine className="size-4" />
+				)}
+				{paletteState.activeMarkNames.includes("strike") && (
+					<MingcuteStrikethroughLine className="size-4" />
+				)}
+				{paletteState.activeMarkNames.includes("link") && (
+					<MingcuteLinkLine className="size-4" />
+				)}
+			</div>
+		</div>
+	);
+}
+
+function getFormattingStatusCounts(editor: Editor): CountState {
+	const { state } = editor;
+	const isSelectionCount = editor.isFocused && !state.selection.empty;
+	const text = isSelectionCount
+		? state.doc.textBetween(state.selection.from, state.selection.to, " ")
+		: editor.getText();
+
+	return {
+		wordCount: countWords(text),
+		charCount: text.length,
+		isSelectionCount,
+	};
+}
+
+function formatCountLabel(mode: CountMode, counts: CountState) {
+	const suffix = counts.isSelectionCount ? " selected" : "";
+	return mode === "words"
+		? `${counts.wordCount} words${suffix}`
+		: `${counts.charCount} characters${suffix}`;
+}
+
+function countWords(text: string) {
+	const trimmed = text.trim();
+	if (trimmed.length === 0) return 0;
+	return trimmed.split(/\s+/).length;
+}
+
+function SpellcheckLabel({ status }: { status: SpellcheckStatus }) {
+	const label =
+		status.languages.length > 2
+			? `${status.languages[0]} +${status.languages.length - 1}`
+			: status.languages.join(", ");
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			size="xs"
+			className="text-muted-foreground"
+			title={`Spellcheck: ${status.languages.join(", ")}. Click to change.`}
+			onClick={status.openSettings}
+		>
+			<span className="inline-flex items-center gap-1">
+				<MingcuteEarth2Line className="size-3.5" />
+				{label}
+			</span>
+		</Button>
+	);
+}

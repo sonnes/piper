@@ -44,7 +44,7 @@ final class WikiRefreshTests: XCTestCase {
         XCTAssertFalse(model.isUnread(try XCTUnwrap(model.currentDocument)))
 
         try Data("# Updated\n".utf8).write(to: url, options: .atomic)
-        try await waitFor("The open document updates.") { model.wikiEdit?.markdown == "# Updated\n" }
+        try await waitFor("The open document updates.") { model.editor?.text == "# Updated\n" }
         XCTAssertTrue(model.isUnread(try XCTUnwrap(model.currentDocument)))
 
         let renamed = root.appendingPathComponent("renamed")
@@ -82,31 +82,29 @@ final class WikiRefreshTests: XCTestCase {
         try Data("# Original\n".utf8).write(to: url)
         let model = makeModel()
         model.reload()
-        try await waitFor("The editor opens.") { model.wikiEdit != nil && !model.loading }
-        let edit = try XCTUnwrap(model.wikiEdit)
+        try await waitFor("The editor opens.") { model.editor != nil && !model.loading }
+        let edit = try XCTUnwrap(model.editor)
         edit.text = "# Unsaved draft\n"
-        var prompts = 0
-        model.confirmWikiChanges = { _ in prompts += 1; return .alertSecondButtonReturn }
 
         try Data("# External change\n".utf8).write(to: url, options: .atomic)
         try Data("New file\n".utf8).write(to: root.appendingPathComponent("other.txt"))
         try await waitFor("Other changes appear while the draft stays open.") {
             model.files.count == 2 && model.files.first { $0.id == "note.md" }?.raw == "# External change\n"
         }
-        XCTAssertTrue(model.wikiEdit === edit)
-        XCTAssertEqual(edit.markdown, "# Unsaved draft\n")
-        XCTAssertFalse(model.saveWikiEdit())
+        XCTAssertTrue(model.editor === edit)
+        XCTAssertEqual(edit.text, "# Unsaved draft\n")
+        XCTAssertEqual(edit.status, .conflict)
+        XCTAssertFalse(model.saveEditor(edit))
         XCTAssertEqual(try String(contentsOf: url), "# External change\n")
 
         try FileManager.default.removeItem(at: url)
         try await waitFor("The removed file leaves the list.") { !model.files.contains { $0.id == "note.md" } }
         XCTAssertEqual(model.currentDocument?.id, "note.md")
-        XCTAssertTrue(model.wikiEdit === edit)
-        XCTAssertEqual(edit.markdown, "# Unsaved draft\n")
-        XCTAssertEqual(prompts, 0)
+        XCTAssertTrue(model.editor === edit)
+        XCTAssertEqual(edit.text, "# Unsaved draft\n")
         model.openDocument("other.txt")
-        XCTAssertEqual(prompts, 1)
         XCTAssertEqual(model.currentDocument?.id, "other.txt")
+        XCTAssertTrue(model.editors["note.md"] === edit, "The draft stays until the reader chooses")
     }
 
     func testChangingRootsDuringAScanStartsWatchingTheNewRoot() async throws {
@@ -151,18 +149,32 @@ final class WikiRefreshTests: XCTestCase {
         XCTAssertNil(model.initialDocument)
     }
 
-    func testChangingWikiCanCancelAnUnsavedEdit() async throws {
-        try Data("# Old\n".utf8).write(to: root.appendingPathComponent("old.md"))
+    func testChangingWikiSavesAnEditFirst() async throws {
+        let url = root.appendingPathComponent("old.md")
+        try Data("# Old\n".utf8).write(to: url)
         let model = makeModel()
         model.reload()
         try await waitFor("The initial scan finishes.") { !model.loading }
-        model.wikiEdit?.text += "QA draft"
-        let session = model.wikiEdit
-        model.confirmWikiChanges = { _ in .alertThirdButtonReturn }
+        model.editor?.text += "QA draft"
+        model.changeWiki(to: root.appendingPathComponent("next"))
+        XCTAssertEqual(model.wikiPath, root.appendingPathComponent("next").path)
+        XCTAssertEqual(try String(contentsOf: url), "# Old\nQA draft")
+    }
+
+    func testChangingWikiStopsWhenAnEditHasAConflict() async throws {
+        let url = root.appendingPathComponent("old.md")
+        try Data("# Old\n".utf8).write(to: url)
+        let model = makeModel()
+        model.reload()
+        try await waitFor("The initial scan finishes.") { !model.loading }
+        let session = try XCTUnwrap(model.editor)
+        session.text += "QA draft"
+        try Data("# Agent edit\n".utf8).write(to: url)
         model.changeWiki(to: root.appendingPathComponent("next"))
         XCTAssertEqual(model.wikiPath, root.path)
-        XCTAssertTrue(model.wikiEdit === session)
-        XCTAssertTrue(try XCTUnwrap(session).hasChanges)
+        XCTAssertTrue(model.editor === session)
+        XCTAssertTrue(session.hasChanges)
+        XCTAssertEqual(try String(contentsOf: url), "# Agent edit\n")
     }
 
     func testNewVaultResetsFolderStateAndKeepsPaneWidths() {

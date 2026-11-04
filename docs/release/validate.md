@@ -133,13 +133,17 @@ The middle-pane search filters the selected folder. A matching file in another f
 ## Editing Checks
 
 1. Edit a Markdown file that has frontmatter.
-2. Make sure that the byline shows Edited and Save, and that the file on disk has not changed.
-3. Select Save in the byline. Compare the file: the frontmatter and Wiki links must be unchanged.
-4. Make sure that Command-Z still reverses the edit after the save.
-5. Edit again, open another file, and select Cancel. Make sure that the draft stays.
-6. Open another file and select Discard. Make sure that the first file has not changed.
-7. Edit again and close the window with Command-W. Select Save and compare the file.
-8. Edit again, then change the file in another app. Save and make sure that Piper refuses.
+2. Wait one second. Make sure that the byline shows Saved and that the file on disk has the edit.
+3. Compare the file: the frontmatter and Wiki links must be unchanged.
+4. Press Command-Z, Command-B, and Command-V in the editor. Make sure that each key edits the page, and that a pasted image saves in `<note name>.assets`.
+5. Type Japanese text with the macOS input method. Make sure that the text is correct on disk.
+6. Edit, then open another file within one second. Make sure that the first file has the edit.
+7. Edit, then quit with Command-Q within one second. Make sure that the file has the edit.
+8. Change the open file in another app. Make sure that the page shows the new text.
+9. Edit, then change the file in another app before the save. Make sure that the bar shows, and that Keep Mine and Reload work.
+10. Open a file with a footnote. Make sure that Preview is read-only, and that Source edits it.
+11. Press Command-F and find a word. Press Command-K with no text selected, and open a file.
+12. Select text in a file. Select each color, Note, and Explain. Make sure that the file has the highlights, and that the margin shows the note and the answer.
 
 ## Reading Preference Checks
 

@@ -5,12 +5,11 @@ import PiperCore
 import Captures
 import CapturesDatabase
 
-/// The quit path, which is the third way an unsaved edit reaches the disk.
+/// The quit path, which is the last chance for an edit to reach the disk.
 ///
-/// Navigation and window closure already have tests. `applicationShouldTerminate`
-/// composes three separate guards, and the refactor splits the code that holds
-/// them. These tests fix the order and the result of that composition, so that a
-/// later change that drops one guard fails here instead of losing a reader's work.
+/// `applicationShouldTerminate` composes separate guards. These tests fix the
+/// order and the result of that composition, so that a later change that drops
+/// one guard fails here instead of losing a reader's work.
 @MainActor
 final class QuitSafetyTests: XCTestCase {
 
@@ -34,7 +33,7 @@ final class QuitSafetyTests: XCTestCase {
     private func shouldTerminate(_ model: AppModel, resolveCapture: (CaptureEditSession) -> Bool) -> Bool {
         model.route = "wiki"
         for session in Array(model.captureEdits.values) where !resolveCapture(session) { return false }
-        return model.finishWikiEdit()
+        return model.settleEditors()
     }
 
     /// Waits for the scan that `reload()` starts.
@@ -89,35 +88,33 @@ final class QuitSafetyTests: XCTestCase {
 
     // MARK: The open wiki file
 
-    func testCancellingTheWikiPromptBlocksQuitAndKeepsTheDraft() async throws {
+    func testQuitSavesAnEditThatTheEditorHasNotSaved() async throws {
         let model = try makeWiki()
         model.reload()
         try await settle(model)
         model.openDocument("note.md")
-        guard let edit = model.wikiEdit else { return XCTFail("Opening a file must start an edit session") }
-        edit.text = "An unsaved body."
+        guard let session = model.editor else { return XCTFail("Opening a file must start an editor session") }
+        session.text = "---\ntitle: A note\n---\n\nAn edited body.\n"
 
-        model.confirmWikiChanges = { _ in .alertThirdButtonReturn }
-        XCTAssertFalse(shouldTerminate(model) { _ in true })
-        XCTAssertTrue(model.wikiEdit?.hasChanges == true, "Cancel keeps the draft in memory")
-
+        XCTAssertTrue(shouldTerminate(model) { _ in true })
         let onDisk = try String(contentsOf: URL(fileURLWithPath: wikiPath).appendingPathComponent("note.md"), encoding: .utf8)
-        XCTAssertTrue(onDisk.contains("Original body."), "Cancel must not write the draft")
+        XCTAssertTrue(onDisk.contains("An edited body."), "Quit saves the last edit")
     }
 
-    func testDiscardingTheWikiPromptAllowsQuitAndLeavesTheFileAlone() async throws {
+    func testAChangeOnDiskBlocksQuitAndKeepsTheDraft() async throws {
         let model = try makeWiki()
         model.reload()
         try await settle(model)
         model.openDocument("note.md")
-        guard let edit = model.wikiEdit else { return XCTFail("Opening a file must start an edit session") }
-        edit.text = "An unsaved body."
+        guard let session = model.editor else { return XCTFail("Opening a file must start an editor session") }
+        session.text = "An unsaved body."
+        let url = URL(fileURLWithPath: wikiPath).appendingPathComponent("note.md")
+        try Data("An agent wrote this.".utf8).write(to: url)
 
-        model.confirmWikiChanges = { _ in .alertSecondButtonReturn }
-        XCTAssertTrue(shouldTerminate(model) { _ in true })
-
-        let onDisk = try String(contentsOf: URL(fileURLWithPath: wikiPath).appendingPathComponent("note.md"), encoding: .utf8)
-        XCTAssertTrue(onDisk.contains("Original body."), "Discard must not write the draft")
+        XCTAssertFalse(shouldTerminate(model) { _ in true })
+        XCTAssertEqual(model.editor?.text, "An unsaved body.", "The draft stays in the editor")
+        XCTAssertEqual(model.editor?.status, .conflict)
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "An agent wrote this.", "Quit must not write over the change")
     }
 
     func testAnOpenSheetIsClosedSoTheAlertCanAppear() throws {

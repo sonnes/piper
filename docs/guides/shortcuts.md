@@ -61,19 +61,19 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 | --- | --- |
 | Command-O | Open All Files and move the focus to its search field |
 | Command-N | Open the note composer in the selected Inbox section, or in Inbox from another pane |
-| Command-S | Save the open Markdown file |
+| Command-S | Save the open Markdown file at once. Piper also saves 120 ms after an edit. |
+| Command-K | Open the command palette. In the editor, with text selected, make a link. |
+| Command-F | Find and replace text in the open Markdown file |
 | Command-R | Scan the folder again |
 | Command-[ | Go back |
 | Command-] | Go forward |
 | Command-Z | Undo an edit |
 | Command-W | Close the window |
 | Option-Command-C | Open or close the session card, or bring the detached session panel to the front |
-| Command-K | In the Reader tab, ask about the selected text |
+| Command-K | In the Reader tab, with text selected, ask about the selected text |
 | N | In the Reader tab, write a note on the selected text |
 | Option-Down Arrow / Option-Up Arrow | In the Reader tab, move to the next or the previous mark |
 | Escape | In the Reader tab, close the selection bar |
-
-The main window has no find command for the open file.
 
 ## Claude Sessions
 

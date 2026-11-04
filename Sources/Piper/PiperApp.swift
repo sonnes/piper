@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var toastDismiss: DispatchWorkItem?
     private var readingToast: ReadingToast?
     private var sessionPanel: SessionPanelController?
+    private var palette: CommandPaletteController?
     private let model = AppModel()
     private var capture: CaptureService?
     private let sendShortcut = SendShortcut()
@@ -111,6 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         for (title, action, key) in [("Undo", Selector(("undo:")), "z"), ("Cut", #selector(NSText.cut(_:)), "x"), ("Copy", #selector(NSText.copy(_:)), "c"), ("Paste", #selector(NSTextView.pasteAsPlainText(_:)), "v"), ("Select All", #selector(NSText.selectAll(_:)), "a")] {
             edit.addItem(withTitle: title, action: action, keyEquivalent: key)
         }
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Find…", action: #selector(EditorWebView.findInPage(_:)), keyEquivalent: "f")
         let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
         editItem.submenu = edit
         main.addItem(editItem)
@@ -132,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         goMenu.addItem(withTitle: "Forward", action: #selector(goForward), keyEquivalent: "]").target = self
         goMenu.addItem(.separator())
         goMenu.addItem(withTitle: "Search", action: #selector(searchWiki), keyEquivalent: "o").target = self
+        goMenu.addItem(withTitle: "Go to File…", action: #selector(showPalette), keyEquivalent: "k").target = self
         let goItem = NSMenuItem(title: "Go", action: nil, keyEquivalent: "")
         goItem.submenu = goMenu
         main.addItem(goItem)
@@ -239,13 +243,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         mainWindowController?.showBrowser()
     }
 
-    @objc private func saveFile() { model.saveWikiEdit() }
+    /// Saves the open file at once. The editor saves by itself 120 ms after an edit.
+    @objc private func saveFile() {
+        Task { @MainActor in
+            await flushEditor()
+            if let session = model.editor { model.saveEditor(session) }
+        }
+    }
+
+    /// Takes the newest text from the editor page, which can be newer than its last save.
+    private func flushEditor() async {
+        guard let page = model.loadedEditorPage, let (path, text) = await page.flush() else { return }
+        model.editorChanged(path: path, text: text)
+    }
     @objc private func refreshVault() { model.reload(); mainWindowController?.refreshPanes() }
     @objc private func goBack() { model.navigate(-1); mainWindowController?.refreshPanes() }
     @objc private func goForward() { model.navigate(1); mainWindowController?.refreshPanes() }
     @objc private func searchWiki() {
         showLibrary()
         mainWindowController?.showAllFiles()
+    }
+
+    /// Opens the command palette over the main window.
+    @objc private func showPalette() {
+        showLibrary()
+        guard let window = mainWindowController?.window else { return }
+        if palette == nil { palette = CommandPaletteController(model: model) }
+        palette?.toggle(over: window, commands: paletteCommands) { [weak self] path in
+            self?.mainWindowController?.showFile(path)
+        }
+    }
+
+    private var paletteCommands: [PaletteCommand] {
+        [
+            PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.mainWindowController?.newDocument(nil) },
+            PaletteCommand(title: "Show Brief", shortcut: "⌘0") { [weak self] in self?.showBrief() },
+            PaletteCommand(title: "Search All Files", shortcut: "⌘O") { [weak self] in self?.searchWiki() },
+            PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.loadedEditorPage?.command("find") },
+            PaletteCommand(title: model.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
+                self?.model.showsFileSource.toggle()
+            },
+            PaletteCommand(title: "Back", shortcut: "⌘[") { [weak self] in self?.goBack() },
+            PaletteCommand(title: "Forward", shortcut: "⌘]") { [weak self] in self?.goForward() },
+            PaletteCommand(title: "Refresh", shortcut: "⌘R") { [weak self] in self?.refreshVault() },
+            PaletteCommand(title: "Capture Panel", shortcut: "⌘1") { [weak self] in self?.showPanel() },
+            PaletteCommand(title: "Settings", shortcut: "⌘,") { [weak self] in self?.settings() },
+        ]
     }
 
     @objc private func settings() {
@@ -343,7 +386,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if sender === mainWindowController?.window { return model.finishWikiEdit() }
+        if sender === mainWindowController?.window {
+            // The window hides, and the editor page stays. Its last edit still saves.
+            Task { @MainActor in await flushEditor() }
+            return true
+        }
         if let session = editorSessions[ObjectIdentifier(sender)] { return resolveCaptureEdit(session) }
         return true
     }
@@ -380,9 +427,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         for session in Array(model.captureEdits.values) {
             if !resolveCaptureEdit(session) { return .terminateCancel }
         }
-        if model.finishWikiEdit() { return .terminateNow }
-        showLibrary()
-        return .terminateCancel
+        Task { @MainActor in
+            await flushEditor()
+            let settled = model.settleEditors()
+            if !settled { showLibrary() }
+            NSApp.reply(toApplicationShouldTerminate: settled)
+        }
+        return .terminateLater
     }
 
     /// Stops the agent runs when the process gets SIGTERM, for example from

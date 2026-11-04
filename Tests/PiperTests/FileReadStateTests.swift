@@ -52,18 +52,13 @@ final class FileReadStateTests: XCTestCase {
         }
     }
 
-    @MainActor func testCancelledNavigationLeavesTheTargetUnread() throws {
+    @MainActor func testNavigationMarksEachShownFileRead() throws {
         try withModel { model, _ in
             let note = makeFile("# Note", path: "Note.md")
             let html = makeFile("<p>Page</p>", path: "page.html")
             model.files = [note, html]
             model.openDocument(note.id)
-            model.wikiEdit?.text += " changed"
-            model.confirmWikiChanges = { _ in .alertThirdButtonReturn }
-            model.openDocument(html.id)
-            XCTAssertEqual(model.selectedDocument, note.id)
             XCTAssertTrue(model.isUnread(html))
-            model.confirmWikiChanges = { _ in .alertSecondButtonReturn }
             model.openDocument(html.id)
             XCTAssertFalse(model.isUnread(html))
             let changed = VaultFile(relativePath: note.id, size: note.size,
@@ -98,8 +93,7 @@ final class FileReadStateTests: XCTestCase {
             try "# Note\nOriginal".write(to: url, atomically: true, encoding: .utf8)
             model.files = [try model.vault.read("Note.md")]
             model.openDocument("Note.md")
-            model.wikiEdit?.text += "\nSaved change"
-            XCTAssertTrue(model.saveWikiEdit())
+            model.editorChanged(path: "Note.md", text: "# Note\nOriginal\nSaved change")
             let saved = try XCTUnwrap(model.currentDocument)
             XCTAssertFalse(FileReadState(defaults: defaults).isUnread(saved, in: model.vault.root))
             XCTAssertTrue(try String(contentsOf: url).contains("Saved change"))

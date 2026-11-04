@@ -1,0 +1,353 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "open-props/easings";
+@import "../vendor/hubble/ui/tailwind.css";
+@import "../vendor/hubble/ui/theme.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Piper's reading theme over Hubble's tokens. The colors match reader.html. */
+@font-face {
+	font-family: "IBM Plex Mono";
+	src: url("IBMPlexMono-Regular.ttf") format("truetype");
+	font-weight: 400;
+}
+@font-face {
+	font-family: "IBM Plex Mono";
+	src: url("IBMPlexMono-Bold.ttf") format("truetype");
+	font-weight: 700;
+}
+@font-face {
+	font-family: "IBM Plex Mono";
+	src: url("IBMPlexMono-Italic.ttf") format("truetype");
+	font-style: italic;
+}
+
+:root {
+	color-scheme: light;
+	--piper-accent: #086aee;
+	--piper-paper: #fbfaf7;
+	--background: var(--piper-paper);
+	--foreground: rgb(0 0 0 / 0.85);
+	--card: #fff;
+	--popover: #fff;
+	--primary: var(--piper-accent);
+	--brand: var(--piper-accent);
+	--brand-accent: var(--piper-accent);
+	--brand-accent-foreground: #fff;
+	--secondary: rgb(0 0 0 / 0.045);
+	--muted: rgb(0 0 0 / 0.045);
+	--muted-foreground: rgb(0 0 0 / 0.5);
+	--accent: rgb(8 106 238 / 0.08);
+	--selected: rgb(8 106 238 / 0.2);
+	--selected-foreground: var(--foreground);
+	--border: rgb(0 0 0 / 0.09);
+	--input: rgb(0 0 0 / 0.12);
+	--ring: var(--piper-accent);
+	--piper-code: #f0efec;
+	--piper-serif: "New York", ui-serif, "Iowan Old Style", Georgia, serif;
+	--piper-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+	--piper-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+	--font-size-content: 18px;
+}
+:root[data-theme="sepia"] { --piper-paper: #f4edde; }
+:root[data-theme="slate"] { --piper-paper: #edf1f5; }
+
+:root.dark {
+	color-scheme: dark;
+	--piper-accent: #5e9ef4;
+	--piper-paper: #1b1b1c;
+	--foreground: rgb(255 255 255 / 0.88);
+	--card: #2c2c2e;
+	--popover: #2c2c2e;
+	--secondary: rgb(255 255 255 / 0.06);
+	--muted: rgb(255 255 255 / 0.06);
+	--muted-foreground: rgb(255 255 255 / 0.55);
+	--accent: rgb(94 158 244 / 0.14);
+	--selected: rgb(94 158 244 / 0.3);
+	--border: rgb(255 255 255 / 0.1);
+	--input: rgb(255 255 255 / 0.14);
+	--piper-code: #262627;
+}
+:root.dark[data-theme="sepia"] { --piper-paper: #29231e; }
+:root.dark[data-theme="slate"] { --piper-paper: #1e252d; }
+
+html,
+body,
+#root {
+	block-size: 100%;
+	margin: 0;
+	overscroll-behavior: none;
+}
+
+body {
+	font-family: var(--piper-sans);
+	color: var(--foreground);
+	background: var(--background);
+	-webkit-font-smoothing: antialiased;
+}
+
+::selection {
+	background: var(--selected);
+}
+
+[data-hubble-editor] .editorViewport {
+	--editor-content-max-inline-size: calc(640px + 96px);
+	--editor-content-padding-inline: 48px;
+}
+
+[data-hubble-editor] .ProseMirror {
+	line-height: 1.6;
+	font-family: var(--piper-serif);
+}
+:root[data-font="sans"] [data-hubble-editor] .ProseMirror { font-family: var(--piper-sans); }
+:root[data-font="mono"] [data-hubble-editor] .ProseMirror { font-family: var(--piper-mono); }
+
+[data-hubble-editor] .ProseMirror h1 { font-size: 1.8em; line-height: 1.2; }
+[data-hubble-editor] .ProseMirror h2 { font-size: 1.27em; }
+[data-hubble-editor] .ProseMirror h3 { font-size: 1.1em; }
+[data-hubble-editor] .ProseMirror h4,
+[data-hubble-editor] .ProseMirror h5,
+[data-hubble-editor] .ProseMirror h6 { font-size: 1em; }
+
+[data-hubble-editor] .ProseMirror a { color: var(--piper-accent); }
+[data-hubble-editor] .ProseMirror code { background: var(--piper-code); }
+
+.piper-header {
+	inline-size: 100%;
+	max-inline-size: calc(640px + 96px);
+	margin-inline: auto;
+	padding: 36px 48px 0;
+	box-sizing: border-box;
+}
+.piper-byline {
+	font: 12.5px var(--piper-sans);
+	color: var(--muted-foreground);
+}
+.piper-title {
+	margin-block-start: 10px;
+	font-family: var(--piper-serif);
+	font-size: calc(var(--font-size-content) * 1.8);
+	font-weight: 700;
+	line-height: 1.2;
+}
+:root[data-font="sans"] .piper-title { font-family: var(--piper-sans); }
+:root[data-font="mono"] .piper-title { font-family: var(--piper-mono); }
+[data-hubble-editor] .ProseMirror :is(code, pre) { font-family: var(--piper-mono); }
+
+.piper-source {
+	display: flex;
+	flex-direction: column;
+	block-size: 100%;
+}
+.piper-source > :last-child {
+	flex: 1;
+	min-block-size: 0;
+}
+
+.piper-selected-image {
+	outline: 2px solid var(--piper-accent);
+}
+
+.piper-embed iframe {
+	display: block;
+	inline-size: 100%;
+	block-size: 420px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background: #fff;
+	resize: vertical;
+}
+
+/* ---------- Reader bar, cards, and highlights (from reader.html) ---------- */
+:root {
+	--piper-bar: #1f1f21;
+	--piper-claude: #f97316;
+	--piper-card-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.1), 0 4px 16px rgb(0 0 0 / 0.08);
+	--piper-mark-yellow: rgb(250 204 21 / 0.38);
+	--piper-mark-green: rgb(74 222 128 / 0.32);
+	--piper-mark-pink: rgb(244 114 182 / 0.28);
+	--piper-tertiary: rgb(0 0 0 / 0.3);
+}
+:root.dark {
+	--piper-bar: #3a3a3c;
+	--piper-claude: #fb923c;
+	--piper-card-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 6px 20px rgb(0 0 0 / 0.4);
+	--piper-mark-yellow: rgb(250 204 21 / 0.28);
+	--piper-mark-green: rgb(74 222 128 / 0.22);
+	--piper-mark-pink: rgb(244 114 182 / 0.24);
+	--piper-tertiary: rgb(255 255 255 / 0.3);
+}
+
+[data-hubble-editor] mark.piper-highlight {
+	color: inherit;
+	background: var(--piper-mark-yellow);
+	border-radius: 2px;
+	padding: 0 1px;
+}
+[data-hubble-editor] mark.piper-highlight[data-color="green"] { background: var(--piper-mark-green); }
+[data-hubble-editor] mark.piper-highlight[data-color="pink"] { background: var(--piper-mark-pink); }
+[data-hubble-editor] .piper-question {
+	text-decoration: underline dashed var(--piper-claude);
+	text-decoration-thickness: 1.5px;
+	text-underline-offset: 3px;
+	cursor: default;
+}
+
+/* The column moves left to make room for the margin cards. */
+.piper-has-margin .ProseMirror,
+.piper-has-margin .editorPropertiesPanel,
+.piper-has-margin .piper-header {
+	max-inline-size: var(--piper-column) !important;
+	margin-inline: var(--piper-column-left) 0 !important;
+}
+
+.piper-selbar,
+.piper-askline {
+	position: absolute;
+	z-index: 30;
+	display: flex;
+	align-items: center;
+	border-radius: 9px;
+	background: var(--piper-bar);
+	color: #fff;
+	font: 12.5px var(--piper-sans);
+	box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+	white-space: nowrap;
+	user-select: none;
+}
+.piper-selbar { gap: 2px; padding: 4px; flex-wrap: wrap; max-width: calc(100% - 16px); }
+.piper-selbar button {
+	padding: 4px 9px;
+	border: 0;
+	border-radius: 6px;
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: default;
+}
+.piper-selbar button:hover { background: rgb(255 255 255 / 0.12); }
+.piper-selbar button.ask { background: rgb(255 255 255 / 0.14); }
+.piper-selbar button.fmt { min-width: 26px; }
+.piper-selbar .div { width: 1px; height: 16px; margin: 0 3px; background: rgb(255 255 255 / 0.18); }
+.piper-selbar button.sw {
+	width: 14px;
+	height: 14px;
+	margin: 0 3px;
+	padding: 0;
+	border-radius: 50%;
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25);
+}
+.piper-selbar button.sw.yellow { background: #facc15; }
+.piper-selbar button.sw.green { background: #4ade80; }
+.piper-selbar button.sw.pink { background: #f472b6; }
+.piper-askline { gap: 8px; width: 380px; max-width: calc(100% - 16px); padding: 6px 6px 6px 12px; font-size: 13px; }
+.piper-askline input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: #fff; font: inherit; }
+.piper-askline input::placeholder { color: rgb(255 255 255 / 0.45); }
+.piper-askline kbd { padding: 3px 7px; border-radius: 5px; background: var(--piper-claude); font: 11px var(--piper-sans); }
+.piper-askline .star { color: var(--piper-claude); }
+.piper-askline.note kbd { background: var(--piper-accent); }
+.piper-askline.note .star { color: var(--piper-accent); }
+
+.piper-margin {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	max-inline-size: calc(640px + 96px);
+	margin: 24px auto 0;
+	padding: 0 48px;
+	box-sizing: border-box;
+}
+.piper-margin.wide {
+	position: absolute;
+	top: 0;
+	left: calc(var(--piper-column-left) + var(--piper-column) + 36px);
+	width: 250px;
+	margin: 0;
+	padding: 0;
+}
+.piper-margin.wide .piper-card-slot { position: absolute; left: 0; width: 250px; }
+.piper-card {
+	position: relative;
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	padding: 10px 12px;
+	border: 0;
+	border-radius: 10px;
+	background: var(--card);
+	box-shadow: var(--piper-card-shadow);
+	color: var(--foreground);
+	font: 12.5px/1.5 var(--piper-sans);
+	text-align: left;
+}
+.piper-margin.wide .piper-card::before {
+	content: "";
+	position: absolute;
+	top: 15px;
+	left: -36px;
+	width: 30px;
+	border-top: 1.5px dashed var(--piper-claude);
+	opacity: 0.6;
+}
+.piper-card .ch { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; color: var(--muted-foreground); font-size: 11px; }
+.piper-card .ch b { color: var(--piper-claude); font-weight: 600; }
+.piper-card button { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: default; }
+.piper-card .ch .x { margin-left: auto; padding: 0 2px; color: var(--piper-tertiary); }
+.piper-card .quote {
+	margin-bottom: 8px;
+	padding-left: 8px;
+	border-left: 2px solid var(--border);
+	color: var(--muted-foreground);
+	font: italic 12px/1.4 var(--piper-serif);
+}
+.piper-card p { margin: 0 0 8px; white-space: pre-line; overflow-wrap: anywhere; }
+.piper-card code { padding: 0 3px; border-radius: 3px; background: var(--muted); font: 11.5px var(--piper-mono); }
+.piper-card .q { margin: 10px 0 4px; font-weight: 600; }
+.piper-card .quote + div > .q { margin-top: 0; }
+.piper-card .failure { color: var(--muted-foreground); }
+.piper-card .tools { margin: -2px 0 6px; color: var(--piper-tertiary); font-size: 11px; }
+.piper-card .acts {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 4px;
+	padding-top: 8px;
+	border-top: 1px solid var(--border);
+	color: var(--piper-accent);
+	font-size: 11.5px;
+}
+.piper-card .acts > * { white-space: nowrap; }
+.piper-card .acts .muted { margin-left: auto; color: var(--piper-tertiary); }
+.piper-card .follow {
+	box-sizing: border-box;
+	width: 100%;
+	height: 28px;
+	margin-top: 8px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 7px;
+	outline: 0;
+	background: var(--muted);
+	color: var(--foreground);
+	font: 12.5px var(--piper-sans);
+}
+.piper-card.mine::before { border-color: var(--piper-tertiary) !important; opacity: 1 !important; }
+.piper-card.mine .ch b { color: var(--foreground); }
+.piper-card.mine .ch .when { margin-left: auto; color: var(--piper-tertiary); }
+.piper-card.mine p:last-child { margin-bottom: 0; }
+.piper-card.min { padding: 7px 12px; color: var(--muted-foreground); }
+.piper-card.min .ch { margin: 0; }
+.piper-card .typing { margin: 0 0 4px; }
+.piper-card .typing i {
+	display: inline-block;
+	width: 5px;
+	height: 5px;
+	margin-right: 3px;
+	border-radius: 50%;
+	background: var(--piper-tertiary);
+	animation: piper-blink 1s infinite;
+}
+.piper-card .typing i:nth-child(2) { animation-delay: 0.15s; }
+.piper-card .typing i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes piper-blink { 50% { opacity: 0.2; } }

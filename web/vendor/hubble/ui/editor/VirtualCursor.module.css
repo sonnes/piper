@@ -1,0 +1,33 @@
+.cursor {
+	position: absolute;
+	border-radius: 2px;
+	background: var(--brand-accent);
+	pointer-events: none;
+	transform-origin: top;
+	transition:
+		left var(--cursor-motion-duration) var(--cursor-motion-easing),
+		top var(--cursor-motion-duration) var(--cursor-motion-easing),
+		width var(--cursor-motion-duration) var(--cursor-motion-easing),
+		height var(--cursor-motion-duration) var(--cursor-motion-easing);
+}
+
+.noPositionTransition {
+	transition: none;
+}
+
+.blinking {
+	animation: pm-cursor-blink 1s infinite;
+}
+
+@keyframes pm-cursor-blink {
+	0%,
+	40% {
+		opacity: 1;
+	}
+	80% {
+		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
+}

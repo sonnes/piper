@@ -36,7 +36,9 @@ The steps below build Piper from source.
 2. Run `make test`.
 3. Run `make run`.
 
-`make run` writes `build/Piper.app` with an ad hoc signature and opens it. The first build downloads the pinned Yams and SwiftMarkdownEngine packages. After that, capture and browsing work offline.
+`make run` writes `build/Piper.app` with an ad hoc signature and opens it. The first build downloads the pinned Yams package. After that, capture and browsing work offline.
+
+The Markdown editor is a web page in `Sources/Piper/Resources/editor.html`. The repository holds the built page, so `make run` needs no Node. If you change the code in `web/`, run `make web` to build the page again. `make web` needs Node and pnpm. `make test` runs the tests in `web/` when pnpm is installed.
 
 Piper starts with the capture panel and a menu bar icon. A second launch opens the copy that is already running.
 

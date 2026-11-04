@@ -61,17 +61,21 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Vault search across titles, paths, descriptions, and text | Implemented | `WikiWorkspaceTests` (multiple words) |
 | Unread state and folder counts | Implemented | `FileReadStateTests` |
 | Back and forward history | Implemented | `WikiWorkspaceTests` |
-| Wiki links and heading anchors | Implemented | `WikiWorkspaceTests`, `WikiEditingTests` |
-| Markdown editing with explicit save | Implemented | `WikiEditingTests`, `QuitSafetyTests` |
-| Frontmatter bytes kept through a save | Implemented | `WikiEditingTests`, `FrontmatterTests` |
-| Refusal to overwrite an external change | Implemented | `WikiEditingTests`, `PiperTests` |
-| Source view for Markdown and HTML | Implemented | `FilePreviewTests` (unsaved Markdown edits), `SourceViewTests` (line wrap) |
+| Wiki links and heading anchors | Implemented | `WikiWorkspaceTests`, `WikiEditingTests`, `web/test/paths.test.ts` |
+| Markdown editing with automatic save | Implemented | `WikiEditingTests`, `EditorPageTests`, `QuitSafetyTests` |
+| Frontmatter kept through a save | Implemented | `EditorPageTests`, `FrontmatterTests` |
+| Conflict with a change on disk | Implemented | `WikiEditingTests`, `WikiRefreshTests`, `QuitSafetyTests` |
+| Read-only Preview for syntax that a save would drop | Implemented | `web/test/lossGuard.test.ts`, `EditorPageTests` |
+| Source editing for Markdown, read-only source for HTML | Implemented | `EditorPageTests`, `FilePreviewTests`, `SourceViewTests` (line wrap) |
+| Pasted images and HTML embeds | Implemented | `WikiEditingTests` (image files, asset scheme). Image paste checked in the app. Embeds not checked in the app. |
+| Command palette | Implemented | `PaletteSearchTests`, `CommandPaletteTests` |
+| Selection bar and margin cards in a file | Implemented | `EditorPageTests`, `web/test/highlight.test.ts`, `web/test/readerLayer.test.ts`. Ask, Explain, and Define not checked in the app. |
 | Previews for non-Markdown files | Implemented | `FilePreviewTests` |
-| Markdown rendering | Partial | SwiftMarkdownEngine 0.12.0 with strikethrough. Not full CommonMark. |
+| Markdown rendering | Partial | The Hubble.md editor with GFM. Footnotes, link titles, and table alignment open read-only. |
 | Add and remove folders | Implemented | `WikiFoldersTests` |
-| Find in the open file | Not implemented | Command-F does nothing in the main window |
+| Find in the open file | Implemented | The find bar of the editor. Not checked in the app. |
 | Create a new Wiki from the UI | Not implemented | `Vault.create()` exists and has tests, but no UI calls it |
-| Concurrent external edits | Partial | A byte compare detects most changes. No shared lock. |
+| Concurrent external edits | Partial | A three-way compare before each save. No shared lock. |
 
 ## Inbox Reader
 

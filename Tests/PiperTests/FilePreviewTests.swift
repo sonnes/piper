@@ -5,12 +5,10 @@ import XCTest
 @testable import Piper
 
 final class FilePreviewTests: XCTestCase {
-    func testRawMarkdownKeepsFrontmatterAndShowsTheDraft() {
+    func testRawMarkdownKeepsFrontmatter() {
         let prefix = "---\r\ntitle: 'QA'\r\n---\r\n"
         let file = makeFile(prefix + "# Original\r\n", path: "note.MD")
         XCTAssertEqual(FilePresentation.sourceText(for: file), file.raw)
-        XCTAssertEqual(FilePresentation.sourceText(for: file, markdown: "# Draft\r\n[[Target|Label]]\r\n"),
-                       prefix + "# Draft\r\n[[Target|Label]]\r\n")
     }
 
     func testRawHTMLKeepsLiteralMarkupAndRejectsUnavailableText() {
@@ -54,14 +52,14 @@ final class FilePreviewTests: XCTestCase {
             model.files.append(file)
             model.openDocument(path)
             XCTAssertEqual(model.currentDocument?.id, path)
-            XCTAssertNil(model.wikiEdit)
-            XCTAssertTrue(model.saveWikiEdit())
-            XCTAssertThrowsError(try WikiSave.body("Replacement", of: file, in: model.vault))
+            XCTAssertNil(model.editor)
+            model.editorChanged(path: path, text: "Replacement")
             XCTAssertEqual(try Data(contentsOf: url), bytes)
+            XCTAssertNotNil(file)
         }
     }
 
-    @MainActor func testOpeningAPreviewRespectsUnsavedMarkdownChanges() throws {
+    @MainActor func testOpeningAPreviewKeepsUnsavedMarkdownChanges() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
@@ -70,14 +68,10 @@ final class FilePreviewTests: XCTestCase {
         let image = VaultFile(relativePath: "image.png", size: 10, modifiedAt: Date(), text: nil)
         model.files = [note, image]
         model.openDocument(note.id)
-        model.wikiEdit?.text += "Unsaved"
-        model.confirmWikiChanges = { _ in .alertThirdButtonReturn }
-        model.openDocument(image.id)
-        XCTAssertEqual(model.selectedDocument, note.id)
-        XCTAssertTrue(model.wikiEdit?.hasChanges == true)
-        model.confirmWikiChanges = { _ in .alertSecondButtonReturn }
+        model.editor?.text += "Unsaved"
         model.openDocument(image.id)
         XCTAssertEqual(model.selectedDocument, image.id)
-        XCTAssertNil(model.wikiEdit)
+        XCTAssertNil(model.editor)
+        XCTAssertTrue(model.editors[note.id]?.hasChanges == true, "The edit waits for its save")
     }
 }

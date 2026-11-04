@@ -20,10 +20,10 @@ enum FilePresentation {
         }
     }
 
-    static func sourceText(for document: VaultFile, markdown: String? = nil) -> String? {
+    /// The text that the Source tab shows, or nil for a file without a Source tab.
+    static func sourceText(for document: VaultFile) -> String? {
         let ext = (document.name as NSString).pathExtension.lowercased()
         guard document.isText, document.isMarkdown || ["html", "htm"].contains(ext) else { return nil }
-        if document.isMarkdown, let markdown { return document.frontmatterPrefix + markdown }
         return document.text
     }
 

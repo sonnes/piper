@@ -85,13 +85,11 @@ The window subtitle shows the number of files and the number of unread files in 
 
 Select a file in the list. The sort menu next to the search field sorts by Name or by Date.
 
-A Markdown file opens in the editor, in a centered column. The page uses the paper, the serif type, and the colors of the Reader tab. A byline over the text shows the modification date and the reading time. After a change that is not saved, the byline also shows "Edited" and a Save button. The byline scrolls with the text. If the file has no heading, its title shows under the byline.
+A Markdown file opens in the editor, in a centered column. The page uses the paper, the type, and the colors of the Reader tab. A byline over the text shows the modification date and the reading time. After a save, the byline also shows "Saved". The byline scrolls with the text. If the file has no heading, its title shows under the byline.
 
-A standalone image line, such as `![Figure](assets/figure.png)`, shows the image. The path starts at the folder of the file, or at the vault root when it starts with `/`. Piper does not load remote images.
+An image line, such as `![Figure](assets/figure.png)`, shows the image. The path starts at the folder of the file, or at the vault root when it starts with `/`. An image with an HTTP or HTTPS address loads from the web.
 
-Text between `==` marks, such as `==key point==`, shows with a yellow highlight. A footnote reference, such as `[^1]`, shows as small raised text.
-
-Wiki links use `[[Note]]`, `[[folder/Note|Label]]`, and `[[Note#Heading]]`. Relative Markdown links open from the current file. HTTP, HTTPS, and `mailto` links open in your default app.
+Wiki links use `[[Note]]`, `[[folder/Note|Label]]`, and `[[Note#Heading]]`. Relative Markdown links open from the current file. HTTP, HTTPS, and `mailto` links open in your default app. To follow a link while you edit, Command-click it.
 
 To ask an agent about the open file, press Option-Command-C. See [Talk to an agent in a session](claude.md#talk-to-an-agent-in-a-session).
 
@@ -108,7 +106,7 @@ Open Settings with Command-comma, then select Reading. The preferences change ho
 | Paper | Paper, Sepia, Slate | Paper |
 | Appearance | System, Light, Dark | System |
 
-Serif is Georgia. Paper is the background color of the Reader tab. Reset to Defaults restores the defaults.
+Serif is New York, the serif of macOS. Mono is IBM Plex Mono. Paper is the background color of the Reader tab. Reset to Defaults restores the defaults.
 
 ## Preview Other Files
 
@@ -122,30 +120,86 @@ A file larger than 4 MiB, or a file that is not UTF-8 text, uses the Quick Look 
 
 ## View The Source
 
-For a Markdown or HTML file, select Source in the tabs at the bottom of the pane. Source shows selectable, read-only text in a monospaced font. Long lines wrap at the width of the pane. The choice stays for the next file.
+For a Markdown or HTML file, select Source in the tabs at the bottom of the pane. The choice stays for the next file. Select Preview to go back to the formatted page.
 
-For Markdown, Source includes the frontmatter and your unsaved body edits. Select Preview to continue editing. For HTML, Preview shows the page and Source shows its markup. The control is off for a file that has no source text.
+For Markdown, Source is an editor for the raw text of the file, including the frontmatter. Piper saves an edit in Source the same way as an edit in Preview. For HTML, Preview shows the page and Source shows its markup as read-only text. The control is off for a file that has no source text.
 
 ## Edit A Markdown File
 
 1. Select a Markdown file.
 2. Type in the page.
-3. Press Command-S, or select Save in the byline.
 
-The editor is SwiftMarkdownEngine 0.12.0. Formatting shows as you type, and Markdown markers show near the caret. Paste inserts plain text. Command-Z reverses an edit. An empty file shows "Write in Markdown" where the text starts.
+Piper saves the file 120 ms after you stop typing. The file needs no Save command. Command-S saves at once.
 
-The editor does not mark spelling errors. To mark them, Control-click the text and select Spelling and Grammar. Piper does not keep this choice after you quit.
+The editor is the editor of [Hubble.md](https://github.com/bholmesdev/hubble.md). Formatting shows as you type:
 
-The editor does not show frontmatter. A save keeps the frontmatter bytes, the Wiki link text, and the line endings of the file.
+- Markdown shortcuts work, for example `# ` for a heading, `- ` for a list, and `**` for bold.
+- A `/` at the start of a line opens a list of blocks: headings, lists, a to-do list, a quote, a divider, and a table.
+- Command-K makes a link from the selected text. Type `[[` to link to another file.
+- Command-Z reverses an edit.
 
-Piper asks you to Save, Discard, or Cancel when a change is unsaved and you do one of these actions:
+A file with frontmatter shows its keys as properties over the text. You can change a value, change the type of a key, or select Add Property. If the YAML is not valid, the properties show as read-only text.
 
-- Open another file, go back, or go forward.
-- Change the folder.
-- Close the window or quit Piper.
-- Run a command.
+A save writes the text of the editor. The editor changes some Markdown to one form. For example, `*` bullets become `-`, and `__bold__` becomes `**bold**`. The text, the links, and the frontmatter do not change.
 
-If another app changed the file after you opened it, Save refuses to write. Your draft stays open.
+### Highlight And Ask In A File
+
+Select text in a file to show the selection bar. It is the bar of the Reader tab, with Bold, Italic, and Link at the end. See [Highlight and ask in the Reader tab](#highlight-and-ask-in-the-reader-tab).
+
+- A highlight color writes the highlight into the file. Yellow is `==text==`. Green and pink are `<mark class="green">text</mark>` and `<mark class="pink">text</mark>`. To remove a highlight, select the text and the same color again.
+- Note writes a yellow highlight into the file, and keeps your note in Piper. The note shows as a card in the margin.
+- Ask, Explain, and Define send the selection to the margin agent. The answer shows as a card in the margin, and Piper keeps it. The file does not change. A dashed line marks the text of each question.
+- Capture saves the selection as a new capture in Inbox.
+
+Piper keeps the notes and the answers of a file under one capture in Inbox, with the address `piper-file://` and the path of the file. If you rename or move the file, its cards do not follow it.
+
+If the pane is too narrow for the margin, the cards show under the text. In a read-only Preview, the bar has no colors, no Note highlight, and no formatting.
+
+### When Preview Is Read-Only
+
+Some Markdown has no place in the editor, for example footnotes, link titles, and table alignment. A save from Preview would remove it. For such a file, Preview is read-only, and a bar over the page names the syntax. To edit the file, select Edit in Source.
+
+### When The File Changes On Disk
+
+An agent or another app can write a file while it is open in Piper.
+
+- If you have no edits that are not saved, the page shows the new text.
+- If you have such edits, Piper stops saving the file, and a bar shows over the page. If a Claude session of Piper wrote the file, the bar says so.
+
+In the bar, select one of these:
+
+- Reload shows the text on disk and removes your edits.
+- Keep Mine writes your text over the change on disk.
+
+Piper does not change the folder or quit while a file has this bar. It shows the file, so you can choose.
+
+## Find Text In A File
+
+1. Press Command-F.
+2. Type the text.
+3. Press Return for the next match.
+
+The find bar also replaces text. Press Escape to close it.
+
+## Go To A File
+
+1. Press Command-K, or select Go > Go to File.
+2. Type a part of the file name or the title.
+3. Use Up and Down to select a row, then press Return.
+
+With an empty field, the palette lists the files that you opened last. With 3 characters or more, it also lists lines in files that hold the text. Type `/` to list commands, such as Show Brief, Find in File, and Refresh. The commands that you ran last show first. Press Escape to close the palette.
+
+## Add An Image Or An HTML File
+
+To add an image, paste it or drag it into the page. Piper saves the image in a folder next to the note, `<note name>.assets`, and adds a link to it.
+
+To show an HTML file of the folder in a note, add a line like this:
+
+```html
+<iframe src="./chart.html"></iframe>
+```
+
+The page shows the HTML file in a frame. Piper reloads the frame when the file changes. The frame cannot read or change other files, and its links do not open.
 
 ## Read Captures In Inbox
 

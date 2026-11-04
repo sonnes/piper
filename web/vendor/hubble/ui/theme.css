@@ -1,0 +1,110 @@
+:root {
+	--brand: oklch(0.426 0.08 159.6); /* lifted forest */
+	/* gold; fills only — fails contrast as text */
+	--brand-accent: oklch(0.847 0.168 84.7);
+	--brand-accent-foreground: oklch(0.327 0.051 164.9);
+	--background: oklch(0.995 0.001 95);
+	--foreground: oklch(0.27 0.008 150);
+	--card: oklch(0.998 0.001 95);
+	--card-foreground: var(--foreground);
+	--popover: oklch(0.998 0.001 95);
+	--popover-foreground: var(--foreground);
+	--primary: var(--brand);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.968 0.003 95);
+	--secondary-foreground: var(--foreground);
+	--muted: oklch(0.96 0.003 95);
+	--muted-foreground: oklch(0.55 0.01 95);
+	/* yellow state: --accent = hover, --selected = selected/active */
+	--accent: oklch(0.965 0.05 90);
+	--accent-foreground: var(--foreground);
+	--selected: oklch(0.9 0.12 90);
+	--selected-foreground: var(--foreground);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.9 0.004 95);
+	--input: oklch(0.91 0.004 95);
+	--ring: var(--brand-accent);
+
+	/* radius: containers 10px (--radius); rounded-sm = 6px controls */
+	--radius: 0.625rem;
+	--radius-popover: var(--radius);
+	--radius-row: 0.375rem;
+	--radius-inner: 0.25rem;
+	--row-pad-block: 0.25rem;
+	--row-pad-inline: 0.5rem;
+	--font-size-content: 1rem;
+	--font-size-sidebar: 0.8125rem;
+	/* flat: in-page shadows off; overlays use --shadow-overlay */
+	--panel-shadow: none;
+	--chrome-inset-shadow: none;
+	--shadow-overlay:
+		0 8px 24px rgb(17 24 39 / 0.1), 0 1px 3px rgb(17 24 39 / 0.08);
+	--cursor-motion-duration: 105ms;
+	--cursor-motion-easing: linear(0, 0.44 25%, 0.75 50%, 0.94 75%, 1);
+	--sidebar: oklch(0.989 0.004 95); /* faint tint vs the white editor */
+	--sidebar-foreground: var(--foreground);
+	--sidebar-accent: var(--accent);
+	--sidebar-accent-foreground: var(--selected-foreground);
+	--sidebar-border: var(--border);
+}
+
+@theme inline {
+	--font-sans:
+		ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--font-mono: "Lilex", ui-monospace, SFMono-Regular, Menlo, monospace;
+	--color-brand: var(--brand);
+	--color-brand-accent: var(--brand-accent);
+	--color-brand-accent-foreground: var(--brand-accent-foreground);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-selected: var(--selected);
+	--color-selected-foreground: var(--selected-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--shadow-panel: var(--panel-shadow);
+	--shadow-overlay: var(--shadow-overlay);
+	--inset-shadow-chrome: var(--chrome-inset-shadow);
+	/* default UI ease-out (hovers, color/transform transitions) */
+	--ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+	--ease-cursor-motion: var(--cursor-motion-easing);
+	--default-transition-duration: 180ms;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+[data-sidebar-root]:focus-within {
+	--sidebar-accent: var(--selected);
+	--sidebar-accent-foreground: var(--selected-foreground);
+}
+
+::selection {
+	background: color-mix(in oklab, var(--selected) 70%, transparent);
+}
+
+/* muted highlight; the brand gold is too loud on dark */
+.dark ::selection {
+	background: color-mix(in oklab, #8a764b 88%, transparent);
+}

@@ -4,7 +4,7 @@ VERSION := $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString
 ARCH := $(shell uname -m)
 DMG := build/Piper_$(VERSION)_$(ARCH).dmg
 
-.PHONY: build run test signed-app signed-dmg release
+.PHONY: web build run test signed-app signed-dmg release
 
 Resources/Piper.icns: Resources/AppIcon.png
 	mkdir -p build/Piper.iconset
@@ -32,6 +32,11 @@ run: build
 
 test:
 	swift test
+	@if command -v pnpm >/dev/null; then cd web && pnpm install --frozen-lockfile --silent && pnpm test; else echo "Skipped the editor tests: install pnpm to run them."; fi
+
+# Rebuilds Sources/Piper/Resources/editor.html from web/. Needs Node and pnpm.
+web:
+	cd web && pnpm install --frozen-lockfile && pnpm build
 
 signed-app: Resources/Piper.icns
 	@: "$${APPLE_SIGNING_IDENTITY:?Set APPLE_SIGNING_IDENTITY}"

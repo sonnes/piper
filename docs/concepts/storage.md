@@ -110,7 +110,7 @@ The table stores each text as plain text on disk. Piper does not store the texts
 
 ## Drafts
 
-The composer text is a preference, so it survives a restart. Edits to an existing note and edits to a Wiki file stay in memory until you save or discard them. If you quit with a changed draft, Piper asks what to do.
+The composer text is a preference, so it survives a restart. Edits to an existing note stay in memory until you save or discard them. If you quit with a changed note, Piper asks what to do. Piper saves an edit to a Markdown file 120 ms after the edit. A conflict with a change on disk stops the quit until you choose Reload or Keep Mine.
 
 ## Preferences
 

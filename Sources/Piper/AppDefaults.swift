@@ -14,6 +14,8 @@ final class AppDefaults {
 
     enum Key {
         static let vaultPath = "wikiPath"
+        /// The titles of the palette commands that the reader ran last.
+        static let paletteRecents = "paletteRecents"
         static let wikiPaths = "wikiPaths"
         static let captureShortcut = "captureShortcut"
         static let captureFloating = "captureFloating"
@@ -141,6 +143,26 @@ final class AppDefaults {
         /// The corner radius of the main window.
         static let cornerRadius: CGFloat = 12
         static let captureCornerRadius: CGFloat = 22
+    }
+
+    /// The command palette over the main window.
+    enum Palette {
+        static let size = NSSize(width: 560, height: 380)
+        /// The space between the top of the main window and the palette.
+        static let topInset: CGFloat = 90
+        static let cornerRadius: CGFloat = 12
+        static let queryFontSize: CGFloat = 17
+        static let fileLimit = 20
+        static let commandLimit = 4
+        static let recentLimit = 8
+    }
+
+    /// The Markdown editor in the main window.
+    enum Editor {
+        /// Seconds after a Piper session wrote a file during which a change on
+        /// disk names the session as its source.
+        static let sessionWriteWindow: TimeInterval = 600
+        static let bannerFontSize: CGFloat = 12.5
     }
 
     enum Reader {

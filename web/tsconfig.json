@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"skipLibCheck": true,
+		"noEmit": true,
+		"isolatedModules": true,
+		"verbatimModuleSyntax": true,
+		"jsx": "react-jsx",
+		"types": ["vite/client"],
+		"paths": {
+			"@hubble.md/editor": ["./vendor/hubble/editor/index.ts"],
+			"@hubble.md/editor/commands": ["./vendor/hubble/editor/commandRegistry.ts"],
+			"@hubble.md/ui": ["./vendor/hubble/ui/index.ts"]
+		}
+	},
+	"include": ["src", "vendor", "test"],
+	"exclude": ["vendor/**/*.test.ts", "vendor/**/*.test.tsx"]
+}

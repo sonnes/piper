@@ -57,7 +57,7 @@ struct BriefPage: View {
     /// The bar over a brief, as the address bar is over an article.
     private func header(_ index: Int) -> some View {
         let file = brief.files[index]
-        let line = [Self.dateLine(of: file.id), DetailHeader.readingTime(of: brief.body(of: file) ?? "")]
+        let line = [Self.dateLine(of: file.id), ReadingTime.text(of: brief.body(of: file) ?? "")]
             .compactMap { $0 }.joined(separator: " · ")
         return HStack(spacing: 8) {
             Text(line)

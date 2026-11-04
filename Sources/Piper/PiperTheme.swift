@@ -106,6 +106,8 @@ enum PiperTheme {
     static let rule = Color(nsColor: ruleNS)
     static let reader = Color(nsColor: readerNS)
     static let warning = Color(nsColor: warningNS)
+    /// The fill of the bar over the editor when Piper stopped saving.
+    static let warningFill = warning.opacity(0.14)
     static let danger = Color(nsColor: dangerNS)
     static let success = Color(nsColor: successNS)
     static let claude = Color(nsColor: claudeNS)
