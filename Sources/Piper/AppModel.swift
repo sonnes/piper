@@ -6,6 +6,7 @@ import Observation
 import PiperCore
 import Captures
 import Vault
+import WebKit
 
 @MainActor @Observable
 final class AppModel {
@@ -25,6 +26,17 @@ final class AppModel {
     var inboxFilters: [String: InboxStream.Filter] = [:]
     /// The child note that the Reader tab scrolls to.
     var readerScroll: ReaderScroll?
+    /// The page of the Reader tab, while the tab shows.
+    @ObservationIgnored weak var readerPage: WKWebView?
+
+    /// Scrolls the Reader tab of a window by one arrow step. Returns false if
+    /// the window shows no Reader tab.
+    func scrollReader(down: Bool, in window: NSWindow) -> Bool {
+        guard articleTab == .reader, let page = readerPage, page.window === window else { return false }
+        let step = AppDefaults.ArticleReader.arrowScrollStep * (down ? 1 : -1)
+        page.evaluateJavaScript("window.scrollBy(0, \(step))")
+        return true
+    }
 
     /// The tab of a link capture as it opens. A request to show one of its
     /// highlights opens the Reader tab. Each other link opens in the tab that

@@ -1102,6 +1102,10 @@ struct CaptureView: View {
             if !editingText, !flags.contains(.command), !flags.contains(.option), !flags.contains(.control) {
                 if [51, 117].contains(event.keyCode), !store.selection.isEmpty { store.deleteSelection(); return nil }
                 if event.keyCode == 49, !store.selection.isEmpty { store.completeSelection(); return nil }
+                if [125, 126].contains(event.keyCode), embedded, !flags.contains(.shift),
+                   model.scrollReader(down: event.keyCode == 125, in: window) {
+                    return nil
+                }
                 if [125, 126].contains(event.keyCode), !matchingNotes.isEmpty {
                     let current = matchingNotes.firstIndex { $0.id == selectionAnchor }
                     let next = max(0, min(matchingNotes.count - 1, (current ?? (event.keyCode == 125 ? -1 : matchingNotes.count)) + (event.keyCode == 125 ? 1 : -1)))

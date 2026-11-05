@@ -252,7 +252,7 @@ The first question about a capture also sends the article text. One hidden sessi
 
 The margin agent works in the folder of the Send buttons. It can read the files of that folder and search the web. It cannot change a file or run a command, so it never asks for your approval. Claude Code gets only the Read, Grep, Glob, WebSearch, and WebFetch tools, and no MCP server. For an ACP agent, Piper uses the read-only mode of the agent, such as Plan. Piper also allows each request that only reads, and denies each other request. An ACP agent without a read-only mode cannot answer in the margin. See [Choose the agent, the model, and the mode](claude.md#choose-the-agent-the-model-and-the-mode).
 
-Your notes show as plain cards in the margin, with the app and the time. To move to the next or the previous mark, press Option-Down Arrow or Option-Up Arrow.
+Your notes show as plain cards in the margin, with the app and the time. Up Arrow and Down Arrow scroll the article, also while the list has the focus. To move to the next or the previous mark, press Option-Down Arrow or Option-Up Arrow.
 
 The answer shows as a card in the margin, next to the underlined text. The card names the model and the agent. If the answer used tools, a line under the answer names them, for example "Used 2 reads, 1 search". To ask a follow-up question, type in the card and press Return. To hide a card, select its close button. To show the card again, select the underlined text.
 

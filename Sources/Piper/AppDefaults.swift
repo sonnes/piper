@@ -177,6 +177,8 @@ final class AppDefaults {
     /// The Reader tab of a link capture.
     enum ArticleReader {
         static let addressHeight: CGFloat = 28
+        /// The distance that Up Arrow or Down Arrow scrolls the Reader tab.
+        static let arrowScrollStep: CGFloat = 40
         static let addressFontSize = PiperTheme.TextSize.secondary
         /// Seconds before Piper reads a page that has not finished loading.
         static let loadTimeout: Double = 20

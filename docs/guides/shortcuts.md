@@ -33,7 +33,7 @@ These shortcuts work in the capture panel or the main-window Inbox when no sheet
 | Command-N | In the capture panel, move the focus to the composer and clear the selection |
 | Command-K | Choose the section for new notes, or create one |
 | Command-F | Search notes and the clipboard |
-| Up / Down | Select the previous or next note |
+| Up / Down | Select the previous or next note. In the main window, while the Reader tab shows, scroll the article. |
 | Click | In the main window, open a note. In the capture panel, select or deselect it. |
 | Click the circle or ring | Mark a note as done, or mark an article as read |
 | Command-click | In the main window, select or deselect a note for an action on several notes |
@@ -70,6 +70,7 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 | Option-Command-C | Open or close the session card, or bring the detached session panel to the front |
 | Command-K | In the Reader tab, with text selected, ask about the selected text |
 | N | In the Reader tab, write a note on the selected text |
+| Up Arrow / Down Arrow | In the Reader tab, scroll the article |
 | Option-Down Arrow / Option-Up Arrow | In the Reader tab, move to the next or the previous mark |
 | Escape | In the Reader tab, close the selection bar |
 

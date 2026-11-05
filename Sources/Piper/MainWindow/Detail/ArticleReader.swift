@@ -75,7 +75,8 @@ struct ArticleReader: View {
                 .overlay(alignment: .bottom) { Rule() }
             }
             ReaderPageView(state: loader.state, placeholder: ReaderPlaceholder(site: ArticleBadge.host(url), title: reading.title),
-                           notes: payload, scroll: scroll, perform: perform, scrolled: scrolled)
+                           notes: payload, scroll: scroll, perform: perform, scrolled: scrolled,
+                           attach: { model.readerPage = $0 })
                 .overlay(alignment: .bottom) {
                     if case .failed = loader.state {
                         Button("Show Web Page", action: showWebPage)
@@ -505,6 +506,8 @@ struct ReaderPageView: NSViewRepresentable {
     let perform: ([String: Any]) -> Void
     /// Reports a scroll request that the page ran.
     let scrolled: (ReaderScroll) -> Void
+    /// Receives the web view, so that the arrow keys of the list can scroll it.
+    let attach: (WKWebView) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -517,6 +520,7 @@ struct ReaderPageView: NSViewRepresentable {
         view.underPageBackgroundColor = PiperTheme.readerNS
         view.setAccessibilityLabel("Article")
         context.coordinator.view = view
+        attach(view)
         if let page = PiperTheme.resources.url(forResource: "reader", withExtension: "html") {
             context.coordinator.page = page
             view.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
