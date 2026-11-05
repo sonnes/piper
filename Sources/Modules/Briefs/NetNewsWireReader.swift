@@ -7,13 +7,15 @@ public struct FeedArticle: Equatable, Sendable {
     public let url: String
     public let summary: String
     public let starred: Bool
+    public let publishedAt: Date?
 
-    public init(feed: String, title: String, url: String, summary: String, starred: Bool) {
+    public init(feed: String, title: String, url: String, summary: String, starred: Bool, publishedAt: Date?) {
         self.feed = feed
         self.title = title
         self.url = url
         self.summary = summary
         self.starred = starred
+        self.publishedAt = publishedAt
     }
 }
 
@@ -27,7 +29,7 @@ public enum NetNewsWireReader {
     /// NetNewsWire stores each date as seconds from 1970.
     private static let sql = """
     SELECT a.feedID, a.title, COALESCE(NULLIF(a.url, ''), a.externalURL),
-           COALESCE(NULLIF(a.summary, ''), a.contentText, ''), s.starred
+           COALESCE(NULLIF(a.summary, ''), a.contentText, ''), s.starred, a.datePublished
     FROM articles a JOIN statuses s ON a.articleID = s.articleID
     WHERE (s.read = 0 OR s.starred = 1) AND s.dateArrived >= :since
     ORDER BY s.starred DESC, a.datePublished DESC
@@ -41,7 +43,8 @@ public enum NetNewsWireReader {
             guard let url = row[2], let title = row[1], BlockedSites.allows(url, list: blocked) else { return nil }
             let feedID = row[0] ?? ""
             return FeedArticle(feed: names[feedID] ?? URL(string: url)?.host ?? feedID, title: title, url: url,
-                               summary: String((row[3] ?? "").prefix(summaryLimit)), starred: row[4] == "1")
+                               summary: String((row[3] ?? "").prefix(summaryLimit)), starred: row[4] == "1",
+                               publishedAt: row[5].flatMap(Double.init).map(Date.init(timeIntervalSince1970:)))
         }
     }
 

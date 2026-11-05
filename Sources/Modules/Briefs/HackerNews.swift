@@ -7,13 +7,15 @@ public struct HackerNewsStory: Equatable, Sendable {
     public let discussionURL: String
     public let points: Int
     public let comments: Int
+    public let postedAt: Date
 
-    public init(title: String, url: String, discussionURL: String, points: Int, comments: Int) {
+    public init(title: String, url: String, discussionURL: String, points: Int, comments: Int, postedAt: Date) {
         self.title = title
         self.url = url
         self.discussionURL = discussionURL
         self.points = points
         self.comments = comments
+        self.postedAt = postedAt
     }
 }
 
@@ -38,6 +40,7 @@ public enum HackerNews {
         let url: String?
         let points: Int?
         let num_comments: Int?
+        let created_at_i: Int?
     }
 
     public static func fetch(now: Date, blocked: [String], seen: Set<String>) async throws -> [HackerNewsStory] {
@@ -69,7 +72,8 @@ public enum HackerNews {
             guard BlockedSites.allows(discussion, list: blocked), BlockedSites.allows(url, list: blocked),
                   !BriefLinks.isSeen(url, in: seen), !BriefLinks.isSeen(discussion, in: seen) else { return nil }
             return HackerNewsStory(title: title, url: url, discussionURL: discussion,
-                                   points: hit.points ?? 0, comments: hit.num_comments ?? 0)
+                                   points: hit.points ?? 0, comments: hit.num_comments ?? 0,
+                                   postedAt: Date(timeIntervalSince1970: TimeInterval(hit.created_at_i ?? 0)))
         }
         return Array(stories.sorted { $0.points > $1.points }.prefix(storyLimit))
     }

@@ -7,8 +7,19 @@ public struct DigestSite: Codable, Equatable, Identifiable, Sendable {
     public let pages: Int
     public let lastVisit: Date
     public let sampleTitles: [String]
+    /// The decay score of the site. See `HistoryDigest.score`.
+    public let score: Double
 
     public var id: String { host }
+
+    public init(host: String, visits: Int, pages: Int, lastVisit: Date, sampleTitles: [String], score: Double) {
+        self.host = host
+        self.visits = visits
+        self.pages = pages
+        self.lastVisit = lastVisit
+        self.sampleTitles = sampleTitles
+        self.score = score
+    }
 }
 
 /// The ranked summary of history that the agent receives.
@@ -27,21 +38,25 @@ public struct HistoryDigest: Codable, Equatable, Sendable {
         self.sites = sites
     }
 
-    /// Ranks each site that the user opened at least two times and that the list does not block.
+    /// Ranks each site that the list does not block. One visit is enough.
     public init(visits: [Visit], blocked: [String], now: Date = Date()) {
         var groups: [String: [Visit]] = [:]
         for visit in visits where BlockedSites.allows(visit.url, list: blocked) {
             guard let host = BlockedSites.host(of: visit.url) else { continue }
             groups[host, default: []].append(visit)
         }
-        let repeated = groups.filter { $0.value.count >= 2 }
-        let scores = repeated.mapValues { Self.score($0, now: now) }
-        let hosts = repeated.keys.sorted { first, second in
+        let scores = groups.mapValues { Self.score($0, now: now) }
+        let hosts = groups.keys.sorted { first, second in
             let (a, b) = (scores[first] ?? 0, scores[second] ?? 0)
             return a == b ? first < second : a > b
         }
-        let sites = hosts.prefix(Self.siteLimit).map { Self.site($0, repeated[$0] ?? []) }
+        let sites = hosts.prefix(Self.siteLimit).map { Self.site($0, groups[$0] ?? [], score: scores[$0] ?? 0) }
         self.init(totalSites: hosts.count, sites: Array(sites))
+    }
+
+    /// The score of the site of a host, or 0 if the digest does not hold it.
+    public func score(of host: String) -> Double {
+        sites.first { $0.host == host }?.score ?? 0
     }
 
     /// The JSON text of the digest, for a prompt.
@@ -52,25 +67,19 @@ public struct HistoryDigest: Codable, Equatable, Sendable {
         return (try? encoder.encode(self)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
     }
 
-    private static func site(_ host: String, _ visits: [Visit]) -> DigestSite {
+    private static func site(_ host: String, _ visits: [Visit], score: Double) -> DigestSite {
         let newest = visits.sorted { $0.date > $1.date }
         var titles: [String] = []
         for title in newest.compactMap(\.title) where !title.isEmpty && !titles.contains(title) && titles.count < titleLimit {
             titles.append(String(title.prefix(titleLength)))
         }
         return DigestSite(host: host, visits: visits.count, pages: Set(visits.map(\.url)).count,
-                          lastVisit: newest[0].date, sampleTitles: titles)
+                          lastVisit: newest[0].date, sampleTitles: titles, score: score)
     }
 
-    /// Frequency 40%, recency 30%, page variety 20%, and visits for each day 10%. Each part is from 0 to 1.
-    private static func score(_ visits: [Visit], now: Date) -> Double {
-        let days = Double(Self.days)
+    /// The decay score: the visits are the points, and the age is the hours since the last visit.
+    static func score(_ visits: [Visit], now: Date) -> Double {
         let last = visits.map(\.date).max() ?? now
-        let age = now.timeIntervalSince(last) / 86_400
-        let count = Double(visits.count)
-        return min(count / 50, 1) * 0.4
-            + max(0, 1 - age / days) * 0.3
-            + min(Double(Set(visits.map(\.url)).count) / 10, 1) * 0.2
-            + min(count / days / 5, 1) * 0.1
+        return Decay.score(points: Double(visits.count), hours: Decay.hours(from: last, to: now))
     }
 }

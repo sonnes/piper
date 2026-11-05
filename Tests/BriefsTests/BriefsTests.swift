@@ -33,7 +33,7 @@ final class BriefsTests: XCTestCase {
     }
 
     func testBriefPromptHoldsTheStoriesAndTheirSection() {
-        let story = HackerNewsStory(title: "A story", url: "https://a.example/x", discussionURL: "https://news.ycombinator.com/item?id=1", points: 60, comments: 2)
+        let story = HackerNewsStory(title: "A story", url: "https://a.example/x", discussionURL: "https://news.ycombinator.com/item?id=1", points: 60, comments: 2, postedAt: Date())
         let digest = HistoryDigest(visits: [], blocked: [], now: Date())
         let prompt = BriefPrompts.writeBrief(date: "Today", digest: digest, pages: [], articles: [], stories: [story], covered: ["Old item"], failed: [])
         XCTAssertTrue(prompt.contains("- Old item"))
@@ -191,8 +191,10 @@ final class BriefsTests: XCTestCase {
         let articles = try NetNewsWireReader.read(source, since: Date(timeIntervalSince1970: 500), blocked: ["blocked.example"])
 
         XCTAssertEqual(articles, [
-            FeedArticle(feed: "b.example", title: "Starred", url: "https://b.example/3", summary: "S", starred: true),
-            FeedArticle(feed: "Feed A", title: "Unread", url: "https://a.example/1", summary: "Body", starred: false)
+            FeedArticle(feed: "b.example", title: "Starred", url: "https://b.example/3", summary: "S", starred: true,
+                        publishedAt: Date(timeIntervalSince1970: 50)),
+            FeedArticle(feed: "Feed A", title: "Unread", url: "https://a.example/1", summary: "Body", starred: false,
+                        publishedAt: Date(timeIntervalSince1970: 100))
         ])
     }
 
@@ -217,7 +219,7 @@ final class BriefsTests: XCTestCase {
 
     // MARK: - Digest
 
-    func testDigestRanksDropsBlockedAndSingleVisitsAndHoldsNoFullURL() {
+    func testDigestRanksKeepsSingleVisitsDropsBlockedAndHoldsNoFullURL() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         var visits = (0..<10).map { Visit(url: "https://www.top.example/secret/\($0)", title: "T\($0)", date: now) }
         visits += (0..<2).map { _ in Visit(url: "https://low.example/", title: "L", date: now.addingTimeInterval(-86_400 * 10)) }
@@ -227,10 +229,11 @@ final class BriefsTests: XCTestCase {
 
         let digest = HistoryDigest(visits: visits, blocked: ["mybank.example"], now: now)
 
-        XCTAssertEqual(digest.sites.map(\.host), ["top.example", "low.example"])
-        XCTAssertEqual(digest.totalSites, 2)
+        XCTAssertEqual(digest.sites.map(\.host), ["top.example", "once.example", "low.example"])
+        XCTAssertEqual(digest.totalSites, 3)
         XCTAssertEqual(digest.sites[0].sampleTitles.count, HistoryDigest.titleLimit)
-        XCTAssertEqual(digest.sites[1].pages, 1)
+        XCTAssertEqual(digest.sites[2].pages, 1)
+        XCTAssertGreaterThan(digest.score(of: "once.example"), 0)
         XCTAssertFalse(digest.json.contains("secret"))
         XCTAssertFalse(digest.json.contains("mybank"))
     }
@@ -243,6 +246,82 @@ final class BriefsTests: XCTestCase {
         let digest = HistoryDigest(visits: visits, blocked: [], now: now)
         XCTAssertEqual(digest.sites.count, 30)
         XCTAssertEqual(digest.totalSites, 40)
+    }
+
+    func testDigestPutsMoreVisitsAndNewerVisitsFirst() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let hour: TimeInterval = 3_600
+        var visits = (0..<5).map { _ in Visit(url: "https://many.example/", title: nil, date: now.addingTimeInterval(-hour)) }
+        visits += (0..<2).map { _ in Visit(url: "https://few.example/", title: nil, date: now.addingTimeInterval(-hour)) }
+        visits += (0..<2).map { _ in Visit(url: "https://new.example/", title: nil, date: now) }
+        visits += (0..<2).map { _ in Visit(url: "https://old.example/", title: nil, date: now.addingTimeInterval(-48 * hour)) }
+
+        let digest = HistoryDigest(visits: visits, blocked: [], now: now)
+
+        XCTAssertEqual(digest.sites.map(\.host), ["many.example", "new.example", "few.example", "old.example"])
+    }
+
+    // MARK: - Ranking
+
+    func testDecayPutsANewStoryAboveAnOldStoryWithMorePoints() {
+        XCTAssertLessThan(Decay.score(points: 299, hours: 20), Decay.score(points: 99, hours: 2))
+        XCTAssertEqual(Decay.score(points: 4, hours: -5), Decay.score(points: 4, hours: 0))
+    }
+
+    func testRankingUsesPointsAgeAndTheSiteOfEachLink() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let hour: TimeInterval = 3_600
+        let digest = HistoryDigest(totalSites: 1, sites: [
+            DigestSite(host: "fav.example", visits: 9, pages: 3, lastVisit: now, sampleTitles: [], score: 2)
+        ])
+        let stories = [
+            HackerNewsStory(title: "Old", url: "https://a.example/old", discussionURL: "https://news.ycombinator.com/item?id=1",
+                            points: 300, comments: 1, postedAt: now.addingTimeInterval(-20 * hour)),
+            HackerNewsStory(title: "New", url: "https://a.example/new", discussionURL: "https://news.ycombinator.com/item?id=2",
+                            points: 100, comments: 1, postedAt: now.addingTimeInterval(-2 * hour))
+        ]
+        let articles = [
+            FeedArticle(feed: "F", title: "Plain", url: "https://plain.example/1", summary: "", starred: false,
+                        publishedAt: now.addingTimeInterval(-3 * hour)),
+            FeedArticle(feed: "F", title: "Favorite", url: "https://www.fav.example/1", summary: "", starred: false,
+                        publishedAt: now.addingTimeInterval(-3 * hour))
+        ]
+
+        let ranked = BriefRanking.rank(stories: stories, articles: articles, pages: [], digest: digest,
+                                       blocked: [], previousBuild: nil, now: now)
+
+        XCTAssertEqual(ranked.map(\.title), ["New", "Favorite", "Plain", "Old"])
+        XCTAssertEqual(ranked[1].host, "fav.example")
+        XCTAssertEqual(ranked[1].kind, .article)
+    }
+
+    func testRankingDropsBlockedLinksCountsALinkOnceAndKeepsTheLimit() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let digest = HistoryDigest(totalSites: 0, sites: [])
+        let links = (0..<40).map { PageLink(label: "L\($0)", url: "https://p.example/\($0)") }
+            + [PageLink(label: "Same", url: "https://p.example/0/#top"), PageLink(label: "Bank", url: "https://bank.example/x")]
+        let page = LoadedPage(host: "p.example", title: "P", text: "", links: links)
+
+        let ranked = BriefRanking.rank(stories: [], articles: [], pages: [page], digest: digest,
+                                       blocked: ["bank.example"], previousBuild: now.addingTimeInterval(-3_600), now: now)
+
+        XCTAssertEqual(ranked.count, BriefRanking.candidateLimit)
+        XCTAssertFalse(ranked.contains { $0.host == "bank.example" })
+        XCTAssertEqual(Set(ranked.map { BriefLinks.normalized($0.url) }).count, ranked.count)
+        XCTAssertEqual(ranked[0].score, Decay.score(points: BriefRanking.pageLinkPoints - 1, hours: 1), accuracy: 1e-9)
+    }
+
+    func testPageLinksWithoutAnEarlierBuildAreOneDayOld() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let page = LoadedPage(host: "p.example", title: "P", text: "", links: [PageLink(label: "L", url: "https://p.example/1")])
+        let digest = HistoryDigest(totalSites: 0, sites: [])
+
+        for previous in [nil, now.addingTimeInterval(-7 * 86_400)] {
+            let ranked = BriefRanking.rank(stories: [], articles: [], pages: [page], digest: digest,
+                                           blocked: [], previousBuild: previous, now: now)
+            XCTAssertEqual(ranked[0].score, Decay.score(points: BriefRanking.pageLinkPoints - 1, hours: BriefRanking.undatedHours),
+                           accuracy: 1e-9)
+        }
     }
 
     // MARK: - Links
@@ -327,7 +406,7 @@ final class BriefsTests: XCTestCase {
 
     private func digest(hosts: [String]) -> HistoryDigest {
         HistoryDigest(totalSites: hosts.count, sites: hosts.map {
-            DigestSite(host: $0, visits: 2, pages: 1, lastVisit: Date(), sampleTitles: [])
+            DigestSite(host: $0, visits: 2, pages: 1, lastVisit: Date(), sampleTitles: [], score: 1)
         })
     }
 
