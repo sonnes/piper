@@ -75,4 +75,22 @@ final class InboxStreamTests: XCTestCase {
         XCTAssertTrue(groups[0].title.contains("2026"))
         XCTAssertEqual(InboxStream.archive(notes: notes, query: "september", calendar: calendar).flatMap(\.notes).map(\.text), ["Done in September"])
     }
+
+    func testDoneTodayHoldsTheCapturesDoneTodayInTheSectionNewestFirst() {
+        let parent = Note(text: "Read later", section: "Inbox", isDone: true, modifiedAt: now.addingTimeInterval(-60))
+        let notes = [
+            Note(text: "Done this morning", section: "Inbox", isDone: true, modifiedAt: now.addingTimeInterval(-7_200)),
+            Note(text: "Done yesterday", section: "Inbox", isDone: true, modifiedAt: now.addingTimeInterval(-86_400)),
+            Note(text: "Done just now", section: "Inbox", isDone: true, modifiedAt: now.addingTimeInterval(-60)),
+            Note(text: "Done at work", section: "Work", isDone: true, modifiedAt: now.addingTimeInterval(-600)),
+            Note(text: "Open", section: "Inbox", modifiedAt: now),
+            Note(text: "https://a.dev/old", section: "Inbox", isDone: true, modifiedAt: now,
+                 reading: Reading(finishedAt: now.addingTimeInterval(-8 * 86_400))),
+            Note(text: "A highlight", section: "Inbox", isDone: true, modifiedAt: now, parent: parent.id)
+        ]
+        XCTAssertEqual(InboxStream.doneToday(notes: notes, section: "Inbox", now: now, calendar: calendar).map(\.text),
+                       ["Done just now", "Done this morning"])
+        XCTAssertEqual(InboxStream.doneToday(notes: notes, section: nil, now: now, calendar: calendar).map(\.text),
+                       ["Done just now", "Done at work", "Done this morning"])
+    }
 }

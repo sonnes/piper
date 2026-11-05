@@ -35,8 +35,8 @@ The tests do not cover the UI or the global shortcut path.
 2. Save a note with Return, and edit it with Save.
 3. Copy text in another app. Move the pointer over its row in the panel and select Keep.
 4. Double-click another clipboard row. Make sure that the text pastes into the app in front.
-5. Select each section tab. Make sure that the list scrolls to that section and the composer placeholder names it.
-6. Select the Clipboard tab. Make sure that the rows show the source app and the time, and that Clear History empties the list.
+5. Select each section tab. Make sure that the list shows only that section and the placeholder of the add field names it.
+6. Select See All in the clipboard strip. Make sure that the rows show the source app and the time, and that Clear History empties the list.
 7. Select notes, then use Merge, Move, Copy, Delete, Command-Shift-C, and Undo.
 8. Restart Piper.
 9. Make sure that the notes, sections, and composer draft are still there.
@@ -51,7 +51,7 @@ The tests do not cover the UI or the global shortcut path.
 6. Search from the field at the top of the Inbox list. Make sure that results come from every section.
 7. Select one note and type in the detail pane. Make sure that the change is saved after a pause.
 8. Select text in the detail pane. Make sure that Command-C copies the text and Delete does not remove a note.
-9. Select Mark as Done in the toolbar. Make sure that the note moves to Archived.
+9. Select Mark as Done in the toolbar. Make sure that the note moves to "done today" at the end of the list, and to Done.
 10. Select Clipboard in the sidebar. Make sure that the history shows.
 
 ## Claude Checks
@@ -119,7 +119,7 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 
 ## Main Window Checks
 
-Only Inbox, its sections, and Archived show the list of captures. Every other selection gives the width of the list to the detail pane.
+Only Inbox, its sections, and Done show the list of captures. Every other selection gives the width of the list to the detail pane.
 
 1. Add a disposable folder with Add Folder at the bottom of the sidebar.
 2. Add, rename, and delete a file in Finder. Make sure that the tree updates.

@@ -36,11 +36,17 @@ struct InboxRow: View {
     let complete: () -> Void
     let openRun: () -> Void
     let menu: NoteContextMenu
+    @State private var hovered = false
 
     private var reading: Reading { note.reading ?? Reading() }
     private var url: URL? { note.articleURL }
     private var host: String { url.map(ArticleBadge.host) ?? "" }
     private var isFinished: Bool { reading.finishedAt != nil }
+    /// The time of the capture, or the app that it came from. The row shows it on hover.
+    private var hoverText: String {
+        if style == .note, let source = note.sources.first, source != "Clipboard" { return "From " + source }
+        return RowTime.text(note.createdAt)
+    }
     private var completionTitle: String {
         note.isDone ? "Reopen" : style == .note ? "Mark as Done" : isFinished ? "Read Again" : "Mark as Read"
     }
@@ -54,10 +60,17 @@ struct InboxRow: View {
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(selected ? .isSelected : [])
                     .accessibilityHint("Click to open. Command-click or Shift-click to select several captures.")
+                if hovered {
+                    Text(hoverText)
+                        .font(PiperTheme.ui(AppDefaults.InboxRow.metaFontSize)).foregroundStyle(PiperTheme.faint)
+                        .monospacedDigit().lineLimit(1).fixedSize()
+                }
             }
             .padding(AppDefaults.InboxRow.padding)
-            .background(selected ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: AppDefaults.InboxRow.cornerRadius))
+            .background(selected ? PiperTheme.selection : hovered ? PiperTheme.hover : .clear,
+                        in: RoundedRectangle(cornerRadius: AppDefaults.InboxRow.cornerRadius))
         }
+        .onHover { hovered = $0 }
         .contextMenu { menu }
     }
 
@@ -123,30 +136,33 @@ struct InboxRow: View {
         }
     }
 
-    private var meta: some View {
-        HStack(spacing: 5) {
-            if let session { RunBadge(session: session, open: openRun) }
-            if style == .note {
-                Text(RowTime.text(note.createdAt)).monospacedDigit()
-                if let source = note.sources.first, source != "Clipboard" { Text("· From " + source) }
-            } else {
-                ArticleBadge(host: host, size: AppDefaults.InboxRow.badgeSize)
-                Text(host)
-                if let detail = linkDetail { Text("· " + detail).monospacedDigit() }
+    /// The run, the site of a link, and the section. A note with none of
+    /// these shows only its text.
+    @ViewBuilder private var meta: some View {
+        if session != nil || style != .note || section != nil {
+            HStack(spacing: 5) {
+                if let session { RunBadge(session: session, open: openRun) }
+                if style != .note {
+                    ArticleBadge(host: host, size: AppDefaults.InboxRow.badgeSize)
+                    Text(host)
+                    if let detail = linkDetail { Text("· " + detail).monospacedDigit() }
+                }
+                if let section {
+                    if session != nil || style != .note { Text("·") }
+                    Circle().fill(section.color).frame(width: AppDefaults.InboxRow.sectionDot, height: AppDefaults.InboxRow.sectionDot)
+                    Text(section.name)
+                }
             }
-            if let section {
-                Text("·")
-                Circle().fill(section.color).frame(width: AppDefaults.InboxRow.sectionDot, height: AppDefaults.InboxRow.sectionDot)
-                Text(section.name)
-            }
+            .font(PiperTheme.ui(AppDefaults.InboxRow.metaFontSize))
+            .foregroundStyle(PiperTheme.secondary)
+            .lineLimit(1)
         }
-        .font(PiperTheme.ui(AppDefaults.InboxRow.metaFontSize))
-        .foregroundStyle(PiperTheme.secondary)
-        .lineLimit(1)
     }
 
-    /// The reading time of a new link, or the minutes left of a started one.
+    /// The highlight count of a link, or else its reading time or the minutes left.
     private var linkDetail: String? {
+        let highlights = ReadingList.highlights(in: children).count
+        if style != .full, highlights > 0 { return highlights == 1 ? "1 highlight" : "\(highlights) highlights" }
         switch style {
         case .note, .full: return nil
         case .link: return reading.minutes.map { "\($0) min" }

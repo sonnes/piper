@@ -24,30 +24,32 @@ The default panel size is 600 by 960 points in portrait orientation. On smaller 
 
 ## Read The Panel
 
-The panel shows one list. The list starts with the five latest clipboard texts. Then it shows each section under its own header. A section with no notes shows one "No notes" row.
+The panel shows one section at a time, as a checklist. The field to add a note is at the top of the list. The newest note shows first, under the field. A row shows the text of the note. A link row also shows its site and the number of its notes. To see the time or the source app of a note, move the pointer over the row.
 
-The header keeps Inbox visible beside a section dropdown. Select a section from the dropdown to scroll the list to its header. New notes use the selected section. Its header shows in the accent color.
+The header has a tab for each of the first three sections. Select a tab to show its section. New notes go to that section. The More tab lists every section, Done, and New Section. When the selected section has no tab of its own, the More tab shows its name.
 
-The Clipboard tab sits at the left of Inbox. It shows the full clipboard history. See [Save a clipboard text](#save-a-clipboard-text).
+The notes that you mark as done today show under "done today" at the end of the list. Select the line to show or hide them.
 
-New Section in the dropdown creates a section. The More Actions menu has Capture Clipboard, Capture To, New Section, Open Main Window, Settings, Undo Last Change, and Close Capture.
+A strip at the bottom of the panel shows the three latest clipboard texts. Select the arrow to fold the strip. Select See All to show the full clipboard history. See [Save a clipboard text](#save-a-clipboard-text).
+
+The More Actions menu has Capture Clipboard, Capture To, New Section, Open Main Window, Settings, Undo Last Change, and Close Capture.
 
 If Accessibility access is off, a tip at the top of the list has an Enable button. Select the close button to hide the tip. Settings > Capture keeps the permanent control.
 
 ## Save A Note
 
 1. Open the capture panel with Command-1.
-2. Type or paste text into the composer at the bottom.
+2. Type or paste text into the field at the top of the list.
 3. Press Return.
 
-Shift-Return adds a new line. The note goes to the selected section, which is Inbox at first. The composer placeholder names that section. The composer keeps the keyboard focus after each save.
+Shift-Return adds a new line. The note goes to the selected section, which is Inbox at first. The placeholder of the field names that section, for example "Add to Inbox". The composer keeps the keyboard focus after each save.
 
 If you close the panel with Escape, Piper keeps the unfinished text in the composer.
 
 ### In The Main Window
 
 1. Select New Capture in the toolbar, or press Command-N.
-2. Type or paste text into the composer below the note list.
+2. Type or paste text into the field at the top of the list.
 3. Press Return.
 
 New Capture keeps the main window open. It uses the selected Inbox section, or opens Inbox from another pane.
@@ -60,7 +62,7 @@ Piper shows the texts that you copy while it runs. These texts are not saved.
 
 1. Copy text in any app.
 2. Open the capture panel with Command-1.
-3. Move the pointer over a clipboard row.
+3. Move the pointer over a row in the clipboard strip.
 4. Select Keep.
 
 Keep always saves to Inbox, even when another section is selected. The row goes away after a successful save.
@@ -71,7 +73,7 @@ If a sidebar folder has Claude Code skills, the row also shows Send to <folder>.
 
 Double-click a row to paste the text into the app in front. The row context menu has Paste and Keep in Inbox. Paste needs Accessibility access. Without it, Piper copies the text, and you paste it with Command-V.
 
-The Clipboard tab groups the full history by day. Each row shows the text, the app that was in front when you copied it, and the time. Clear History at the end of the list removes every unsaved text.
+See All in the strip shows the full history, grouped by day. In the main window, select Clipboard in the sidebar. Each row shows the text, the app that was in front when you copied it, and the time. Clear History at the end of the list removes every unsaved text.
 
 Clipboard texts obey these rules:
 
@@ -150,13 +152,13 @@ Piper loads a page in its own web view, and that web view does not have the sign
 
 Sections group notes.
 
-- To create a section, select New Section in the dropdown. In the main window, select New Section in the + menu of the toolbar, above the sidebar.
-- To change the section for new notes, choose it from the section dropdown, or press Command-K.
+- To create a section, select New Section in the More tab. In the main window, select New Section in the + menu of the toolbar, above the sidebar.
+- To change the section for new notes, select its tab, choose it from the More tab, or press Command-K.
 - To create or select a section from the composer, type `# Research` alone and press Return.
 - To run a folder skill, type `/` and the skill name. See [Work with agents](claude.md#run-a-skill-from-the-composer).
 - To find notes, press Command-F. Search matches note text in all sections and in the clipboard. To end the search, select Cancel or press Escape.
 
-Inbox stays visible at the top of the capture panel. The section dropdown shows the current section and a search field. Each section has a note count. Archived and New Section appear below the section list.
+The More tab has a search field and a note count for each section. Done and New Section show under the list of sections. A search in the panel shows the matches of every section, each under its own header.
 
 Section names have 1 to 80 characters and ignore case.
 
@@ -181,7 +183,7 @@ In the capture panel:
 | Action | Result |
 | --- | --- |
 | Merge | Joins the notes with blank lines between them |
-| Mark as Done | Marks the notes as done. In Archived, Reopen opens them again. |
+| Mark as Done | Marks the notes as done. In Done, Reopen opens them again. |
 | Move | Moves the notes to another section |
 | Copy | Copies the text of the notes |
 | Send | Runs the default Claude Code skill on each note. See [Work with agents](claude.md). |
@@ -203,9 +205,9 @@ Undo reverses the last note change. Piper keeps one undo step, and a restart cle
 
 In the main window, the detail pane edits the selected note in place. Piper saves the change shortly after you stop typing. A note that holds only a link opens in the Web tab, and it has no editor.
 
-The circle on a note row marks the note as done. The ring on an article marks it as read. In the main window, Space marks the open note as done. Mark as Done is also in the selection bar and the context menu. Completed notes leave the regular sections and appear in Archived.
+The circle on a note row marks the note as done. The ring on an article marks it as read. In the main window, Space marks the open note as done. Mark as Done is also in the selection bar and the context menu. A note that you mark as done moves to "done today" at the end of its list. The next day, it shows only in Done.
 
-Archived is in the main window sidebar and the section dropdown of the capture panel. Archived groups the completed notes by the month in which you marked them as done. The newest month is first. A completed note shows a filled circle with a check. Search in Archived matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
+Done is in the main window sidebar and in the More tab of the capture panel. Done groups the completed notes by the month in which you marked them as done. The newest month is first. A completed note shows a filled circle with a check. Search in Done matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
 
 If you close a changed editor or quit Piper, Piper asks you to Save, Discard, or Cancel. A failed save keeps the draft.
 

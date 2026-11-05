@@ -124,6 +124,7 @@ UserDefaults holds these keys:
 | `captureFloating` | True by default. Keeps the capture panel above other apps. |
 | `composerDraft` | The unsaved composer text |
 | `accessibilityTipDismissed` | True after you close the Accessibility tip in the capture panel |
+| `clipboardStripFolded` | True after you fold the clipboard strip of the capture panel |
 | `showsFileSource` | True while the main window shows the Source view of a file |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
 | `wikiFileSort` | Name or Date |

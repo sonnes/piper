@@ -331,7 +331,7 @@ struct SidebarOutline: NSViewRepresentable {
                 case .section(let name):
                     let position = sections.filter { $0.name != SidebarOutline.inboxSection }.firstIndex { $0.name == name } ?? 0
                     row = (name, .dot(SidebarOutline.tagColor(at: position)), sections.first { $0.name == name }?.count ?? 0)
-                case .archived: row = ("Archived", .glyph("archived", PiperTheme.archivedNS), 0)
+                case .archived: row = ("Done", .glyph("archived", PiperTheme.archivedNS), 0)
                 case .clipboard: row = ("Clipboard", .glyph("clipboard", PiperTheme.clipboardNS), 0)
                 case .sessions(let path):
                     row = (URL(fileURLWithPath: path).lastPathComponent, .tile("claude", PiperTheme.claudeNS),

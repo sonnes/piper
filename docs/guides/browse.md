@@ -37,7 +37,7 @@ The window has a sidebar and a detail pane. The sidebar has these groups:
 
 | Group | Rows |
 | --- | --- |
-| Library | Inbox with a row for each other section, Clipboard, and Archived |
+| Library | Inbox with a row for each other section, Clipboard, and Done |
 | Claude | Each folder with agent sessions, and its sessions. See [Find a session](claude.md#find-a-session). |
 | Folders | Every folder, and the tree of the active folder with its files |
 
@@ -45,7 +45,7 @@ The sidebar selection decides what the detail pane shows:
 
 | Selection | Detail pane |
 | --- | --- |
-| Inbox, a section, or Archived | The capture that you select in the list of captures. The list shows between the sidebar and the detail pane. |
+| Inbox, a section, or Done | The capture that you select in the list of captures. The list shows between the sidebar and the detail pane. |
 | Clipboard | The clipboard history |
 | A file | The file |
 | A folder | The last file that you opened |
@@ -213,7 +213,7 @@ The page shows the HTML file in a frame. Piper reloads the frame when the file c
 
 Select Inbox in the sidebar to see the notes and links of every section in one list. Inbox also becomes the section for new notes. Select a section under Inbox to show only its captures and make it the section for new notes. Select Clipboard to see the clipboard history. See [Capture notes](capture.md) for the actions on a capture.
 
-The list shows the newest capture first, in day groups: Today, Yesterday, This Week, and Earlier. A capture from a section other than Inbox shows the dot and the name of its section. The chips over the list choose what the list shows:
+The field to add a note is at the top of the list. The list shows the newest capture first, in day groups: Today, Yesterday, This Week, and Earlier. A note shows only its text. To see its time or its source app, move the pointer over the row. A link shows its site, and its number of highlights or its reading time. A capture from a section other than Inbox shows the dot and the name of its section. The chips over the list choose what the list shows:
 
 | Chip | Captures |
 | --- | --- |
@@ -222,6 +222,8 @@ The list shows the newest capture first, in day groups: Today, Yesterday, This W
 | Reading | The links, in Continue, Up Next, and Finished This Week. See [Keep a reading list](#keep-a-reading-list). |
 
 Piper keeps the chip of each section until you quit.
+
+The captures that you mark as done today show under "done today" at the end of All and Notes. Select the line to show or hide them.
 
 A note has a circle. Select the circle to mark the note as done. A link has a ring that fills as you read. Select the ring to mark the article as read, or to read it again. A blue dot marks a link that you did not open.
 
@@ -289,7 +291,7 @@ Select the Reading chip over the Inbox list. Reading shows each capture that hol
 | Up Next | The articles that you did not open. A blue dot marks them. |
 | Finished This Week | The articles that you read to the end in the last seven days |
 
-The count on the Reading chip includes all three groups. When you scroll to the end of an article, or select its ring, Piper moves it to Finished This Week. Seven days later, Piper marks it as done, and it moves to Archived. Piper makes this check at launch and each time the main window becomes active.
+The count on the Reading chip includes all three groups. When you scroll to the end of an article, or select its ring, Piper moves it to Finished This Week. Seven days later, Piper marks it as done, and it moves to Done. Piper makes this check at launch and each time the main window becomes active.
 
 ### Use The Notes Tab
 

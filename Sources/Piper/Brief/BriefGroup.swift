@@ -13,10 +13,19 @@ struct BriefGroup: View {
 
     private var brief: BriefBuilder { model.brief }
     private var picks: [BriefPick] { brief.openPicks }
-    private var builtToday: Bool { brief.day?.id == BriefStore.id(for: Date()) }
+    private var builtToday: Bool { Self.builtToday(brief) }
+
+    /// True when the group has a state, a question, a pick, or a Build Brief button to show.
+    static func shows(_ brief: BriefBuilder) -> Bool {
+        brief.state != .idle || brief.asksAboutMorning || !brief.openPicks.isEmpty || !builtToday(brief)
+    }
+
+    private static func builtToday(_ brief: BriefBuilder) -> Bool {
+        brief.day?.id == BriefStore.id(for: Date())
+    }
 
     var body: some View {
-        if brief.state != .idle || brief.asksAboutMorning || !picks.isEmpty || !builtToday {
+        if Self.shows(brief) {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 if !folded {

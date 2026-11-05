@@ -63,7 +63,7 @@ final class SidebarViewController: HostingPaneViewController {
     }
 }
 
-/// The captures of Inbox, of one section, or of Archived. It reports a capture and nothing else.
+/// The captures of Inbox, of one section, or of Done. It reports a capture and nothing else.
 @MainActor
 final class CaptureListViewController: HostingPaneViewController {
     override var acceptsFirstResponder: Bool { true }

@@ -282,7 +282,7 @@ final class MainWindowController: NSWindowController {
         case .section(let name):
             setTitle(name, Self.count(store.notes.filter { $0.parent == nil && $0.section == name && !$0.isDone }.count, "item"))
         case .archived:
-            setTitle("Archived", Self.count(store.notes.filter { $0.parent == nil && $0.isDone }.count, "item"))
+            setTitle("Done", Self.count(store.notes.filter { $0.parent == nil && $0.isDone }.count, "item"))
         case .clipboard:
             setTitle("Clipboard", Self.count(model.clipboard.entries.count, "copy", "copies") + " · not saved")
         case .folder, .file:

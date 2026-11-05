@@ -22,6 +22,8 @@ final class AppDefaults {
         static let composerDraft = "composerDraft"
         static let migratedLocalPreferences = "migratedLocalPreferences"
         static let accessibilityTipDismissed = "accessibilityTipDismissed"
+        /// True when the reader folded the clipboard strip of the capture panel.
+        static let clipboardStripFolded = "clipboardStripFolded"
         static let showsFileSource = "showsFileSource"
         /// Turns on the QA hooks of a debug build. See `QA`.
         static let qaMode = "PiperQA"
@@ -394,8 +396,10 @@ final class AppDefaults {
         static let listInset: CGFloat = 14
         /// Lifts the panel hint line clear of the rounded bottom corners.
         static let hintBottomPadding: CGFloat = 6
-        /// The number of clipboard items that the capture list shows.
-        static let recentClipboardCount = 5
+        /// The number of clipboard items in the strip under the panel list.
+        static let recentClipboardCount = 3
+        /// The number of sections that show as tabs in the panel. The menu tab holds the others.
+        static let sectionTabCount = 3
     }
 
     /// Composer metrics.

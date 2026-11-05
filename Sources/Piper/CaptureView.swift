@@ -17,7 +17,7 @@ private enum PanelSheet: Identifiable {
 
 /// What the capture list shows.
 enum CaptureListContent: Equatable {
-    /// Every section in one list. The panel also shows the latest clipboard texts.
+    /// The panel: the active section, or every section during a search.
     case sections
     /// The whole clipboard history, grouped by day.
     case clipboard
@@ -27,16 +27,10 @@ enum CaptureListContent: Equatable {
     case stream(section: String?)
 }
 
-/// A request to scroll the list to a section. A new identity scrolls again.
-struct SectionScroll: Equatable {
-    let section: String
-    let id = UUID()
-}
-
 /// The capture list, in the capture panel and in the Inbox pane of the main window.
 ///
-/// One list holds every section under its own header. The panel dropdown
-/// selects a section and scrolls to its header. The main window selects
+/// The list is a checklist with the add field at the top. The panel shows one
+/// section at a time and selects it with tabs. The main window selects
 /// sections from the children of Inbox in the sidebar.
 struct CaptureView: View {
     @Bindable var store: CaptureStore
@@ -73,7 +67,8 @@ struct CaptureView: View {
     @FocusState private var searching: Bool
     @State private var composing = false
     @State private var panelContent = CaptureListContent.sections
-    @State private var scroll: SectionScroll?
+    @State private var showsDoneToday = false
+    @AppStorage(AppDefaults.Key.clipboardStripFolded) private var clipboardFolded = false
     /// The highlighted row of the skill list over the composer.
     @State private var completionIndex = 0
     /// The skill the reader picked from the list, which also picks the folder.
@@ -105,8 +100,9 @@ struct CaptureView: View {
         InboxStream(notes: store.notes, section: streamSection, filter: filter, query: store.query)
     }
     private var searchMode: Bool { showingSearch || !store.query.isEmpty }
+    /// The sections of the panel list: the active one, or each one with a match during a search.
     private var displayedSections: [String] {
-        searchMode ? store.sections.filter { !store.visibleNotes(in: $0).isEmpty } : store.sections
+        searchMode ? store.sections.filter { !store.visibleNotes(in: $0).isEmpty } : [store.activeSection]
     }
     private var archiveGroups: [InboxStream.Group] {
         InboxStream.archive(notes: store.notes, query: store.query)
@@ -117,17 +113,22 @@ struct CaptureView: View {
     private func matchingNotes(in stream: InboxStream?) -> [Note] {
         if let stream { return stream.notes }
         if content == .archived { return archiveGroups.flatMap(\.notes) }
-        return content == .clipboard ? [] : displayedSections.flatMap { store.visibleNotes(in: $0) }
+        return content == .clipboard ? [] : displayedSections.flatMap { panelNotes(in: $0) }
+    }
+    /// The open notes of a section in the panel, the newest first, so a new
+    /// note shows under the add field.
+    private func panelNotes(in section: String) -> [Note] {
+        store.visibleNotes(in: section).reversed()
     }
     private var clipboardEntries: [ClipboardEntry] {
         model.clipboard.entries.filter {
             store.query.isEmpty || $0.text.localizedCaseInsensitiveContains(store.query)
         }
     }
-    /// The clipboard texts at the top of the section list.
+    /// The clipboard texts that match a search in the panel.
     private var recentClipboard: [ClipboardEntry] {
-        guard !embedded, content == .sections else { return [] }
-        return searchMode ? clipboardEntries : Array(clipboardEntries.prefix(AppDefaults.CaptureItem.recentClipboardCount))
+        guard !embedded, content == .sections, searchMode else { return [] }
+        return clipboardEntries
     }
     private var showsComposer: Bool { content == .sections || isStream }
     private var canSave: Bool { !model.composerDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -154,6 +155,7 @@ struct CaptureView: View {
         VStack(spacing: 0) {
             if embedded { paneHeader(stream, matches: matching.count) } else { panelHeader(matches: matching.count) }
             if !embedded && !model.accessibilityEnabled && !tipDismissed { accessibilityTip }
+            if showsComposer { composer }
             switch content {
             case .sections:
                 sectionList.overlay(alignment: .bottom) { skillList }
@@ -164,7 +166,7 @@ struct CaptureView: View {
             case .clipboard: clipboardHistory
             }
             if embedded ? checking && !store.selection.isEmpty : !store.selection.isEmpty { selectionBar }
-            if showsComposer { composer }
+            if !embedded && content == .sections && !searchMode && store.selection.isEmpty { clipboardStrip }
             if !embedded { hints }
         }
         .background {
@@ -191,7 +193,6 @@ struct CaptureView: View {
                     if store.chooseSection(name) {
                         panelContent = .sections
                         store.status = "Capturing to \(store.activeSection)"
-                        scrollTo(store.activeSection)
                         sheet = nil
                     }
                 }
@@ -267,34 +268,31 @@ struct CaptureView: View {
         .frame(height: AppDefaults.CaptureItem.panelHeaderHeight)
     }
 
-    /// Clipboard, Inbox, and Sections, as the segments of one control.
+    /// The first sections as tabs, then a menu tab with every section and Done.
+    /// The menu tab names the active section when no other tab shows it.
     private var tabs: some View {
-        HStack(spacing: 2) {
-            PanelTab(title: "Clipboard", icon: "doc.on.clipboard", count: 0, active: content == .clipboard) {
-                panelContent = .clipboard
-                composing = false
+        let shown = Array(store.sections.prefix(AppDefaults.CaptureItem.sectionTabCount))
+        let otherActive = content == .sections && !shown.contains(store.activeSection)
+        return HStack(spacing: 2) {
+            ForEach(shown, id: \.self) { section in
+                PanelTab(title: section, icon: nil, count: openCount(section),
+                         active: content == .sections && store.activeSection == section) {
+                    showSection(section)
+                }
             }
-            PanelTab(title: "Inbox", icon: nil, count: openCount("Inbox"),
-                     active: content == .sections && store.activeSection == "Inbox") {
-                panelContent = .sections
-                chooseSection("Inbox")
-                composing = true
+            PanelTab(title: content == .archived ? "Done" : otherActive ? store.activeSection : "More",
+                     icon: nil, count: 0, active: content == .archived || otherActive, opensMenu: true) {
+                showingSections = true
             }
-            PanelTab(title: content == .archived ? "Archived" : (store.activeSection == "Inbox" ? "Sections" : store.activeSection),
-                     icon: nil, count: 0,
-                     active: content == .archived || (content == .sections && store.activeSection != "Inbox"),
-                     opensMenu: true) { showingSections = true }
             .accessibilityLabel("Choose Section")
             .popover(isPresented: $showingSections, arrowEdge: .bottom) {
                 CaptureSectionMenu(sections: store.sections, current: content == .sections ? store.activeSection : nil,
-                                   archived: content == .archived, count: openCount,
-                                   archivedCount: store.notes.filter(\.isDone).count,
+                                   done: content == .archived, count: openCount,
+                                   doneCount: store.notes.filter { $0.parent == nil && $0.isDone }.count,
                                    choose: { section in
                                        showingSections = false
-                                       panelContent = .sections
-                                       chooseSection(section)
-                                       composing = true
-                                   }, showArchived: {
+                                       showSection(section)
+                                   }, showDone: {
                                        showingSections = false
                                        panelContent = .archived
                                        composing = false
@@ -307,6 +305,12 @@ struct CaptureView: View {
         .padding(2)
         .background(PiperTheme.tabTrack, in: RoundedRectangle(cornerRadius: PiperTheme.radius + 2, style: .continuous))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func showSection(_ section: String) {
+        panelContent = .sections
+        chooseSection(section)
+        composing = true
     }
 
     private var moreMenu: some View {
@@ -404,41 +408,49 @@ struct CaptureView: View {
     // MARK: Lists
 
     private var sectionList: some View {
-        ScrollViewReader { proxy in
+        let doneToday = searchMode ? [] : InboxStream.doneToday(notes: store.notes, section: store.activeSection)
+        return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     if !searchMode { BriefGroup(model: model) }
                     if !recentClipboard.isEmpty {
-                        SectionHeader(title: "Clipboard",
-                                      detail: searchMode ? nil : "\(recentClipboard.count) latest",
-                                      active: false,
-                                      action: searchMode ? nil : ("See All", { panelContent = .clipboard }))
+                        SectionHeader(title: "Clipboard", detail: nil, active: false, action: nil)
                         CaptureCard {
                             ForEach(Array(recentClipboard.enumerated()), id: \.element.id) { index, entry in
-                                ClipboardRow(entry: entry, showsSource: false, separated: index > 0,
-                                             paste: { paste(entry) }, keep: { keep(entry) }, read: readAction(entry),
-                                             agents: agents, send: { send(entry, $0) })
+                                clipboardRow(entry, showsSource: false, separated: index > 0)
                             }
                         }
                     }
                     ForEach(displayedSections, id: \.self) { section in
-                        let notes = store.visibleNotes(in: section)
-                        SectionHeader(title: section, detail: notes.isEmpty ? nil : "\(notes.count)",
-                                      active: !embedded && content == .sections && !searchMode && section == store.activeSection, action: nil)
-                            .id(Self.anchor(section))
-                        CaptureCard {
-                            if notes.isEmpty {
-                                Text("No notes in \(section)")
-                                    .font(PiperTheme.ui(13)).foregroundStyle(PiperTheme.faint)
-                                    .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding)
-                                    .frame(maxWidth: .infinity, minHeight: AppDefaults.CaptureItem.clipboardHeight, alignment: .leading)
-                            }
-                            ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
-                                noteRow(note, separated: index > 0).id(note.id)
-                                if showsChildren(note.id, byDefault: true) {
-                                    ForEach(store.children(of: note.id)) { child in
-                                        childRow(child, of: note)
+                        let notes = panelNotes(in: section)
+                        if searchMode {
+                            SectionHeader(title: section, detail: "\(notes.count)", active: false, action: nil)
+                        }
+                        if !notes.isEmpty || doneToday.isEmpty {
+                            CaptureCard {
+                                if notes.isEmpty {
+                                    Text("No notes in \(section)")
+                                        .font(PiperTheme.ui(13)).foregroundStyle(PiperTheme.faint)
+                                        .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding)
+                                        .frame(maxWidth: .infinity, minHeight: AppDefaults.CaptureItem.clipboardHeight, alignment: .leading)
+                                }
+                                ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
+                                    noteRow(note, separated: index > 0).id(note.id)
+                                    if showsChildren(note.id, byDefault: true) {
+                                        ForEach(store.children(of: note.id)) { child in
+                                            childRow(child, of: note)
+                                        }
                                     }
+                                }
+                            }
+                        }
+                    }
+                    if !doneToday.isEmpty {
+                        DoneTodayHeader(count: doneToday.count, shown: showsDoneToday) { showsDoneToday.toggle() }
+                        if showsDoneToday {
+                            CaptureCard {
+                                ForEach(Array(doneToday.enumerated()), id: \.element.id) { index, note in
+                                    noteRow(note, separated: index > 0).id(note.id)
                                 }
                             }
                         }
@@ -454,30 +466,73 @@ struct CaptureView: View {
             }
             .onChange(of: store.notes.count) { oldCount, newCount in
                 if newCount > oldCount, let note = store.notes.last {
-                    withAnimation(motion) { proxy.scrollTo(note.id, anchor: .bottom) }
+                    withAnimation(motion) { proxy.scrollTo(note.id, anchor: .top) }
                 }
             }
             .onChange(of: selectionAnchor) { _, id in
                 if let id { withAnimation(motion) { proxy.scrollTo(id) } }
             }
-            .onChange(of: scroll, initial: true) { _, request in
-                guard let request else { return }
-                DispatchQueue.main.async {
-                    withAnimation(motion) { proxy.scrollTo(Self.anchor(request.section), anchor: .top) }
-                }
-            }
         }
         .frame(maxHeight: .infinity)
     }
 
-    /// The Inbox of the main window: Continue Reading, then one group for each day.
+    /// The latest clipboard texts, under the list of the panel. The strip folds,
+    /// and See All shows the whole clipboard history.
+    @ViewBuilder private var clipboardStrip: some View {
+        let entries = Array(model.clipboard.entries.prefix(AppDefaults.CaptureItem.recentClipboardCount))
+        if !entries.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Button { withAnimation(motion) { clipboardFolded.toggle() } } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: clipboardFolded ? "chevron.right" : "chevron.down")
+                                .font(.system(size: 9, weight: .semibold))
+                            Text("Clipboard").fontWeight(.semibold).foregroundStyle(PiperTheme.ink)
+                            Text("· \(entries.count) latest")
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(clipboardFolded ? "Show Clipboard" : "Hide Clipboard")
+                    Spacer(minLength: 4)
+                    Button("See All") {
+                        panelContent = .clipboard
+                        composing = false
+                    }
+                    .buttonStyle(.text)
+                }
+                .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                .padding(.horizontal, 6)
+                if !clipboardFolded {
+                    CaptureCard {
+                        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                            clipboardRow(entry, showsSource: false, separated: index > 0)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, AppDefaults.CaptureItem.listInset)
+            .padding(.top, 8)
+            .overlay(alignment: .top) { Rule() }
+        }
+    }
+
+    private func clipboardRow(_ entry: ClipboardEntry, showsSource: Bool, separated: Bool) -> some View {
+        ClipboardRow(entry: entry, showsSource: showsSource, separated: separated,
+                     paste: { paste(entry) }, keep: { keep(entry) }, read: readAction(entry),
+                     agents: agents, send: { send(entry, $0) })
+    }
+
+    /// The Inbox of the main window: Continue Reading, one group for each day,
+    /// and the captures done today.
     private func streamList(_ stream: InboxStream) -> some View {
-        ScrollViewReader { proxy in
+        let showsBrief = content == .stream(section: nil) && filter == .all && store.query.isEmpty
+        let doneToday = filter == .reading || !store.query.isEmpty ? []
+            : InboxStream.doneToday(notes: store.notes, section: streamSection).filter { filter == .all || !$0.isArticle }
+        return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if content == .stream(section: nil) && filter == .all && store.query.isEmpty {
-                        BriefGroup(model: model)
-                    }
+                    if showsBrief { BriefGroup(model: model) }
                     ForEach(stream.groups, id: \.title) { group in
                         StreamHeader(title: group.title,
                                      action: group.kind == .started && filter == .all ? ("See All", { setFilter(.reading) }) : nil)
@@ -490,18 +545,26 @@ struct CaptureView: View {
                             }
                         }
                     }
+                    if !doneToday.isEmpty {
+                        DoneTodayHeader(count: doneToday.count, shown: showsDoneToday) { showsDoneToday.toggle() }
+                        if showsDoneToday {
+                            ForEach(Array(doneToday.enumerated()), id: \.element.id) { index, note in
+                                inboxRow(note, style: note.isArticle ? .compact : .note, separated: index > 0).id(note.id)
+                            }
+                        }
+                    }
                 }
                 .padding(.horizontal, 8)
                 .padding(.bottom, 12)
             }
             .overlay {
-                if stream.groups.isEmpty {
+                if stream.groups.isEmpty && doneToday.isEmpty && !(showsBrief && BriefGroup.shows(model.brief)) {
                     if !store.query.isEmpty {
                         EmptyPane(title: "No Results", detail: "Try another word.")
                     } else if filter == .reading {
                         EmptyPane(title: "Nothing to Read", detail: "On a web page, press Shift twice to save it here.")
                     } else {
-                        EmptyPane(title: "No Notes", detail: "Type a note below, or press Shift twice in another app.")
+                        EmptyPane(title: "No Notes", detail: "Type a note above, or press Shift twice in another app.")
                     }
                 }
             }
@@ -541,7 +604,7 @@ struct CaptureView: View {
             .overlay {
                 if groups.isEmpty {
                     if store.query.isEmpty {
-                        EmptyPane(title: "No Archived Notes", detail: "Completed notes appear here.")
+                        EmptyPane(title: "No Done Notes", detail: "Notes that you mark as done show here.")
                     } else {
                         EmptyPane(title: "No Results", detail: "Try another word.")
                     }
@@ -622,7 +685,7 @@ struct CaptureView: View {
     }
 
     /// Marks an article as read, or opens it again. A read article stays in
-    /// Finished This Week, then goes to Archived.
+    /// Finished This Week, then goes to Done.
     private func toggleRead(_ note: Note) {
         if note.reading?.finishedAt == nil {
             store.updateReading(note.id) { $0.finishedAt = Date(); $0.progress = 1 }
@@ -645,9 +708,7 @@ struct CaptureView: View {
                     DayHeader(title: Self.dayTitle(day))
                     CaptureCard {
                         ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                            ClipboardRow(entry: entry, showsSource: true, separated: index > 0,
-                                         paste: { paste(entry) }, keep: { keep(entry) }, read: readAction(entry),
-                                         agents: agents, send: { send(entry, $0) })
+                            clipboardRow(entry, showsSource: true, separated: index > 0)
                         }
                     }
                 }
@@ -761,7 +822,7 @@ struct CaptureView: View {
                 .padding(.top, AppDefaults.Composer.regionInset + AppDefaults.Composer.textInset.height)
                 .accessibilityHidden(true)
             CaptureEditor(text: $model.composerDraft, focused: $composing,
-                          placeholder: "New note in \(store.activeSection)", compact: embedded)
+                          placeholder: "Add to \(store.activeSection)", compact: embedded)
                 .padding(.bottom, embedded ? AppDefaults.Composer.inboxCircleSize : 0)
                 .frame(height: embedded ? AppDefaults.Composer.inboxHeight : AppDefaults.Composer.height)
         }
@@ -783,8 +844,8 @@ struct CaptureView: View {
                 .padding(-3.5)
         }
         .padding(.horizontal, AppDefaults.Composer.margin)
-        .padding(.top, store.selection.isEmpty ? 8 : 0)
-        .padding(.bottom, embedded ? 12 : 0)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
     }
 
     private var inboxHint: String {
@@ -856,8 +917,6 @@ struct CaptureView: View {
         "\(value) \(value == 1 ? one : many)"
     }
 
-    static func anchor(_ section: String) -> String { "section:" + section }
-
     static func dayTitle(_ day: Date) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(day) { return "Today" }
@@ -873,15 +932,9 @@ struct CaptureView: View {
     }
 
     private func chooseSection(_ section: String) {
-        if section != store.activeSection {
-            clearSelection()
-            guard store.chooseSection(section) else { return }
-        }
-        scrollTo(section)
-    }
-
-    private func scrollTo(_ section: String) {
-        scroll = SectionScroll(section: section)
+        guard section != store.activeSection else { return }
+        clearSelection()
+        store.chooseSection(section)
     }
 
     private func beginSearch() {
@@ -1001,10 +1054,7 @@ struct CaptureView: View {
         }
         let createsSection = model.composerDraft.hasPrefix("# ") && !model.composerDraft.contains("\n")
         if store.add(model.composerDraft) {
-            if createsSection {
-                store.status = "Capturing to \(store.activeSection)"
-                scrollTo(store.activeSection)
-            }
+            if createsSection { store.status = "Capturing to \(store.activeSection)" }
             model.composerDraft = ""
             store.query = ""
             showingSearch = false
@@ -1106,6 +1156,29 @@ private struct FilterChip: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+/// The fold over the captures done today, at the end of a list.
+private struct DoneTodayHeader: View {
+    let count: Int
+    let shown: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: 6) {
+                Image(systemName: shown ? "chevron.down" : "chevron.right").font(.system(size: 9, weight: .semibold))
+                Text("\(count) done today")
+                Spacer(minLength: 0)
+            }
+            .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+            .padding(.horizontal, 10)
+            .padding(.top, 12).padding(.bottom, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(shown ? "Hide \(count) done today" : "Show \(count) done today")
     }
 }
 

@@ -34,7 +34,7 @@ public struct InboxStream: Equatable {
         case upNext
         /// Articles that the reader read to the end in the last week.
         case finished
-        /// Done captures of one month, in Archived.
+        /// Done captures of one month, in Done.
         case month
     }
 
@@ -89,7 +89,22 @@ public struct InboxStream: Equatable {
         }
     }
 
-    // MARK: - Archived
+    // MARK: - Done
+
+    /// The captures of one section, or of every section when the section is
+    /// nil, that the reader marked as done today. The newest is first.
+    ///
+    /// An article that Piper moved to Done a week after the reader finished
+    /// it is not in the list, because the reader did not mark it today.
+    public static func doneToday(notes: [Note], section: String?, now: Date = Date(),
+                                 calendar: Calendar = .current) -> [Note] {
+        notes.filter { note in
+            guard note.parent == nil, note.isDone, section.map({ note.section == $0 }) ?? true else { return false }
+            let finished = note.reading?.finishedAt ?? note.modifiedAt
+            return calendar.isDate(note.modifiedAt, inSameDayAs: now) && calendar.isDate(finished, inSameDayAs: now)
+        }
+        .sorted { $0.modifiedAt > $1.modifiedAt }
+    }
 
     /// The done captures, one group for each month in which they were marked
     /// as done, the newest month first. A search matches the text of a

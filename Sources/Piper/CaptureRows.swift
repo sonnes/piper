@@ -49,11 +49,11 @@ struct PanelTab: View {
 struct CaptureSectionMenu: View {
     let sections: [String]
     let current: String?
-    let archived: Bool
+    let done: Bool
     let count: (String) -> Int
-    let archivedCount: Int
+    let doneCount: Int
     let choose: (String) -> Void
-    let showArchived: () -> Void
+    let showDone: () -> Void
     let newSection: () -> Void
     @State private var query = ""
     @FocusState private var searching: Bool
@@ -92,12 +92,12 @@ struct CaptureSectionMenu: View {
             }
             .frame(maxHeight: AppDefaults.CaptureItem.sectionMenuHeight)
             Divider()
-            Button(action: showArchived) {
+            Button(action: showDone) {
                 HStack {
-                    Image(systemName: archived ? "checkmark" : "archivebox")
-                    Text("Archived")
+                    Image(systemName: done ? "checkmark" : "checkmark.circle")
+                    Text("Done")
                     Spacer()
-                    Text("\(archivedCount)").foregroundStyle(PiperTheme.secondary)
+                    Text("\(doneCount)").foregroundStyle(PiperTheme.secondary)
                 }
                 .frame(maxWidth: .infinity, minHeight: AppDefaults.CaptureItem.buttonHitSize)
                 .contentShape(Rectangle())
@@ -281,6 +281,7 @@ struct NoteRow: View {
     var childCount = 0
     var showsChildren = true
     var toggleChildren: () -> Void = {}
+    @State private var hovered = false
 
     private var link: URL? { CaptureLinks(note.text).standaloneURL }
     /// A link that no run has taken yet gets a Send button on the row.
@@ -294,6 +295,32 @@ struct NoteRow: View {
     private var source: String? {
         guard let source = note.sources.first, source != "Clipboard", link == nil else { return nil }
         return "From " + source
+    }
+
+    /// The site of a link, and the button that shows or hides the child notes.
+    @ViewBuilder private var detail: some View {
+        if link != nil || childCount > 0 {
+            HStack(spacing: 4) {
+                if let host = link?.host() {
+                    Text(host).lineLimit(1)
+                    if childCount > 0 { Text("·") }
+                }
+                if childCount > 0 {
+                    Button(action: toggleChildren) {
+                        HStack(spacing: 4) {
+                            Image(systemName: showsChildren ? "chevron.down" : "chevron.right")
+                                .font(.system(size: 8, weight: .semibold))
+                            Text(childCount == 1 ? "1 note" : "\(childCount) notes")
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(showsChildren ? "Hide notes" : "Show notes")
+                }
+            }
+            .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+            .padding(.top, 2)
+        }
     }
 
     var body: some View {
@@ -322,33 +349,17 @@ struct NoteRow: View {
                         VStack(alignment: .leading, spacing: 1) {
                             if let link {
                                 Text(note.reading?.title ?? (link.host() ?? "") + link.path())
-                                    .foregroundStyle(PiperTheme.accent)
-                                    .lineLimit(1).truncationMode(.middle)
+                                    .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.ink)
+                                    .lineLimit(2).truncationMode(.middle)
                             } else {
                                 Text(formattedText)
-                                    .foregroundStyle(PiperTheme.ink)
+                                    .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.ink)
+                                    .strikethrough(note.isDone, color: PiperTheme.faint)
                                     .lineSpacing(AppDefaults.CaptureItem.lineSpacing)
                                     .lineLimit(3)
                             }
-                            if childCount > 0 {
-                                Button(action: toggleChildren) {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: showsChildren ? "chevron.down" : "chevron.right")
-                                            .font(.system(size: 8, weight: .semibold))
-                                        Text(childCount == 1 ? "1 note" : "\(childCount) notes")
-                                    }
-                                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.top, 2)
-                                .accessibilityLabel(showsChildren ? "Hide notes" : "Show notes")
-                            }
-                            if let session {
-                                RunLine(session: session)
-                            } else if let source {
-                                Text(source).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
-                            }
+                            detail
+                            if let session { RunLine(session: session) }
                         }
                         .font(PiperTheme.ui(AppDefaults.CaptureItem.fontSize))
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -363,13 +374,16 @@ struct NoteRow: View {
                 } else if showsSend {
                     SendButton(agents: agents, title: agents.sendTitle, sendDefault: { send(nil) }, send: send)
                 }
-                Text(RowTime.text(note.createdAt))
-                    .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.faint).monospacedDigit().fixedSize()
-                    .onTapGesture(perform: select)
+                if hovered || selected {
+                    Text(source ?? RowTime.text(note.createdAt))
+                        .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.faint).monospacedDigit().lineLimit(1).fixedSize()
+                        .onTapGesture(perform: select)
+                }
             }
             .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding)
             .padding(.vertical, AppDefaults.CaptureItem.verticalPadding)
             .frame(minHeight: AppDefaults.CaptureItem.minimumHeight)
+            .background(hovered && !selected ? PiperTheme.hover : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
             .overlay {
                 if selected {
                     RoundedRectangle(cornerRadius: PiperTheme.cardRadius)
@@ -377,6 +391,7 @@ struct NoteRow: View {
                 }
             }
         }
+        .onHover { hovered = $0 }
         .contextMenu {
             NoteContextMenu(note: note, completeTitle: note.isDone ? "Reopen" : "Mark as Done", canMerge: canMerge,
                             session: session, agents: agents, copy: copy, complete: complete, edit: edit,

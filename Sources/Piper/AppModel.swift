@@ -173,7 +173,7 @@ final class AppModel {
     }
 
     /// Moves the articles that the reader finished more than a week ago to
-    /// Archived. Launch runs it, and so does each return to the main window.
+    /// Done. Launch runs it, and so does each return to the main window.
     func archiveFinishedReading(now: Date = Date()) {
         store.archiveFinishedReading(before: now.addingTimeInterval(-Double(ReadingList.finishedDays) * 86_400))
     }
