@@ -142,8 +142,8 @@ public struct TurnResult: Codable, Equatable, Sendable {
 
 /// One item of a session transcript, oldest first.
 public enum TranscriptBlock: Codable, Equatable, Sendable, Identifiable {
-    /// A message from the reader, with the files attached as context.
-    case user(id: String, text: String, context: [String])
+    /// A message from the reader, with the items attached as context.
+    case user(id: String, text: String, context: [ContextItem])
     case assistant(id: String, text: String)
     case toolCall(ToolCall)
     case permission(PermissionRequest, decision: PermissionDecision)

@@ -9,6 +9,8 @@ struct CaptureEditor: NSViewRepresentable {
     var label = "New note text"
     var help = "Return saves the note. Shift-Return inserts a new line."
     var compact = false
+    /// The texts that show in the accent color, such as `@` mentions.
+    var highlights: [String] = []
     /// Handles a key command such as `insertNewline:` or `moveUp:`. Returns
     /// true when it handled the command. The coordinator reads the newest
     /// value on each update, so the handler never sees an old view.
@@ -97,6 +99,7 @@ struct CaptureEditor: NSViewRepresentable {
             scroll.reflectScrolledClipView(scroll.contentView)
         }
         context.coordinator.reportHeight(of: editor)
+        context.coordinator.highlight(editor)
         if focused, editor.window?.firstResponder !== editor {
             DispatchQueue.main.async { [weak editor, weak coordinator = context.coordinator] in
                 guard let editor, coordinator?.parent.focused == true else { return }
@@ -117,6 +120,29 @@ struct CaptureEditor: NSViewRepresentable {
             guard let editor = notification.object as? NSTextView else { return }
             parent.text = editor.string
             reportHeight(of: editor)
+            highlight(editor)
+        }
+
+        /// Colors each highlight text. The colors are temporary attributes, so
+        /// the text keeps no style.
+        func highlight(_ editor: NSTextView) {
+            guard let manager = editor.layoutManager else { return }
+            let text = editor.string as NSString
+            let whole = NSRange(location: 0, length: text.length)
+            manager.removeTemporaryAttribute(.foregroundColor, forCharacterRange: whole)
+            manager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: whole)
+            for token in parent.highlights where !token.isEmpty {
+                var search = whole
+                while search.length > 0 {
+                    let found = text.range(of: token, range: search)
+                    guard found.location != NSNotFound else { break }
+                    manager.addTemporaryAttributes([.foregroundColor: PiperTheme.accentNS,
+                                                    .backgroundColor: PiperTheme.accentNS.withAlphaComponent(0.1)],
+                                                   forCharacterRange: found)
+                    let next = found.location + found.length
+                    search = NSRange(location: next, length: text.length - next)
+                }
+            }
         }
 
         /// Sends the height of the laid-out text to `contentHeight`, when it changed.

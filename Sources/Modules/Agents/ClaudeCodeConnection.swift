@@ -77,7 +77,7 @@ public final class ClaudeCodeConnection: AgentConnection {
         try process.start(line: { [weak self] line in self?.receive(line) }, exit: exit)
     }
 
-    public func prompt(_ text: String, context: [String]) {
+    public func prompt(_ text: String, context: [ContextItem]) {
         hasText = false
         process.write(Self.userLine(text, context: context))
     }
@@ -112,7 +112,7 @@ public final class ClaudeCodeConnection: AgentConnection {
     // MARK: - Messages
 
     /// One user message of the stream-json input.
-    nonisolated static func userLine(_ text: String, context: [String]) -> String {
+    nonisolated static func userLine(_ text: String, context: [ContextItem]) -> String {
         let body = SessionRunner.messageBody(text, context: context)
         let object: [String: Any] = ["type": "user",
                                      "message": ["role": "user", "content": [["type": "text", "text": body]]]]

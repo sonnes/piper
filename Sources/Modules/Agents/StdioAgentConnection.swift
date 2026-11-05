@@ -70,7 +70,7 @@ public final class StdioAgentConnection: AgentConnection {
         }
     }
 
-    public func prompt(_ text: String, context: [String]) {
+    public func prompt(_ text: String, context: [ContextItem]) {
         let body = SessionRunner.messageBody(text, context: context)
         guard isOpen else { return queued.append(body) }
         sendPrompt(body)

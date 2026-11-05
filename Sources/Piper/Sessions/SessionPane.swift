@@ -14,15 +14,25 @@ struct SessionPane: View {
     let folder: String
     /// The note that a new session belongs to.
     var noteID: UUID?
-    /// The files that the next message names as context, as absolute paths.
-    var context: [String] = []
-    /// Called when the reader removes the context, and after a message took it.
-    var contextUsed: () -> Void = {}
+    /// The item on the screen. The first message of a session takes it. A
+    /// later message takes it again only if the reader asks.
+    var screenItem: ScreenItem?
     /// Called with the session that the first message started.
     var started: (AgentSession) -> Void = { _ in }
 
     /// The agent, model, and mode of the first message, before the session exists.
     @State private var choice: SessionChoice?
+    /// The item on the screen that the reader removed from the next message.
+    @State private var removedScreen: ContextItem?
+    /// The item on the screen that the reader asked to send again.
+    @State private var resentScreen: ContextItem?
+
+    private var screen: ScreenContext? {
+        guard let screenItem, screenItem.item != removedScreen else { return nil }
+        let shared = session?.sharedContext.contains(screenItem.item) == true
+        return ScreenContext(item: screenItem.item, title: screenItem.title,
+                             pending: !shared || resentScreen == screenItem.item)
+    }
 
     private var runner: SessionRunner { model.agents.runner }
 
@@ -44,18 +54,24 @@ struct SessionPane: View {
                     .frame(maxHeight: .infinity)
             }
             if let session { ApprovalDrawer(session: session, runner: runner) }
-            SessionComposer(model: model, session: session, folder: folder, context: context,
-                            removeContext: contextUsed, send: send,
+            SessionComposer(model: model, session: session, folder: folder, screen: screen, screenItem: screenItem,
+                            removeScreen: { removedScreen = screenItem?.item },
+                            resendScreen: { resentScreen = screenItem?.item },
+                            send: send,
                             stop: { if let session { runner.stop(session) } }, choice: $choice)
         }
         .background(PiperTheme.page)
+        .onChange(of: screenItem?.item) { _, _ in
+            removedScreen = nil
+            resentScreen = nil
+        }
     }
 
-    private func send(_ text: String, choice: SessionChoice) {
+    private func send(_ text: String, context: [ContextItem], choice: SessionChoice) {
         let target = session ?? model.agents.newSession(in: folder, noteID: noteID, agentID: choice.agentID, model: choice.model,
                                                          mode: choice.mode)
         runner.send(text, context: context, to: target)
-        if !context.isEmpty { contextUsed() }
+        resentScreen = nil
         if session == nil { started(target) }
     }
 }

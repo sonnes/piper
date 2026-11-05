@@ -158,6 +158,26 @@ final class SessionHelperTests: XCTestCase {
         XCTAssertEqual(try text(ClaudeCodeConnection.userLine("Why?", context: ["/w/a.md"])), "Why?\n\nContext file: /w/a.md")
         XCTAssertEqual(try text(ClaudeCodeConnection.userLine("/verify", context: ["/w/a.md"])), "/verify /w/a.md")
     }
+
+    func testContextNamesLinksAndNotesAndSkipsWhatTheTextHolds() {
+        let link = ContextItem.link(URL(string: "https://exe.dev/blog")!)
+        XCTAssertEqual(SessionRunner.messageBody("Sum it up", context: [link, .note("Line one\nLine two")]),
+                       "Sum it up\n\nContext link: https://exe.dev/blog\nContext note:\n> Line one\n> Line two")
+        XCTAssertEqual(SessionRunner.messageBody("/capture https://exe.dev/blog", context: [link]), "/capture https://exe.dev/blog")
+        XCTAssertEqual(SessionRunner.messageBody("/capture", context: [link]), "/capture https://exe.dev/blog")
+    }
+
+    @MainActor func testContextItemsKeepTheirKindInATranscript() throws {
+        let items: [ContextItem] = ["/w/a.md", .link(URL(string: "https://a.io/x")!), .note("Buy milk")]
+        let data = try JSONEncoder().encode(items)
+        XCTAssertEqual(String(decoding: data, as: UTF8.self), #"["\/w\/a.md","https:\/\/a.io\/x","note:Buy milk"]"#)
+        XCTAssertEqual(try JSONDecoder().decode([ContextItem].self, from: data), items)
+        XCTAssertEqual(items[0], .file("/w/a.md"))
+
+        let session = AgentSession(folder: "/w")
+        session.append(.user(id: "u1", text: "Hi", context: items))
+        XCTAssertEqual(session.sharedContext, Set(items))
+    }
 }
 
 final class SessionsTableTests: XCTestCase {

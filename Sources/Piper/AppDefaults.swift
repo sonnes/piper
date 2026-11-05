@@ -444,6 +444,11 @@ final class AppDefaults {
         static let composerLines = 3
         /// The number of files that the `@` list shows.
         static let fileCompletionLimit = 8
+        static let captureCompletionLimit = 4
+        /// The files that Piper reads for the `@` list of a folder that the sidebar does not show.
+        static let folderFileLimit = 5000
+        /// The characters of a note or a title in a context chip or a mention.
+        static let contextLabelLimit = 40
         /// The number of diff lines that an Edit row shows.
         static let diffLineLimit = 12
         /// The space between blocks of a transcript, and the inset of the transcript.

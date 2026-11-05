@@ -32,11 +32,11 @@ struct TranscriptBlockView: View {
     }
 }
 
-/// A message from the reader, as a bubble on the right, with the files it
+/// A message from the reader, as a bubble on the right, with the items it
 /// named as context under it.
 struct UserTurnView: View {
     let text: String
-    let context: [String]
+    let context: [ContextItem]
 
     private typealias Metrics = AppDefaults.Sessions
 
@@ -52,10 +52,11 @@ struct UserTurnView: View {
                 .background(PiperTheme.accent, in: UnevenRoundedRectangle(
                     topLeadingRadius: Metrics.bubbleRadius, bottomLeadingRadius: Metrics.bubbleRadius,
                     bottomTrailingRadius: Metrics.bubbleTailRadius, topTrailingRadius: Metrics.bubbleRadius))
-            ForEach(context, id: \.self) { path in
-                Label(URL(fileURLWithPath: path).lastPathComponent, systemImage: "doc.text")
+            ForEach(context, id: \.self) { item in
+                Label(item.label, systemImage: item.icon)
                     .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
-                    .help(path)
+                    .lineLimit(1)
+                    .help(item.argument)
             }
         }
         .padding(.leading, Metrics.bubbleLeadingSpace)

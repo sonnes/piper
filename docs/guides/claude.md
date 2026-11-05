@@ -51,7 +51,7 @@ The folder that you used last is the default folder. The Send button names it, f
 ## Talk To An Agent In A Session
 
 1. In the main window, select a file or a capture.
-2. Press Option-Command-C, or select the pill in the bottom right corner of the detail pane. The session card opens. A chip over the message field names the file.
+2. Press Option-Command-C, or select the pill in the bottom right corner of the detail pane. The session card opens. A chip over the message field names the file or the capture on the screen.
 3. Type a message.
 4. Press Return.
 
@@ -77,15 +77,27 @@ Select Pop Out in the header of the card. The card moves to a panel of its own. 
 
 To return the card to the main window, select Dock in the panel. To close the panel, select its close button. The card collapses to the pill. While the panel is open, Option-Command-C brings it to the front. Piper keeps the size and the place of the panel, and it opens the panel again after a restart.
 
-The first message starts a session. The message names the file as context. To send a message without the file, select the x on the chip. After a message takes the file, the chip goes away until you select another file.
+The first message starts a session.
+
+### Attach Context
+
+The item on the screen is the open file, the link of the open capture, or the text of the open note. A chip over the message field shows it.
+
+- A blue chip goes with the next message. To send the message without it, select the x on the chip.
+- After a message takes the item, the chip turns gray. The session has the item, so later messages do not send it again.
+- To send a gray item again, select the chip. It turns blue.
+- When you open another file or capture, the chip changes to it. The chip is blue if the session does not have the item yet.
+
+To add more items, type `@`. The list shows the item on the screen, the files of the session folder, and the captures that are not done. Type a part of a name to filter the list. Tab or Return adds the item. The mention shows in blue in the text, and a blue chip shows over the field. To remove a mention, delete its text or select the x on its chip.
+
+Each item goes after the text of the message, as a `Context file:`, `Context link:`, or `Context note:` line. A skill takes the item as its argument, for example `/verify <path>`. If the text already holds the path or the address, Piper does not add it again.
 
 In the message field:
 
 - Shift-Return adds a new line.
 - A `/` at the start lists the commands available in the session. Tab or Return puts the command in the message.
 - Before the session starts, the list shows folder skills. After the agent starts, the list also includes its supported built-in commands.
-- An `@` lists the files of the folder. Tab or Return puts the path in the message.
-- A skill takes the path of the chip file as its argument, for example `/verify <path>`.
+- An `@` lists the items that you can attach. See [Attach context](#attach-context).
 
 While the agent works, Stop replaces the Send button. Stop ends the turn. Your next message continues the same session.
 
@@ -121,7 +133,7 @@ To delete a session, Control-click it and select Delete Session.
 Claude Code compacts the conversation in the same session. The transcript shows confirmation, or the reason that compaction did not run.
 
 The list uses the commands reported by the installed Claude Code version. Commands that need an interactive terminal do not appear.
-The `/compact`, `/clear`, `/context`, and `/usage` commands receive no attached file paths. Other commands and skills keep file context.
+The `/compact`, `/clear`, `/context`, and `/usage` commands receive no context items. Other commands and skills receive them.
 
 ### Continue An Old Session
 
@@ -274,7 +286,7 @@ In the main window, select the note. The pill of the session card shows the stat
 
 The transcript shows:
 
-- Your messages, with the context files under them.
+- Your messages, with their context items under them.
 - The messages of the agent.
 - In a finished turn, one line for its tool calls, for example "Worked for 1m 12s · 4 reads, 2 edits". Select the line to show one row for each tool call.
 - In a turn that runs, one row for each tool call. A checkmark marks a finished call, and an x marks a failed call. Select the row to see the start of the result.

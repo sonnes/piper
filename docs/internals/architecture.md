@@ -139,7 +139,7 @@ claude -p --input-format stream-json --output-format stream-json --verbose \
 
 The mode is `auto` and the model is `sonnet` by default. An empty model omits `--model`. A margin session adds `--tools` and `--allowedTools` with `Read,Grep,Glob,WebSearch,WebFetch`, and `--strict-mcp-config`. `--tools` limits only the built-in tools, so `--strict-mcp-config` removes the MCP servers of the user settings. The process then has no other tool. Claude Code takes a new model or mode only at start, so the runner closes an idle process after a change.
 
-Each message is one JSON line on standard input: `{"type":"user","message":{"role":"user","content":[{"type":"text","text":...}]}}`. A context file goes after the text as a `Context file: <path>` line. A slash command takes the path as its argument.
+Each message is one JSON line on standard input: `{"type":"user","message":{"role":"user","content":[{"type":"text","text":...}]}}`. Each `ContextItem` goes after the text as a `Context file: <path>`, `Context link: <url>`, or `Context note:` line. A slash command takes the path, the address, or the note text as its argument. A transcript stores each item as one string: the path, the address, or `note:` and the text. `SessionPane` takes the item on the screen from `SessionTarget.screenItem`, and `AgentSession.sharedContext` tells it whether the session already has the item.
 
 `SessionEvent.parse` reads each line of standard output, and the connection turns it into ACP:
 

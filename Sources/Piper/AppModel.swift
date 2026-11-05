@@ -56,7 +56,7 @@ final class AppModel {
     }
 
     /// The site of a link: its host in lowercase, without a leading `www.`.
-    static func siteKey(_ url: URL) -> String? {
+    nonisolated static func siteKey(_ url: URL) -> String? {
         guard let host = url.host()?.lowercased(), !host.isEmpty else { return nil }
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }

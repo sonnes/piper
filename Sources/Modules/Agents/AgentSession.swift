@@ -175,6 +175,13 @@ public final class AgentSession: Identifiable {
     /// True before the first message. The agent can change only until then.
     public var isNew: Bool { blocks.isEmpty }
 
+    /// Every item that a message of the session named as context.
+    public var sharedContext: Set<ContextItem> {
+        Set(blocks.flatMap { block -> [ContextItem] in
+            if case .user(_, _, let context) = block { return context } else { return [] }
+        })
+    }
+
     private var userTexts: [String] {
         blocks.compactMap { if case .user(_, let text, _) = $0 { return text } else { return nil } }
     }

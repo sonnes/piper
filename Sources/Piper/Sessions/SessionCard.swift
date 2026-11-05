@@ -1,4 +1,5 @@
 import Agents
+import Captures
 import AppKit
 import SwiftUI
 
@@ -14,9 +15,8 @@ enum SessionPresentation: String {
 ///
 /// While a note is open, the card shows the sessions of that note: the one
 /// the reader picked, or else the newest. A new session belongs to the note.
-/// While a file is open, the card works in the folder of the file, and the
-/// file is the context of the next message until the reader removes it or
-/// sends one.
+/// While a file is open, the card works in the folder of the file. The open
+/// file, or the link or the text of the open note, is the item on the screen.
 @MainActor
 struct SessionTarget {
     let model: AppModel
@@ -57,6 +57,17 @@ struct SessionTarget {
         guard let id = model.selectedSession, let session = runner.session(id), session.folder == folder else { return nil }
         return session
     }
+
+    /// The open file, or the link or the text of the open note.
+    var screenItem: ScreenItem? {
+        if let page { return ScreenItem(item: .file(page), title: URL(fileURLWithPath: page).lastPathComponent) }
+        guard let noteID, let note = model.store.notes.first(where: { $0.id == noteID }) else { return nil }
+        if note.isArticle, let url = note.articleURL {
+            let item = ContextItem.link(url)
+            return ScreenItem(item: item, title: note.reading?.title.map(CaptureText.firstLine) ?? item.label)
+        }
+        return ScreenItem(item: .note(note.text), title: CaptureText.firstLine(note.text))
+    }
 }
 
 /// The pill or the card in the bottom right corner of the detail pane.
@@ -82,8 +93,6 @@ struct SessionCard: View {
 
     @Bindable var model: AppModel
     let detached: Bool
-    /// The page that the reader removed from the context, or that a message took.
-    @State private var usedContext: String?
     @AppStorage(AppDefaults.Key.sessionCardHeight) private var height = Double(AppDefaults.SessionCard.height)
     @State private var dragStart: Double?
     /// True while the resize cursor is on the cursor stack.
@@ -99,8 +108,7 @@ struct SessionCard: View {
             header(session, folder: target.folder)
             Rule()
             SessionPane(model: model, session: session, folder: target.folder, noteID: target.noteID,
-                        context: session?.noteID == nil ? target.page.map { $0 == usedContext ? [] : [$0] } ?? [] : [],
-                        contextUsed: { usedContext = target.page },
+                        screenItem: target.screenItem,
                         started: { session in
                             model.selectedSession = session.id
                             model.newSessionNote = nil
@@ -109,7 +117,6 @@ struct SessionCard: View {
         .background(detached ? AnyShapeStyle(PiperTheme.page) : AnyShapeStyle(.regularMaterial))
         .modifier(CardShape(detached: detached, height: height))
         .overlay(alignment: .top) { if !detached { resizeHandle } }
-        .onChange(of: target.page) { _, _ in usedContext = nil }
         .onExitCommand { if !detached { model.sessionPresentation = .pill } }
     }
 

@@ -5,16 +5,20 @@ import SwiftUI
 /// The message field of a session.
 ///
 /// Return sends and Shift-Return inserts a new line. A `/` at the start lists
-/// the commands of the session, and an `@` lists the files of the folder.
+/// the commands of the session. An `@` lists the item on the screen, the files
+/// of the folder, and the captures, and a choice goes with the next message.
 struct SessionComposer: View {
     @Bindable var model: AppModel
     let session: AgentSession?
     let folder: String
-    /// The files that the next message names, as absolute paths.
-    let context: [String]
-    let removeContext: () -> Void
-    /// Sends the text. A new session takes the agent, model, and mode of the choice.
-    let send: (String, SessionChoice) -> Void
+    /// The item on the screen. It is blue while the next message takes it.
+    let screen: ScreenContext?
+    let screenItem: ScreenItem?
+    let removeScreen: () -> Void
+    let resendScreen: () -> Void
+    /// Sends the text and its context. A new session takes the agent, model,
+    /// and mode of the choice.
+    let send: (String, [ContextItem], SessionChoice) -> Void
     let stop: () -> Void
     /// The agent, model, and mode of a session that does not exist yet.
     @Binding var choice: SessionChoice?
@@ -28,6 +32,10 @@ struct SessionComposer: View {
     }
     @State private var focused = false
     @State private var completionIndex = 0
+    /// The items that the reader added with `@` for the next message.
+    @State private var mentions: [Mention] = []
+    /// The files of a folder that the sidebar does not show.
+    @State private var folderFiles: [String] = []
 
     private var agents: FolderAgents { model.agents }
     private var isActive: Bool { session?.isActive == true }
@@ -51,18 +59,23 @@ struct SessionComposer: View {
             }
     }
 
-    /// The files of the folder whose paths hold the typed text. Only the
-    /// folder open in the sidebar has a file list.
-    private var files: [String] {
-        guard focused, let partial = SessionComposerText.partialMention(text),
-              folder == model.vault.root.path else { return [] }
-        let needle = partial.lowercased()
-        return Array(model.files.map(\.relativePath)
-            .filter { needle.isEmpty || $0.lowercased().contains(needle) }
-            .prefix(AppDefaults.Sessions.fileCompletionLimit))
+    /// The choices of the `@` list for the typed text.
+    private var mentionOptions: [MentionOption] {
+        guard focused, let partial = SessionComposerText.partialMention(text) else { return [] }
+        let files = folder == model.vault.root.path ? model.files.map(\.relativePath) : folderFiles
+        return MentionOption.options(matching: partial, screen: screenItem, folder: folder, files: files,
+                                     notes: model.store.notes)
     }
 
-    private var completionCount: Int { commands.isEmpty ? files.count : commands.count }
+    private var completionCount: Int { commands.isEmpty ? mentionOptions.count : commands.count }
+
+    /// The items that the next message takes, each once.
+    private var nextContext: [ContextItem] {
+        var items: [ContextItem] = []
+        if let screen, screen.pending { items.append(screen.item) }
+        for mention in mentions where !items.contains(mention.item) { items.append(mention.item) }
+        return items
+    }
 
     private var height: CGFloat {
         let metrics = AppDefaults.Composer.self
@@ -73,13 +86,14 @@ struct SessionComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             completions
-            if !context.isEmpty { contextChips }
+            if screen != nil || !mentions.isEmpty { contextChips }
             HStack(alignment: .bottom, spacing: 6) {
                 CaptureEditor(text: Binding(get: { text }, set: { text = $0 }), focused: $focused,
                               placeholder: agentName.map { "Ask \($0) in \(folderName)" }
                                   ?? "The agent was removed. Add it again in Settings > AI.",
                               label: agentName.map { "Message to \($0)" } ?? "Message",
                               help: "Return sends the message. Shift-Return inserts a new line.",
+                              highlights: mentions.map { "@" + $0.token },
                               command: handle)
                     .frame(height: height)
                 if isActive {
@@ -108,7 +122,8 @@ struct SessionComposer: View {
                               choice: Binding(get: { currentChoice }, set: { choice = $0 }),
                               openSettings: { model.openSettings?() })
                 Spacer(minLength: 4)
-                Text(completionCount > 0 ? "Tab completes · ↑↓ choose" : "Return sends · / commands · @ files")
+                Text(completionCount > 0 ? (commands.isEmpty ? "Tab adds · ↑↓ choose" : "Tab completes · ↑↓ choose")
+                                         : "/ commands · @ adds")
                     .font(PiperTheme.ui(.caption))
                     .foregroundStyle(PiperTheme.faint)
                     .layoutPriority(-1)
@@ -118,8 +133,17 @@ struct SessionComposer: View {
         .padding(12)
         .onChange(of: session?.id, initial: true) { _, _ in
             focused = !text.isEmpty
+            mentions = []
         }
-        .onChange(of: text) { _, _ in completionIndex = 0 }
+        .onChange(of: text) { _, text in
+            completionIndex = 0
+            mentions.removeAll { !text.contains("@" + $0.token) }
+        }
+        .task(id: folder) {
+            guard folder != model.vault.root.path else { return }
+            let folder = folder
+            folderFiles = await Task.detached { FolderFileList.paths(in: folder) }.value
+        }
     }
 
     // MARK: Parts
@@ -128,26 +152,20 @@ struct SessionComposer: View {
         let index = min(completionIndex, max(completionCount - 1, 0))
         if !commands.isEmpty {
             SkillCompletions(actions: commands, selected: index, label: "Commands") { choose(skill: $0) }
-        } else if !files.isEmpty {
-            FileCompletions(paths: files, selected: index) { choose(file: $0) }
+        } else if !mentionOptions.isEmpty {
+            MentionCompletions(options: mentionOptions, selected: index) { choose(mention: $0) }
         }
     }
 
     private var contextChips: some View {
         HStack(spacing: 6) {
-            ForEach(context, id: \.self) { path in
-                HStack(spacing: 4) {
-                    Image(systemName: "doc.text")
-                    Text(URL(fileURLWithPath: path).lastPathComponent).lineLimit(1).truncationMode(.middle)
-                    Button(action: removeContext) { Image(systemName: "xmark").font(.system(size: 8, weight: .bold)) }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Remove context")
+            if let screen {
+                ContextChip(item: screen.item, pending: screen.pending, remove: removeScreen, resend: resendScreen)
+            }
+            ForEach(mentions, id: \.item) { mention in
+                if mention.item != screen?.item || screen?.pending == false {
+                    ContextChip(item: mention.item, pending: true) { removeMention(mention) }
                 }
-                .font(PiperTheme.ui(.caption))
-                .foregroundStyle(PiperTheme.secondary)
-                .padding(.horizontal, 7).frame(height: 20)
-                .background(PiperTheme.panel, in: Capsule())
-                .help("The next message names \(path) as context")
             }
         }
     }
@@ -157,16 +175,27 @@ struct SessionComposer: View {
     private func submit() {
         let message = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty else { return }
-        send(message, currentChoice)
+        send(message, nextContext, currentChoice)
         text = ""
+        mentions = []
     }
 
     private func choose(skill action: FolderAgents.Action) {
         text = "/" + action.skill.name + " "
     }
 
-    private func choose(file path: String) {
-        text = SessionComposerText.replacingMention(in: text, with: path)
+    private func choose(mention option: MentionOption) {
+        text = SessionComposerText.replacingMention(in: text, with: option.token)
+        if !mentions.contains(where: { $0.item == option.item }) {
+            mentions.append(Mention(item: option.item, token: option.token))
+        }
+    }
+
+    /// Removes a mention and its text.
+    private func removeMention(_ mention: Mention) {
+        mentions.removeAll { $0 == mention }
+        text = text.replacingOccurrences(of: "@" + mention.token + " ", with: "")
+            .replacingOccurrences(of: "@" + mention.token, with: "")
     }
 
     /// Removes what the reader typed for the list, so the list closes.
@@ -194,7 +223,7 @@ struct SessionComposer: View {
                 return true
             case #selector(NSResponder.insertTab(_:)) where !shift,
                  #selector(NSResponder.insertNewline(_:)) where !shift:
-                if !commands.isEmpty { choose(skill: commands[current]) } else { choose(file: files[current]) }
+                if !commands.isEmpty { choose(skill: commands[current]) } else { choose(mention: mentionOptions[current]) }
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
                 dismissCompletions()
@@ -206,41 +235,5 @@ struct SessionComposer: View {
         guard selector == #selector(NSResponder.insertNewline(_:)), !shift else { return false }
         submit()
         return true
-    }
-}
-
-/// The files that match the `@` mention the reader is typing.
-struct FileCompletions: View {
-    let paths: [String]
-    let selected: Int
-    let choose: (String) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(paths.enumerated()), id: \.element) { index, path in
-                let active = index == selected
-                Button { choose(path) } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "doc.text")
-                        Text(path).lineLimit(1).truncationMode(.head)
-                        Spacer(minLength: 0)
-                    }
-                    .font(PiperTheme.ui(.secondary))
-                    .foregroundStyle(active ? Color.white : PiperTheme.ink)
-                    .padding(.horizontal, 8)
-                    .frame(height: 24)
-                    .background(active ? PiperTheme.accent : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(active ? .isSelected : [])
-            }
-        }
-        .padding(6)
-        .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Files")
     }
 }

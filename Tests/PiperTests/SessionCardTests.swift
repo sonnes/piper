@@ -29,6 +29,27 @@ final class SessionCardTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(layout.width - layout.tabsTrailingInset, AppDefaults.SessionCard.tabsMinimumWidth)
     }
 
+    func testTheAtListShowsTheScreenTheFilesAndTheOpenCaptures() {
+        let article = Note(text: "https://www.exe.dev/blog", section: "Inbox")
+        var done = Note(text: "Deploy the old site", section: "Inbox")
+        done.isDone = true
+        let notes = [article, Note(text: "Deploy notes for Q4\nMore", section: "Projects"), done]
+        let screen = ScreenItem(item: .file("/w/runbooks/deploy.md"), title: "deploy.md")
+        let options = MentionOption.options(matching: "dep", screen: screen, folder: "/w",
+                                            files: ["runbooks/deploy.md", "notes/deploys.md", "notes/other.md"], notes: notes)
+        XCTAssertEqual(options.map(\.title), ["deploy.md", "deploys.md", "Deploy notes for Q4"])
+        XCTAssertEqual(options.map(\.group), [.screen, .files("w"), .captures])
+        XCTAssertEqual(options[1].item, .file("/w/notes/deploys.md"))
+        XCTAssertEqual(options[1].token, "notes/deploys.md")
+        XCTAssertEqual(options[2].item, .note("Deploy notes for Q4\nMore"))
+        XCTAssertEqual(options[2].detail, "Projects")
+
+        let links = MentionOption.options(matching: "exe", screen: nil, folder: "/w", files: [], notes: notes)
+        XCTAssertEqual(links.map(\.item), [.link(URL(string: "https://www.exe.dev/blog")!)])
+        XCTAssertEqual(links.first?.detail, "exe.dev")
+        XCTAssertEqual(ContextItem.link(URL(string: "https://www.exe.dev/blog")!).label, "exe.dev/blog")
+    }
+
     func testTheCardFollowsTheOpenNote() {
         let model = AppModel(store: CaptureStore(url: folder.appendingPathComponent("notes.sqlite")), wikiPath: folder.path)
         let runner = model.agents.runner

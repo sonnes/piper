@@ -76,8 +76,8 @@ public protocol AgentConnection: AnyObject {
     /// gets the exit status and the start of standard error, after the last event.
     func start(event: @escaping @MainActor (AgentEvent) -> Void,
                exit: @escaping @MainActor (Int32, String) -> Void) throws
-    /// Starts a turn with a message and the paths of its context files.
-    func prompt(_ text: String, context: [String])
+    /// Starts a turn with a message and its context items.
+    func prompt(_ text: String, context: [ContextItem])
     /// Answers a permission request. The message goes to the agent as the
     /// reason for a denial, when the agent reads one.
     func respond(to request: PermissionRequest, with option: ACP.PermissionOption, message: String?)

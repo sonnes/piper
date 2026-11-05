@@ -81,7 +81,7 @@ public final class SessionRunner {
 
     private struct Message {
         let text: String
-        let context: [String]
+        let context: [ContextItem]
     }
 
     @ObservationIgnored private let database: Database?
@@ -194,7 +194,7 @@ public final class SessionRunner {
     /// A message while a card waits answers the card: Piper denies the tool
     /// call. Claude Code reads the message as the reason in the same turn.
     /// Another agent gets the message as the next turn.
-    public func send(_ text: String, context: [String] = [], to session: AgentSession) {
+    public func send(_ text: String, context: [ContextItem] = [], to session: AgentSession) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         if session.blocks.isEmpty { session.command = SlashCommand(text) }
@@ -610,19 +610,22 @@ public final class SessionRunner {
     // MARK: - Messages
 
     /// The queued messages of a turn as one message. The texts join with a
-    /// blank line. The context paths join in order, each path once.
+    /// blank line. The context items join in order, each item once.
     private static func joined(_ messages: [Message]) -> Message? {
         guard messages.count > 1 else { return messages.first }
-        var context: [String] = []
-        for path in messages.flatMap(\.context) where !context.contains(path) { context.append(path) }
+        var context: [ContextItem] = []
+        for item in messages.flatMap(\.context) where !context.contains(item) { context.append(item) }
         return Message(text: messages.map(\.text).joined(separator: "\n\n"), context: context)
     }
 
-    /// The text of a message with its context paths.
-    nonisolated static func messageBody(_ text: String, context: [String]) -> String {
+    /// The text of a message with its context items. A slash command takes
+    /// each item as an argument. An item that the text already holds, such as
+    /// the link of a `/capture` draft, is not repeated.
+    nonisolated static func messageBody(_ text: String, context: [ContextItem]) -> String {
+        let context = context.filter { !text.contains($0.argument) }
         guard !context.isEmpty else { return text }
         return text + (SlashCommand(text) != nil
-            ? " " + context.joined(separator: " ")
-            : "\n\n" + context.map { "Context file: " + $0 }.joined(separator: "\n"))
+            ? " " + context.map(\.argument).joined(separator: " ")
+            : "\n\n" + context.map(\.contextLines).joined(separator: "\n"))
     }
 }
