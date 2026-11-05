@@ -4,7 +4,7 @@ Piper is a native macOS application for capturing text. It saves selected text a
 
 Capture and browsing need no account, cloud service, telemetry, or network connection. Notes stay in a local SQLite database. Wiki files stay on disk as they are. The web reader connects to the pages you open.
 
-![Piper Inbox with a fictional article and colored highlights in the Reader tab](docs/images/hero.jpg)
+![Piper Inbox with brief picks, and a fictional article with highlights and notes in the Reader tab](docs/images/hero.jpg)
 
 The screenshots use fictional articles, notes, and conversations in an isolated local database.
 
