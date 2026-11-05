@@ -84,6 +84,37 @@ final class ArticleReaderTests: XCTestCase {
         ])
     }
 
+    func testExtractionKeepsImagesVideosFramesTablesAndCode() async throws {
+        let article = try await extract("""
+        <title>Media Article</title>
+        <article>
+        <p>The first paragraph is long enough to start the article and it names the figure below.</p>
+        <figure><img src="/img/chart.png" alt="A chart" width="640"><figcaption>Figure 1. The chart.</figcaption></figure>
+        <img src="/pixel.gif" width="1" height="1">
+        <p><img data-src="https://cdn.example.com/lazy.jpg" src="data:image/gif;base64,R0lGOD"></p>
+        <figure class="highlight"><table><tr><td class="gutter"><pre>1
+        2</pre></td><td class="code"><pre>let x = 1
+          print(x)</pre></td></tr></table></figure>
+        <video src="/clip.mp4" poster="/clip.jpg"></video>
+        <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>
+        <iframe src="https://ads.example.com/frame"></iframe>
+        <table><tr><th>Name</th><th>Size</th></tr><tr><td>A</td><td>1</td></tr></table>
+        <p>The last paragraph closes the article after the table and the frames.</p>
+        </article>
+        """)
+        XCTAssertEqual(article.blocks.map(\.kind), ["paragraph", "image", "image", "code", "video", "embed", "table", "paragraph"])
+        XCTAssertEqual(article.blocks[1].src, "https://www.example.dev/img/chart.png")
+        XCTAssertEqual(article.blocks[1].text, "Figure 1. The chart.")
+        XCTAssertEqual(article.blocks[1].alt, "A chart")
+        XCTAssertEqual(article.blocks[2].src, "https://cdn.example.com/lazy.jpg")
+        XCTAssertEqual(article.blocks[3].text, "let x = 1\n  print(x)")
+        XCTAssertEqual(article.blocks[4].src, "https://www.example.dev/clip.mp4")
+        XCTAssertEqual(article.blocks[4].poster, "https://www.example.dev/clip.jpg")
+        XCTAssertEqual(article.blocks[5].src, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        XCTAssertEqual(article.blocks[5].poster, "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg")
+        XCTAssertEqual(article.blocks[6].rows, [["Name", "Size"], ["A", "1"]])
+    }
+
     private struct ExtractedArticle: Decodable {
         let blocks: [ReaderArticle.Block]
     }

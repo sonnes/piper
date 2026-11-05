@@ -7,11 +7,21 @@ import PiperCore
 /// The clean text of a web page, as the Reader tab shows it.
 struct ReaderArticle: Codable, Equatable {
 
-    /// One paragraph, heading, list item, quote, or code block.
+    /// One paragraph, heading, list item, quote, code block, image, video,
+    /// video frame, or table.
     struct Block: Codable, Equatable {
-        /// `paragraph`, `heading`, `subheading`, `item`, `quote`, or `code`.
+        /// `paragraph`, `heading`, `subheading`, `item`, `quote`, `code`,
+        /// `image`, `video`, `embed`, or `table`.
         let kind: String
+        /// The text, or the caption of an image or a video. A table has no text.
         let text: String
+        /// The address of an image or a video, or the page of a video frame.
+        var src: String? = nil
+        var alt: String? = nil
+        /// The still image of a video.
+        var poster: String? = nil
+        /// The cells of a table, row by row. The first row is the header.
+        var rows: [[String]]? = nil
     }
 
     let url: URL

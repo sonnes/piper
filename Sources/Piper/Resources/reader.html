@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src https: http: data:; media-src https: http:">
 <title>Reader</title>
 <!--
 The Reader tab of a link capture. Piper loads this page into a WKWebView and
@@ -68,6 +68,17 @@ body { font: 13px/1.4 var(--font); color: var(--label); -webkit-font-smoothing: 
 .article li + :not(li) { margin-top: 18px; }
 .article blockquote { border-left: 2px solid var(--sep); padding-left: 16px; color: var(--secondary); font-style: italic; }
 .article pre { font: 13px/1.5 ui-monospace, "IBM Plex Mono", monospace; white-space: pre-wrap; background: var(--hover); padding: 10px 12px; border-radius: 6px; }
+.article figure { margin: 4px 0 22px; }
+.article figure img, .article figure video { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 6px; }
+.article figure.broken { display: none; }
+.article figcaption { font: 12.5px/1.45 var(--font); color: var(--secondary); margin-top: 6px; text-align: center; }
+.article .embed { display: block; position: relative; width: 100%; aspect-ratio: 16 / 9; padding: 0; border: 0; border-radius: 6px; overflow: hidden; background: var(--hover); cursor: pointer; }
+.article .embed img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.article .embed::after { content: attr(data-label); position: absolute; left: 12px; bottom: 12px; font: 600 12px var(--font); color: #fff; background: rgba(0,0,0,.65); padding: 5px 10px; border-radius: 999px; }
+.article .table { overflow-x: auto; margin: 0 0 18px; }
+.article table { border-collapse: collapse; font: 13px/1.45 var(--font); }
+.article th, .article td { border-bottom: .5px solid var(--sep); padding: 6px 14px 6px 0; text-align: left; vertical-align: top; }
+.article th { font-weight: 600; }
 mark { color: inherit; border-radius: 2px; padding: 1px 0; background: none; }
 mark.yellow { background: var(--mark-yellow); }
 mark.green { background: var(--mark-green); }
@@ -294,10 +305,8 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     }
     fresh.append(kicker, title, byline);
     data.blocks.forEach((block, index) => {
-      const tag = { heading: 'h2', subheading: 'h3', quote: 'blockquote', item: 'li', code: 'pre' }[block.kind] || 'p';
-      const el = document.createElement(tag);
+      const el = drawBlock(block);
       el.dataset.b = index;
-      el.textContent = block.text;
       fresh.append(el);
     });
     article.replaceWith(fresh);
@@ -311,6 +320,67 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
       setTimeout(() => { entering = false; }, 200);
     }
     if (entering) enter(fresh);
+  }
+
+  // One block of the article. Only the text of a block and the caption of a
+  // figure are text nodes, so the offsets of the marks match the block text.
+  function drawBlock(block) {
+    if (block.kind === 'image' || block.kind === 'video' || block.kind === 'embed') {
+      const figure = document.createElement('figure');
+      if (block.kind === 'image') {
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        img.alt = block.alt || '';
+        img.onerror = () => figure.classList.add('broken');
+        img.src = block.src;
+        figure.append(img);
+      } else if (block.kind === 'video') {
+        const video = document.createElement('video');
+        video.controls = true;
+        video.preload = 'metadata';
+        if (block.poster) video.poster = block.poster;
+        video.src = block.src;
+        figure.append(video);
+      } else {
+        const link = document.createElement('button');
+        link.className = 'embed';
+        link.dataset.label = '▶ Watch on ' + new URL(block.src).hostname.replace(/^www\./, '');
+        link.setAttribute('aria-label', link.dataset.label);
+        if (block.poster) {
+          const img = document.createElement('img');
+          img.alt = '';
+          img.src = block.poster;
+          link.append(img);
+        }
+        link.onclick = () => post({ action: 'link', url: block.src });
+        figure.append(link);
+      }
+      if (block.text) {
+        const caption = document.createElement('figcaption');
+        caption.textContent = block.text;
+        figure.append(caption);
+      }
+      return figure;
+    }
+    if (block.kind === 'table') {
+      const wrap = document.createElement('div');
+      wrap.className = 'table';
+      const table = document.createElement('table');
+      (block.rows || []).forEach((cells, row) => {
+        const line = table.insertRow();
+        for (const value of cells) {
+          const cell = document.createElement(row === 0 ? 'th' : 'td');
+          cell.textContent = value;
+          line.append(cell);
+        }
+      });
+      wrap.append(table);
+      return wrap;
+    }
+    const tag = { heading: 'h2', subheading: 'h3', quote: 'blockquote', item: 'li', code: 'pre' }[block.kind] || 'p';
+    const el = document.createElement(tag);
+    el.textContent = block.text;
+    return el;
   }
 
   // Wraps the text from offset to offset + length of one block in new elements.

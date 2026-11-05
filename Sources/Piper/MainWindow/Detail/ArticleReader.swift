@@ -251,6 +251,9 @@ enum ReaderMarks {
         case "copy":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
             model.store.copy(id)
+        case "link":
+            guard let url = (message["url"] as? String).flatMap(URL.init(string:)), CaptureLinks.isWebURL(url) else { return }
+            NSWorkspace.shared.open(url)
         default:
             break
         }
@@ -390,8 +393,9 @@ final class ArticleLoader: NSObject {
             let result = try await view.evaluateJavaScript(Self.script, in: nil, contentWorld: .defaultClient)
             guard let json = result as? String else { throw PiperError("Cannot read this page.") }
             let raw = try JSONDecoder().decode(RawArticle.self, from: Data(json.utf8))
-            let blocks = raw.blocks.filter { !$0.text.isEmpty }
-            guard blocks.count >= 2 || blocks.contains(where: { $0.text.count > 200 }) else {
+            let blocks = raw.blocks.filter { !$0.text.isEmpty || $0.src != nil || $0.rows != nil }
+            let texts = blocks.filter { !$0.text.isEmpty }
+            guard texts.count >= 2 || texts.contains(where: { $0.text.count > 200 }) else {
                 throw PiperError("Piper cannot find the article text on this page.")
             }
             var article = ReaderArticle(url: url, site: raw.site, title: raw.title, author: raw.author, blocks: blocks)
@@ -426,7 +430,7 @@ final class ArticleLoader: NSObject {
     static let script = """
     (() => {
       const text = el => (el.innerText || '').replace(/\\s+/g, ' ').trim();
-      const excluded = 'nav, header, footer, aside, form, figure, [role=navigation], [hidden], [aria-hidden=true]';
+      const excluded = 'nav, header, footer, aside, form, [role=navigation], [hidden], [aria-hidden=true]';
       const length = el => [...el.querySelectorAll('p')].filter(p => !p.closest(excluded)).reduce((n, p) => n + text(p).length, 0);
       let root = null, best = 0;
       for (const el of document.querySelectorAll('article, [itemprop=articleBody], .post-content, .entry-content, .article-body, .markdown-body')) {
@@ -453,11 +457,68 @@ final class ArticleLoader: NSObject {
       const heading = text(document.querySelector('h1') || document.createElement('i'));
       const title = meta('og:title') || (heading && document.title.includes(heading) ? heading : document.title.trim()) || heading;
       const kinds = { H1: 'heading', H2: 'heading', H3: 'subheading', H4: 'subheading', LI: 'item', BLOCKQUOTE: 'quote', PRE: 'code' };
+      const web = value => {
+        try { const url = new URL(value || '', location.href); return /^https?:$/.test(url.protocol) ? url.href : ''; }
+        catch { return ''; }
+      };
+      // The caption of a figure belongs to the first image, video, or frame in it.
+      const caption = el => {
+        const figure = el.closest('figure');
+        if (!figure || figure.querySelector('img, video, iframe') !== el) return '';
+        return text(figure.querySelector('figcaption') || document.createElement('i'));
+      };
+      // A table of data holds only text. Old pages lay out their text in tables.
+      const dataTable = table => table.rows.length >= 2 && !table.querySelector('table, p, pre, img, h1, h2, h3, h4');
+      // A lazy image keeps its address in a data attribute until it scrolls into view.
+      const imageSource = img => {
+        const current = img.currentSrc || img.getAttribute('src') || '';
+        const lazy = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original') || '';
+        const set = (img.getAttribute('data-srcset') || img.getAttribute('srcset') || '').split(',')
+          .map(part => part.trim().split(/\\s+/)[0]).filter(Boolean).pop() || '';
+        return web(current && !current.startsWith('data:') ? current : lazy || set);
+      };
+      // A video player in a frame. The Reader tab shows it as a link with its poster.
+      const embed = src => {
+        const youtube = src.match(/(?:youtube(?:-nocookie)?\\.com\\/embed\\/|youtu\\.be\\/)([\\w-]{6,})/);
+        if (youtube) return { src: 'https://www.youtube.com/watch?v=' + youtube[1], poster: 'https://i.ytimg.com/vi/' + youtube[1] + '/hqdefault.jpg' };
+        if (/player\\.vimeo\\.com|loom\\.com\\/embed|fast\\.wistia\\.net/.test(src)) return { src, poster: '' };
+        return null;
+      };
       const blocks = [];
-      for (const el of root.querySelectorAll('h1, h2, h3, h4, p, li, blockquote, pre')) {
+      const seen = new Set();
+      for (const el of root.querySelectorAll('h1, h2, h3, h4, p, li, blockquote, pre, img, video, iframe, table')) {
         if (el.closest(excluded)) continue;
+        const table = el.parentElement?.closest('table');
+        if (table && dataTable(table)) continue;
+        if (el.tagName === 'IMG') {
+          const src = imageSource(el);
+          const width = Number(el.getAttribute('width')) || el.naturalWidth || 0;
+          if (!src || seen.has(src) || (width > 0 && width < 80)) continue;
+          seen.add(src);
+          blocks.push({ kind: 'image', text: caption(el), src, alt: (el.getAttribute('alt') || '').trim() });
+          continue;
+        }
+        if (el.tagName === 'VIDEO') {
+          const src = web(el.currentSrc || el.getAttribute('src') || el.querySelector('source')?.getAttribute('src'));
+          const poster = web(el.getAttribute('poster'));
+          if (src) blocks.push({ kind: 'video', text: caption(el), src, poster });
+          else if (poster) blocks.push({ kind: 'image', text: caption(el), src: poster, alt: '' });
+          continue;
+        }
+        if (el.tagName === 'IFRAME') {
+          const found = embed(web(el.getAttribute('src') || el.getAttribute('data-src')));
+          if (found) blocks.push({ kind: 'embed', text: caption(el), src: found.src, poster: found.poster });
+          continue;
+        }
+        if (el.tagName === 'TABLE') {
+          if (dataTable(el)) blocks.push({ kind: 'table', text: '', rows: [...el.rows].map(row => [...row.cells].map(text)) });
+          continue;
+        }
+        if (el.closest('figcaption')) continue;
         if (el.parentElement?.closest('p, li, blockquote, pre')) continue;
-        const value = el.tagName === 'PRE' ? (el.innerText || '').trim() : text(el);
+        const value = el.tagName === 'PRE' ? (el.innerText || '').replace(/^\\n+|\\s+$/g, '') : text(el);
+        // The line numbers beside a code block are a block of digits.
+        if (el.tagName === 'PRE' && /^[\\d\\s]*$/.test(value)) continue;
         if (!value || (el.tagName === 'H1' && value === title)) continue;
         blocks.push({ kind: kinds[el.tagName] || 'paragraph', text: value });
       }
