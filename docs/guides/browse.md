@@ -225,9 +225,9 @@ Piper keeps the chip of each section until you quit.
 
 The captures that you mark as done today show under "done today" at the end of All and Notes. Select the line to show or hide them.
 
-A note has a circle. Select the circle to mark the note as done. A link has a ring that fills as you read. Select the ring to mark the article as read, or to read it again. A blue dot marks a link that you did not open.
+A note has a circle. Select the circle to mark the note as done. A link has a ring that fills as you read. Select the ring to mark the article as read, or to read it again. A blue dot marks a link that you did not open. A completed note and a read article show a gray check, and their titles are gray.
 
-A started article shows the progress, the minutes left, and your newest highlight. Under these, the number of highlights, notes, and questions opens the list of them. Select it again to close the list.
+A link shows the first line of its title, and its site under the title. A started article also shows the minutes left. If a capture has highlights, notes, or questions, their number shows on the second line. Select the number to open the list of them. Select it again to close the list.
 
 Select one capture to show it in the detail pane. The date shows at the top. Type in the text to change the note. Piper saves the change shortly after you stop typing. If the note looks like source code, the text uses a monospaced font. The editor does not change quotes or dashes while you type. The source app shows under the text.
 

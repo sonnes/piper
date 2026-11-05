@@ -1,4 +1,5 @@
 import Briefs
+import Captures
 import SwiftUI
 
 /// The picks of the newest brief, at the top of Inbox in the main window and
@@ -143,9 +144,10 @@ private struct BriefPickRow: View {
             .accessibilityLabel("Mark as Read")
             Button(action: open) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(pick.title).font(PiperTheme.ui(.body)).foregroundStyle(PiperTheme.ink).lineLimit(2)
+                    Text(CaptureText.firstLine(pick.title)).font(PiperTheme.ui(.body)).foregroundStyle(PiperTheme.ink).lineLimit(1)
                     Text("\(pick.host) · \(pick.why)")
-                        .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary).lineLimit(2)
+                        .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+                        .help(pick.why)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())

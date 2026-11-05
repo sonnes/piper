@@ -615,7 +615,7 @@ struct CaptureView: View {
     private func rowStyle(_ note: Note, in group: InboxStream.Group, at index: Int) -> InboxRow.Style {
         guard note.isArticle else { return .note }
         switch group.kind {
-        case .started: return filter == .all && index > 0 ? .compact : .full
+        case .started: return .compact
         case .upNext: return .link
         case .finished, .month: return .compact
         case .day:

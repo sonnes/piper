@@ -317,6 +317,8 @@ struct NoteRow: View {
     @State private var hovered = false
 
     private var link: URL? { CaptureLinks(note.text).standaloneURL }
+    /// A done note or a read article. Its control is a gray check and its text is gray.
+    private var isComplete: Bool { note.isDone || note.reading?.finishedAt != nil }
     /// A link that no run has taken yet gets a Send button on the row.
     private var showsSend: Bool { link != nil && session == nil && !note.isDone && agents.defaultAction(for: note.text) != nil }
 
@@ -355,15 +357,7 @@ struct NoteRow: View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 4) {
                 Button(action: complete) {
-                    Circle()
-                        .strokeBorder(note.isDone ? .clear : PiperTheme.faint, lineWidth: AppDefaults.ProgressRing.lineWidth)
-                        .background(Circle().fill(note.isDone ? PiperTheme.accent : .clear))
-                        .overlay {
-                            if note.isDone {
-                                Image(systemName: "checkmark").font(.system(size: AppDefaults.ProgressRing.checkFontSize, weight: .bold))
-                                    .foregroundStyle(PiperTheme.onAccent)
-                            }
-                        }
+                    ProgressRing(progress: 0, finished: isComplete)
                         .frame(width: AppDefaults.CaptureItem.circleSize, height: AppDefaults.CaptureItem.circleSize)
                         .frame(width: AppDefaults.CaptureItem.buttonHitSize, height: AppDefaults.CaptureItem.circleSize + 2)
                         .contentShape(Rectangle())
@@ -374,13 +368,12 @@ struct NoteRow: View {
                     HStack(alignment: .center, spacing: 8) {
                         VStack(alignment: .leading, spacing: 1) {
                             if let link {
-                                Text(note.reading?.title ?? (link.host() ?? "") + link.path())
-                                    .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.ink)
-                                    .lineLimit(2).truncationMode(.middle)
+                                Text(note.reading?.title.map(CaptureText.firstLine) ?? (link.host() ?? "") + link.path())
+                                    .foregroundStyle(isComplete ? PiperTheme.secondary : PiperTheme.ink)
+                                    .lineLimit(1).truncationMode(.middle)
                             } else {
                                 Text(formattedText)
-                                    .foregroundStyle(note.isDone ? PiperTheme.secondary : PiperTheme.ink)
-                                    .strikethrough(note.isDone, color: PiperTheme.faint)
+                                    .foregroundStyle(isComplete ? PiperTheme.secondary : PiperTheme.ink)
                                     .lineSpacing(AppDefaults.CaptureItem.lineSpacing)
                                     .lineLimit(3)
                             }

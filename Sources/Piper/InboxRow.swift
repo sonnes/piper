@@ -16,8 +16,6 @@ struct InboxRow: View {
         case link
         /// A started or finished article: the title and the minutes left.
         case compact
-        /// A started article with the progress, the newest highlight, and the counts.
-        case full
     }
 
     // MARK: - Properties
@@ -41,6 +39,8 @@ struct InboxRow: View {
     private var url: URL? { note.articleURL }
     private var host: String { url.map(ArticleBadge.host) ?? "" }
     private var isFinished: Bool { reading.finishedAt != nil }
+    /// A done note or a read article. Its control is a gray check and its text is gray.
+    private var isComplete: Bool { note.isDone || (style != .note && isFinished) }
     /// The time of the capture, or the app that it came from. The row shows it on hover.
     private var hoverText: String {
         if style == .note, let source = note.sources.first, source != "Clipboard" { return "From " + source }
@@ -77,16 +77,12 @@ struct InboxRow: View {
     @ViewBuilder private var control: some View {
         Button(action: complete) {
             Group {
-                if note.isDone {
-                    ZStack {
-                        Circle().fill(PiperTheme.accent)
-                        Image(systemName: "checkmark").font(.system(size: AppDefaults.ProgressRing.checkFontSize, weight: .bold))
-                            .foregroundStyle(PiperTheme.onAccent)
-                    }
+                if isComplete {
+                    ProgressRing(progress: 1, finished: true)
                 } else if style == .note {
                     Circle().strokeBorder(PiperTheme.faint, lineWidth: AppDefaults.ProgressRing.lineWidth)
                 } else {
-                    ProgressRing(progress: isFinished ? 1 : reading.progress, finished: isFinished)
+                    ProgressRing(progress: reading.progress, finished: false)
                 }
             }
             .frame(width: AppDefaults.InboxRow.controlSize, height: AppDefaults.InboxRow.controlSize)
@@ -109,13 +105,13 @@ struct InboxRow: View {
                             .frame(width: AppDefaults.InboxRow.unreadDot, height: AppDefaults.InboxRow.unreadDot)
                             .accessibilityLabel("Not opened")
                     }
-                    Text(reading.title ?? (host + (url?.path() ?? "")))
+                    Text(reading.title.map(CaptureText.firstLine) ?? (host + (url?.path() ?? "")))
                         .font(PiperTheme.ui(AppDefaults.InboxRow.titleFontSize))
-                        .lineLimit(2)
+                        .foregroundStyle(isComplete ? PiperTheme.secondary : PiperTheme.ink)
+                        .lineLimit(1)
                 }
             }
             meta
-            if style == .full { article }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -129,24 +125,29 @@ struct InboxRow: View {
             Text((try? AttributedString(markdown: note.text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
                  ?? AttributedString(note.text))
                 .font(PiperTheme.ui(AppDefaults.InboxRow.titleFontSize))
+                .foregroundStyle(isComplete ? PiperTheme.secondary : PiperTheme.ink)
                 .lineSpacing(AppDefaults.ChildNote.lineSpacing)
                 .lineLimit(2)
         }
     }
 
-    /// The run, the site of a link, and the section. A note with none of
-    /// these shows only its text.
+    /// The run, the site of a link, the count of child notes, and the section.
+    /// A note with none of these shows only its text.
     @ViewBuilder private var meta: some View {
-        if session != nil || style != .note || section != nil {
+        if session != nil || style != .note || section != nil || !children.isEmpty {
             HStack(spacing: 5) {
                 if let session { RunBadge(session: session, open: openRun) }
                 if style != .note {
-                    ArticleBadge(host: host, size: AppDefaults.InboxRow.badgeSize)
-                    Text(host)
-                    if let detail = linkDetail { Text("· " + detail).monospacedDigit() }
+                    Text(host + (linkDetail.map { " · " + $0 } ?? "")).monospacedDigit().layoutPriority(1)
+                }
+                if !children.isEmpty {
+                    Button(action: toggleChildren) { CountChip(text: childCount, open: showsChildren) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(showsChildren ? "Hide notes" : "Show notes")
+                        .accessibilityValue(childCount)
                 }
                 if let section {
-                    if session != nil || style != .note { Text("·") }
+                    if session != nil || style != .note || !children.isEmpty { Text("·") }
                     Circle().fill(section.color).frame(width: AppDefaults.InboxRow.sectionDot, height: AppDefaults.InboxRow.sectionDot)
                     Text(section.name)
                 }
@@ -157,50 +158,13 @@ struct InboxRow: View {
         }
     }
 
-    /// The highlight count of a link, or else its reading time or the minutes left.
+    /// The reading time of a new link, or the minutes left of a started one.
+    /// A read article shows only its site.
     private var linkDetail: String? {
-        let highlights = ReadingList.highlights(in: children).count
-        if style != .full, highlights > 0 { return highlights == 1 ? "1 highlight" : "\(highlights) highlights" }
         switch style {
-        case .note, .full: return nil
+        case .note: return nil
         case .link: return reading.minutes.map { "\($0) min" }
-        case .compact: return isFinished ? "Read" : reading.minutesLeft.map { "\($0) min left" }
-        }
-    }
-
-    @ViewBuilder private var article: some View {
-        HStack(spacing: 8) {
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(PiperTheme.rule)
-                    Capsule().fill(PiperTheme.accent).frame(width: proxy.size.width * min(max(reading.progress, 0), 1))
-                }
-            }
-            .frame(height: AppDefaults.Reading.progressHeight)
-            if let left = reading.minutesLeft {
-                Text("\(left) min left").font(PiperTheme.ui(AppDefaults.InboxRow.detailFontSize)).foregroundStyle(PiperTheme.faint).monospacedDigit().fixedSize()
-            }
-        }
-        .padding(.top, 4)
-        .accessibilityElement()
-        .accessibilityLabel("\(Int((reading.progress * 100).rounded())) percent read")
-        if let last = ReadingList.highlights(in: children).max(by: { $0.createdAt < $1.createdAt }) {
-            Text(last.anchor?.quote ?? last.text.components(separatedBy: "\n\n")[0])
-                .font(.system(size: AppDefaults.InboxRow.quoteFontSize, design: .serif).italic())
-                .foregroundStyle(PiperTheme.secondary)
-                .lineLimit(1)
-                .padding(.leading, 7)
-                .overlay(alignment: .leading) {
-                    Rectangle().fill(PiperTheme.markYellow).frame(width: AppDefaults.Reading.quoteRuleWidth)
-                }
-                .padding(.top, 3)
-        }
-        if !children.isEmpty {
-            Button(action: toggleChildren) { CountChip(text: childCount, open: showsChildren) }
-                .buttonStyle(.plain)
-                .padding(.top, 3)
-                .accessibilityLabel(showsChildren ? "Hide notes" : "Show notes")
-                .accessibilityValue(childCount)
+        case .compact: return isComplete ? nil : reading.minutesLeft.map { "\($0) min left" }
         }
     }
 
@@ -213,7 +177,7 @@ struct InboxRow: View {
 }
 
 /// The done control of a link: a ring that fills with the reading progress.
-/// A finished article shows a check.
+/// A finished article, or any done capture, shows a gray check.
 struct ProgressRing: View {
     let progress: Double
     let finished: Bool
@@ -223,8 +187,7 @@ struct ProgressRing: View {
             let metrics = AppDefaults.ProgressRing.self
             Circle().strokeBorder(PiperTheme.faint, lineWidth: metrics.lineWidth)
             if finished {
-                Circle().fill(PiperTheme.accent)
-                Image(systemName: "checkmark").font(.system(size: metrics.checkFontSize, weight: .bold)).foregroundStyle(PiperTheme.onAccent)
+                Image(systemName: "checkmark").font(.system(size: metrics.checkFontSize, weight: .bold)).foregroundStyle(PiperTheme.faint)
             } else if progress > 0 {
                 Circle()
                     .trim(from: 0, to: min(max(progress, metrics.minimumProgress), 1))

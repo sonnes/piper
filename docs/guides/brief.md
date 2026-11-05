@@ -11,7 +11,7 @@ read_when:
 
 # Read The Daily Brief
 
-A brief is a list of up to 8 links to read today. Each link is a pick. The picks show in a Brief group at the top of Inbox, in the main window and in the capture panel. Each pick shows its title, its site, and one sentence from Claude about the reason for the pick.
+A brief is a list of up to 8 links to read today. Each link is a pick. The picks show in a Brief group at the top of Inbox, in the main window and in the capture panel. Each pick shows its title on one line. The second line shows its site and one sentence from Claude about the reason for the pick. If the sentence is too long for the line, move the pointer over it to read all of it.
 
 A brief uses the last 14 days of browser history, recent NetNewsWire articles, the popular Hacker News stories of the last day, and the links on the home pages of up to 8 sites.
 

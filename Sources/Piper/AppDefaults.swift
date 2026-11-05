@@ -273,9 +273,6 @@ final class AppDefaults {
 
     /// The Reading list and the Notes tab of a link capture.
     enum Reading {
-        static let badgeSize: CGFloat = 26
-        static let progressHeight: CGFloat = 3
-        static let quoteRuleWidth: CGFloat = 2
         /// The column of the Notes tab.
         static let notebookWidth: CGFloat = 600
         /// The wait after the last scroll before Piper saves the position.
@@ -337,14 +334,11 @@ final class AppDefaults {
         static let columnSpacing: CGFloat = 8
         /// The space from the edge of the row to the text.
         static let textInset: CGFloat = padding.leading + controlColumn + columnSpacing
-        static let badgeSize: CGFloat = 16
         static let unreadDot: CGFloat = 7
         static let padding = EdgeInsets(top: 9, leading: 8, bottom: 10, trailing: 10)
         static let cornerRadius: CGFloat = 8
         static let titleFontSize = PiperTheme.TextSize.body
         static let metaFontSize = PiperTheme.TextSize.secondary
-        static let detailFontSize = PiperTheme.TextSize.caption
-        static let quoteFontSize: CGFloat = 12
         static let codeFontSize: CGFloat = 12
         static let sectionDot: CGFloat = 7
     }

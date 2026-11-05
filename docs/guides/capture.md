@@ -207,7 +207,7 @@ In the main window, the detail pane edits the selected note in place. Piper save
 
 The circle on a note row marks the note as done. The ring on an article marks it as read. In the main window, Space marks the open note as done. Mark as Done is also in the selection bar and the context menu. A note that you mark as done moves to "done today" at the end of its list. The next day, it shows only in Done.
 
-Done is in the main window sidebar and in the More tab of the capture panel. Done groups the completed notes by the month in which you marked them as done. The newest month is first. A completed note shows a filled circle with a check. Search in Done matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
+Done is in the main window sidebar and in the More tab of the capture panel. Done groups the completed notes by the month in which you marked them as done. The newest month is first. A completed note shows a gray check, and its text is gray. Search in Done matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
 
 If you close a changed editor or quit Piper, Piper asks you to Save, Discard, or Cancel. A failed save keeps the draft.
 
