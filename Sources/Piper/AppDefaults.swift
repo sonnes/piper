@@ -23,6 +23,10 @@ final class AppDefaults {
         static let migratedLocalPreferences = "migratedLocalPreferences"
         static let accessibilityTipDismissed = "accessibilityTipDismissed"
         static let showsFileSource = "showsFileSource"
+        /// Turns on the QA hooks of a debug build. See `QA`.
+        static let qaMode = "PiperQA"
+        /// The file where `QAScripts` writes the result of a script.
+        static let qaResultPath = "PiperQAResult"
 
         static let agentDisabledFolders = "agentDisabledFolders"
         static let agentLastFolder = "agentLastFolder"

@@ -90,7 +90,7 @@ final class MainWindowController: NSWindowController {
 
     func show() {
         window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        QA.activate()
         refreshPanes()
         model.reload()
     }

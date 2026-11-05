@@ -39,6 +39,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private let sendShortcut = SendShortcut()
     private var sendClipboardItem: NSMenuItem?
     private var terminateSignal: DispatchSourceSignal?
+    #if DEBUG
+    private var qaScripts: QAScripts?
+    #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.brief.startSchedule()
@@ -94,6 +97,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
                 if self?.mainWindowController?.window?.isVisible == true { self?.model.reload() }
             }
         }
+        #if DEBUG
+        if QA.isOn {
+            qaScripts = QAScripts(model: model)
+            return showBrowser()
+        }
+        #endif
         showPanel()
     }
 

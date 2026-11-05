@@ -284,6 +284,16 @@ The agent cannot put data in a URL, because Piper loads only URLs that it makes 
 
 `BriefSchedule` decides when a morning build runs. A timer in `BriefBuilder` checks it every 15 minutes.
 
+## QA Mode
+
+A debug build that starts with `-PiperQA YES` is in QA mode. A test uses QA mode to drive Piper while the user works in another app.
+
+- At launch, Piper opens the main window instead of the capture panel.
+- `QA.activate` replaces `NSApp.activate`, so Piper never becomes the active app.
+- `QAScripts` runs JavaScript in the editor page. A test posts the distributed notification `com.piper.qa.eval` with the body of an async function. Piper writes the result to the file that `-PiperQAResult` names.
+
+macOS sends keys only to the active app. Thus a test in QA mode inserts text with a script, not with keys. A release build has no QA mode.
+
 ## Source Map
 
 | Source | Responsibility |
@@ -328,4 +338,5 @@ The agent cannot put data in a URL, because Piper loads only URLs that it makes 
 | [WikiMarkdown.swift](../../Sources/Piper/WikiMarkdown.swift) | Block parsing, heading anchors, and inline text |
 | [Wiki.swift](../../Sources/Piper/Wiki.swift) | File metadata |
 | [SettingsWindow.swift](../../Sources/Piper/SettingsWindow.swift) | The Settings window and its panes |
+| [QAHooks.swift](../../Sources/Piper/QAHooks.swift) | QA mode: no activation, and scripts in the editor page |
 
