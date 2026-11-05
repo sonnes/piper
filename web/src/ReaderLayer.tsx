@@ -368,11 +368,12 @@ function MarginCards({
 				return next;
 			});
 		};
-		editor.view.dom.addEventListener("click", expand);
+		const dom = editor.view.dom;
+		dom.addEventListener("click", expand);
 		return () => {
 			editor.off("update", bump);
 			observer.disconnect();
-			editor.view.dom.removeEventListener("click", expand);
+			dom.removeEventListener("click", expand);
 		};
 	}, [editor, viewport]);
 

@@ -110,36 +110,4 @@ final class WikiWorkspaceTests: XCTestCase {
         XCTAssertEqual(scan.files.map(\.id).sorted(), ["index.md", "log.md", "notes.txt"])
         XCTAssertTrue(scan.problems.isEmpty, "A file with no frontmatter is not a problem")
     }
-
-    @MainActor func testSearchKeepsActiveDocumentAndMatchesMultipleWords() {
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = [document("Topics/Reading.md", title: "Reading rhythm", body: "A comfortable measure"), document("Other.md", body: "Another note")]
-        model.openDocument("Other.md")
-        model.wikiQuery = "reading measure"
-        XCTAssertEqual(model.filteredFiles.map(\.id), ["Topics/Reading.md"])
-        XCTAssertEqual(model.selectedDocument, "Other.md")
-        model.wikiQuery = "   "
-        XCTAssertEqual(model.filteredFiles.count, 2)
-        model.wikiQuery = "unmatched"
-        XCTAssertTrue(model.filteredFiles.isEmpty)
-    }
-
-    @MainActor func testListSearchStaysInItsFolder() {
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = [
-            document("Root.md", body: "matching text"),
-            document("Topics/One.md", body: "matching text"),
-            document("Topics/Nested/Two.md", body: "matching text"),
-            document("Other/Three.md", body: "matching text")
-        ]
-        model.wikiQuery = "matching"
-        XCTAssertEqual(model.filteredFiles(in: "Topics").map(\.id), ["Topics/One.md"])
-        XCTAssertEqual(model.filteredFiles(in: "").map(\.id), ["Root.md"])
-        XCTAssertEqual(model.filteredFiles(in: nil).count, 4)
-        model.wikiQuery = "   "
-        XCTAssertEqual(model.filteredFiles(in: "Topics").map(\.id), ["Topics/One.md"])
-        model.wikiQuery = "absent"
-        XCTAssertTrue(model.filteredFiles(in: "Topics").isEmpty)
-    }
-
 }

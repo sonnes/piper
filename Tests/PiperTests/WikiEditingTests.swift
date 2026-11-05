@@ -14,16 +14,6 @@ final class WikiEditingTests: XCTestCase {
     }
     override func tearDownWithError() throws { try FileManager.default.removeItem(at: root) }
 
-    func testSummaryTextDropsMarkupAndKeepsLinkLabels() {
-        let markdown = "* **Update**: [A Graph-Based Firebase](/sources/a.md) verified\n- [[topics/Reading|Read more]] and `code`\n> quoted"
-        XCTAssertEqual(SummaryText.plain(markdown),
-                       "Update: A Graph-Based Firebase verified Read more and code quoted")
-    }
-
-    func testSummaryTextLeavesPlainProseAlone() {
-        XCTAssertEqual(SummaryText.plain("Standing orders for any agent."), "Standing orders for any agent.")
-    }
-
     func testReadingTimeRoundsToWholeMinutes() {
         XCTAssertNil(ReadingTime.text(of: " \n "))
         XCTAssertEqual(ReadingTime.text(of: "One word."), "1 min read")

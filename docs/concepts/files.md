@@ -25,7 +25,7 @@ If Piper cannot read one file, it adds a problem to the list and continues. The 
 
 `VaultWatcher` watches the folder with `FSEventStream`. It groups changes for about 0.5 seconds, then Piper scans again. A change during a scan starts one more scan after that scan finishes. Piper also scans every four seconds while the main window shows.
 
-A scan updates the tree, the file list, previews, and unread counts. If the open file changed, the scan loads the new text into the editor, or marks a conflict. See [Saving An Edit](#saving-an-edit). A deleted file stays open while the editor has text that is not on disk.
+A scan updates the tree, previews, and unread counts. If the open file changed, the scan loads the new text into the editor, or marks a conflict. See [Saving An Edit](#saving-an-edit). A deleted file stays open while the editor has text that is not on disk.
 
 ## Text And Previews
 
@@ -35,8 +35,7 @@ A file is text if it is UTF-8, has no NUL bytes, and is 4 MiB or less. Only a Ma
 
 For a Markdown file, Piper reads a YAML block at the top of the file. Piper uses these frontmatter keys:
 
-- `title` sets the title in the file list. Without it, Piper uses the first heading, then the file name.
-- `description` sets the summary in the file list, and search matches it.
+- `title` sets the title in the window title bar and in Go to File. Without it, Piper uses the first heading, then the file name.
 
 Frontmatter never changes how Piper sorts or groups files. The Source view shows the original frontmatter text, including invalid YAML.
 

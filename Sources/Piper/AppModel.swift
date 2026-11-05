@@ -56,7 +56,6 @@ final class AppModel {
     }
     /// What the actions in the toolbar run on. The window sets it with the selection.
     var actionTarget = SkillTarget.folder
-    var wikiQuery = ""
     var requestedAnchor: String?
     var anchorRequest = UUID()
     var composerDraft = UserDefaults.standard.string(forKey: AppDefaults.Key.composerDraft) ?? "" {
@@ -222,17 +221,6 @@ final class AppModel {
         fileReadState.markRead(document, in: vault.root)
     }
 
-    var filteredFiles: [VaultFile] { filteredFiles(in: nil) }
-
-    func filteredFiles(in folder: String?) -> [VaultFile] {
-        files.filter { document in
-            guard folder == nil || document.folder == folder else { return false }
-            return wikiQuery.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ").allSatisfy { word in
-                (document.title + " " + document.relativePath + " " + document.summary + " " + document.body).localizedCaseInsensitiveContains(String(word))
-            }
-        }
-    }
-
     func reload() {
         agents.refresh(paths: wikiPaths)
         let repo = vault
@@ -348,7 +336,6 @@ final class AppModel {
         initialDocument = nil
         files = []
         folders = []
-        wikiQuery = ""
         route = "wiki"
         NotificationCenter.default.post(name: .vaultPathDidChange, object: self)
         reload()

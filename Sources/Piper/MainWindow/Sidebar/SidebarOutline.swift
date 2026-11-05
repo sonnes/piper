@@ -10,12 +10,15 @@ struct SidebarOutline: NSViewRepresentable {
     let sections: [SidebarSection]
     /// The folders that have agent sessions.
     let sessionFolders: [SidebarSessionFolder]
+    /// The session that the detail pane shows while a Claude folder is selected.
+    let selectedSession: UUID?
     @Binding var expanded: Set<String>
     let selection: SidebarSelection
     /// The file open in the detail pane. A link can change it without a new
     /// selection, so the tree follows it while a file is selected.
     let openFile: String?
     let select: (SidebarSelection) -> Void
+    let selectSession: (UUID, String) -> Void
     let newSection: () -> Void
     let editSection: (String) -> Void
     let deleteSection: (String) -> Void
@@ -25,6 +28,9 @@ struct SidebarOutline: NSViewRepresentable {
     static let inboxCollapsedKey = "\u{1}inbox"
     /// The section that the Inbox row itself stands for.
     static let inboxSection = "Inbox"
+
+    /// The entry of the expansion set that records an open Claude folder.
+    static func sessionsExpandedKey(_ folder: String) -> String { "\u{1}sessions:" + folder }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -46,6 +52,8 @@ struct SidebarOutline: NSViewRepresentable {
         outline.backgroundColor = .clear
         outline.dataSource = context.coordinator
         outline.delegate = context.coordinator
+        outline.target = context.coordinator
+        outline.action = #selector(Coordinator.rowClicked)
         outline.setAccessibilityLabel("Sources")
 
         let menu = NSMenu()
@@ -106,11 +114,15 @@ struct SidebarOutline: NSViewRepresentable {
         private var wikiPath = ""
         private var wikiPaths: [String] = []
         private var unreadCounts: [String: Int] = [:]
+        /// The paths of the files that the reader has not opened since they last changed.
+        private var unreadFiles: Set<String> = []
         private var sections: [SidebarSection] = []
         private var sessionFolders: [SidebarSessionFolder] = []
         /// The file whose folders the tree last opened, so a folder that the
         /// reader closes stays closed.
         private var revealedFile: String?
+        /// The session whose folder the tree last opened.
+        private var revealedSession: UUID?
         private var updating = false
 
         init(_ parent: SidebarOutline) {
@@ -141,6 +153,7 @@ struct SidebarOutline: NSViewRepresentable {
                 wikiPath = parent.model.wikiPath
                 wikiPaths = parent.model.wikiPaths
                 unreadCounts = parent.unreadCounts
+                unreadFiles = Set(parent.model.files.filter(parent.model.isUnread).map(\.relativePath))
                 sections = parent.sections
                 sessionFolders = parent.sessionFolders
                 root = Node.root(representedObject: "root")
@@ -167,10 +180,12 @@ struct SidebarOutline: NSViewRepresentable {
                 if sessionFolders.isEmpty {
                     root.children = [library, folderGroup]
                 } else {
-                    let claude = Node(representedObject: "Sessions", parent: root)
+                    let claude = Node(representedObject: "Claude", parent: root)
                     claude.isGroupItem = true
-                    claude.children = sessionFolders.map {
-                        Node(representedObject: SidebarSelection.sessions($0.path), parent: claude)
+                    claude.children = sessionFolders.map { folder in
+                        let node = Node(representedObject: SidebarSelection.sessions(folder.path), parent: claude)
+                        node.children = folder.sessions.map { Node(representedObject: $0, parent: node) }
+                        return node
                     }
                     root.children = [library, claude, folderGroup]
                 }
@@ -183,6 +198,9 @@ struct SidebarOutline: NSViewRepresentable {
                 } else if node.representedObject as? SidebarSelection == .inbox {
                     if parent.expanded.contains(SidebarOutline.inboxCollapsedKey) { outline.collapseItem(node) }
                     else { outline.expandItem(node) }
+                } else if let selection = node.representedObject as? SidebarSelection, case .sessions(let folder) = selection {
+                    if parent.expanded.contains(SidebarOutline.sessionsExpandedKey(folder)) { outline.expandItem(node) }
+                    else { outline.collapseItem(node) }
                 } else if let item = node.representedObject as? PathItem, item.isFolder {
                     if item.path.isEmpty || parent.expanded.contains(item.path) { outline.expandItem(node) }
                     else { outline.collapseItem(node) }
@@ -195,8 +213,13 @@ struct SidebarOutline: NSViewRepresentable {
                 return parent.openFile
             }()
             reveal(treeFile)
+            let shownSession = shownSessionRow
+            revealSession(shownSession)
             let node = root.descendantNode { node in
-                if let selection = node.representedObject as? SidebarSelection { return selection == parent.selection }
+                if let row = node.representedObject as? SidebarSessionRow { return row == shownSession }
+                if let selection = node.representedObject as? SidebarSelection {
+                    return shownSession == nil && selection == parent.selection
+                }
                 guard !node.isGroupItem, let item = node.representedObject as? PathItem else { return false }
                 return item.isFolder ? parent.selection == .folder(item.path) : item.path == treeFile
             }
@@ -205,6 +228,22 @@ struct SidebarOutline: NSViewRepresentable {
                 if row >= 0 { outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) }
                 else { outline.deselectAll(nil) }
             }
+        }
+
+        /// The session row that the detail pane shows, while a Claude folder is selected.
+        private var shownSessionRow: SidebarSessionRow? {
+            guard case .sessions(let folder) = parent.selection, let id = parent.selectedSession else { return nil }
+            return sessionFolders.first { $0.path == folder }?.sessions.first { $0.id == id }
+        }
+
+        /// Opens the Claude folder of a session once, the first time the session is shown.
+        private func revealSession(_ row: SidebarSessionRow?) {
+            guard let row, row.id != revealedSession else { return }
+            revealedSession = row.id
+            let key = SidebarOutline.sessionsExpandedKey(row.folder)
+            guard !parent.expanded.contains(key) else { return }
+            let expanded = parent.$expanded
+            DispatchQueue.main.async { expanded.wrappedValue.insert(key) }
         }
 
         /// Opens the folders above a file once, the first time the file is shown.
@@ -274,7 +313,7 @@ struct SidebarOutline: NSViewRepresentable {
             if let item = node.representedObject as? PathItem, !item.isFolder {
                 cell.configure(title: SidebarOutline.fileTitle(item.name),
                                icon: .glyph(SidebarOutline.fileIcon(item.name), PiperTheme.sidebarFileNS),
-                               count: 0, rowSizeStyle: style)
+                               count: 0, unread: unreadFiles.contains(item.path), rowSizeStyle: style)
                 cell.toolTip = item.path
             } else if let item = node.representedObject as? PathItem {
                 let name = item.path.isEmpty ? parent.model.vault.root.lastPathComponent : item.name
@@ -299,7 +338,7 @@ struct SidebarOutline: NSViewRepresentable {
                 case .sessions(let path):
                     row = (URL(fileURLWithPath: path).lastPathComponent, .tile("claude", PiperTheme.claudeNS),
                            sessionFolders.first { $0.path == path }?.attention ?? 0)
-                case .allFiles, .folder, .file: row = ("", .glyph("folder", PiperTheme.sidebarFolderNS), 0)
+                case .folder, .file: row = ("", .glyph("folder", PiperTheme.sidebarFolderNS), 0)
                 }
                 if case .sessions = selection {
                     cell.configure(title: row.title, icon: row.icon, count: row.count, attention: true, rowSizeStyle: style)
@@ -307,8 +346,20 @@ struct SidebarOutline: NSViewRepresentable {
                     cell.configure(title: row.title, icon: row.icon, count: row.count, rowSizeStyle: style)
                 }
                 cell.toolTip = nil
+            } else if let session = node.representedObject as? SidebarSessionRow {
+                cell.configure(title: session.title, icon: .dot(Self.color(of: session.status)), count: 0, rowSizeStyle: style)
+                cell.toolTip = session.title
             }
             return cell
+        }
+
+        private static func color(of status: SidebarSessionRow.Status) -> NSColor {
+            switch status {
+            case .needsYou: return PiperTheme.claudeNS
+            case .working: return PiperTheme.successNS
+            case .unread: return PiperTheme.accentNS
+            case .read: return PiperTheme.faintNS
+            }
         }
 
         private func addButton(_ title: String, action: Selector) -> NSButton {
@@ -327,10 +378,27 @@ struct SidebarOutline: NSViewRepresentable {
             if let url = node.representedObject as? URL {
                 parent.model.changeWiki(to: url)
                 update()
+            } else if let session = node.representedObject as? SidebarSessionRow {
+                parent.selectSession(session.id, session.folder)
             } else if let selection = node.representedObject as? SidebarSelection {
+                // A Claude folder row starts a new session in the folder.
+                if case .sessions = selection { parent.model.selectedSession = nil }
                 parent.select(selection)
             } else if let item = node.representedObject as? PathItem {
                 parent.select(item.isFolder ? .folder(item.path) : .file(item.path))
+            }
+        }
+
+        /// A click on a folder opens or closes it, and the detail pane keeps the
+        /// last file. A click on a Claude folder opens it. The keyboard selects
+        /// a folder without a change, so the arrow keys move through the tree.
+        @objc func rowClicked() {
+            guard let outline, outline.clickedRow >= 0, let node = outline.item(atRow: outline.clickedRow) as? Node,
+                  node.hasChildNodes else { return }
+            if let item = node.representedObject as? PathItem, item.isFolder, !item.path.isEmpty {
+                if outline.isItemExpanded(node) { outline.collapseItem(node) } else { outline.expandItem(node) }
+            } else if let selection = node.representedObject as? SidebarSelection, case .sessions = selection {
+                outline.expandItem(node)
             }
         }
 
@@ -344,6 +412,11 @@ struct SidebarOutline: NSViewRepresentable {
                 else { parent.expanded.insert(SidebarOutline.inboxCollapsedKey) }
                 return
             }
+            if let selection = node.representedObject as? SidebarSelection, case .sessions(let folder) = selection {
+                let key = SidebarOutline.sessionsExpandedKey(folder)
+                if expanded { parent.expanded.insert(key) } else { parent.expanded.remove(key) }
+                return
+            }
             guard let item = node.representedObject as? PathItem else { return }
             if expanded { parent.expanded.insert(item.path) } else { parent.expanded.remove(item.path) }
         }
@@ -354,6 +427,13 @@ struct SidebarOutline: NSViewRepresentable {
             menu.removeAllItems()
             menu.addItem(withTitle: "New Section…", action: #selector(newSection), keyEquivalent: "").target = self
             menu.addItem(withTitle: "Add Folder…", action: #selector(addFolder), keyEquivalent: "").target = self
+            if let session = clickedNode?.representedObject as? SidebarSessionRow {
+                menu.addItem(.separator())
+                let delete = menu.addItem(withTitle: "Delete Session", action: #selector(deleteSession(_:)), keyEquivalent: "")
+                delete.target = self
+                delete.representedObject = session.id
+                return
+            }
             if let selection = clickedNode?.representedObject as? SidebarSelection, case .section(let name) = selection {
                 menu.addItem(.separator())
                 let edit = menu.addItem(withTitle: "Edit Section…", action: #selector(editSection(_:)), keyEquivalent: "")
@@ -404,6 +484,12 @@ struct SidebarOutline: NSViewRepresentable {
         }
 
         @objc private func addFolder() { parent.model.chooseWiki() }
+
+        @objc private func deleteSession(_ sender: NSMenuItem) {
+            guard let id = sender.representedObject as? UUID, let session = parent.model.agents.runner.session(id) else { return }
+            if parent.model.selectedSession == id { parent.model.selectedSession = nil }
+            parent.model.agents.runner.delete(session)
+        }
 
         @objc private func revealInFinder() {
             guard let node = clickedNode, let url = folderURL(of: node) else { return }
@@ -533,6 +619,8 @@ private final class SidebarCell: NSTableCellView {
     /// The orange count of the sessions that wait, on a sessions row.
     private let attentionLabel = NSTextField(labelWithString: "")
     private let attentionBadge = NSView()
+    /// The blue dot of an unread file.
+    private let unreadDot = NSView()
     private let actions = NSStackView()
     private var tint: NSColor?
     private lazy var iconWidth = icon.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.metrics(for: .medium).imageSize)
@@ -564,10 +652,18 @@ private final class SidebarCell: NSTableCellView {
             attentionBadge.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.countCornerRadius * 2),
             attentionBadge.widthAnchor.constraint(greaterThanOrEqualTo: attentionBadge.heightAnchor)
         ])
+        unreadDot.wantsLayer = true
+        unreadDot.layer?.cornerRadius = AppDefaults.Sidebar.unreadDotSize / 2
+        unreadDot.setAccessibilityLabel("Unread")
+        NSLayoutConstraint.activate([
+            unreadDot.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.unreadDotSize),
+            unreadDot.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.unreadDotSize)
+        ])
         icon.imageScaling = .scaleProportionallyUpOrDown
         actions.spacing = AppDefaults.Sidebar.actionSpacing
         actions.addArrangedSubview(countLabel)
         actions.addArrangedSubview(attentionBadge)
+        actions.addArrangedSubview(unreadDot)
         for view in [title, icon, actions] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -585,9 +681,12 @@ private final class SidebarCell: NSTableCellView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
-    /// - Parameter attention: Shows the count as an orange badge instead of gray text.
-    func configure(title: String, icon: SidebarIcon, count: Int, attention: Bool = false,
+    /// - Parameters:
+    ///   - attention: Shows the count as an orange badge instead of gray text.
+    ///   - unread: Shows the blue dot of an unread file.
+    func configure(title: String, icon: SidebarIcon, count: Int, attention: Bool = false, unread: Bool = false,
                    rowSizeStyle: NSTableView.RowSizeStyle) {
+        unreadDot.isHidden = !unread
         let metrics = AppDefaults.Sidebar.metrics(for: rowSizeStyle)
         self.title.stringValue = title
         self.title.font = .systemFont(ofSize: metrics.fontSize)
@@ -614,6 +713,7 @@ private final class SidebarCell: NSTableCellView {
         icon.contentTintColor = emphasized ? .selectedControlTextColor : tint
         effectiveAppearance.performAsCurrentDrawingAppearance {
             attentionBadge.layer?.backgroundColor = PiperTheme.claudeNS.cgColor
+            unreadDot.layer?.backgroundColor = (emphasized ? NSColor.selectedControlTextColor : PiperTheme.accentNS).cgColor
         }
     }
 

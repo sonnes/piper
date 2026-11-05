@@ -14,6 +14,21 @@ final class SidebarTreeTests: XCTestCase {
         XCTAssertEqual(SidebarSelection.file("index.md").folder, "")
     }
 
+    func testOnlyTheCapturesShowTheListPane() {
+        let withList: [SidebarSelection] = [.inbox, .section("Reading"), .archived]
+        let withoutList: [SidebarSelection] = [.brief, .clipboard, .folder("notes"), .file("notes/a.md"), .sessions("/Users/me/Wiki")]
+        for selection in withList { XCTAssertTrue(selection.showsList, "\(selection)") }
+        for selection in withoutList { XCTAssertFalse(selection.showsList, "\(selection)") }
+        XCTAssertTrue(SidebarSelection.clipboard.showsCaptures)
+    }
+
+    func testAnOpenClaudeFolderKeyCannotMatchAFolderPath() {
+        let key = SidebarOutline.sessionsExpandedKey("/Users/me/Wiki")
+        XCTAssertTrue(key.hasPrefix("\u{1}"))
+        XCTAssertNotEqual(key, SidebarOutline.inboxCollapsedKey)
+        XCTAssertNotEqual(key, SidebarOutline.sessionsExpandedKey("/Users/me/Other"))
+    }
+
     func testFileRowsDropTheMarkdownExtensionAndShowTheKind() {
         XCTAssertEqual(SidebarOutline.fileTitle("claude-code.md"), "claude-code")
         XCTAssertEqual(SidebarOutline.fileTitle("2026-09-18-openui.html"), "2026-09-18-openui.html")

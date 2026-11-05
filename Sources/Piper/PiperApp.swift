@@ -39,6 +39,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private let sendShortcut = SendShortcut()
     private var sendClipboardItem: NSMenuItem?
     private var terminateSignal: DispatchSourceSignal?
+    #if DEBUG
+    private var qaScripts: QAScripts?
+    #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.brief.startSchedule()
@@ -94,6 +97,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
                 if self?.mainWindowController?.window?.isVisible == true { self?.model.reload() }
             }
         }
+        #if DEBUG
+        if QA.isOn {
+            qaScripts = QAScripts(model: model)
+            return showBrowser()
+        }
+        #endif
         showPanel()
     }
 
@@ -134,7 +143,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         goMenu.addItem(withTitle: "Back", action: #selector(goBack), keyEquivalent: "[").target = self
         goMenu.addItem(withTitle: "Forward", action: #selector(goForward), keyEquivalent: "]").target = self
         goMenu.addItem(.separator())
-        goMenu.addItem(withTitle: "Search", action: #selector(searchWiki), keyEquivalent: "o").target = self
         goMenu.addItem(withTitle: "Go to File…", action: #selector(showPalette), keyEquivalent: "k").target = self
         let goItem = NSMenuItem(title: "Go", action: nil, keyEquivalent: "")
         goItem.submenu = goMenu
@@ -259,10 +267,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     @objc private func refreshVault() { model.reload(); mainWindowController?.refreshPanes() }
     @objc private func goBack() { model.navigate(-1); mainWindowController?.refreshPanes() }
     @objc private func goForward() { model.navigate(1); mainWindowController?.refreshPanes() }
-    @objc private func searchWiki() {
-        showLibrary()
-        mainWindowController?.showAllFiles()
-    }
 
     /// Opens the command palette over the main window.
     @objc private func showPalette() {
@@ -278,7 +282,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         [
             PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.mainWindowController?.newDocument(nil) },
             PaletteCommand(title: "Show Brief", shortcut: "⌘0") { [weak self] in self?.showBrief() },
-            PaletteCommand(title: "Search All Files", shortcut: "⌘O") { [weak self] in self?.searchWiki() },
             PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.loadedEditorPage?.command("find") },
             PaletteCommand(title: model.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
                 self?.model.showsFileSource.toggle()

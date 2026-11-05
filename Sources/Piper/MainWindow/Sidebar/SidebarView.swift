@@ -1,3 +1,4 @@
+import Agents
 import AppKit
 import PiperTree
 import SwiftUI
@@ -9,6 +10,8 @@ struct SidebarView: View {
     @Binding var expanded: Set<String>
     let selection: SidebarSelection
     let select: (SidebarSelection) -> Void
+    /// Selects one session of a Claude folder, by its id and its folder.
+    let selectSession: (UUID, String) -> Void
     @State private var namingSection = false
     @State private var editingSection: String?
     @State private var sectionName = ""
@@ -18,8 +21,9 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             SidebarOutline(model: model, unreadCounts: model.unreadFolderCounts,
                            sections: sectionCounts,
-                           sessionFolders: sessionFolders,
+                           sessionFolders: sessionFolders, selectedSession: model.selectedSession,
                            expanded: $expanded, selection: selection, openFile: model.selectedDocument, select: select,
+                           selectSession: selectSession,
                            newSection: { namingSection = true },
                            editSection: { section in
                                sectionName = section
@@ -81,11 +85,16 @@ struct SidebarView: View {
         }
     }
 
-    /// The folders with agent sessions, and the sessions in each that need the reader.
+    /// The folders with agent sessions, and the sessions of each.
     private var sessionFolders: [SidebarSessionFolder] {
         let runner = model.agents.runner
         return runner.folders().map { folder in
-            SidebarSessionFolder(path: folder, attention: runner.sessions(in: folder).filter { $0.state == .needsYou }.count)
+            let sessions = runner.sessions(in: folder)
+            return SidebarSessionFolder(
+                path: folder,
+                attention: sessions.filter { $0.state == .needsYou }.count,
+                sessions: sessions.map { SidebarSessionRow(id: $0.id, folder: folder, title: $0.title, status: .init($0)) }
+            )
         }
     }
 
@@ -103,11 +112,35 @@ struct SidebarView: View {
     }
 }
 
-/// One folder in the Sessions group of the sidebar.
+/// One folder in the Claude group of the sidebar.
 struct SidebarSessionFolder: Equatable {
     let path: String
     /// The sessions that wait for an answer.
     let attention: Int
+    /// The sessions of the folder, the most recently changed first.
+    let sessions: [SidebarSessionRow]
+}
+
+/// One session under its folder in the Claude group of the sidebar.
+struct SidebarSessionRow: Equatable {
+    /// What the dot at the start of the row shows.
+    enum Status: Equatable {
+        case needsYou, working, unread, read
+
+        @MainActor
+        init(_ session: AgentSession) {
+            switch session.state {
+            case .needsYou: self = .needsYou
+            case .running, .waiting: self = .working
+            case .idle, .failed: self = session.unread ? .unread : .read
+            }
+        }
+    }
+
+    let id: UUID
+    let folder: String
+    let title: String
+    let status: Status
 }
 
 /// One capture section in the sidebar.

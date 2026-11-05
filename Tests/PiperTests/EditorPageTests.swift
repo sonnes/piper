@@ -93,6 +93,26 @@ final class EditorPageTests: XCTestCase {
         XCTAssertEqual(model.editor?.status, .saved)
     }
 
+    func testASecondFileReplacesTheFirstInTheEditor() async throws {
+        let model = try makeModel([("Green tea.md", "# Green tea\n\nLess caffeine.\n"), ("Matcha.md", "# Matcha\n\nShade-grown leaves.\n")])
+        model.openDocument("Green tea.md")
+        let page = try await load(model)
+        try show(page, model)
+        try await wait("The editor shows the first file.") {
+            (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?
+                .contains("Less caffeine.") == true
+        }
+
+        model.openDocument("Matcha.md")
+        try show(page, model)
+        try await wait("The editor shows the second file.") {
+            (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?
+                .contains("Shade-grown leaves.") == true
+        }
+        let errors = try await evaluate(page, "JSON.stringify(window.piperErrors)") as? String
+        XCTAssertEqual(errors, "[]")
+    }
+
     func testThePageHasTheBrowserFeaturesThatTheEditorUses() async throws {
         let model = try makeModel([("Note.md", "# Note\n")])
         model.openDocument("Note.md")

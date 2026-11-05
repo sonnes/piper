@@ -64,21 +64,23 @@ The panel is a non-activating `NSPanel` on every Space. Its initial size is 600 
 | Pane | Controller | Content |
 | --- | --- | --- |
 | Sidebar | `SidebarViewController` | `SidebarOutline`, an `NSOutlineView` |
-| List | `FileListViewController` | `FileListView`, `CaptureView`, or `SessionListView` |
-| Detail | `DetailViewController` | `BriefPage`, `EditorPane`, `FilePreview`, `NoteDetail`, or a session |
+| List | `CaptureListViewController` | `CaptureView` for Inbox, a section, or Archived |
+| Detail | `DetailViewController` | `BriefPage`, `CaptureView` for Clipboard, `EditorPane`, `FilePreview`, `NoteDetail`, or a session |
 | Session card | `DetailViewController` | `SessionOverlay`, in a hosting view over the bottom right corner of the detail pane |
 
-Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostingView`. A pane reports upward through a delegate protocol, and `MainWindowController` decides what the other panes show. The editor page is an exception. A link in it calls `AppModel.openDocument` directly, so a link does not move the sidebar or the file list.
+Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostingView`. A pane reports upward through a delegate protocol, and `MainWindowController` decides what the other panes show. The editor page is an exception. A link in it calls `AppModel.openDocument` directly, so a link does not change the sidebar selection.
 
-`SidebarSelection` decides the layout. Brief collapses the file list. A Sessions folder hides the session card, because the list and the detail pane show the same sessions. `MainWindowState` saves the selection, the open file, the open folders, and the pane widths. `AppModel.selectedSession` holds the session that the session card and the Sessions list show.
+`SidebarSelection` decides the layout. `SidebarSelection.showsList` is true only for Inbox, a section, and Archived. Every other selection collapses the list pane, and the detail pane takes its width. A Claude folder hides the session card, because the detail pane shows the sessions of the folder. `MainWindowState` saves the selection, the open file, the open folders, and the pane widths. `AppModel.selectedSession` holds the session that the session card and the detail pane of a Claude folder show.
 
 `AppModel.sessionPresentation` is the pill, the card, or the detached panel, and preferences keep it. `DetailViewController` holds two hosting views: the content, and an overlay pinned to the bottom right corner. The overlay takes the intrinsic size of `SessionPill` or `SessionCard`, so a click outside it reaches the content. A constraint keeps the overlay at most 85% of the pane height. `DetailPaneLayout` shares the pane width between the card and the tabs. In a narrow pane, the card fits the width and sits above the tabs. `SessionCard` hosts `SessionPane`, and `SessionTarget` picks its folder, its session, and its context page. `SessionPanelController` shows the same card in a non-activating `NSPanel` on every Space. Its close button returns the presentation to the pill.
 
-The window title names the sidebar selection, as in Mail. The subtitle shows a count, and it updates through `withObservationTracking`. The toolbar has tracking separators that align with the split view dividers. Toggle Sidebar sits over the sidebar. New Capture sits over the list. Back and Forward, Mark as Done, and the More menu sit over the detail pane. `TabIsland` floats over the bottom of the detail pane, with Preview and Source for a file. The Session Card button at the end opens and collapses the session card, as does Option-Command-C. Each list has its own search field.
+The window title names the open file, and the subtitle shows the folders of the file. For other selections, the title names the selection, as in Mail, and the subtitle shows a count. The title updates through `withObservationTracking`. The toolbar has tracking separators that align with the split view dividers. Toggle Sidebar sits over the sidebar. New Capture sits over the list. Back and Forward, Mark as Done, and the More menu sit over the detail pane. `TabIsland` floats over the bottom of the detail pane, with Preview and Source for a file. The Session Card button at the end opens and collapses the session card, as does Option-Command-C. The list of captures and the clipboard history each have a search field.
 
-The sidebar has up to three groups. Library holds Brief, Inbox with one child for each capture section other than Inbox, Clipboard, and Archived. Claude holds one `SidebarSelection.sessions` row for each folder with sessions, and it shows only when a session exists. Folders holds every root and the tree of the active root. `SidebarSelection.section` shows the captures of one section, and `SidebarSelection.clipboard` shows the clipboard history.
+The sidebar has up to three groups. Library holds Brief, Inbox with one child for each capture section other than Inbox, Clipboard, and Archived. Claude holds one `SidebarSelection.sessions` row for each folder with sessions, and it shows only when a session exists. Each folder row holds a `SidebarSessionRow` for each session. A session row sets `AppModel.selectedSession` and selects its folder. A folder row clears `AppModel.selectedSession`, so the detail pane starts a new session. Folders holds every root and the tree of the active root, with its files. A click on a folder opens or closes it. `SidebarSelection.folder` keeps the last file in the detail pane. `SidebarSelection.section` shows the captures of one section, and `SidebarSelection.clipboard` shows the clipboard history in the detail pane.
 
-Sidebar fonts and icons follow the macOS sidebar size preference: 11 and 16 points, 13 and 19 points, or 15 and 22 points. `TimelineCell` draws every file row through `TimelineRow`.
+The expansion set of `SidebarPane` holds the open folder paths. It also holds two kinds of keys that start with `\u{1}`, so they cannot match a path: `SidebarOutline.inboxCollapsedKey` for a closed Inbox, and `SidebarOutline.sessionsExpandedKey` for each open Claude folder.
+
+Sidebar fonts and icons follow the macOS sidebar size preference: 11 and 16 points, 13 and 19 points, or 15 and 22 points.
 
 ## Capture
 
@@ -262,7 +264,7 @@ The Capture button runs JavaScript in an isolated content world. One call return
 
 ## Search
 
-The file-list search filters the selected folder. Inbox search filters the active capture section and temporary clipboard cards. The `allFiles` sidebar state applies the same search to the whole vault. Command-O opens it.
+Inbox search filters the active capture section and temporary clipboard cards. Go to File (Command-K) searches every file of the active folder. See [Command Palette](#command-palette).
 
 ## Daily Brief
 
@@ -283,6 +285,16 @@ The agent cannot put data in a URL, because Piper loads only URLs that it makes 
 `BriefDocument` converts the Markdown to the blocks of the reader page. The first highlight of a brief adds a parent note, and `ReaderMarks` handles its marks and actions for a brief and for a link capture. A selected link becomes a link capture that opens in the Web tab.
 
 `BriefSchedule` decides when a morning build runs. A timer in `BriefBuilder` checks it every 15 minutes.
+
+## QA Mode
+
+A debug build that starts with `-PiperQA YES` is in QA mode. A test uses QA mode to drive Piper while the user works in another app.
+
+- At launch, Piper opens the main window instead of the capture panel.
+- `QA.activate` replaces `NSApp.activate`, so Piper never becomes the active app.
+- `QAScripts` runs JavaScript in the editor page. A test posts the distributed notification `com.piper.qa.eval` with the body of an async function. Piper writes the result to the file that `-PiperQAResult` names.
+
+macOS sends keys only to the active app. Thus a test in QA mode inserts text with a script, not with keys. A release build has no QA mode.
 
 ## Source Map
 
@@ -312,13 +324,11 @@ The agent cannot put data in a URL, because Piper loads only URLs that it makes 
 | [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | The error alert |
 | [Brief/](../../Sources/Piper/Brief) | The Brief page, its settings, the sign-in sheet, the builder, and the page loader |
 | [Modules/Briefs/](../../Sources/Modules/Briefs) | Sources, history and feed reads, the digest, blocked sites, link cleaning, prompts, the schedule, and the files |
-| [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | Library rows, the folder tree, unread counts, and file warnings |
-| [MainWindow/Browser/](../../Sources/Piper/MainWindow/Browser) | The file list and the session list |
+| [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | Library rows, the session rows, the folder tree, unread counts, and file warnings |
 | [InboxRow.swift](../../Sources/Piper/InboxRow.swift) | The rows of the Inbox stream and the progress ring |
 | [MainWindow/Detail/](../../Sources/Piper/MainWindow/Detail) | Header, file previews, the Reader tab, and the Notes tab |
 | [Modules/Captures/ReadingList.swift](../../Sources/Modules/Captures/ReadingList.swift) | The Reading groups and the Markdown of Save as File |
 | [Modules/Captures/InboxStream.swift](../../Sources/Modules/Captures/InboxStream.swift) | The groups and the chip counts of the Inbox stream |
-| [MainWindow/TimelineCell.swift](../../Sources/Piper/MainWindow/TimelineCell.swift) | File and capture rows |
 | [MainWindow/Detail/EditorPage.swift](../../Sources/Piper/MainWindow/Detail/EditorPage.swift) | The editor page, its bridge, the asset scheme, and the conflict bar |
 | [EditorSession.swift](../../Sources/Piper/EditorSession.swift) | The save of a Markdown file and the conflict rules |
 | [MainWindow/CommandPalette.swift](../../Sources/Piper/MainWindow/CommandPalette.swift) | The command palette |
@@ -328,4 +338,5 @@ The agent cannot put data in a URL, because Piper loads only URLs that it makes 
 | [WikiMarkdown.swift](../../Sources/Piper/WikiMarkdown.swift) | Block parsing, heading anchors, and inline text |
 | [Wiki.swift](../../Sources/Piper/Wiki.swift) | File metadata |
 | [SettingsWindow.swift](../../Sources/Piper/SettingsWindow.swift) | The Settings window and its panes |
+| [QAHooks.swift](../../Sources/Piper/QAHooks.swift) | QA mode: no activation, and scripts in the editor page |
 

@@ -63,18 +63,14 @@ final class SidebarViewController: HostingPaneViewController {
     }
 }
 
-/// The files of the selected folder. It reports a file and nothing else.
+/// The captures of Inbox, of one section, or of Archived. It reports a capture and nothing else.
 @MainActor
-final class FileListViewController: HostingPaneViewController {
+final class CaptureListViewController: HostingPaneViewController {
     override var acceptsFirstResponder: Bool { true }
-    weak var delegate: FileListViewControllerDelegate?
-
-    func selectFile(_ path: String) {
-        delegate?.fileListViewController(self, didSelectFile: path)
-    }
+    weak var delegate: CaptureListViewControllerDelegate?
 
     func selectNote(_ id: UUID?) {
-        delegate?.fileListViewController(self, didSelectNote: id)
+        delegate?.captureListViewController(self, didSelectNote: id)
     }
 }
 

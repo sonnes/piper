@@ -59,7 +59,6 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 
 | Shortcut | Action |
 | --- | --- |
-| Command-O | Open All Files and move the focus to its search field |
 | Command-N | Open the note composer in the selected Inbox section, or in Inbox from another pane |
 | Command-S | Save the open Markdown file at once. Piper also saves 120 ms after an edit. |
 | Command-K | Open the command palette. In the editor, with text selected, make a link. |

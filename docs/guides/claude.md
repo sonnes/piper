@@ -93,12 +93,21 @@ To start another session, select New Session (the pencil icon). The title menu o
 
 ### Find A Session
 
-When a folder has sessions, the sidebar shows a Sessions group with a row for that folder. An orange number on the row counts the sessions that wait for you.
+When a folder has sessions, the sidebar shows a Claude group with a row for that folder. An orange number on the row counts the sessions that wait for you.
 
-1. Select the folder in the Sessions group.
-2. Select a session in the list.
+1. Select the folder in the Claude group. The folder opens and shows its sessions, with the newest change first.
+2. Select a session.
 
-The list shows the newest change first. A blue dot marks a session with a turn that you have not read. The detail pane shows the transcript and a message field.
+The detail pane shows the transcript and a message field. To start a new session in the folder, select the folder row.
+
+The dot before each session shows its state:
+
+| Dot | State |
+| --- | --- |
+| Orange | The session waits for you. |
+| Green | The agent works on a turn, or the turn waits for a free slot. |
+| Blue | The session has a turn that you have not read. |
+| Gray | The session is idle, and you read its last turn. |
 
 To delete a session, Control-click it and select Delete Session.
 

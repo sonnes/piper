@@ -37,7 +37,7 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
 - [ ] Make sure that a daily brief reads a real NetNewsWire database: the folder path, the date format, and the macOS permission.
 - [ ] Measure if agent sessions get the Full Disk Access of Piper.
-- [ ] Make a link from the editor update the sidebar and the file list.
+- [ ] While a folder is selected in the sidebar, make a link from the editor select the new file in the tree.
 - [ ] Do the Editing Checks in [validate.md](validate.md) that are not done in the built app: Japanese input, Command-F, and Reload in the conflict bar.
 - [ ] Decide whether Piper turns off text replacement and smart quotes in the editor page. Today a macOS text replacement changes the Markdown that you type.
 - [ ] Hide `<note>.assets` folders in the sidebar.

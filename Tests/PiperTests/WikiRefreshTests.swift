@@ -138,14 +138,12 @@ final class WikiRefreshTests: XCTestCase {
         try await waitFor("The initial scan finishes.") { !model.loading }
         model.openDocument("old.md")
         model.initialDocument = "old.md"
-        model.wikiQuery = "Old"
         let changed = expectation(forNotification: .vaultPathDidChange, object: model)
         model.changeWiki(to: folder)
         await fulfillment(of: [changed], timeout: 1)
         try await waitFor("The new folder scan finishes.") { !model.loading }
         XCTAssertEqual(model.selectedDocument, "new.md")
         XCTAssertEqual(model.files.map(\.id), ["new.md"])
-        XCTAssertEqual(model.wikiQuery, "")
         XCTAssertNil(model.initialDocument)
     }
 
@@ -196,6 +194,7 @@ final class WikiRefreshTests: XCTestCase {
         var state = MainWindowState()
         state.selection = .sessions("/Users/me/Wiki")
         XCTAssertFalse(state.selection.showsCaptures)
+        XCTAssertFalse(state.selection.showsList)
         XCTAssertEqual(state.selectedFolder, "")
 
         let copy = try JSONDecoder().decode(MainWindowState.self, from: JSONEncoder().encode(state))

@@ -29,19 +29,31 @@ Piper keeps the added folders across restarts. Select a folder in the sidebar to
 
 To take a folder out of the sidebar, Control-click it and select Remove Folder. You can also select it in Settings > General and select the minus button. The folder on disk does not change. The last folder cannot be removed.
 
-All Files search uses the selected folder. Switching folders clears the previous search and asks you to resolve unsaved edits.
+[Go to File](#go-to-a-file) searches the selected folder. Before Piper changes the folder, it saves the open file. If the open file has a conflict, Piper stays in the current folder.
 
 ## Find Your Way Around
 
-The window has three panes:
+The window has a sidebar and a detail pane. The sidebar has these groups:
 
-| Pane | Content |
+| Group | Rows |
 | --- | --- |
-| Sidebar | Library (Brief, Inbox with a row for each other section, Clipboard, and Archived) and Folders (every folder, and the tree of the active folder) |
-| List | The files of the selected folder, the captures, or the clipboard history |
-| Detail | The selected file, the brief, or the selected capture |
+| Library | Brief, Inbox with a row for each other section, Clipboard, and Archived |
+| Claude | Each folder with agent sessions, and its sessions. See [Find a session](claude.md#find-a-session). |
+| Folders | Every folder, and the tree of the active folder with its files |
 
-The window title names the sidebar selection. The subtitle shows a count.
+The sidebar selection decides what the detail pane shows:
+
+| Selection | Detail pane |
+| --- | --- |
+| Inbox, a section, or Archived | The capture that you select in the list of captures. The list shows between the sidebar and the detail pane. |
+| Clipboard | The clipboard history |
+| Brief | The brief |
+| A file | The file |
+| A folder | The last file that you opened |
+| A folder in the Claude group | A new session in the folder |
+| A session | The session |
+
+The window title names the open file. The subtitle shows the folders of the file, for example "Notes › Reading". For other selections, the title names the selection and the subtitle shows a count.
 
 The toolbar has these controls:
 
@@ -58,32 +70,28 @@ Tabs float over the bottom of the detail pane. A Markdown or HTML file has Previ
 
 The folder tree shows every folder and every file, as in an editor. Folders come first, then files. A Markdown file shows its name without `.md`. Each top-level folder shows a colored tile with the first letter of its name. The arrows that open and close folders show only when the pointer is on the sidebar. The arrow keys open and close folders at all times.
 
-- Select a folder to show its files in the list.
-- Select a file to open it. The list closes, and the file takes its width.
+- Select a file to open it.
+- Click a folder to open or close it. The detail pane keeps the last file.
 
 When a link opens another file, the tree selects that file and opens the folders above it.
 
-Brief hides the list. The window restores its frame, the pane widths, the selection, the open folders, and the last file.
+The window restores its frame, the pane widths, the selection, the open folders, and the last file.
 
-## Search The Current List
+## Search Captures And The Clipboard
 
-The search field sits at the top of the list. In a folder, the sort menu sits next to it.
+The search field sits at the top of the list of captures and at the top of the clipboard history. In Inbox, search filters the notes of every section. In Clipboard, search filters the clipboard history.
 
-File search filters only the files in the selected folder. Each word must match a title, a path, a description, or the body text. Selecting another folder clears the file search.
-
-In Inbox, search filters the notes of every section. In Clipboard, search filters the clipboard history.
-
-Command-O opens the All Files list, which searches the whole vault with the same words.
+To find a file, use [Go to File](#go-to-a-file).
 
 ## Track Unread Files
 
-A file you have not opened has a blue dot. A file becomes unread again when its modification time changes. A save that you make in Piper keeps the file read.
+A file you have not opened has a blue dot in the sidebar tree. A file becomes unread again when its modification time changes. A save that you make in Piper keeps the file read.
 
-The window subtitle shows the number of files and the number of unread files in the folder. Sidebar counts include unread files in subfolders. A folder with no unread files shows no count. Read state is separate for each folder and survives a restart.
+The count on a folder in the sidebar includes the unread files in its subfolders. A folder with no unread files shows no count. Read state is separate for each folder and survives a restart.
 
 ## Read A File
 
-Select a file in the list. The sort menu next to the search field sorts by Name or by Date.
+Select a file in the sidebar tree.
 
 A Markdown file opens in the editor, in a centered column. The page uses the paper, the type, and the colors of the Reader tab. A byline over the text shows the modification date and the reading time. After a save, the byline also shows "Saved". The byline scrolls with the text. If the file has no heading, its title shows under the byline.
 
@@ -244,7 +252,7 @@ Select text in the article to show the selection bar. The bar has Ask, Explain, 
 
 Ask, Explain, and Define send the selection to the margin agent. By default, the margin agent is Claude Code with Haiku. To change the agent or the model, open Settings > AI > Defaults.
 
-The first question about a capture also sends the article text. One hidden session answers every question about one capture. The Sessions list does not show this session.
+The first question about a capture also sends the article text. One hidden session answers every question about one capture. The sidebar does not show this session.
 
 The margin agent works in the folder of the Send buttons. It can read the files of that folder and search the web. It cannot change a file or run a command, so it never asks for your approval. Claude Code gets only the Read, Grep, Glob, WebSearch, and WebFetch tools, and no MCP server. For an ACP agent, Piper uses the read-only mode of the agent, such as Plan. Piper also allows each request that only reads, and denies each other request. An ACP agent without a read-only mode cannot answer in the margin. See [Choose the agent, the model, and the mode](claude.md#choose-the-agent-the-model-and-the-mode).
 

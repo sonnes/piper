@@ -4,7 +4,7 @@ import Captures
 import SwiftUI
 import Vault
 
-/// Owns the main window: three panes and the session card.
+/// Owns the main window: the sidebar, the capture list, the detail pane, and the session card.
 ///
 /// The window holds an `NSSplitViewController` with one view controller per
 /// pane. A pane never calls another pane. Each one reports upward through a
@@ -12,8 +12,8 @@ import Vault
 ///
 /// The sidebar selection decides what the other panes hold. The home page and
 /// the capture inbox are rows of the sidebar, so the source list stays in place
-/// whichever one the reader picks. The home page fills the panes to the right,
-/// because a search field needs the width.
+/// whichever one the reader picks. Only the captures show the list pane. Files,
+/// sessions, the brief, and the clipboard take its width.
 @MainActor
 final class MainWindowController: NSWindowController {
 
@@ -24,7 +24,7 @@ final class MainWindowController: NSWindowController {
 
     private let splitViewController = NSSplitViewController()
     private let sidebarViewController = SidebarViewController()
-    private let fileListViewController = FileListViewController()
+    private let captureListViewController = CaptureListViewController()
     private let detailViewController = DetailViewController()
     private var listItem: NSSplitViewItem?
     private var appliedPaneWidths = false
@@ -33,12 +33,7 @@ final class MainWindowController: NSWindowController {
 
     /// True while the panes to the right of the sidebar hold the brief.
     private var showsBrief: Bool { state.selection == .brief }
-    /// True while the sidebar tree picked a file, so the file takes the list's width.
-    private var showsTreeFile: Bool {
-        if case .file = state.selection { return true }
-        return false
-    }
-    /// True while the list and the detail pane show agent sessions.
+    /// True while the detail pane shows agent sessions.
     private var showsSessions: Bool {
         if case .sessions = state.selection { return true }
         return false
@@ -90,7 +85,7 @@ final class MainWindowController: NSWindowController {
 
     func show() {
         window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        QA.activate()
         refreshPanes()
         model.reload()
     }
@@ -128,11 +123,6 @@ final class MainWindowController: NSWindowController {
         select(.brief)
     }
 
-    /// Shows the list that searches every file.
-    func showAllFiles() {
-        select(.allFiles)
-    }
-
     /// Shows a file in its folder.
     func showFile(_ path: String) {
         open(path)
@@ -156,7 +146,7 @@ final class MainWindowController: NSWindowController {
         showNote(note.id)
     }
 
-    /// Shows a session: in the Sessions list when it is selected, or else in the session card.
+    /// Shows a session: in the detail pane while a Claude folder is selected, or else in the session card.
     func showSession(_ id: UUID) {
         model.selectedSession = id
         guard showsSessions else { return showSessionCard() }
@@ -182,7 +172,6 @@ final class MainWindowController: NSWindowController {
     /// Records what the sidebar picked and redraws the panes for it.
     private func select(_ selection: SidebarSelection) {
         composerRequest = nil
-        if case .folder = selection, selection != state.selection { model.wikiQuery = "" }
         let separate: [SidebarSelection] = [.clipboard, .archived]
         if selection.showsCaptures != state.selection.showsCaptures || separate.contains(selection) || separate.contains(state.selection) {
             model.store.query = ""
@@ -216,8 +205,7 @@ final class MainWindowController: NSWindowController {
 
     /// Redraws every pane from the current selection and model.
     ///
-    /// The home page needs the width of the window, so its selection collapses
-    /// the file list.
+    /// Only the captures need the list pane, so every other selection collapses it.
     func refreshPanes() {
         observeTitle()
         sidebarViewController.setContent(SidebarPane(
@@ -227,6 +215,11 @@ final class MainWindowController: NSWindowController {
             select: { [weak self] selection in
                 guard let self else { return }
                 sidebarViewController.select(selection)
+            },
+            selectSession: { [weak self] id, folder in
+                guard let self else { return }
+                model.selectedSession = id
+                sidebarViewController.select(.sessions(folder))
             },
             expansionChanged: { [weak self] folders in
                 guard let self else { return }
@@ -238,51 +231,51 @@ final class MainWindowController: NSWindowController {
         switch state.selection {
         case .brief:
             detailViewController.setContent(BriefPage(model: model).routeSheets(model))
-        case .inbox, .section, .clipboard, .archived:
-            let clipboard = state.selection == .clipboard
+        case .inbox, .section, .archived:
             let content: CaptureListContent
             switch state.selection {
-            case .clipboard: content = .clipboard
             case .archived: content = .archived
             case .section(let name): content = .stream(section: name)
             default: content = .stream(section: nil)
             }
-            fileListViewController.setContent(CaptureView(
-                model: model, embedded: true,
-                content: content,
-                composerRequest: composerRequest,
-                acceptsKeyboard: { [weak self] window in
-                    guard let self, state.selection.showsCaptures, window === self.window else { return false }
-                    if window.firstResponder === fileListViewController { return true }
-                    guard let responder = window.firstResponder as? NSView else { return false }
-                    return responder.isDescendant(of: fileListViewController.view)
-                },
-                focusNotes: { [weak self] in
-                    guard let self else { return }
-                    window?.makeFirstResponder(fileListViewController)
-                },
-                selectCapture: { [weak self] id in
-                    guard let self, state.selection.showsCaptures else { return }
-                    fileListViewController.selectNote(id)
-                }
-            ))
-            detailViewController.setContent(NoteDetailPane(model: model, id: clipboard ? nil : state.selectedNote).routeSheets(model))
-        case .folder, .file, .allFiles:
-            let path: String? = state.selection == .allFiles ? nil : state.selection.folder
-            fileListViewController.setContent(FileListView(model: model, folder: path) { [weak self] file in
-                guard let self else { return }
-                fileListViewController.selectFile(file.id)
-            })
+            captureListViewController.setContent(captureView(content, in: captureListViewController))
+            detailViewController.setContent(NoteDetailPane(model: model, id: state.selectedNote).routeSheets(model))
+        case .clipboard:
+            detailViewController.setContent(captureView(.clipboard, in: detailViewController)
+                .background(PiperTheme.page).routeSheets(model))
+        case .folder, .file:
             detailViewController.setContent(DetailPane(model: model).routeSheets(model))
         case .sessions(let folder):
-            fileListViewController.setContent(SessionListView(model: model, folder: folder))
             detailViewController.setContent(SessionDetailPane(model: model, folder: folder).routeSheets(model))
         }
-        // The Sessions list already shows the sessions in the detail pane.
+        // The detail pane already shows the sessions of a Claude folder.
         detailViewController.setOverlay(showsSessions ? AnyView(EmptyView()) : AnyView(SessionOverlay(model: model)))
 
-        listItem?.isCollapsed = showsBrief || showsTreeFile
+        listItem?.isCollapsed = !state.selection.showsList
         updateToolbarState()
+    }
+
+    /// The capture list of the main window, in the pane that shows it.
+    private func captureView(_ content: CaptureListContent, in pane: NSViewController) -> CaptureView {
+        CaptureView(
+            model: model, embedded: true,
+            content: content,
+            composerRequest: composerRequest,
+            acceptsKeyboard: { [weak self, weak pane] window in
+                guard let self, let pane, state.selection.showsCaptures, window === self.window else { return false }
+                if window.firstResponder === pane { return true }
+                guard let responder = window.firstResponder as? NSView else { return false }
+                return responder.isDescendant(of: pane.view)
+            },
+            focusNotes: { [weak self, weak pane] in
+                guard let self, let pane else { return }
+                window?.makeFirstResponder(pane)
+            },
+            selectCapture: { [weak self] id in
+                guard let self, state.selection.showsList else { return }
+                captureListViewController.selectNote(id)
+            }
+        )
     }
 
     /// Keeps the title current. The counts in the subtitle change with the
@@ -310,17 +303,16 @@ final class MainWindowController: NSWindowController {
             setTitle("Archived", Self.count(store.notes.filter { $0.parent == nil && $0.isDone }.count, "item"))
         case .clipboard:
             setTitle("Clipboard", Self.count(model.clipboard.entries.count, "copy", "copies") + " · not saved")
-        case .allFiles:
-            setTitle("All Files", fileCount(model.files))
-        case .folder(let path):
-            let name = path.isEmpty ? model.vault.root.lastPathComponent : (path as NSString).lastPathComponent
-            setTitle(name, fileCount(model.files.filter { $0.folder == path }))
-        case .file:
+        case .folder, .file:
             // A link can open another file without a new sidebar selection,
             // so the title follows the open file.
-            let document = model.currentDocument
-            let folder = document?.folder ?? state.selection.folder
-            setTitle(document?.title ?? "No File", folder.isEmpty ? model.vault.root.lastPathComponent : folder)
+            if let document = model.currentDocument {
+                setTitle(document.title, breadcrumb(document.folder))
+            } else {
+                let path = state.selection.folder
+                let name = path.isEmpty ? model.vault.root.lastPathComponent : (path as NSString).lastPathComponent
+                setTitle(name, fileCount(model.files.filter { $0.folder == path }))
+            }
         case .sessions(let folder):
             let sessions = model.agents.runner.sessions(in: folder)
             let waiting = sessions.filter { $0.state == .needsYou }.count
@@ -332,6 +324,12 @@ final class MainWindowController: NSWindowController {
     private func setTitle(_ title: String, _ subtitle: String) {
         if window?.title != title { window?.title = title }
         if window?.subtitle != subtitle { window?.subtitle = subtitle }
+    }
+
+    /// The root folder and the folders under it, for example "Notes › Reading".
+    private func breadcrumb(_ folder: String) -> String {
+        let parts = [model.vault.root.lastPathComponent] + folder.split(separator: "/").map(String.init)
+        return parts.joined(separator: " › ")
     }
 
     private func fileCount(_ files: [VaultFile]) -> String {
@@ -375,11 +373,9 @@ final class MainWindowController: NSWindowController {
         return .page(model.vault.root.appendingPathComponent(document.relativePath).path)
     }
 
-    /// Opens a file and shows the folder that holds it.
+    /// Opens a file and selects it in the sidebar tree.
     private func open(_ path: String) {
-        state.selectedFile = path
-        model.openDocument(path)
-        select(.folder((path as NSString).deletingLastPathComponent))
+        select(.file(path))
     }
 }
 
@@ -389,19 +385,19 @@ private extension MainWindowController {
 
     func buildSplitView() {
         sidebarViewController.delegate = self
-        fileListViewController.delegate = self
+        captureListViewController.delegate = self
 
         let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarViewController)
         sidebarItem.minimumThickness = AppDefaults.Sidebar.minimumThickness
         sidebarItem.canCollapse = true
         sidebarItem.holdingPriority = NSLayoutConstraint.Priority(260)
 
-        let list = NSSplitViewItem(contentListWithViewController: fileListViewController)
+        let list = NSSplitViewItem(contentListWithViewController: captureListViewController)
         list.minimumThickness = AppDefaults.Window.listMinimumThickness
         list.holdingPriority = NSLayoutConstraint.Priority(255)
         if #available(macOS 26.0, *) { list.automaticallyAdjustsSafeAreaInsets = true }
-        // The home page takes the width of the window, so its selection
-        // collapses this pane instead of squeezing it.
+        // Only the captures use this pane, so every other selection
+        // collapses it instead of squeezing it.
         list.canCollapse = true
         listItem = list
 
@@ -643,16 +639,9 @@ extension MainWindowController: SidebarViewControllerDelegate {
     }
 }
 
-extension MainWindowController: FileListViewControllerDelegate {
+extension MainWindowController: CaptureListViewControllerDelegate {
 
-    func fileListViewController(_ controller: FileListViewController, didSelectFile path: String) {
-        state.selectedFile = path
-        state.save()
-        model.openDocument(path)
-        refreshPanes()
-    }
-
-    func fileListViewController(_ controller: FileListViewController, didSelectNote id: UUID?) {
+    func captureListViewController(_ controller: CaptureListViewController, didSelectNote id: UUID?) {
         state.selectedNote = id
         state.save()
         detailViewController.setContent(NoteDetailPane(model: model, id: id).routeSheets(model))
@@ -672,13 +661,14 @@ private struct SidebarPane: View {
     let selection: SidebarSelection
     let restored: Set<String>?
     let select: (SidebarSelection) -> Void
+    let selectSession: (UUID, String) -> Void
     let expansionChanged: (Set<String>) -> Void
 
     @State private var expanded: Set<String> = []
     @State private var seeded = false
 
     var body: some View {
-        SidebarView(model: model, expanded: $expanded, selection: selection, select: select)
+        SidebarView(model: model, expanded: $expanded, selection: selection, select: select, selectSession: selectSession)
             .onAppear(perform: seed)
             .onChange(of: model.files.map(\.id)) { _, _ in seed() }
             .onChange(of: expanded) { _, folders in

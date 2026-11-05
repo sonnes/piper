@@ -68,7 +68,7 @@ Use a copy of a folder with skills, because a session changes files.
 8. Press Option-Command-C. Make sure that the session card opens with a chip for the file. Select Pop Out, then Dock. Make sure that the card returns to the main window.
 9. Type a question and press Return. Make sure that the transcript shows the tool calls and the answer. Send a second message in the same session.
 10. Type `@` and a part of a file name. Make sure that the file list shows, and that Tab puts the path in the message.
-11. Select the folder in the Sessions group of the sidebar. Make sure that the list shows the sessions and the detail pane shows the selected one.
+11. Select the folder in the Claude group of the sidebar. Make sure that the folder opens and shows its sessions. Select a session. Make sure that the detail pane shows it.
 12. Type `/` in the composer. Make sure that the skill list shows. Press Tab, type a URL, and press Return.
 13. Copy a URL in another app and press Control-Option-W. Make sure that a toast shows, and that Show opens the note.
 14. Capture a selection with double Shift. Make sure that the toast shows a Send button, and that the button starts a session.
@@ -93,7 +93,7 @@ Use a copy of a folder, because a session changes files. Install an ACP agent, s
 1. Open a link capture in the Reader tab. Select a passage, then select Explain.
 2. Make sure that the card names the model and the agent, for example "Haiku · Claude Code".
 3. Ask a question that needs the web. Make sure that the card shows a line for the tools, and that no approval request shows.
-4. Make sure that the Sessions list does not show the margin session.
+4. Make sure that the Claude group of the sidebar does not show the margin session.
 5. Select Continue in Session. Make sure that a draft session opens with the question thread and the address of the page.
 
 ## Selection Capture Checks
@@ -119,16 +119,18 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 
 ## Main Window Checks
 
-The middle-pane search filters the selected folder. A matching file in another folder must stay outside the results. All Files search still finds files across the vault.
+Only Inbox, its sections, and Archived show the list of captures. Every other selection gives the width of the list to the detail pane.
 
 1. Add a disposable folder with Add Folder at the bottom of the sidebar.
-2. Add, rename, and delete a file in Finder. Make sure that the tree and the file list update.
-3. Search from All Files and from the field over the list.
-4. Open a file. Make sure that its unread dot goes away.
-5. Follow a Wiki link, then use Command-[ and Command-].
-6. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the pane. Make sure that Source shows their text, and that long lines wrap.
-7. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
-8. Control-click the added folder and select Remove Folder. Make sure that the folder stays on disk.
+2. Add, rename, and delete a file in Finder. Make sure that the tree updates.
+3. Press Command-K and type a part of a file name. Make sure that Return opens the file.
+4. Click a folder in the tree. Make sure that it opens or closes, and that the detail pane keeps the file.
+5. Select Clipboard. Make sure that the clipboard history fills the detail pane.
+6. Open a file. Make sure that its unread dot goes away.
+7. Follow a Wiki link, then use Command-[ and Command-].
+8. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the pane. Make sure that Source shows their text, and that long lines wrap.
+9. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
+10. Control-click the added folder and select Remove Folder. Make sure that the folder stays on disk.
 
 ## Editing Checks
 

@@ -23,6 +23,10 @@ final class AppDefaults {
         static let migratedLocalPreferences = "migratedLocalPreferences"
         static let accessibilityTipDismissed = "accessibilityTipDismissed"
         static let showsFileSource = "showsFileSource"
+        /// Turns on the QA hooks of a debug build. See `QA`.
+        static let qaMode = "PiperQA"
+        /// The file where `QAScripts` writes the result of a script.
+        static let qaResultPath = "PiperQAResult"
 
         static let agentDisabledFolders = "agentDisabledFolders"
         static let agentLastFolder = "agentLastFolder"
@@ -40,7 +44,6 @@ final class AppDefaults {
         static let readerTheme = "wikiReaderTheme"
         static let readerFont = "wikiReaderFont"
         static let readerAppearance = "wikiReaderAppearance"
-        static let fileSort = "wikiFileSort"
         /// The height that the reader gave the session card.
         static let sessionCardHeight = "sessionCardHeight"
         /// The pill, the card, or the detached panel.
@@ -77,14 +80,6 @@ final class AppDefaults {
         static let verticalInset: CGFloat = 8
     }
 
-    /// File row metrics.
-    enum Timeline {
-        static let unreadCircleDimension: CGFloat = 8
-        /// The column that holds the unread dot.
-        static let gutterWidth: CGFloat = 16
-        static let verticalPadding: CGFloat = 6
-    }
-
     /// Sidebar cell metrics.
     ///
     /// The source list follows the macOS sidebar size preference.
@@ -100,6 +95,8 @@ final class AppDefaults {
         static let imageMarginRight: CGFloat = 4
         static let countMarginLeft: CGFloat = 10
         static let countCornerRadius: CGFloat = 8
+        /// The blue dot of an unread file in the tree.
+        static let unreadDotSize: CGFloat = 7
         static let countPadding = NSEdgeInsets(top: 1, left: 7, bottom: 1, right: 7)
         static let minimumThickness: CGFloat = 210
 

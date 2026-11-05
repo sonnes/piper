@@ -1,9 +1,9 @@
 import AppKit
 
-/// What the source list has selected, and what the file list therefore shows.
+/// What the source list has selected, and what the other panes therefore show.
 ///
 /// The brief and the capture inbox sit over the vault, because both hold
-/// items that no folder holds.
+/// items that no folder holds. Only the captures use the list pane.
 enum SidebarSelection: Codable, Equatable {
     /// The daily brief, which the window opens on.
     case brief
@@ -12,15 +12,15 @@ enum SidebarSelection: Codable, Equatable {
     /// One capture section. The Inbox list scrolls to it.
     case section(String)
     case archived
-    /// The clipboard texts that the reader has not saved.
+    /// The clipboard texts that the reader has not saved. The detail pane shows them.
     case clipboard
-    case allFiles
-    /// One folder of the vault. The empty path is the root.
+    /// One folder of the vault. The empty path is the root. The detail pane
+    /// keeps the last file.
     case folder(String)
-    /// One file of the vault, picked in the sidebar tree. The detail pane
-    /// takes the width of the list.
+    /// One file of the vault, picked in the sidebar tree.
     case file(String)
-    /// The agent sessions of a folder, by its absolute path.
+    /// A folder of the Claude group, by its absolute path. The detail pane
+    /// shows `AppModel.selectedSession` when it belongs to the folder, or a new session.
     case sessions(String)
 
     /// The folder path, the folder that holds the file, or the root for the inbox.
@@ -32,11 +32,19 @@ enum SidebarSelection: Codable, Equatable {
         }
     }
 
-    /// True for the rows that show captures in the file list.
+    /// True for the rows that show captures or clipboard texts.
     var showsCaptures: Bool {
         switch self {
         case .inbox, .section, .clipboard, .archived: return true
-        case .brief, .allFiles, .folder, .file, .sessions: return false
+        case .brief, .folder, .file, .sessions: return false
+        }
+    }
+
+    /// True for the rows that show the list pane between the sidebar and the detail pane.
+    var showsList: Bool {
+        switch self {
+        case .inbox, .section, .archived: return true
+        case .brief, .clipboard, .folder, .file, .sessions: return false
         }
     }
 }
@@ -52,7 +60,7 @@ struct MainWindowState: Codable, Equatable {
     var selection = SidebarSelection.brief
     /// The folder the sidebar had selected. An empty string is the vault root.
     var selectedFolder: String { selection.folder }
-    /// The file the list had selected, as a path relative to the vault root.
+    /// The file the detail pane showed, as a path relative to the vault root.
     var selectedFile: String?
     /// The capture the detail pane showed, while the inbox was selected.
     var selectedNote: UUID?
@@ -97,9 +105,8 @@ protocol SidebarViewControllerDelegate: AnyObject {
     func sidebarViewController(_ controller: SidebarViewController, didSelect selection: SidebarSelection)
 }
 
-/// What the file list reports upward.
+/// What the capture list reports upward.
 @MainActor
-protocol FileListViewControllerDelegate: AnyObject {
-    func fileListViewController(_ controller: FileListViewController, didSelectFile path: String)
-    func fileListViewController(_ controller: FileListViewController, didSelectNote id: UUID?)
+protocol CaptureListViewControllerDelegate: AnyObject {
+    func captureListViewController(_ controller: CaptureListViewController, didSelectNote id: UUID?)
 }
