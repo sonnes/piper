@@ -26,8 +26,8 @@ final class ReadingToast: NSObject {
     private var dismiss: DispatchWorkItem?
     private let draft = CommentDraft()
     private let store: CaptureStore
-    /// Opens an article in the main window, at a highlight when one is given.
-    var open: (UUID, UUID?) -> Void = { _, _ in }
+    /// Opens an article in the main window.
+    var open: (UUID) -> Void = { _ in }
 
     /// The highlight on the screen, while its toast shows.
     var shownHighlight: (id: UUID, quote: String)? {
@@ -124,7 +124,7 @@ private extension ReadingToast {
                     }
                     .font(PiperTheme.ui(11.5)).foregroundStyle(PiperTheme.secondary)
                     Spacer(minLength: 8)
-                    Button("Continue in Piper") { [weak self] in self?.continueReading(articleID, highlightID) }
+                    Button("Continue in Piper") { [weak self] in self?.continueReading(articleID) }
                         .buttonStyle(ToastButtonStyle())
                 }
             })
@@ -138,7 +138,7 @@ private extension ReadingToast {
                 ToastArticle(article: article, detail: minutes)
                 HStack {
                     Spacer()
-                    Button("Read Now") { [weak self] in self?.continueReading(articleID, nil) }
+                    Button("Read Now") { [weak self] in self?.continueReading(articleID) }
                         .buttonStyle(ToastButtonStyle())
                 }
             })
@@ -155,9 +155,9 @@ private extension ReadingToast {
         }
     }
 
-    func continueReading(_ article: UUID, _ highlight: UUID?) {
+    func continueReading(_ article: UUID) {
         close()
-        open(article, highlight)
+        open(article)
     }
 
     func saveComment(on id: UUID) {

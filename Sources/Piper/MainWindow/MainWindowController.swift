@@ -137,12 +137,10 @@ final class MainWindowController: NSWindowController {
         model.store.selection = [id]
     }
 
-    /// Shows a link capture in Inbox, in the Reader tab. A highlight scrolls
-    /// the article to its text.
-    func showArticle(_ id: UUID, at highlight: UUID?) {
+    /// Shows a link capture in Inbox, in the Web tab.
+    func showArticle(_ id: UUID) {
         guard let note = model.store.notes.first(where: { $0.id == id }) else { return }
-        model.articleTab = .reader
-        if let highlight { model.readerScroll = ReaderScroll(note: highlight, in: id) }
+        model.articleTab = .web
         showNote(note.id)
     }
 

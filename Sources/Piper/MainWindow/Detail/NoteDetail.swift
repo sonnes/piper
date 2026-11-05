@@ -58,7 +58,11 @@ struct NoteDetail: View {
             }
         }
         .onAppear {
-            if articleURL == nil { session = model.editCapture(note) }
+            if articleURL == nil {
+                session = model.editCapture(note)
+            } else {
+                model.articleTab = model.openingTab(for: note.id)
+            }
         }
         .onDisappear(perform: finish)
         .onChange(of: note.text) { _, text in

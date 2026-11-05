@@ -70,12 +70,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             showLibrary()
             mainWindowController?.showSession(id)
         }
-        model.showArticle = { [weak self] id, highlight in
+        model.showArticle = { [weak self] id in
             self?.showLibrary()
-            self?.mainWindowController?.showArticle(id, at: highlight)
+            self?.mainWindowController?.showArticle(id)
         }
         let readingToast = ReadingToast(store: model.store)
-        readingToast.open = { [weak self] id, highlight in self?.model.showArticle?(id, highlight) }
+        readingToast.open = { [weak self] id in self?.model.showArticle?(id) }
         self.readingToast = readingToast
         let capture = CaptureService(model: model)
         capture.didCapture = { [weak self] outcome in self?.captured(outcome) }

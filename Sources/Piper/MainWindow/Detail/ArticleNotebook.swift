@@ -144,8 +144,7 @@ struct ArticleNotebook: View {
     // MARK: - Actions
 
     private func show(_ id: UUID) {
-        model.articleTab = .reader
-        model.readerScroll = ReaderScroll(note: id, in: note.id)
+        model.showHighlight(id, in: note.id)
     }
 
     private func review() {

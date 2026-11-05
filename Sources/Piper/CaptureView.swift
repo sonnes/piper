@@ -607,7 +607,7 @@ struct CaptureView: View {
         guard !note.isArticle, let url = CaptureLinks(note.text).urls.first else { return nil }
         return {
             guard let article = store.saveArticle(url, source: note.sources.first) else { return }
-            model.showArticle?(article.id, nil)
+            model.showArticle?(article.id)
         }
     }
 
@@ -673,7 +673,7 @@ struct CaptureView: View {
         ChildNoteRow(note: child,
                      open: {
                          if store.selection != [parent.id] { embedded ? openNote(parent.id) : selectNote(parent.id) }
-                         model.readerScroll = ReaderScroll(note: child.id, in: parent.id)
+                         model.showHighlight(child.id, in: parent.id)
                      },
                      openNote: {
                          if embedded { model.showNote?(child.id) } else { sheet = .edit(model.editCapture(child)) }
@@ -907,7 +907,7 @@ struct CaptureView: View {
         guard let url = CaptureLinks(entry.text).standaloneURL else { return nil }
         return {
             guard let article = model.store.saveArticle(url, source: entry.source ?? "Clipboard") else { return }
-            model.showArticle?(article.id, nil)
+            model.showArticle?(article.id)
         }
     }
 

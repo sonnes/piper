@@ -17,12 +17,26 @@ final class AppModel {
     let reader: ReaderAssistant
     let brief: BriefBuilder
     /// The tab that a link capture shows: the article, the web page, or the notes.
-    var articleTab = ArticleTab.reader
+    /// A link capture opens in the Web tab.
+    var articleTab = ArticleTab.web
     /// The chip of the Inbox list for each section. The empty key is Inbox
     /// with every section.
     var inboxFilters: [String: InboxStream.Filter] = [:]
     /// The child note that the Reader tab scrolls to.
     var readerScroll: ReaderScroll?
+
+    /// The tab of a link capture as it opens. A request to show one of its
+    /// highlights opens the Reader tab. Each other link opens in the Web tab.
+    func openingTab(for article: UUID) -> ArticleTab {
+        guard let scroll = readerScroll, scroll.article == article, scroll.note != nil else { return .web }
+        return .reader
+    }
+
+    /// Shows a highlight or a question of a link capture in the Reader tab.
+    func showHighlight(_ note: UUID, in article: UUID) {
+        articleTab = .reader
+        readerScroll = ReaderScroll(note: note, in: article)
+    }
     var files: [VaultFile] = []
     /// Every folder of the vault, including the ones that hold no file.
     var folders: [String] = []
@@ -90,8 +104,8 @@ final class AppModel {
     var showFile: ((String) -> Void)?
     /// Shows a note in the Inbox of the main window.
     var showNote: ((UUID) -> Void)?
-    /// Shows a link capture in Reading, at a highlight when one is given.
-    var showArticle: ((UUID, UUID?) -> Void)?
+    /// Shows a link capture in Inbox, in the Web tab.
+    var showArticle: ((UUID) -> Void)?
     /// Shows a session in the session pane of the main window.
     var showSession: ((UUID) -> Void)?
     /// The session that the session card and the Sessions list show. Nil starts a new session.
