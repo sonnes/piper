@@ -48,7 +48,7 @@ The app that you build runs on macOS 14 or later.
 3. Copy text in another app. Click its card in the panel to save it to Inbox.
 4. Press Command-2 to open the main window on `~/Desktop/Wiki`.
 
-To choose another folder, use the folder menu in the Wiki toolbar. To capture a selection with Shift pressed twice, allow Accessibility access first. See [Install Piper](docs/guides/install.md).
+To add another folder, select Add Folder in the + menu of the main window toolbar. To capture a selection with Shift pressed twice, allow Accessibility access first. See [Install Piper](docs/guides/install.md).
 
 ## Windows
 
@@ -63,15 +63,17 @@ The capture panel and the main window take turns on screen. Command-1 shows the 
 
 Both windows use the system font and colors, with one blue accent. Both follow the system appearance.
 
-![The Piper main window with an architecture note about pi-go open in the Architecture folder](docs/images/main-window.png)
+The sidebar of the main window shows Inbox, the clipboard history, and your folders. A folder opens as a tree, and each file shows its extension. Inbox lists your captures, with the picks of the [daily brief](docs/guides/brief.md) at the top.
 
-<img src="docs/images/capture-panel.png" alt="The Piper capture panel with fictional notes, article links, and highlights" width="360">
+![The Piper main window with a reading journal open from a fictional Field Notes folder](docs/images/main-window.png)
+
+<img src="docs/images/capture-panel.png" alt="The Piper capture panel with brief picks, fictional notes, article links, highlights, and clipboard texts" width="360">
 
 ## Highlights And Notes
 
-The Reader tab keeps highlights beside your notes. The Notes tab collects the article summary, highlights, and personal notes.
+The Reader tab shows the text of an article with its images, videos, code blocks, and tables. Highlights show in the text, and your notes show beside them. The Notes tab collects the summary, the highlights, and the notes of the article. Piper opens each site in the tab that you chose last for it.
 
-![Close-up of colored highlights and personal notes beside a fictional article](docs/images/reader-highlights.png)
+![Close-up of the Reader tab with a figure, colored highlights, and a note beside a fictional article](docs/images/reader-highlights.png)
 
 ![Close-up of the Notes tab with a summary, highlighted quotes, and personal notes](docs/images/article-notes.png)
 
@@ -79,11 +81,11 @@ See [Highlight and ask in the Reader tab](docs/guides/browse.md#highlight-and-as
 
 ## Claude Sessions
 
-Piper can send notes to Claude Code in a selected folder. Sessions show tool activity, permission requests, and questions inside the main window. Claude Code requires a separate installation and authentication. Text that you send to Claude leaves local storage for processing through Claude Code.
+Piper talks to Claude Code in a session card beside the open file or capture. The next message takes the file or the link on the screen as context, and `@` adds other files and captures. The card shows tool activity, permission requests, and questions. Claude Code requires a separate installation and authentication. Text that you send to Claude leaves local storage for processing through Claude Code.
 
 See [Work with agents](docs/guides/claude.md) for setup, ACP agents, and permission controls.
 
-![A fictional Claude Code conversation about a research notebook outline](docs/images/claude-session.png)
+![A fictional Claude Code session about an article, with the link of the article attached as context](docs/images/claude-session.png)
 
 ## Documentation
 
