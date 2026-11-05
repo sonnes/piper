@@ -21,12 +21,12 @@ struct PanelTab: View {
                 if let icon { Image(systemName: icon).font(.system(size: 11)) }
                 Text(title).lineLimit(1).truncationMode(.tail)
                 if count > 0 {
-                    Text("\(count)").font(PiperTheme.ui(11)).monospacedDigit()
+                    Text("\(count)").font(PiperTheme.ui(.caption)).monospacedDigit()
                         .foregroundStyle(active ? PiperTheme.secondary : PiperTheme.faint)
                 }
                 if opensMenu { Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)) }
             }
-            .font(PiperTheme.ui(12.5, weight: active ? .semibold : .regular))
+            .font(PiperTheme.ui(.body, weight: .medium))
             .foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary)
             .padding(.horizontal, 10)
             .frame(height: AppDefaults.CaptureItem.tabHeight)
@@ -107,7 +107,7 @@ struct CaptureSectionMenu: View {
                 .controlSize(.regular)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .font(PiperTheme.ui(13))
+        .font(PiperTheme.ui(.body))
         .padding(AppDefaults.CaptureItem.horizontalPadding)
         .frame(width: AppDefaults.CaptureItem.sectionMenuWidth)
         .onAppear { searching = true }
@@ -123,10 +123,10 @@ struct SectionHeader: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(title).font(PiperTheme.ui(13, weight: .semibold))
+            Text(title).font(PiperTheme.ui(.body, weight: .semibold))
                 .foregroundStyle(active ? PiperTheme.accent : PiperTheme.ink)
             if let detail {
-                Text(detail).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                Text(detail).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
             }
             Spacer(minLength: 4)
             if let action {
@@ -146,7 +146,7 @@ struct DayHeader: View {
 
     var body: some View {
         Text(title.uppercased())
-            .font(PiperTheme.ui(11, weight: .semibold))
+            .font(PiperTheme.ui(.caption, weight: .semibold))
             .tracking(0.4)
             .foregroundStyle(PiperTheme.secondary)
             .padding(.horizontal, 6)
@@ -200,25 +200,36 @@ struct ClipboardRow: View {
     let agents: FolderAgents
     /// Saves the text and runs a skill on it. Nil runs the default skill.
     let send: (FolderAgents.Action?) -> Void
+    /// A short row for the strip under the panel list: no icon, no time, and Keep always shows.
+    var compact = false
     @State private var hovered = false
     private var isCode: Bool { CaptureText.looksLikeCode(entry.text) }
     private var canSend: Bool { agents.defaultAction(for: entry.text) != nil }
 
     var body: some View {
         VStack(spacing: 0) {
-            if separated { RowSeparator(inset: AppDefaults.CaptureItem.horizontalPadding + 22) }
-            HStack(spacing: 10) {
-                Image(systemName: "doc.on.clipboard")
-                    .font(.system(size: 12))
-                    .foregroundStyle(PiperTheme.faint)
-                    .frame(width: 12)
+            if separated && !compact { RowSeparator(inset: AppDefaults.CaptureItem.horizontalPadding + 22) }
+            HStack(spacing: compact ? 8 : 10) {
+                if !compact {
+                    Image(systemName: "doc.on.clipboard")
+                        .font(.system(size: 12))
+                        .foregroundStyle(PiperTheme.faint)
+                        .frame(width: 12)
+                }
                 Text(isCode ? CaptureText.firstLine(entry.text) : entry.text.replacingOccurrences(of: "\n", with: " "))
                     .font(isCode
                           ? Font(PiperTheme.manuscript(size: AppDefaults.CaptureItem.clipboardCodeFontSize))
-                          : PiperTheme.ui(AppDefaults.CaptureItem.clipboardFontSize))
+                          : PiperTheme.ui(compact ? .secondary : AppDefaults.CaptureItem.clipboardFontSize))
+                    .foregroundStyle(compact ? PiperTheme.secondary : PiperTheme.ink)
                     .lineLimit(1).truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if hovered {
+                if compact {
+                    if hovered {
+                        if let read { Button("Read", action: read).buttonStyle(.text).help("Save to Reading and open it") }
+                        if canSend { Button(agents.sendTitle) { send(nil) }.buttonStyle(.text) }
+                    }
+                    Button("Keep", action: keep).buttonStyle(.text).help("Save to Inbox")
+                } else if hovered {
                     if let read { Button("Read", action: read).controlSize(.regular).help("Save to Reading and open it") }
                     if canSend {
                         SendButton(agents: agents, title: agents.sendTitle, sendDefault: { send(nil) }, send: send)
@@ -226,14 +237,17 @@ struct ClipboardRow: View {
                     Button("Keep", action: keep).controlSize(.regular).help("Save to Inbox")
                 }
                 if showsSource, let source = entry.source {
-                    Text(source).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint).lineLimit(1).fixedSize()
+                    Text(source).font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint).lineLimit(1).fixedSize()
                 }
-                Text(RowTime.text(entry.copiedAt))
-                    .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.faint).monospacedDigit().fixedSize()
+                if !compact {
+                    Text(RowTime.text(entry.copiedAt))
+                        .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.faint).monospacedDigit().fixedSize()
+                }
             }
-            .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding)
-            .frame(minHeight: AppDefaults.CaptureItem.clipboardHeight)
-            .background(hovered ? PiperTheme.hover : .clear)
+            .font(PiperTheme.ui(.secondary))
+            .padding(.horizontal, compact ? 6 : AppDefaults.CaptureItem.horizontalPadding)
+            .frame(minHeight: compact ? AppDefaults.CaptureItem.stripRowHeight : AppDefaults.CaptureItem.clipboardHeight)
+            .background(hovered ? PiperTheme.hover : .clear, in: RoundedRectangle(cornerRadius: compact ? 6 : 0))
         }
         .contentShape(Rectangle())
         .onHover { hovered = $0 }
@@ -255,11 +269,30 @@ struct ClipboardRow: View {
     }
 }
 
+/// The number of child notes of a capture, in a yellow chip. It also shows
+/// whether the list shows those notes.
+struct CountChip: View {
+    let text: String
+    let open: Bool
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: open ? "chevron.down" : "chevron.right").font(.system(size: 8, weight: .bold))
+            Text(text)
+        }
+        .font(PiperTheme.ui(.caption))
+        .foregroundStyle(PiperTheme.markText)
+        .padding(.horizontal, 6)
+        .frame(height: AppDefaults.CaptureItem.chipHeight)
+        .background(PiperTheme.markYellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 5))
+        .contentShape(Rectangle())
+    }
+}
+
 /// One saved note.
 struct NoteRow: View {
     let note: Note
     let selected: Bool
-    let separated: Bool
     let select: () -> Void
     let complete: () -> Void
     let edit: () -> Void
@@ -307,39 +340,32 @@ struct NoteRow: View {
                 }
                 if childCount > 0 {
                     Button(action: toggleChildren) {
-                        HStack(spacing: 4) {
-                            Image(systemName: showsChildren ? "chevron.down" : "chevron.right")
-                                .font(.system(size: 8, weight: .semibold))
-                            Text(childCount == 1 ? "1 note" : "\(childCount) notes")
-                        }
-                        .contentShape(Rectangle())
+                        CountChip(text: childCount == 1 ? "1 note" : "\(childCount) notes", open: showsChildren)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(showsChildren ? "Hide notes" : "Show notes")
                 }
             }
-            .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
-            .padding(.top, 2)
+            .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
+            .padding(.top, 1)
         }
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            if separated {
-                RowSeparator(inset: AppDefaults.CaptureItem.textInset).opacity(selected ? 0 : 1)
-            }
-            HStack(alignment: .center, spacing: 10) {
+            HStack(alignment: .top, spacing: 4) {
                 Button(action: complete) {
                     Circle()
-                        .strokeBorder(note.isDone ? .clear : PiperTheme.faint, lineWidth: 1.25)
+                        .strokeBorder(note.isDone ? .clear : PiperTheme.faint, lineWidth: AppDefaults.ProgressRing.lineWidth)
                         .background(Circle().fill(note.isDone ? PiperTheme.accent : .clear))
                         .overlay {
                             if note.isDone {
-                                Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                                Image(systemName: "checkmark").font(.system(size: AppDefaults.ProgressRing.checkFontSize, weight: .bold))
+                                    .foregroundStyle(PiperTheme.onAccent)
                             }
                         }
                         .frame(width: AppDefaults.CaptureItem.circleSize, height: AppDefaults.CaptureItem.circleSize)
-                        .frame(width: AppDefaults.CaptureItem.buttonHitSize, height: AppDefaults.CaptureItem.buttonHitSize)
+                        .frame(width: AppDefaults.CaptureItem.buttonHitSize, height: AppDefaults.CaptureItem.circleSize + 2)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -376,20 +402,17 @@ struct NoteRow: View {
                 }
                 if hovered || selected {
                     Text(source ?? RowTime.text(note.createdAt))
-                        .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.faint).monospacedDigit().lineLimit(1).fixedSize()
+                        .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.faint).monospacedDigit().lineLimit(1).fixedSize()
                         .onTapGesture(perform: select)
                 }
             }
-            .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding)
+            // The hit area centers the circle, so a smaller leading pad lines the circle up with the Brief picks.
+            .padding(.leading, AppDefaults.CaptureItem.horizontalPadding - (AppDefaults.CaptureItem.buttonHitSize - AppDefaults.CaptureItem.circleSize) / 2)
+            .padding(.trailing, AppDefaults.CaptureItem.horizontalPadding)
             .padding(.vertical, AppDefaults.CaptureItem.verticalPadding)
             .frame(minHeight: AppDefaults.CaptureItem.minimumHeight)
-            .background(hovered && !selected ? PiperTheme.hover : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-            .overlay {
-                if selected {
-                    RoundedRectangle(cornerRadius: PiperTheme.cardRadius)
-                        .strokeBorder(PiperTheme.accent, lineWidth: 2)
-                }
-            }
+            .background(selected ? PiperTheme.selection : hovered ? PiperTheme.hover : .clear,
+                        in: RoundedRectangle(cornerRadius: AppDefaults.InboxRow.cornerRadius))
         }
         .onHover { hovered = $0 }
         .contextMenu {
@@ -551,7 +574,7 @@ struct SectionPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(moving ? "Move To" : "Capture To").font(PiperTheme.ui(13, weight: .semibold))
+            Text(moving ? "Move To" : "Capture To").font(PiperTheme.ui(.body, weight: .semibold))
                 .padding(.horizontal, 8).padding(.bottom, 8)
             ForEach(sections, id: \.self) { section in
                 MenuRow(title: section, checked: !moving && section == current) { select(section) }
@@ -584,7 +607,7 @@ private struct MenuRow: View {
                 Text(title).lineLimit(1)
                 Spacer()
             }
-            .font(PiperTheme.ui(13))
+            .font(PiperTheme.ui(.body))
             .foregroundStyle(hovered ? Color.white : PiperTheme.ink)
             .padding(.horizontal, 6)
             .frame(height: 24)
@@ -609,7 +632,7 @@ struct NewSectionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("New Section").font(PiperTheme.ui(13, weight: .semibold))
+            Text("New Section").font(PiperTheme.ui(.body, weight: .semibold))
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
                 .focused($focused)
@@ -645,7 +668,7 @@ struct NoteEditor: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            TextEditor(text: $session.text).font(PiperTheme.ui(15)).lineSpacing(3)
+            TextEditor(text: $session.text).font(PiperTheme.ui(.reading)).lineSpacing(3)
                 .scrollContentBackground(.hidden)
                 .padding(.horizontal, 14).padding(.vertical, 12)
                 .accessibilityLabel("Edit note text")
@@ -653,9 +676,9 @@ struct NoteEditor: View {
             Rule()
             HStack(spacing: 8) {
                 if let error = model.store.errorMessage {
-                    Text(error).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.danger).textSelection(.enabled).lineLimit(2)
+                    Text(error).font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.danger).textSelection(.enabled).lineLimit(2)
                 } else if session.hasChanges {
-                    Text("Edited").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                    Text("Edited").font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
                 }
                 Spacer()
                 Button("Cancel") { if let cancel { cancel() } else { dismiss() } }

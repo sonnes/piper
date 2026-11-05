@@ -68,6 +68,8 @@ struct CaptureView: View {
     @State private var composing = false
     @State private var panelContent = CaptureListContent.sections
     @State private var showsDoneToday = false
+    /// The height of the text in the add field, which sets the height of the field.
+    @State private var composerTextHeight: CGFloat = 0
     @AppStorage(AppDefaults.Key.clipboardStripFolded) private var clipboardFolded = false
     /// The highlighted row of the skill list over the composer.
     @State private var completionIndex = 0
@@ -358,7 +360,7 @@ struct CaptureView: View {
             Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(PiperTheme.faint)
             TextField("Search", text: $store.query)
                 .textFieldStyle(.plain).focused($searching)
-                .font(PiperTheme.ui(13))
+                .font(PiperTheme.ui(.body))
                 .accessibilityLabel(content == .clipboard ? "Search the clipboard" : "Search notes")
                 .onAppear {
                     if showingSearch { DispatchQueue.main.async { searching = true } }
@@ -366,7 +368,7 @@ struct CaptureView: View {
             if searchMode {
                 let matches = content == .clipboard ? clipboardEntries.count : matches + recentClipboard.count
                 Text(count(matches, "match", "matches"))
-                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint).lineLimit(1).fixedSize()
+                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint).lineLimit(1).fixedSize()
             }
             if embedded && !store.query.isEmpty {
                 Button { store.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(PiperTheme.faint) }
@@ -389,7 +391,7 @@ struct CaptureView: View {
             Image(systemName: "info.circle").foregroundStyle(PiperTheme.accent)
             (Text("Capture from other apps. ").foregroundStyle(PiperTheme.ink).fontWeight(.medium)
                 + Text("Enable Accessibility to save a selection with \(shortcutGlyphs)."))
-                .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
             Button("Enable") { model.requestAccessibility() }.buttonStyle(.text)
@@ -426,21 +428,17 @@ struct CaptureView: View {
                         if searchMode {
                             SectionHeader(title: section, detail: "\(notes.count)", active: false, action: nil)
                         }
-                        if !notes.isEmpty || doneToday.isEmpty {
-                            CaptureCard {
-                                if notes.isEmpty {
-                                    Text("No notes in \(section)")
-                                        .font(PiperTheme.ui(13)).foregroundStyle(PiperTheme.faint)
-                                        .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding)
-                                        .frame(maxWidth: .infinity, minHeight: AppDefaults.CaptureItem.clipboardHeight, alignment: .leading)
-                                }
-                                ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
-                                    noteRow(note, separated: index > 0).id(note.id)
-                                    if showsChildren(note.id, byDefault: true) {
-                                        ForEach(store.children(of: note.id)) { child in
-                                            childRow(child, of: note)
-                                        }
-                                    }
+                        if notes.isEmpty && doneToday.isEmpty {
+                            Text("No notes in \(section)")
+                                .font(PiperTheme.ui(.body)).foregroundStyle(PiperTheme.faint)
+                                .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding)
+                                .frame(maxWidth: .infinity, minHeight: AppDefaults.CaptureItem.minimumHeight, alignment: .leading)
+                        }
+                        ForEach(notes) { note in
+                            noteRow(note).id(note.id)
+                            if showsChildren(note.id, byDefault: true) {
+                                ForEach(store.children(of: note.id)) { child in
+                                    childRow(child, of: note)
                                 }
                             }
                         }
@@ -448,11 +446,7 @@ struct CaptureView: View {
                     if !doneToday.isEmpty {
                         DoneTodayHeader(count: doneToday.count, shown: showsDoneToday) { showsDoneToday.toggle() }
                         if showsDoneToday {
-                            CaptureCard {
-                                ForEach(Array(doneToday.enumerated()), id: \.element.id) { index, note in
-                                    noteRow(note, separated: index > 0).id(note.id)
-                                }
-                            }
+                            ForEach(doneToday) { note in noteRow(note).id(note.id) }
                         }
                     }
                 }
@@ -501,18 +495,21 @@ struct CaptureView: View {
                     }
                     .buttonStyle(.text)
                 }
-                .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
                 .padding(.horizontal, 6)
                 if !clipboardFolded {
-                    CaptureCard {
-                        ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                            clipboardRow(entry, showsSource: false, separated: index > 0)
+                    VStack(spacing: 0) {
+                        ForEach(entries) { entry in
+                            ClipboardRow(entry: entry, showsSource: false, separated: false,
+                                         paste: { paste(entry) }, keep: { keep(entry) }, read: readAction(entry),
+                                         agents: agents, send: { send(entry, $0) }, compact: true)
                         }
                     }
                 }
             }
             .padding(.horizontal, AppDefaults.CaptureItem.listInset)
-            .padding(.top, 8)
+            .padding(.vertical, 8)
+            .background(PiperTheme.ink.opacity(0.025))
             .overlay(alignment: .top) { Rule() }
         }
     }
@@ -537,7 +534,7 @@ struct CaptureView: View {
                         StreamHeader(title: group.title,
                                      action: group.kind == .started && filter == .all ? ("See All", { setFilter(.reading) }) : nil)
                         ForEach(Array(group.notes.enumerated()), id: \.element.id) { index, note in
-                            inboxRow(note, style: rowStyle(note, in: group, at: index), separated: index > 0).id(note.id)
+                            inboxRow(note, style: rowStyle(note, in: group, at: index)).id(note.id)
                             if showsChildren(note.id, byDefault: false) {
                                 ForEach(store.children(of: note.id)) { child in
                                     childRow(child, of: note)
@@ -548,8 +545,8 @@ struct CaptureView: View {
                     if !doneToday.isEmpty {
                         DoneTodayHeader(count: doneToday.count, shown: showsDoneToday) { showsDoneToday.toggle() }
                         if showsDoneToday {
-                            ForEach(Array(doneToday.enumerated()), id: \.element.id) { index, note in
-                                inboxRow(note, style: note.isArticle ? .compact : .note, separated: index > 0).id(note.id)
+                            ForEach(doneToday) { note in
+                                inboxRow(note, style: note.isArticle ? .compact : .note).id(note.id)
                             }
                         }
                     }
@@ -585,16 +582,12 @@ struct CaptureView: View {
                     ForEach(groups, id: \.title) { group in
                         if embedded {
                             StreamHeader(title: group.title, action: nil)
-                            ForEach(Array(group.notes.enumerated()), id: \.element.id) { index, note in
-                                inboxRow(note, style: note.isArticle ? .compact : .note, separated: index > 0).id(note.id)
+                            ForEach(group.notes) { note in
+                                inboxRow(note, style: note.isArticle ? .compact : .note).id(note.id)
                             }
                         } else {
                             SectionHeader(title: group.title, detail: "\(group.notes.count)", active: false, action: nil)
-                            CaptureCard {
-                                ForEach(Array(group.notes.enumerated()), id: \.element.id) { index, note in
-                                    noteRow(note, separated: index > 0).id(note.id)
-                                }
-                            }
+                            ForEach(group.notes) { note in noteRow(note).id(note.id) }
                         }
                     }
                 }
@@ -631,11 +624,11 @@ struct CaptureView: View {
         }
     }
 
-    private func inboxRow(_ note: Note, style: InboxRow.Style, separated: Bool) -> some View {
+    private func inboxRow(_ note: Note, style: InboxRow.Style) -> some View {
         let session = agents.latestSession(for: note)
         let finished = note.reading?.finishedAt != nil
         return InboxRow(
-            note: note, style: style, selected: store.selection.contains(note.id), separated: separated,
+            note: note, style: style, selected: store.selection.contains(note.id),
             section: streamSection == nil && note.section != SidebarOutline.inboxSection
                 ? (note.section, sectionColor(note.section)) : nil,
             children: store.children(of: note.id),
@@ -751,8 +744,8 @@ struct CaptureView: View {
                      delete: { store.delete(child.id) })
     }
 
-    private func noteRow(_ note: Note, separated: Bool) -> some View {
-        NoteRow(note: note, selected: store.selection.contains(note.id), separated: separated,
+    private func noteRow(_ note: Note) -> some View {
+        NoteRow(note: note, selected: store.selection.contains(note.id),
                 select: { selectNote(note.id) },
                 complete: { store.toggleDone(note.id) },
                 edit: { sheet = .edit(model.editCapture(note)) },
@@ -786,7 +779,7 @@ struct CaptureView: View {
     private var selectionBar: some View {
         VStack(alignment: .leading, spacing: AppDefaults.CaptureItem.actionSpacing) {
             HStack {
-                Text("\(store.selection.count) selected").font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                Text("\(store.selection.count) selected").font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
                 Spacer()
                 if embedded { Button("Cancel") { clearSelection() }.buttonStyle(.text).help("Clear the selection · Escape") }
             }
@@ -813,29 +806,32 @@ struct CaptureView: View {
         .overlay(alignment: .top) { if embedded { Rule() } }
     }
 
+    /// The add field: one line that grows with its text, up to `Composer.maxLines`.
     private var composer: some View {
-        HStack(alignment: .top, spacing: 0) {
+        let metrics = AppDefaults.Composer.self
+        let inset = metrics.textInset.height * 2
+        let text = min(max(composerTextHeight, metrics.inboxLineHeight + inset),
+                       metrics.inboxLineHeight * CGFloat(metrics.maxLines) + inset)
+        return HStack(alignment: .top, spacing: 0) {
             Circle()
-                .strokeBorder(PiperTheme.faint, lineWidth: 1.25)
-                .frame(width: embedded ? AppDefaults.Composer.inboxCircleSize : AppDefaults.CaptureItem.circleSize,
-                       height: embedded ? AppDefaults.Composer.inboxCircleSize : AppDefaults.CaptureItem.circleSize)
-                .padding(.top, AppDefaults.Composer.regionInset + AppDefaults.Composer.textInset.height)
+                .strokeBorder(PiperTheme.faint, style: StrokeStyle(lineWidth: AppDefaults.ProgressRing.lineWidth, dash: [2.5, 2.5]))
+                .frame(width: AppDefaults.CaptureItem.circleSize, height: AppDefaults.CaptureItem.circleSize)
+                .padding(.top, metrics.regionInset + metrics.textInset.height)
                 .accessibilityHidden(true)
             CaptureEditor(text: $model.composerDraft, focused: $composing,
-                          placeholder: "Add to \(store.activeSection)", compact: embedded)
-                .padding(.bottom, embedded ? AppDefaults.Composer.inboxCircleSize : 0)
-                .frame(height: embedded ? AppDefaults.Composer.inboxHeight : AppDefaults.Composer.height)
-        }
-        .padding(.leading, AppDefaults.CaptureItem.horizontalPadding)
-        .overlay(alignment: .bottomTrailing) {
-            if embedded {
+                          placeholder: "Add to \(store.activeSection)", compact: true,
+                          contentHeight: { composerTextHeight = $0 })
+                .frame(height: text + metrics.regionInset * 2)
+            if embedded && composing {
                 Text(inboxHint)
-                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
                     .lineLimit(1).help(inboxHint)
-                    .padding(.horizontal, 12).padding(.bottom, 6)
+                    .padding(.trailing, 10)
+                    .padding(.top, metrics.regionInset + metrics.textInset.height + 2)
                     .allowsHitTesting(false)
             }
         }
+        .padding(.leading, AppDefaults.CaptureItem.horizontalPadding - 2)
         .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
         .background {
@@ -874,20 +870,20 @@ struct CaptureView: View {
             } else if store.status == "Local notes" || content == .clipboard {
                 Text(content == .clipboard
                      ? "Not saved as notes. Texts leave after 7 days."
-                     : "Return saves to \(store.activeSection) · ⌘K section")
+                     : "↩ adds to \(store.activeSection) · ⌘K section")
             } else {
                 Text(store.status).help(store.status)
             }
             Spacer(minLength: 4)
             if store.canUndo && content != .clipboard {
-                Button("Undo") { store.undo() }.buttonStyle(.text).font(PiperTheme.ui(11)).help("Undo Last Change")
+                Button("Undo") { store.undo() }.buttonStyle(.text).font(PiperTheme.ui(.caption)).help("Undo Last Change")
             } else {
                 Text("\(shortcutGlyphs) captures a selection")
                     .accessibilityLabel("\(model.captureShortcut) captures selected text")
             }
         }
         .lineLimit(1)
-        .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+        .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
         .padding(.horizontal, AppDefaults.CaptureItem.listInset + 4)
         .frame(height: 30)
         .padding(.bottom, AppDefaults.CaptureItem.hintBottomPadding)
@@ -1172,12 +1168,14 @@ private struct DoneTodayHeader: View {
                 Text("\(count) done today")
                 Spacer(minLength: 0)
             }
-            .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+            .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
             .padding(.horizontal, 10)
-            .padding(.top, 12).padding(.bottom, 6)
+            .padding(.top, 10).padding(.bottom, 6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .top) { Rule().padding(.horizontal, 4) }
+        .padding(.top, 8)
         .accessibilityLabel(shown ? "Hide \(count) done today" : "Show \(count) done today")
     }
 }
@@ -1189,9 +1187,9 @@ private struct StreamHeader: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(title).font(PiperTheme.ui(11, weight: .semibold)).foregroundStyle(PiperTheme.faint)
+            Text(title).font(PiperTheme.ui(.caption, weight: .semibold)).foregroundStyle(PiperTheme.faint)
             Spacer(minLength: 4)
-            if let action { Button(action.0, action: action.1).buttonStyle(.text).font(PiperTheme.ui(11)) }
+            if let action { Button(action.0, action: action.1).buttonStyle(.text).font(PiperTheme.ui(.caption)) }
         }
         .padding(.horizontal, 10)
         .padding(.top, 12).padding(.bottom, 4)

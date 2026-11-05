@@ -105,6 +105,19 @@ Panes never call each other. A pane reports upward through a delegate protocol, 
 
 Put sizes, colors, and other parameters in `AppDefaults` and `PiperTheme`. Do not write a literal color in a view.
 
+Give each text outside a web page a size from `PiperTheme.TextSize`:
+
+| Size | Points | Use |
+| --- | --- | --- |
+| `caption` | 11 | Group headers, counts, hints, and times |
+| `secondary` | 12 | Meta lines, reasons, tabs, and tool rows |
+| `body` | 13 | List rows, controls, and the sidebar |
+| `reading` | 15 | Notes and agent messages |
+| `title` | 17 | Pane titles and the palette field |
+| `display` | 24 | The title of an article notebook |
+
+`PiperTheme.ui` and `PiperTheme.uiNS` take only these sizes. Do not use a half-point size. An SF Symbol can use another size.
+
 Use nil-targeted actions and the responder chain where they fit.
 
 ## State Changes

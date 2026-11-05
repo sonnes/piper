@@ -10,7 +10,7 @@ struct BriefSignInSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Sign in to \(host)").font(PiperTheme.ui(13, weight: .semibold))
+                Text("Sign in to \(host)").font(PiperTheme.ui(.body, weight: .semibold))
                 Spacer()
                 Button("Done") { dismiss() }.buttonStyle(.text).keyboardShortcut(.defaultAction)
             }

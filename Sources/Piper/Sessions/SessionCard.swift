@@ -150,7 +150,7 @@ struct SessionCard: View {
             }
         } label: {
             Text(session?.title ?? "New Session in \(URL(fileURLWithPath: folder).lastPathComponent)")
-                .font(PiperTheme.ui(13, weight: .semibold))
+                .font(PiperTheme.ui(.body, weight: .semibold))
         }
         .menuStyle(.borderlessButton)
         .fixedSize(horizontal: false, vertical: true)
@@ -225,10 +225,10 @@ struct SessionPill: View {
                 icon(session)
                 Text(text(session)).lineLimit(1)
                 if session?.isActive != true {
-                    Text("⌥⌘C").font(PiperTheme.ui(11)).foregroundStyle(needsYou ? PiperTheme.onAccentSecondary : PiperTheme.faint)
+                    Text("⌥⌘C").font(PiperTheme.ui(.caption)).foregroundStyle(needsYou ? PiperTheme.onAccentSecondary : PiperTheme.faint)
                 }
             }
-            .font(PiperTheme.ui(12.5))
+            .font(PiperTheme.ui(.body))
             .foregroundStyle(needsYou ? PiperTheme.onAccent : PiperTheme.ink)
             .padding(AppDefaults.SessionCard.pillPadding)
             .frame(height: AppDefaults.SessionCard.pillHeight)

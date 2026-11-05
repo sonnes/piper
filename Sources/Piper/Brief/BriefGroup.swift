@@ -54,7 +54,7 @@ struct BriefGroup: View {
             switch brief.state {
             case .idle:
                 Text(picks.isEmpty ? "Brief" : "Brief · \(picks.count) \(picks.count == 1 ? "pick" : "picks")")
-                    .font(PiperTheme.ui(12, weight: .semibold)).foregroundStyle(PiperTheme.accent)
+                    .font(PiperTheme.ui(.secondary, weight: .semibold)).foregroundStyle(PiperTheme.accent)
                 Spacer(minLength: 8)
                 if !builtToday {
                     Button("Build Brief") { brief.build() }.buttonStyle(.text)
@@ -68,12 +68,12 @@ struct BriefGroup: View {
                 }
             case .failed(let message):
                 Text("The brief was not built. \(message)")
-                    .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.danger).lineLimit(2)
+                    .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.danger).lineLimit(2)
                 Spacer(minLength: 8)
                 Button("Try Again") { brief.build() }.buttonStyle(.text)
             default:
                 ProgressView().controlSize(.small)
-                Text(progress).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+                Text(progress).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
                 Spacer(minLength: 0)
             }
         }
@@ -94,7 +94,7 @@ struct BriefGroup: View {
     private var morningQuestion: some View {
         HStack(spacing: 8) {
             Text("Build a brief each morning while Piper is open?")
-                .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
             Spacer(minLength: 8)
             Button("Not Now") { brief.answerMorning(false) }.buttonStyle(.text)
             Button("Build Each Morning") { brief.answerMorning(true) }.buttonStyle(.text)
@@ -135,15 +135,17 @@ private struct BriefPickRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Button(action: markRead) {
-                Image(systemName: "circle").font(.system(size: 16)).foregroundStyle(PiperTheme.faint)
+                Circle().strokeBorder(PiperTheme.faint, lineWidth: AppDefaults.ProgressRing.lineWidth)
+                    .frame(width: AppDefaults.CaptureItem.circleSize, height: AppDefaults.CaptureItem.circleSize)
+                    .padding(.top, 1)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Mark as Read")
             Button(action: open) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(pick.title).font(PiperTheme.ui(13)).foregroundStyle(PiperTheme.ink).lineLimit(2)
+                    Text(pick.title).font(PiperTheme.ui(.body)).foregroundStyle(PiperTheme.ink).lineLimit(2)
                     Text("\(pick.host) · \(pick.why)")
-                        .font(PiperTheme.ui(11.5)).foregroundStyle(PiperTheme.secondary).lineLimit(2)
+                        .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary).lineLimit(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -152,7 +154,7 @@ private struct BriefPickRow: View {
             .accessibilityLabel("\(pick.title), \(pick.host)")
             .accessibilityHint(pick.why)
             Button("Keep", action: keep).buttonStyle(.text)
-            Button("Skip", action: skip).buttonStyle(.text).foregroundStyle(PiperTheme.secondary)
+            Button("Skip", action: skip).buttonStyle(.plain).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
         }
         .padding(.horizontal, AppDefaults.CaptureItem.horizontalPadding)
         .padding(.vertical, 6)

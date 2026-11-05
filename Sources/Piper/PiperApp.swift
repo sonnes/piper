@@ -491,13 +491,13 @@ private struct ToastView: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.circle.fill").font(.system(size: 14)).foregroundStyle(PiperTheme.accent)
-            Text(text).font(PiperTheme.ui(13)).lineLimit(1).help(text)
+            Text(text).font(PiperTheme.ui(.body)).lineLimit(1).help(text)
             Spacer(minLength: 0)
             if let action {
                 Button(action.title, action: action.perform)
                     .buttonStyle(.borderedProminent).controlSize(.small)
             } else {
-                Text("⌘1").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+                Text("⌘1").font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
             }
         }
         .foregroundStyle(PiperTheme.ink)

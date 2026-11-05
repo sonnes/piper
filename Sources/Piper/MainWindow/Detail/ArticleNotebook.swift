@@ -59,7 +59,7 @@ struct ArticleNotebook: View {
                 }
                 if highlights.isEmpty {
                     Text("Select text in the Reader tab and choose a color or Note. On a web page, select text and press Shift twice.")
-                        .font(PiperTheme.ui(12.5)).foregroundStyle(PiperTheme.secondary)
+                        .font(PiperTheme.ui(.body)).foregroundStyle(PiperTheme.secondary)
                 }
                 ForEach(highlights) { highlight in
                     HighlightEntry(highlight: highlight) { show(highlight.id) }
@@ -92,7 +92,7 @@ struct ArticleNotebook: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text(([host] + [kicker].compactMap { $0 }).joined(separator: " · ").uppercased())
-                    .font(PiperTheme.ui(11, weight: .semibold)).tracking(0.4)
+                    .font(PiperTheme.ui(.caption, weight: .semibold)).tracking(0.4)
                     .foregroundStyle(PiperTheme.faint)
                 Spacer()
                 if let file = reading.savedFile {
@@ -100,7 +100,7 @@ struct ArticleNotebook: View {
                         Button("Update File (\(changedCount) new)", action: update).buttonStyle(.text).help(file)
                     } else {
                         Text("Saved to " + URL(fileURLWithPath: file).deletingLastPathComponent().lastPathComponent)
-                            .font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.faint).help(file)
+                            .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.faint).help(file)
                     }
                     IconButton(title: "Show in Finder", icon: "folder") {
                         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: file)])
@@ -117,7 +117,7 @@ struct ArticleNotebook: View {
                 .textSelection(.enabled)
             HStack(spacing: 12) {
                 Button("Open in Reader") { model.articleTab = .reader }.buttonStyle(.text)
-                Text(ReadingList.counts(of: children)).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                Text(ReadingList.counts(of: children)).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
             }
         }
         .padding(.bottom, 4)
@@ -130,7 +130,7 @@ struct ArticleNotebook: View {
 
     private func label(_ text: String) -> some View {
         Text(text.uppercased())
-            .font(PiperTheme.ui(11, weight: .semibold)).tracking(0.4)
+            .font(PiperTheme.ui(.caption, weight: .semibold)).tracking(0.4)
             .foregroundStyle(PiperTheme.faint)
             .padding(.top, metrics.labelTopPadding).padding(.bottom, metrics.fieldPadding)
             .accessibilityAddTraits(.isHeader)
@@ -215,11 +215,11 @@ private struct HighlightEntry: View {
                         .font(.system(size: AppDefaults.Notebook.quoteFontSize, design: .serif))
                         .lineSpacing(2)
                     if !comment.isEmpty {
-                        Text(comment).font(PiperTheme.ui(13)).lineSpacing(1.5)
+                        Text(comment).font(PiperTheme.ui(.body)).lineSpacing(1.5)
                     }
                     Text(([highlight.sources.first] + [highlight.createdAt.formatted(date: .omitted, time: .shortened)])
                         .compactMap { $0 }.joined(separator: " · "))
-                        .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+                        .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -244,18 +244,18 @@ private struct QuestionEntry: View {
         Button(action: open) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text("✳ " + (parts.first ?? "Ask")).font(PiperTheme.ui(12.5, weight: .semibold))
+                    Text("✳ " + (parts.first ?? "Ask")).font(PiperTheme.ui(.body, weight: .semibold))
                         .foregroundStyle(PiperTheme.claude)
-                    Text(parts.count > 1 ? parts[1] : "").font(PiperTheme.ui(12.5)).lineLimit(1)
+                    Text(parts.count > 1 ? parts[1] : "").font(PiperTheme.ui(.body)).lineLimit(1)
                     Spacer(minLength: 8)
                     if waiting {
                         ProgressView().controlSize(.mini)
                     } else if answers > 0 {
                         Text("\(answers) answer" + (answers == 1 ? "" : "s"))
-                            .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+                            .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
                     }
                 }
-                if let failure { Text(failure).font(PiperTheme.ui(11.5)).foregroundStyle(PiperTheme.secondary) }
+                if let failure { Text(failure).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary) }
             }
             .padding(.horizontal, 12).padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -308,7 +308,7 @@ private struct SaveArticleForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Save as File").font(PiperTheme.ui(13, weight: .semibold))
+            Text("Save as File").font(PiperTheme.ui(.body, weight: .semibold))
             field("Folder") {
                 Picker("Folder", selection: $destination) {
                     ForEach(destinations, id: \.self) { Text($0.label).tag(Optional($0)) }
@@ -351,7 +351,7 @@ private struct SaveArticleForm: View {
 
     private func field(_ label: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+            Text(label).font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
             content()
         }
     }

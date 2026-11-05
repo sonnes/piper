@@ -13,12 +13,14 @@ struct CaptureEditor: NSViewRepresentable {
     /// true when it handled the command. The coordinator reads the newest
     /// value on each update, so the handler never sees an old view.
     var command: ((Selector) -> Bool)?
+    /// Receives the height of the text and its insets after each change.
+    var contentHeight: ((CGFloat) -> Void)?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
         let metrics = AppDefaults.Composer.self
-        let fontSize = compact ? metrics.inboxFontSize : AppDefaults.CaptureItem.fontSize
+        let fontSize = compact ? metrics.inboxFontSize : metrics.fontSize
         let lineHeight = compact ? metrics.inboxLineHeight : metrics.lineHeight
         let scroll = CaptureScrollView(frame: NSRect(x: 0, y: 0, width: metrics.width, height: metrics.height))
         scroll.borderType = .noBorder
@@ -94,6 +96,7 @@ struct CaptureEditor: NSViewRepresentable {
             if text.isEmpty { scroll.contentView.scroll(to: .zero) }
             scroll.reflectScrolledClipView(scroll.contentView)
         }
+        context.coordinator.reportHeight(of: editor)
         if focused, editor.window?.firstResponder !== editor {
             DispatchQueue.main.async { [weak editor, weak coordinator = context.coordinator] in
                 guard let editor, coordinator?.parent.focused == true else { return }
@@ -108,9 +111,23 @@ struct CaptureEditor: NSViewRepresentable {
         var parent: CaptureEditor
         init(_ parent: CaptureEditor) { self.parent = parent }
 
+        private var reportedHeight: CGFloat?
+
         func textDidChange(_ notification: Notification) {
             guard let editor = notification.object as? NSTextView else { return }
             parent.text = editor.string
+            reportHeight(of: editor)
+        }
+
+        /// Sends the height of the laid-out text to `contentHeight`, when it changed.
+        func reportHeight(of editor: NSTextView) {
+            guard let report = parent.contentHeight, let manager = editor.layoutManager,
+                  let container = editor.textContainer else { return }
+            manager.ensureLayout(for: container)
+            let height = manager.usedRect(for: container).height + editor.textContainerInset.height * 2
+            guard height != reportedHeight else { return }
+            reportedHeight = height
+            DispatchQueue.main.async { report(height) }
         }
 
         func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {

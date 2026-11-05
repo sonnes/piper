@@ -189,9 +189,9 @@ struct ApprovalDrawer: View {
         let detail = request.description ?? request.detail
         return VStack(alignment: .leading, spacing: Metrics.requestSpacing) {
             HStack(spacing: Metrics.requestButtonSpacing) {
-                Text(Self.title(request)).font(PiperTheme.ui(13, weight: .semibold))
+                Text(Self.title(request)).font(PiperTheme.ui(.body, weight: .semibold))
                 if count > 1 {
-                    Text("1 of \(count)").font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                    Text("1 of \(count)").font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
                 }
                 Spacer(minLength: 4)
             }

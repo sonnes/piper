@@ -54,7 +54,7 @@ struct NoteWebReader: View {
                     .help("Open in Browser").accessibilityLabel("Open in Browser")
             }
             .controlSize(.small)
-            .font(PiperTheme.ui(12))
+            .font(PiperTheme.ui(.secondary))
             .padding(.horizontal, 12)
             .frame(height: 38)
             .background(PiperTheme.panel)
@@ -63,8 +63,8 @@ struct NoteWebReader: View {
                 .overlay {
                     if let error = page.errorMessage {
                         VStack(spacing: 10) {
-                            Text("Cannot Open Page").font(PiperTheme.ui(15, weight: .semibold))
-                            Text(error).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.secondary)
+                            Text("Cannot Open Page").font(PiperTheme.ui(.reading, weight: .semibold))
+                            Text(error).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
                                 .multilineTextAlignment(.center)
                             Button("Try Again") { page.reload() }
                         }
@@ -76,7 +76,7 @@ struct NoteWebReader: View {
                 .overlay(alignment: .bottom) {
                     if let captureMessage {
                         Text(captureMessage)
-                            .font(PiperTheme.ui(12))
+                            .font(PiperTheme.ui(.secondary))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 12).padding(.vertical, 6)
                             .background(.regularMaterial, in: Capsule())

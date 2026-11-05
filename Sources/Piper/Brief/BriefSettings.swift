@@ -19,7 +19,7 @@ struct BriefSettings: View {
                 }
             } footer: {
                 Text("Review the sites before the first build. To sign in to a site or to block it, show the sites.")
-                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
             }
             Section {
                 ForEach(brief.sources) { source in
@@ -47,11 +47,11 @@ struct BriefSettings: View {
                 Text("Sources")
             } footer: {
                 Text("A source with Open Privacy Settings needs Full Disk Access. Agent sessions that Piper starts can get the same access.")
-                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
             }
             Section {
                 TextEditor(text: $blockedText)
-                    .font(PiperTheme.ui(12))
+                    .font(PiperTheme.ui(.secondary))
                     .frame(height: 130)
                     .onChange(of: blockedText) { _, text in
                         brief.blockedSites = BlockedSites.normalized(text.components(separatedBy: .newlines))
@@ -60,13 +60,13 @@ struct BriefSettings: View {
                 Text("Blocked Sites")
             } footer: {
                 Text("Enter one host on each line. A block also covers each subdomain. Piper always blocks private addresses.")
-                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
             }
             Section {
                 Toggle("Build a brief each morning", isOn: $brief.morningBuilds)
             } footer: {
                 Text("Piper tries one time each day, between 5:00 and noon, while it is open.")
-                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
             }
         }
         .formStyle(.grouped)

@@ -25,7 +25,6 @@ struct InboxRow: View {
     let note: Note
     let style: Style
     let selected: Bool
-    let separated: Bool
     /// The section and its color, when the list shows more than one section.
     let section: (name: String, color: Color)?
     let children: [Note]
@@ -53,7 +52,6 @@ struct InboxRow: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if separated && !selected { Rule().padding(.leading, AppDefaults.InboxRow.textInset) }
             HStack(alignment: .top, spacing: AppDefaults.InboxRow.columnSpacing) {
                 control
                 Button(action: select) { content.contentShape(Rectangle()) }
@@ -112,7 +110,7 @@ struct InboxRow: View {
                             .accessibilityLabel("Not opened")
                     }
                     Text(reading.title ?? (host + (url?.path() ?? "")))
-                        .font(PiperTheme.ui(AppDefaults.InboxRow.titleFontSize, weight: .semibold))
+                        .font(PiperTheme.ui(AppDefaults.InboxRow.titleFontSize))
                         .lineLimit(2)
                 }
             }
@@ -198,19 +196,11 @@ struct InboxRow: View {
                 .padding(.top, 3)
         }
         if !children.isEmpty {
-            Button(action: toggleChildren) {
-                HStack(spacing: 4) {
-                    Image(systemName: showsChildren ? "chevron.down" : "chevron.right")
-                        .font(.system(size: AppDefaults.InboxRow.chevronSize, weight: .semibold))
-                    Text(childCount)
-                }
-                .font(PiperTheme.ui(AppDefaults.InboxRow.detailFontSize)).foregroundStyle(PiperTheme.faint)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 2)
-            .accessibilityLabel(showsChildren ? "Hide notes" : "Show notes")
-            .accessibilityValue(childCount)
+            Button(action: toggleChildren) { CountChip(text: childCount, open: showsChildren) }
+                .buttonStyle(.plain)
+                .padding(.top, 3)
+                .accessibilityLabel(showsChildren ? "Hide notes" : "Show notes")
+                .accessibilityValue(childCount)
         }
     }
 

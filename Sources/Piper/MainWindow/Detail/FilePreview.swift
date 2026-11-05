@@ -42,10 +42,10 @@ struct FilePreview: View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(document.name).font(PiperTheme.ui(17, weight: .semibold)).lineLimit(1)
+                    Text(document.name).font(PiperTheme.ui(.title, weight: .semibold)).lineLimit(1)
                     Text(FilePresentation.typeName(for: document) + " · " +
                          ByteCountFormatter.string(fromByteCount: Int64(document.size), countStyle: .file))
-                        .font(PiperTheme.ui(12)).foregroundStyle(.secondary)
+                        .font(PiperTheme.ui(.secondary)).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 12)
                 if let url {

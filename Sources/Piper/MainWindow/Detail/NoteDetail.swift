@@ -78,7 +78,7 @@ struct NoteDetail: View {
     private var page: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(dateLine)
-                .font(PiperTheme.ui(11))
+                .font(PiperTheme.ui(.caption))
                 .foregroundStyle(PiperTheme.secondary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, AppDefaults.Reader.topInset)
@@ -88,19 +88,19 @@ struct NoteDetail: View {
                     scheduleSave()
                 }), font: CaptureText.looksLikeCode(note.text)
                     ? PiperTheme.manuscript(size: AppDefaults.Reader.codeFontSize)
-                    : PiperTheme.uiNS(AppDefaults.Reader.noteFontSize))
+                    : PiperTheme.serifNS(AppDefaults.Reader.noteFontSize))
                 .padding(.top, 12)
                 .padding(.horizontal, -5)
                 .accessibilityLabel("Note text")
             }
             if let error = model.store.errorMessage, session?.hasChanges == true {
-                Text(error).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.danger)
+                Text(error).font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.danger)
                     .textSelection(.enabled)
                     .padding(.vertical, 8)
             }
             if !note.sources.isEmpty {
                 Text("From " + note.sources.joined(separator: ", "))
-                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
                     .lineLimit(1).truncationMode(.middle)
                     .padding(.vertical, 10)
             }

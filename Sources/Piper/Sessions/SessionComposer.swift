@@ -109,7 +109,7 @@ struct SessionComposer: View {
                               openSettings: { model.openSettings?() })
                 Spacer(minLength: 4)
                 Text(completionCount > 0 ? "Tab completes · ↑↓ choose" : "Return sends · / commands · @ files")
-                    .font(PiperTheme.ui(11))
+                    .font(PiperTheme.ui(.caption))
                     .foregroundStyle(PiperTheme.faint)
                     .layoutPriority(-1)
             }
@@ -143,7 +143,7 @@ struct SessionComposer: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Remove context")
                 }
-                .font(PiperTheme.ui(11))
+                .font(PiperTheme.ui(.caption))
                 .foregroundStyle(PiperTheme.secondary)
                 .padding(.horizontal, 7).frame(height: 20)
                 .background(PiperTheme.panel, in: Capsule())
@@ -225,7 +225,7 @@ struct FileCompletions: View {
                         Text(path).lineLimit(1).truncationMode(.head)
                         Spacer(minLength: 0)
                     }
-                    .font(PiperTheme.ui(12))
+                    .font(PiperTheme.ui(.secondary))
                     .foregroundStyle(active ? Color.white : PiperTheme.ink)
                     .padding(.horizontal, 8)
                     .frame(height: 24)

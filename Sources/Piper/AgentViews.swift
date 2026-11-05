@@ -40,7 +40,7 @@ struct SessionStateChip: View {
             }
             Text(session.blocks.isEmpty ? "Draft" : Self.title(session.state))
         }
-        .font(PiperTheme.ui(11, weight: .medium))
+        .font(PiperTheme.ui(.caption, weight: .medium))
         .foregroundStyle(color)
         .padding(.horizontal, 7)
         .frame(height: 18)
@@ -97,7 +97,7 @@ struct RunLine: View {
 
     var body: some View {
         Text(session.folderName + " · " + detail)
-            .font(PiperTheme.ui(12))
+            .font(PiperTheme.ui(.secondary))
             .foregroundStyle(session.state == .failed ? PiperTheme.danger : PiperTheme.secondary)
             .lineLimit(1).truncationMode(.middle)
     }
@@ -170,7 +170,7 @@ struct SkillCompletions: View {
             ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
                 if index == 0 || actions[index - 1].folder != action.folder {
                     Text(action.folder.name.uppercased())
-                        .font(PiperTheme.ui(10.5, weight: .semibold)).tracking(0.4)
+                        .font(PiperTheme.ui(.caption, weight: .semibold)).tracking(0.4)
                         .foregroundStyle(PiperTheme.faint)
                         .padding(.horizontal, 8).padding(.top, index == 0 ? 4 : 8).padding(.bottom, 3)
                 }
@@ -192,7 +192,7 @@ struct SkillCompletions: View {
                     .font(Font(PiperTheme.manuscript(size: 12.5)))
                     .fixedSize()
                 Text(action.skill.summary)
-                    .font(PiperTheme.ui(12))
+                    .font(PiperTheme.ui(.secondary))
                     .foregroundStyle(active ? Color.white.opacity(0.85) : PiperTheme.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 4)

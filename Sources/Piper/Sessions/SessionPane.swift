@@ -91,7 +91,7 @@ private struct SessionTranscript: View {
                             ProgressView().controlSize(.mini)
                             Text(session.state == .waiting ? "Waiting for another session" : "Working")
                         }
-                        .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint)
+                        .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
                     }
                     Color.clear.frame(height: 1).id(Self.end)
                 }
@@ -138,7 +138,7 @@ private struct SessionFooter: View {
                         .help("The cost of the session so far, from the agent")
                 }
             }
-            .font(PiperTheme.ui(11))
+            .font(PiperTheme.ui(.caption))
             .foregroundStyle(PiperTheme.secondary)
             .padding(.horizontal, 14).padding(.vertical, 6)
             .overlay(alignment: .top) { Rule() }
@@ -153,7 +153,7 @@ struct SessionHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(session?.title ?? "New Session")
-                .font(PiperTheme.ui(13, weight: .semibold))
+                .font(PiperTheme.ui(.body, weight: .semibold))
                 .lineLimit(1).truncationMode(.tail)
             Spacer(minLength: 4)
             if let session { SessionStateChip(session: session) }
@@ -240,7 +240,7 @@ private struct TurnFold<Content: View>: View {
                     Text(summary).lineLimit(1).truncationMode(.tail)
                     Spacer(minLength: 0)
                 }
-                .font(PiperTheme.ui(12))
+                .font(PiperTheme.ui(.secondary))
                 .foregroundStyle(PiperTheme.secondary)
                 .padding(Metrics.chipPadding)
                 .background(PiperTheme.hover, in: RoundedRectangle(cornerRadius: Metrics.chipRadius))

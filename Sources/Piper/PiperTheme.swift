@@ -85,6 +85,8 @@ enum PiperTheme {
     // orange 700 and 400, and other tags are sky 700 and 400.
 
     static let markYellow = Color(nsColor: hex(0xFACC15))
+    /// Text on a yellow chip, such as the count of highlights.
+    static let markText = Color(nsColor: color(light: 0xA16207, dark: 0xFDE047))
     static let markGreen = Color(nsColor: hex(0x4ADE80))
     static let markPink = Color(nsColor: hex(0xF472B6))
     static let tagHighlight = Color(nsColor: color(light: 0xA16207, dark: 0xFACC15))
@@ -162,13 +164,36 @@ enum PiperTheme {
         return NSFont(name: "IBMPlexMono-\(face)", size: size) ?? .monospacedSystemFont(ofSize: size, weight: weight)
     }
 
-    /// Control and label text.
-    static func uiNS(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
-        .systemFont(ofSize: size, weight: weight)
+    /// The type scale. Each text of the app outside a web page uses one of
+    /// these sizes. A larger size marks a higher level of the hierarchy.
+    enum TextSize: CGFloat {
+        /// Group headers, counts, hints, and times.
+        case caption = 11
+        /// Meta lines, reasons, tabs, and tool rows.
+        case secondary = 12
+        /// List rows, controls, and the sidebar.
+        case body = 13
+        /// Notes and agent messages: text that the reader reads, not scans.
+        case reading = 15
+        /// Pane titles and the palette field.
+        case title = 17
+        /// The title of an article notebook.
+        case display = 24
     }
 
-    static func ui(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight)
+    /// Control and label text.
+    static func uiNS(_ size: TextSize, weight: NSFont.Weight = .regular) -> NSFont {
+        .systemFont(ofSize: size.rawValue, weight: weight)
+    }
+
+    /// Serif text that the reader reads, such as the body of a note.
+    static func serifNS(_ size: TextSize) -> NSFont {
+        let font = NSFont.systemFont(ofSize: size.rawValue)
+        return font.fontDescriptor.withDesign(.serif).flatMap { NSFont(descriptor: $0, size: size.rawValue) } ?? font
+    }
+
+    static func ui(_ size: TextSize, weight: Font.Weight = .regular) -> Font {
+        .system(size: size.rawValue, weight: weight)
     }
 
     private static func color(light: UInt32, dark: UInt32) -> NSColor {
@@ -190,7 +215,7 @@ struct TextButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(PiperTheme.ui(12))
+            .font(PiperTheme.ui(.secondary))
             .foregroundStyle(enabled ? PiperTheme.accent : PiperTheme.faint)
             .opacity(configuration.isPressed ? 0.6 : 1)
             .contentShape(Rectangle())
@@ -239,9 +264,9 @@ struct EmptyPane: View {
 
     var body: some View {
         VStack(spacing: 3) {
-            Text(title).font(PiperTheme.ui(15, weight: .semibold)).foregroundStyle(PiperTheme.secondary)
+            Text(title).font(PiperTheme.ui(.reading, weight: .semibold)).foregroundStyle(PiperTheme.secondary)
             if let detail {
-                Text(detail).font(PiperTheme.ui(12)).foregroundStyle(PiperTheme.faint)
+                Text(detail).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.faint)
             }
         }
         .multilineTextAlignment(.center)

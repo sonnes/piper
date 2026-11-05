@@ -243,7 +243,7 @@ private struct CommandPaletteView: View {
     private func section(_ title: String, _ rows: [PaletteResults.Row], offset: Int) -> some View {
         if !rows.isEmpty {
             Text(title)
-                .font(PiperTheme.ui(11, weight: .semibold))
+                .font(PiperTheme.ui(.caption, weight: .semibold))
                 .foregroundStyle(PiperTheme.secondary)
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
@@ -291,12 +291,12 @@ private struct PaletteRow: View {
             if case .line(_, let excerpt) = row {
                 Text(highlighted(excerpt))
                     .lineLimit(1)
-                    .font(PiperTheme.ui(12))
+                    .font(PiperTheme.ui(.secondary))
                     .foregroundStyle(selected ? Color.white.opacity(0.85) : PiperTheme.secondary)
                     .padding(.leading, 24)
             }
         }
-        .font(PiperTheme.ui(13))
+        .font(PiperTheme.ui(.body))
         .foregroundStyle(selected ? Color.white : PiperTheme.ink)
         .padding(.horizontal, 14)
         .padding(.vertical, 5)

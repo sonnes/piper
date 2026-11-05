@@ -122,7 +122,7 @@ private extension ReadingToast {
                         KeyChip(text: "⇧⇧")
                         Text("again to add a note")
                     }
-                    .font(PiperTheme.ui(11.5)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
                     Spacer(minLength: 8)
                     Button("Continue in Piper") { [weak self] in self?.continueReading(articleID) }
                         .buttonStyle(ToastButtonStyle())
@@ -207,9 +207,9 @@ private struct ToastHeader: View {
                 .frame(width: AppDefaults.ReadingToast.checkSize, height: AppDefaults.ReadingToast.checkSize)
                 .background(PiperTheme.accent, in: Circle())
                 .accessibilityHidden(true)
-            Text(title).font(PiperTheme.ui(13, weight: .semibold))
+            Text(title).font(PiperTheme.ui(.body, weight: .semibold))
             Spacer(minLength: 8)
-            if let detail { Text(detail).font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.faint).lineLimit(1) }
+            if let detail { Text(detail).font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint).lineLimit(1) }
         }
     }
 }
@@ -220,7 +220,7 @@ private struct KeyChip: View {
 
     var body: some View {
         Text(text)
-            .font(PiperTheme.ui(11))
+            .font(PiperTheme.ui(.caption))
             .foregroundStyle(PiperTheme.ink)
             .padding(.horizontal, 5).padding(.vertical, 1)
             .background(PiperTheme.selection, in: RoundedRectangle(cornerRadius: 4))
@@ -236,9 +236,9 @@ private struct ToastArticle: View {
         HStack(spacing: 10) {
             ArticleBadge(host: host, size: AppDefaults.ReadingToast.badgeSize)
             VStack(alignment: .leading, spacing: 1) {
-                Text(article.reading?.title ?? host).font(PiperTheme.ui(12.5, weight: .semibold)).lineLimit(2)
+                Text(article.reading?.title ?? host).font(PiperTheme.ui(.body, weight: .semibold)).lineLimit(2)
                 Text([host, detail].compactMap { $0 }.joined(separator: " · "))
-                    .font(PiperTheme.ui(11.5)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+                    .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
             }
             Spacer(minLength: 0)
         }
@@ -264,7 +264,7 @@ private struct CommentField: View {
                 .overlay(alignment: .leading) { Rectangle().fill(PiperTheme.markYellow).frame(width: 2) }
             TextField("Add a note", text: $draft.text, axis: .vertical)
                 .textFieldStyle(.plain)
-                .font(PiperTheme.ui(13))
+                .font(PiperTheme.ui(.body))
                 .lineLimit(3...6)
                 .focused($focused)
                 .onSubmit(save)
@@ -272,7 +272,7 @@ private struct CommentField: View {
                 .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PiperTheme.focusRing, lineWidth: 1.5))
             HStack {
-                Text("Return saves · Esc skips").font(PiperTheme.ui(11.5)).foregroundStyle(PiperTheme.secondary)
+                Text("Return saves · Esc skips").font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
                 Spacer()
                 Button("Save", action: save).buttonStyle(ToastButtonStyle())
             }
@@ -287,7 +287,7 @@ private struct CommentField: View {
 private struct ToastButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(PiperTheme.ui(12, weight: .medium))
+            .font(PiperTheme.ui(.secondary, weight: .medium))
             .foregroundStyle(PiperTheme.onAccent)
             .padding(.horizontal, AppDefaults.ReadingToast.buttonPadding)
             .frame(height: AppDefaults.ReadingToast.buttonHeight)
@@ -305,7 +305,7 @@ struct ArticleBadge: View {
         let colors = PiperTheme.tagsNS
         let index = host.unicodeScalars.reduce(0) { ($0 + Int($1.value)) % 997 } % colors.count
         Text(host.first.map { String($0).uppercased() } ?? "?")
-            .font(PiperTheme.ui(size * AppDefaults.ArticleBadge.fontFraction, weight: .bold))
+            .font(.system(size: size * AppDefaults.ArticleBadge.fontFraction, weight: .bold))
             .foregroundStyle(PiperTheme.onAccent)
             .frame(width: size, height: size)
             .background(Color(nsColor: colors[index]), in: RoundedRectangle(cornerRadius: size * AppDefaults.ArticleBadge.cornerFraction))

@@ -80,7 +80,7 @@ The sidebar has up to three groups. Library holds Inbox with one child for each 
 
 The expansion set of `SidebarPane` holds the open folder paths. It also holds two kinds of keys that start with `\u{1}`, so they cannot match a path: `SidebarOutline.inboxCollapsedKey` for a closed Inbox, and `SidebarOutline.sessionsExpandedKey` for each open Claude folder.
 
-Sidebar fonts and icons follow the macOS sidebar size preference: 11 and 16 points, 13 and 19 points, or 15 and 22 points.
+The sidebar always uses medium rows: 13-point text and 18-point icons. It ignores the macOS sidebar size preference, so the list and the detail pane stay larger than the sidebar.
 
 ## Capture
 

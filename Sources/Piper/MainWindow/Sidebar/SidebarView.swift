@@ -33,9 +33,9 @@ struct SidebarView: View {
             if !model.wikiProblems.isEmpty {
                 DisclosureGroup("\(model.wikiProblems.count) file warnings") {
                     Text(model.wikiProblems.joined(separator: "\n"))
-                        .textSelection(.enabled).font(PiperTheme.ui(10)).padding(.top, 5)
+                        .textSelection(.enabled).font(PiperTheme.ui(.caption)).padding(.top, 5)
                 }
-                .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.warning)
+                .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.warning)
                 .padding(.horizontal, AppDefaults.Sidebar.rowInset).padding(.vertical, 6)
             }
         }

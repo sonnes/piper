@@ -83,16 +83,9 @@ final class AppDefaults {
     }
 
     /// Sidebar cell metrics.
-    ///
-    /// The source list follows the macOS sidebar size preference.
     enum Sidebar {
-        static func metrics(for style: NSTableView.RowSizeStyle) -> (fontSize: CGFloat, imageSize: CGFloat) {
-            switch style {
-            case .small: return (11, 16)
-            case .large: return (15, 22)
-            default: return (13, 18)
-            }
-        }
+        /// The side of a row icon. The sidebar always uses medium rows.
+        static let imageSize: CGFloat = 18
 
         static let imageMarginRight: CGFloat = 4
         static let countMarginLeft: CGFloat = 10
@@ -109,7 +102,7 @@ final class AppDefaults {
         /// that every icon of one level starts at the same place.
         static let disclosureWidth: CGFloat = 10
         static let indent: CGFloat = 13
-        static let countFontSize: CGFloat = 13
+        static let countFontSize = PiperTheme.TextSize.secondary.rawValue
         static let iconPointSize: CGFloat = 14
         static let disclosurePointSize: CGFloat = 9
 
@@ -150,7 +143,7 @@ final class AppDefaults {
         /// The space between the top of the main window and the palette.
         static let topInset: CGFloat = 90
         static let cornerRadius: CGFloat = 12
-        static let queryFontSize: CGFloat = 17
+        static let queryFontSize = PiperTheme.TextSize.title
         static let fileLimit = 20
         static let commandLimit = 4
         static let recentLimit = 8
@@ -161,7 +154,7 @@ final class AppDefaults {
         /// Seconds after a Piper session wrote a file during which a change on
         /// disk names the session as its source.
         static let sessionWriteWindow: TimeInterval = 600
-        static let bannerFontSize: CGFloat = 12.5
+        static let bannerFontSize = PiperTheme.TextSize.body
     }
 
     enum Reader {
@@ -169,25 +162,23 @@ final class AppDefaults {
         static let topInset: CGFloat = 20
         /// The space over the byline at the top of a Markdown file.
         static let headerTopInset: CGFloat = 36
-        static let bylineFontSize: CGFloat = 12.5
         /// The heading sizes of the reader page: 30, 21, and 18 points over a 16.5-point body.
         static let headingMultipliers: [CGFloat] = [1.8, 1.27, 1.1, 1, 1, 1]
         /// The extra line height as a part of the font size. The reader page uses a line height of 1.6.
         static let lineSpacing: CGFloat = 0.4
         static let defaultFont = WikiReadingFont.serif
         static let defaultSize = 18.0
-        static let footnoteFontSize: CGFloat = 11
         static let footnoteBaselineOffset: CGFloat = 6
 
         static let columnWidth: CGFloat = 640
-        static let noteFontSize: CGFloat = 15
+        static let noteFontSize = PiperTheme.TextSize.reading
         static let codeFontSize: CGFloat = 13
     }
 
     /// The Reader tab of a link capture.
     enum ArticleReader {
         static let addressHeight: CGFloat = 28
-        static let addressFontSize: CGFloat = 11.5
+        static let addressFontSize = PiperTheme.TextSize.secondary
         /// Seconds before Piper reads a page that has not finished loading.
         static let loadTimeout: Double = 20
         /// The wait after a load, for a page that draws its text with a script.
@@ -196,7 +187,7 @@ final class AppDefaults {
         static let horizontalInset: CGFloat = 16
         static let progressHeight: CGFloat = 2
         /// The line over the article that says where it opened.
-        static let resumeFontSize: CGFloat = 12
+        static let resumeFontSize = PiperTheme.TextSize.secondary
         static let resumeVerticalPadding: CGFloat = 7
         /// The space between the Show Web Page button and the tabs under it.
         static let webPageButtonMargin: CGFloat = 16
@@ -237,7 +228,7 @@ final class AppDefaults {
     /// The tabs that float over the bottom of the detail pane.
     enum TabIsland {
         static let segmentHeight: CGFloat = 26
-        static let fontSize: CGFloat = 12.5
+        static let fontSize = PiperTheme.TextSize.body
         static let segmentPadding: CGFloat = 12
         /// The space between the capsule and the segments.
         static let inset: CGFloat = 3
@@ -298,7 +289,7 @@ final class AppDefaults {
         static let horizontalPadding: CGFloat = 30
         static let topPadding: CGFloat = 26
         static let titleFontSize: CGFloat = 24
-        static let summaryFontSize: CGFloat = 14
+        static let summaryFontSize = PiperTheme.TextSize.reading
         static let summaryMinimumHeight: CGFloat = 70
         static let quoteFontSize: CGFloat = 15
         /// The padding and the corner radius of the summary field, a question, and the file preview.
@@ -314,8 +305,8 @@ final class AppDefaults {
 
     /// A chip over the Inbox stream, such as Reading.
     enum FilterChip {
-        static let fontSize: CGFloat = 12
-        static let countFontSize: CGFloat = 11
+        static let fontSize = PiperTheme.TextSize.secondary
+        static let countFontSize = PiperTheme.TextSize.caption
         static let countOpacity = 0.6
         static let spacing: CGFloat = 5
         static let horizontalPadding: CGFloat = 10
@@ -350,21 +341,20 @@ final class AppDefaults {
         static let unreadDot: CGFloat = 7
         static let padding = EdgeInsets(top: 9, leading: 8, bottom: 10, trailing: 10)
         static let cornerRadius: CGFloat = 8
-        static let titleFontSize: CGFloat = 13
-        static let metaFontSize: CGFloat = 11.5
-        static let detailFontSize: CGFloat = 11
+        static let titleFontSize = PiperTheme.TextSize.body
+        static let metaFontSize = PiperTheme.TextSize.secondary
+        static let detailFontSize = PiperTheme.TextSize.caption
         static let quoteFontSize: CGFloat = 12
         static let codeFontSize: CGFloat = 12
         static let sectionDot: CGFloat = 7
-        static let chevronSize: CGFloat = 8
     }
 
     /// A highlight or a question under a link capture in the list.
     enum ChildNote {
-        static let fontSize: CGFloat = 12.5
+        static let fontSize = PiperTheme.TextSize.body.rawValue
         static let lineSpacing: CGFloat = 1.5
         static let ruleWidth: CGFloat = 2
-        static let tagFontSize: CGFloat = 10.5
+        static let tagFontSize = PiperTheme.TextSize.caption
         static let tagHeight: CGFloat = 16
         static let swatchSize: CGFloat = 7
     }
@@ -372,11 +362,11 @@ final class AppDefaults {
     /// Capture list metrics, shared by the panel and the Inbox pane.
     enum CaptureItem {
         static let cornerRadius: CGFloat = PiperTheme.cardRadius
-        static let fontSize: CGFloat = 15
-        static let clipboardFontSize: CGFloat = 13
+        static let fontSize = PiperTheme.TextSize.body
+        static let clipboardFontSize = PiperTheme.TextSize.body
         static let clipboardCodeFontSize: CGFloat = 12
         static let lineSpacing: CGFloat = 2
-        static let circleSize: CGFloat = 22
+        static let circleSize: CGFloat = 18
         static let buttonHitSize: CGFloat = 30
         static let tabHeight: CGFloat = 26
         static let panelHeaderHeight: CGFloat = 54
@@ -387,8 +377,12 @@ final class AppDefaults {
         static let sectionMenuWidth: CGFloat = 280
         static let sectionMenuHeight: CGFloat = 320
         static let horizontalPadding: CGFloat = 12
-        static let verticalPadding: CGFloat = 10
-        static let minimumHeight: CGFloat = 42
+        static let verticalPadding: CGFloat = 7
+        static let minimumHeight: CGFloat = 32
+        /// The height of a row in the clipboard strip of the panel.
+        static let stripRowHeight: CGFloat = 26
+        /// The height of a count chip, such as "2 notes".
+        static let chipHeight: CGFloat = 18
         static let clipboardHeight: CGFloat = 42
         /// The space from the edge of a card to the text after the circle.
         static let textInset: CGFloat = horizontalPadding + buttonHitSize + 10
@@ -407,9 +401,12 @@ final class AppDefaults {
     /// The height of the card follows from the line height. A whole number of
     /// lines is therefore visible, and no line is cut at the bottom edge.
     enum Composer {
-        static let inboxHeight: CGFloat = 56
-        static let inboxCircleSize: CGFloat = 16
-        static let inboxFontSize: CGFloat = 13
+        /// The font of the add field.
+        static let inboxFontSize = PiperTheme.TextSize.body
+        /// The font of the session composer.
+        static let fontSize = PiperTheme.TextSize.reading
+        /// The most lines that the add field shows before it scrolls.
+        static let maxLines = 5
         static let inboxLineHeight: CGFloat = 18
         static let lineHeight: CGFloat = 23
         static let visibleLines = 2
@@ -481,7 +478,7 @@ final class AppDefaults {
         /// The agent, model, and mode menus in the composer footer.
         static let footerMenuSpacing: CGFloat = 2
         static let footerAgentSpacing: CGFloat = 3
-        static let footerFontSize: CGFloat = 11
+        static let footerFontSize = PiperTheme.TextSize.caption
     }
 
     // MARK: Stored values

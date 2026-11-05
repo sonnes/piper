@@ -42,7 +42,8 @@ struct SidebarOutline: NSViewRepresentable {
         outline.outlineTableColumn = column
         outline.headerView = nil
         outline.style = .sourceList
-        outline.rowSizeStyle = .default
+        // Medium rows on every system setting, so the content stays larger than the sidebar.
+        outline.rowSizeStyle = .medium
         outline.intercellSpacing = .zero
         outline.indentationPerLevel = AppDefaults.Sidebar.indent
         outline.floatsGroupRows = false
@@ -308,21 +309,20 @@ struct SidebarOutline: NSViewRepresentable {
             let identifier = NSUserInterfaceItemIdentifier("sourceCell")
             let cell = (outlineView.makeView(withIdentifier: identifier, owner: self) as? SidebarCell) ?? SidebarCell()
             cell.identifier = identifier
-            let style = outlineView.effectiveRowSizeStyle
             if let item = node.representedObject as? PathItem, !item.isFolder {
                 cell.configure(title: SidebarOutline.fileTitle(item.name),
                                icon: .glyph(SidebarOutline.fileIcon(item.name), PiperTheme.sidebarFileNS),
-                               count: 0, unread: unreadFiles.contains(item.path), rowSizeStyle: style)
+                               count: 0, unread: unreadFiles.contains(item.path))
                 cell.toolTip = item.path
             } else if let item = node.representedObject as? PathItem {
                 let name = item.path.isEmpty ? parent.model.vault.root.lastPathComponent : item.name
                 cell.configure(title: name,
                                icon: item.path.isEmpty ? SidebarOutline.folderIcon(name, at: wikiPaths.firstIndex(of: wikiPath) ?? 0) : .glyph("folder", PiperTheme.sidebarFolderNS),
-                               count: unreadCounts[item.path, default: 0], rowSizeStyle: style)
+                               count: unreadCounts[item.path, default: 0])
                 cell.toolTip = item.path.isEmpty ? wikiPath : item.path
             } else if let url = node.representedObject as? URL {
                 cell.configure(title: url.lastPathComponent, icon: SidebarOutline.folderIcon(url.lastPathComponent, at: wikiPaths.firstIndex(of: url.path) ?? 0),
-                               count: 0, rowSizeStyle: style)
+                               count: 0)
                 cell.toolTip = url.path
             } else if let selection = node.representedObject as? SidebarSelection {
                 let row: (title: String, icon: SidebarIcon, count: Int)
@@ -339,13 +339,13 @@ struct SidebarOutline: NSViewRepresentable {
                 case .folder, .file: row = ("", .glyph("folder", PiperTheme.sidebarFolderNS), 0)
                 }
                 if case .sessions = selection {
-                    cell.configure(title: row.title, icon: row.icon, count: row.count, attention: true, rowSizeStyle: style)
+                    cell.configure(title: row.title, icon: row.icon, count: row.count, attention: true)
                 } else {
-                    cell.configure(title: row.title, icon: row.icon, count: row.count, rowSizeStyle: style)
+                    cell.configure(title: row.title, icon: row.icon, count: row.count)
                 }
                 cell.toolTip = nil
             } else if let session = node.representedObject as? SidebarSessionRow {
-                cell.configure(title: session.title, icon: .dot(Self.color(of: session.status)), count: 0, rowSizeStyle: style)
+                cell.configure(title: session.title, icon: .dot(Self.color(of: session.status)), count: 0)
                 cell.toolTip = session.title
             }
             return cell
@@ -621,8 +621,8 @@ private final class SidebarCell: NSTableCellView {
     private let unreadDot = NSView()
     private let actions = NSStackView()
     private var tint: NSColor?
-    private lazy var iconWidth = icon.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.metrics(for: .medium).imageSize)
-    private lazy var iconHeight = icon.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.metrics(for: .medium).imageSize)
+    private lazy var iconWidth = icon.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.imageSize)
+    private lazy var iconHeight = icon.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.imageSize)
 
     override var backgroundStyle: NSView.BackgroundStyle {
         didSet { updateColors() }
@@ -682,15 +682,11 @@ private final class SidebarCell: NSTableCellView {
     /// - Parameters:
     ///   - attention: Shows the count as an orange badge instead of gray text.
     ///   - unread: Shows the blue dot of an unread file.
-    func configure(title: String, icon: SidebarIcon, count: Int, attention: Bool = false, unread: Bool = false,
-                   rowSizeStyle: NSTableView.RowSizeStyle) {
+    func configure(title: String, icon: SidebarIcon, count: Int, attention: Bool = false, unread: Bool = false) {
         unreadDot.isHidden = !unread
-        let metrics = AppDefaults.Sidebar.metrics(for: rowSizeStyle)
         self.title.stringValue = title
-        self.title.font = .systemFont(ofSize: metrics.fontSize)
-        iconWidth.constant = metrics.imageSize
-        iconHeight.constant = metrics.imageSize
-        self.icon.image = icon.image(side: metrics.imageSize)
+        self.title.font = PiperTheme.uiNS(.body)
+        self.icon.image = icon.image(side: AppDefaults.Sidebar.imageSize)
         if case .glyph(_, let color) = icon { tint = color } else { tint = nil }
         let text = count > 0 ? count.formatted() : ""
         countLabel.stringValue = attention ? "" : text
