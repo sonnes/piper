@@ -222,13 +222,17 @@ The Markdown editor is the editor of Hubble.md, a Tiptap and React editor, in a 
 
 `AssetSchemeHandler` serves the files of the folder at `piper-asset://folder/<path>`, for images and embeds, through `Vault.containedURL`. An HTML file gets a `sandbox` content security policy, and the iframe has no `allow-same-origin`.
 
+`Footnote.ts` adds the `footnoteReference` and `footnoteDefinition` nodes. The Hubble parser and writer in `web/vendor/hubble/editor/` read and write them as `[^label]` and `[^label]: text`. A note with more than one block indents each later line by 4 spaces.
+
 `ReaderLayer.tsx` ports the selection bar and the margin cards of `reader.html` to the editor page. A highlight is the `highlight` mark, which `HighlightMarkdown.ts` reads and writes as `==text==` or `<mark class="color">`. The other actions go to `AppModel.performFileAction`, which calls `ReaderMarks.perform` with a page note for the file (`AppModel.fileLink`). `AppModel.fileNotes` sends the cards to the page through `setNotes`.
 
-`lossGuard.ts` parses a file, writes it back, and compares the text, the link targets, and the structure. If they differ, or the file has footnotes, link titles, or table alignment, the rich editor is read-only. `EditorBanner` then offers the Source tab.
+`lossGuard.ts` parses a file, writes it back, and compares the text, the link targets, and the structure. If they differ, or the file has link titles or table alignment, the rich editor is read-only. `EditorBanner` then offers the Source tab.
 
 ### Saving
 
 `EditorSession` holds one Markdown file: its baseline, the editor text, its status, and its revision. `DiskChange.classify` compares the baseline, the editor text, and the disk text. `AppModel.editors` keeps the session of the open file, and each session with text that is not on disk. The page sends the last edit of a file after it opens the next file, so a session stays until that edit saves. A scan calls `EditorSession.diskChanged` for each file that changed. A conflict stops saves, and `EditorBanner` offers Reload or Keep Mine. `AppModel.settleEditors` saves each session before a folder change and before quit. It stops on a conflict.
+
+The editor adds an empty paragraph after a last block that is not a paragraph, so that the reader can type under it. `tiptapDocToMarkdown` does not write this paragraph. `EditorView` adds the final newline that the file had. A file that opens with no edit then saves with no change.
 
 ### Command Palette
 

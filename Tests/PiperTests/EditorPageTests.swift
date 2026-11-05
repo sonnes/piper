@@ -103,14 +103,47 @@ final class EditorPageTests: XCTestCase {
         XCTAssertEqual(clipboard, "function")
     }
 
-    func testAFileWithFootnotesIsReadOnlyInPreview() async throws {
-        let model = try makeModel([("Notes.md", "A claim.[^1]\n\n[^1]: The source.\n")])
+    func testAFileWithLinkTitlesIsReadOnlyInPreview() async throws {
+        let model = try makeModel([("Notes.md", "[A source](https://example.com \"Title\").\n")])
         model.openDocument("Notes.md")
         let page = try await load(model)
         try show(page, model)
-        try await wait("The page reports the footnotes.") { model.editor?.lossy == ["footnotes"] }
+        try await wait("The page reports the link titles.") { model.editor?.lossy == ["link titles"] }
         let editable = try await evaluate(page, "document.querySelector('.ProseMirror').getAttribute('contenteditable')") as? String
         XCTAssertEqual(editable, "false")
+    }
+
+    func testAnEditKeepsTheFootnotesOfAFile() async throws {
+        let raw = "A claim.[^1]\n\n[^1]: The source.\n"
+        let model = try makeModel([("Notes.md", raw)])
+        model.openDocument("Notes.md")
+        let page = try await load(model)
+        try show(page, model)
+        try await wait("The editor shows the footnote.") {
+            (try await self.evaluate(page, "document.querySelector('.piper-footnote')?.textContent") as? String) == "The source."
+        }
+        let editable = try await evaluate(page, "document.querySelector('.ProseMirror').getAttribute('contenteditable')") as? String
+        XCTAssertEqual(editable, "true")
+        XCTAssertEqual(model.editor?.lossy, [])
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("Notes.md"), encoding: .utf8), raw, "Opening the file does not change it.")
+
+        let append = """
+        (() => {
+            const editor = document.querySelector('.ProseMirror').editor;
+            let end = 0;
+            editor.state.doc.descendants((node, pos) => {
+                if (node.type.name === 'footnoteDefinition') end = pos + node.nodeSize - 2;
+            });
+            editor.commands.insertContentAt(end, ' More.');
+        })()
+        """
+        _ = try await evaluate(page, append)
+        try await wait("The edit reaches the disk.") {
+            (try String(contentsOf: self.root.appendingPathComponent("Notes.md"), encoding: .utf8)).contains("More.")
+        }
+        let saved = try String(contentsOf: root.appendingPathComponent("Notes.md"), encoding: .utf8)
+        XCTAssertEqual(saved, "A claim.[^1]\n\n[^1]: The source. More.\n")
     }
 
     func testADiskChangeLoadsIntoTheEditor() async throws {

@@ -16,8 +16,24 @@ export function tiptapDocToMarkdown(doc: JSONContent): string {
 		return "";
 	}
 
-	const blocks = doc.content.map(blockToMarkdown);
+	const blocks = withoutTrailingParagraph(doc.content).map(blockToMarkdown);
 	return blocks.join("\n\n");
+}
+
+// The editor adds an empty paragraph after a last block that is not a
+// paragraph, so that the reader can type under it. The file does not have it.
+function withoutTrailingParagraph(content: JSONContent[]): JSONContent[] {
+	const last = content.at(-1);
+	const previous = content.at(-2);
+	if (
+		last?.type === "paragraph" &&
+		!last.content?.length &&
+		previous &&
+		previous.type !== "paragraph"
+	) {
+		return content.slice(0, -1);
+	}
+	return content;
 }
 
 export function selectionToMarkdown(selection: Selection): string {
@@ -94,6 +110,16 @@ function blockToMarkdown(node: JSONContent): string {
 			if (!src || node.attrs?.uploadId) return "";
 
 			return `![${alt}](${src})`;
+		}
+
+		case "footnoteDefinition": {
+			const content = (node.content ?? [])
+				.map(blockToMarkdown)
+				.join("\n\n")
+				.split("\n")
+				.map((line, index) => (index === 0 || line === "" ? line : `    ${line}`))
+				.join("\n");
+			return `[^${node.attrs?.label ?? ""}]: ${content}`;
 		}
 
 		case "embed": {
@@ -480,6 +506,10 @@ function nodeToMarkdown(node: JSONContent): string {
 
 		case "hardBreak": {
 			return "  \n"; // Two spaces + newline creates a line break in Markdown
+		}
+
+		case "footnoteReference": {
+			return `[^${node.attrs?.label ?? ""}]`;
 		}
 
 		default:

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { scrollToAnchor } from "./anchors";
 import { send } from "./bridge";
 import { createEmbedExtension } from "./EmbedNode";
+import { FootnoteDefinition, FootnoteReference } from "./Footnote";
 import { HighlightMark } from "./HighlightMark";
 import { createImageExtension, handleImageDrop, handleImagePaste } from "./ImageNode";
 import { noteLocalChange } from "./latest";
@@ -22,6 +23,8 @@ export function App() {
 			createImageExtension(() => pathRef.current),
 			createEmbedExtension(() => pathRef.current),
 			HighlightMark,
+			FootnoteReference,
+			FootnoteDefinition,
 			QuestionMarks,
 		],
 		[],

@@ -141,7 +141,7 @@ The middle-pane search filters the selected folder. A matching file in another f
 7. Edit, then quit with Command-Q within one second. Make sure that the file has the edit.
 8. Change the open file in another app. Make sure that the page shows the new text.
 9. Edit, then change the file in another app before the save. Make sure that the bar shows, and that Keep Mine and Reload work.
-10. Open a file with a footnote. Make sure that Preview is read-only, and that Source edits it.
+10. Open a file with a footnote. Make sure that Preview shows the number and the note. Edit the note, and make sure that the file keeps `[^1]` and `[^1]: `.
 11. Press Command-F and find a word. Press Command-K with no text selected, and open a file.
 12. Select text in a file. Select each color, Note, and Explain. Make sure that the file has the highlights, and that the margin shows the note and the answer.
 

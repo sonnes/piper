@@ -176,6 +176,17 @@ function blockToPM(node: Content): JSONContent[] {
 		case "image": {
 			return imageToPM(node as Image);
 		}
+		case "footnoteDefinition": {
+			const content = node.children.flatMap((n) => blockToPM(n as Content));
+			return [
+				{
+					type: "footnoteDefinition",
+					attrs: { label: node.label ?? node.identifier },
+					content:
+						content.length > 0 ? content : [{ type: "paragraph", content: [] }],
+				},
+			];
+		}
 		default: {
 			// Unknown block: try to stringify inline if possible or drop.
 			// For safety, don’t throw; produce nothing.
@@ -418,6 +429,12 @@ function inlineToPM(children: Content[]): JSONContent[] {
 				break;
 			case "break":
 				out.push({ type: "hardBreak" });
+				break;
+			case "footnoteReference":
+				out.push({
+					type: "footnoteReference",
+					attrs: { label: child.label ?? child.identifier },
+				});
 				break;
 			case "link":
 				out.push(
@@ -681,6 +698,8 @@ function inlineMdastNodeToMarkdown(node: Content): string | null {
 		}
 		case "break":
 			return "\\\n";
+		case "footnoteReference":
+			return `[^${node.label ?? node.identifier}]`;
 		case "html":
 			return node.value;
 		default:
@@ -832,7 +851,7 @@ function applyMark(
 	attrs?: Record<string, unknown>,
 ): JSONContent[] {
 	return nodes.map((n) => {
-		if (n.type === "text") {
+		if (n.type === "text" || n.type === "footnoteReference") {
 			const marks = [
 				...(n.marks ?? []),
 				attrs ? { type: markType, attrs } : { type: markType },

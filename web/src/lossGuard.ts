@@ -38,9 +38,6 @@ export function lossyFeatures(markdown: string): string[] {
 
 function unsupported(node: RootContent | Root): string | null {
 	switch (node.type) {
-		case "footnoteDefinition":
-		case "footnoteReference":
-			return "footnotes";
 		case "link":
 			return node.title ? "link titles" : null;
 		case "image":

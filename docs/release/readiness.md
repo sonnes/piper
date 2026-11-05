@@ -41,7 +41,8 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Do the Editing Checks in [validate.md](validate.md) that are not done in the built app: Japanese input, Command-F, and Reload in the conflict bar.
 - [ ] Decide whether Piper turns off text replacement and smart quotes in the editor page. Today a macOS text replacement changes the Markdown that you type.
 - [ ] Hide `<note>.assets` folders in the sidebar.
-- [ ] Show footnotes in a read-only Preview. Today Preview hides the marker and the footnote text.
+- [x] Edit footnotes in Preview. `web/test/footnote.test.ts` and `EditorPageTests.testAnEditKeepsTheFootnotesOfAFile` cover the round trip and the save.
+- [x] Stop a save from adding a blank line at the end of a file that ends with a list, a quote, a code block, a table, or a footnote. `web/test/trailingParagraph.test.ts` covers it.
 - [ ] Decide whether the editor escapes Markdown characters in plain text. Today a literal `*` that you type can become emphasis when the file opens again.
 - [ ] Decide whether an HTML embed can read files of the folder, as in Hubble.md. Today an embed has no access.
 - [x] Connect the Capture Clipboard action. `ReleaseTests.testClipboardCaptureSavesWithoutAnAppDelegate` covers the model action and an empty clipboard.

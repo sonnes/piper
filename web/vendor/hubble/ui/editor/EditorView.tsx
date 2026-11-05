@@ -224,7 +224,10 @@ export function EditorView({
 		onUpdate: ({ editor: current }) => {
 			const doc = current.getJSON() as JSONContent;
 			if (hasUploadImage(doc)) return;
-			const body = tiptapDocToMarkdown(doc);
+			// The editor has no final newline. Keep the one that the file has.
+			const body =
+				tiptapDocToMarkdown(doc) +
+				(partsRef.current.body.endsWith("\n") ? "\n" : "");
 			partsRef.current = { ...partsRef.current, body };
 			const markdown = combineMarkdownFrontMatter(
 				partsRef.current.frontMatter,

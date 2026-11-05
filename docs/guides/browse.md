@@ -137,6 +137,7 @@ The editor is the editor of [Hubble.md](https://github.com/bholmesdev/hubble.md)
 - A `/` at the start of a line opens a list of blocks: headings, lists, a to-do list, a quote, a divider, and a table.
 - Command-K makes a link from the selected text. Type `[[` to link to another file.
 - Command-Z reverses an edit.
+- A footnote shows as a small number in the text. Its note shows at the place of `[^label]: text` in the file. To add a footnote, type `[^1]` after a word. Then type `[^1]: ` and the note at the start of a line.
 
 A file with frontmatter shows its keys as properties over the text. You can change a value, change the type of a key, or select Add Property. If the YAML is not valid, the properties show as read-only text.
 
@@ -157,7 +158,7 @@ If the pane is too narrow for the margin, the cards show under the text. In a re
 
 ### When Preview Is Read-Only
 
-Some Markdown has no place in the editor, for example footnotes, link titles, and table alignment. A save from Preview would remove it. For such a file, Preview is read-only, and a bar over the page names the syntax. To edit the file, select Edit in Source.
+Some Markdown has no place in the editor, for example link titles and table alignment. A save from Preview would remove it. For such a file, Preview is read-only, and a bar over the page names the syntax. To edit the file, select Edit in Source.
 
 ### When The File Changes On Disk
 
