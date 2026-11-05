@@ -22,7 +22,10 @@ final class CaptureLinksTests: XCTestCase {
                      "Read https://example.com", "https://example.com https://swift.org", "[Article](https://example.com)"] {
             XCTAssertNil(CaptureLinks(text).standaloneURL, text)
         }
-        XCTAssertEqual(CaptureLinks("www.swift.org").standaloneURL?.absoluteString, "http://www.swift.org")
+        // macOS picks the scheme of a bare domain. Newer versions pick https.
+        let bare = CaptureLinks("www.swift.org").standaloneURL
+        XCTAssertEqual(bare?.host, "www.swift.org")
+        XCTAssertTrue(bare.map(CaptureLinks.isWebURL) ?? false)
     }
 
     func testMarkdownAndSurroundingParenthesesKeepTheDestination() {
