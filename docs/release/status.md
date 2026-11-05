@@ -71,7 +71,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Command palette | Implemented | `PaletteSearchTests`, `CommandPaletteTests` |
 | Selection bar and margin cards in a file | Implemented | `EditorPageTests`, `web/test/highlight.test.ts`, `web/test/readerLayer.test.ts`. Ask, Explain, and Define not checked in the app. |
 | Previews for non-Markdown files | Implemented | `FilePreviewTests` |
-| Markdown rendering | Partial | The Hubble.md editor with GFM. Footnotes, link titles, and table alignment open read-only. |
+| Markdown rendering | Partial | The Hubble.md editor with GFM. Link titles and table alignment open read-only. |
 | Add and remove folders | Implemented | `WikiFoldersTests` |
 | Find in the open file | Implemented | The find bar of the editor. Not checked in the app. |
 | Create a new Wiki from the UI | Not implemented | `Vault.create()` exists and has tests, but no UI calls it |

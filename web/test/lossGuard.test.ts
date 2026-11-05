@@ -28,10 +28,6 @@ describe("lossyFeatures", () => {
 		expect(lossyFeatures("* one\n* two\n\n__bold__ and _em_\n")).toEqual([]);
 	});
 
-	it("finds footnotes", () => {
-		expect(lossyFeatures("A claim.[^1]\n\n[^1]: The source.\n")).toContain("footnotes");
-	});
-
 	it("finds link titles", () => {
 		expect(lossyFeatures('[a](https://example.com "Title")\n')).toContain("link titles");
 	});

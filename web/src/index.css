@@ -113,6 +113,29 @@ body {
 [data-hubble-editor] .ProseMirror a { color: var(--piper-accent); }
 [data-hubble-editor] .ProseMirror code { background: var(--piper-code); }
 
+[data-hubble-editor] .ProseMirror .piper-footnote-ref {
+	color: var(--piper-accent);
+	font-family: var(--piper-sans);
+	font-size: 0.7em;
+	line-height: 0;
+}
+[data-hubble-editor] .ProseMirror .piper-footnote-ref::before { content: "["; }
+[data-hubble-editor] .ProseMirror .piper-footnote-ref::after { content: "]"; }
+[data-hubble-editor] .ProseMirror .piper-footnote {
+	position: relative;
+	padding-inline-start: 2.2em;
+	color: var(--muted-foreground);
+	font-size: 0.85em;
+}
+[data-hubble-editor] .ProseMirror .piper-footnote::before {
+	content: attr(data-label) ".";
+	position: absolute;
+	inset-inline-start: 0;
+	color: var(--piper-accent);
+	font-family: var(--piper-sans);
+}
+[data-hubble-editor] .ProseMirror .piper-footnote > :first-child { margin-block-start: 0; }
+
 .piper-header {
 	inline-size: 100%;
 	max-inline-size: calc(640px + 96px);
