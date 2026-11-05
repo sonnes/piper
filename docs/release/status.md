@@ -57,7 +57,8 @@ This table describes the source on September 15, 2026. Implemented means that th
 | --- | --- | --- |
 | Folder tree with any folder structure | Implemented | `VaultTests`, `PathTreeBuilderTests`, `TreeControllerTests` |
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |
-| Daily brief from browser history and NetNewsWire | Implemented | `BriefsTests`. Not checked on a real NetNewsWire database. |
+| Daily brief from browser history and NetNewsWire | Implemented | `BriefsTests` (decay rank, picks prompt and answer, brief files). Not checked on a real NetNewsWire database. |
+| Brief picks in Inbox, with Keep and Skip | Implemented | `BriefsTests` (pick states). Checked in the main window with seeded picks. Not checked in the capture panel or with a real build. |
 | Vault search across titles, paths, descriptions, and text | Implemented | `WikiWorkspaceTests` (multiple words) |
 | Unread state and folder counts | Implemented | `FileReadStateTests` |
 | Back and forward history | Implemented | `WikiWorkspaceTests` |
@@ -85,7 +86,8 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Capture from a web page | Implemented | Manual checks for selected text, page text, source metadata, empty pages, and the Capture button |
 | Reader tab with highlights and questions | Partial | `CaptureStoreTests` (child notes), `NoteAnchorTests` (anchors and threads). The reader page was checked in WebKit on sqlite.org and paulgraham.com. Not checked in the app window with Claude Code answers. |
 | Notes on highlights, reading position, and progress | Implemented | `ReadingTests` (reading state, comments). The reader page was checked in Chrome with sample notes. The saved position is not checked in the app window. |
-| Inbox stream with day groups, chips, and section filters | Implemented | `InboxStreamTests`, `ReadingTests` (groups, archive after seven days). Rendered offscreen. Not checked in the app window. |
+| Inbox stream with day groups, chips, and section filters | Implemented | `InboxStreamTests`, `ReadingTests` (groups, archive after seven days). Checked in the app window with seeded notes. |
+| Checklist rows, the add field at the top, and Done Today | Implemented | `InboxStreamTests` (done today). Checked in the main window with seeded notes. The capture panel was rendered offscreen. Hover and keyboard focus are not checked in the panel. |
 | Notes tab, Save as File, and Update File | Implemented | `ReadingTests` (Markdown file and update). Rendered offscreen. Not checked in the app window. |
 | Text style popover and Summary in the Reader tab | Not implemented | The reader has one font, one size, and no summary |
 
