@@ -16,8 +16,10 @@ final class AppModel {
     let reader: ReaderAssistant
     let brief: BriefBuilder
     /// The tab that a link capture shows: the article, the web page, or the notes.
-    /// A link capture opens in the Web tab.
     var articleTab = ArticleTab.web
+    /// The tab, Reader or Web, that the reader last chose for each site, by `siteKey`.
+    /// Preferences keep it.
+    private(set) var siteTabs: [String: ArticleTab] = [:]
     /// The chip of the Inbox list for each section. The empty key is Inbox
     /// with every section.
     var inboxFilters: [String: InboxStream.Filter] = [:]
@@ -25,10 +27,26 @@ final class AppModel {
     var readerScroll: ReaderScroll?
 
     /// The tab of a link capture as it opens. A request to show one of its
-    /// highlights opens the Reader tab. Each other link opens in the Web tab.
-    func openingTab(for article: UUID) -> ArticleTab {
-        guard let scroll = readerScroll, scroll.article == article, scroll.note != nil else { return .web }
-        return .reader
+    /// highlights opens the Reader tab. Each other link opens in the tab that
+    /// the reader last chose for its site. A new site opens in the Web tab.
+    func openingTab(for note: Note) -> ArticleTab {
+        if let scroll = readerScroll, scroll.article == note.id, scroll.note != nil { return .reader }
+        return note.articleURL.flatMap(Self.siteKey).flatMap { siteTabs[$0] } ?? .web
+    }
+
+    /// Shows a tab of a link capture that the reader chose. A choice of Reader
+    /// or Web becomes the opening tab of the site of the link.
+    func chooseArticleTab(_ tab: ArticleTab, for url: URL) {
+        articleTab = tab
+        guard tab != .notes, let site = Self.siteKey(url), siteTabs[site] != tab else { return }
+        siteTabs[site] = tab
+        preferences.set(siteTabs.mapValues(\.rawValue), forKey: AppDefaults.Key.siteTabs)
+    }
+
+    /// The site of a link: its host in lowercase, without a leading `www.`.
+    static func siteKey(_ url: URL) -> String? {
+        guard let host = url.host()?.lowercased(), !host.isEmpty else { return nil }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     /// Shows a highlight or a question of a link capture in the Reader tab.
@@ -147,6 +165,8 @@ final class AppModel {
             defaults.set(true, forKey: "migratedLocalPreferences")
         }
         composerDraft = defaults.string(forKey: AppDefaults.Key.composerDraft) ?? ""
+        siteTabs = (defaults.dictionary(forKey: AppDefaults.Key.siteTabs) as? [String: Int] ?? [:])
+            .compactMapValues { ArticleTab(rawValue: $0) }
         let store = store ?? CaptureStore()
         self.store = store
         clipboard = ClipboardInbox(store: store)

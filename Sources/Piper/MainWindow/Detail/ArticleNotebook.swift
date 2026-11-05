@@ -116,7 +116,7 @@ struct ArticleNotebook: View {
                 .font(.system(size: metrics.titleFontSize, weight: .semibold, design: .serif))
                 .textSelection(.enabled)
             HStack(spacing: 12) {
-                Button("Open in Reader") { model.articleTab = .reader }.buttonStyle(.text)
+                Button("Open in Reader") { model.chooseArticleTab(.reader, for: url) }.buttonStyle(.text)
                 Text(ReadingList.counts(of: children)).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
             }
         }

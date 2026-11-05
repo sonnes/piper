@@ -242,7 +242,7 @@ The editor adds an empty paragraph after a last block that is not a paragraph, s
 
 ## Inbox Reader
 
-`NoteDetail` shows a capture. `CaptureLinks` finds HTTP and HTTPS URLs with `NSDataDetector` and keeps the original text. If the capture is only a URL, the reader opens it at once. `AppModel.articleTab` picks the Reader tab, the Web tab, or the Notes tab. `NoteDetail` shows Reader, Web, and Notes in a `TabIsland` at the bottom of the pane.
+`NoteDetail` shows a capture. `CaptureLinks` finds HTTP and HTTPS URLs with `NSDataDetector` and keeps the original text. If the capture is only a URL, the reader opens it at once. `AppModel.articleTab` picks the Reader tab, the Web tab, or the Notes tab. `AppModel.chooseArticleTab(_:for:)` records a choice of Reader or Web for the site of the link, and `AppModel.openingTab(for:)` opens the next link of that site in the same tab. A link from a new site opens in the Web tab. `NoteDetail` shows Reader, Web, and Notes in a `TabIsland` at the bottom of the pane.
 
 `NoteWebReader` embeds `WKWebView` through `NSViewRepresentable`, which works on macOS 14. It keeps the requested URL apart from the current URL, so a view update does not restart navigation after a redirect. A new capture selection resets the reader.
 

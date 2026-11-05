@@ -52,6 +52,7 @@ final class AppDefaults {
         static let sessionPresentation = "sessionPresentation"
         /// The folder that Save as File used last.
         static let articleExportFolder = "articleExportFolder"
+        static let siteTabs = "articleSiteTabs"
         static let briefBlockedSites = "briefBlockedSites"
         static let briefDisabledSources = "briefDisabledSources"
         static let briefMorning = "briefMorning"

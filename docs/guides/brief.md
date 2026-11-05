@@ -34,7 +34,7 @@ If a build fails, the group shows the reason and Try Again.
 
 | Action | Result |
 | --- | --- |
-| Select the title | Piper saves the link to Inbox and opens it in the Web tab. The pick leaves the group. |
+| Select the title | Piper saves the link to Inbox and opens it. The pick leaves the group. |
 | Select Keep | Piper saves the link to Inbox. The pick leaves the group. |
 | Select Skip | The pick leaves the group. Piper does not save the link. |
 | Select the circle | Piper marks the pick as read. The pick leaves the group. |

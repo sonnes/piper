@@ -133,6 +133,7 @@ UserDefaults holds these keys:
 | `claudePath`, `claudeModel`, `claudePermissionMode` | The `claude` command that you chose, and the default model and permissions of Claude Code |
 | `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |
 | `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |
+| `articleSiteTabs` | The tab, Reader or Web, that each site of a link capture opens in |
 | `mainWindowState` | The sidebar selection, open file, open folders, and pane widths |
 | `NSWindow Frame PiperCapturePanel`, `NSWindow Frame PiperLibrary` | Window frames |
 

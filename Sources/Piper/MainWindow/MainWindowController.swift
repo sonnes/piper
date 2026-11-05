@@ -125,10 +125,10 @@ final class MainWindowController: NSWindowController {
         model.store.selection = [id]
     }
 
-    /// Shows a link capture in Inbox, in the Web tab.
+    /// Shows a link capture in Inbox, in the opening tab of its site.
     func showArticle(_ id: UUID) {
         guard let note = model.store.notes.first(where: { $0.id == id }) else { return }
-        model.articleTab = .web
+        model.articleTab = model.openingTab(for: note)
         showNote(note.id)
     }
 

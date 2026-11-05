@@ -117,7 +117,7 @@ Two links name the same page when they differ only in tracking parameters, such 
 
 Piper saves the selection as a highlight under the link capture of the page. If Piper does not have the page, it adds the page to Inbox first. The link capture goes to the selected section.
 
-The toast shows the page title and the number of highlights from the page, for six seconds. The toast does not take the focus, so you can continue to read in the browser. Continue in Piper opens the page in the Web tab. To see the highlight, select the Reader tab.
+The toast shows the page title and the number of highlights from the page, for six seconds. The toast does not take the focus, so you can continue to read in the browser. Continue in Piper opens the page in the tab that you last chose for its site. The highlight shows in the Reader tab.
 
 The page in the browser shows no mark. The mark shows in the Reader tab.
 
@@ -203,7 +203,7 @@ Undo reverses the last note change. Piper keeps one undo step, and a restart cle
 - To open the note in a separate editor window, press Command-Return.
 - To write the edit, select Save.
 
-In the main window, the detail pane edits the selected note in place. Piper saves the change shortly after you stop typing. A note that holds only a link opens in the Web tab, and it has no editor.
+In the main window, the detail pane edits the selected note in place. Piper saves the change shortly after you stop typing. A note that holds only a link opens in the Reader tab or the Web tab, and it has no editor. See [Read captures in Inbox](browse.md#read-captures-in-inbox).
 
 The circle on a note row marks the note as done. The ring on an article marks it as read. In the main window, Space marks the open note as done. Mark as Done is also in the selection bar and the context menu. A note that you mark as done moves to "done today" at the end of its list. The next day, it shows only in Done.
 
