@@ -286,6 +286,8 @@ struct CountChip: View {
         .frame(height: AppDefaults.CaptureItem.chipHeight)
         .background(PiperTheme.markYellow.opacity(0.2), in: RoundedRectangle(cornerRadius: 5))
         .contentShape(Rectangle())
+        // A narrow row cuts the site name, not the count.
+        .fixedSize()
     }
 }
 
