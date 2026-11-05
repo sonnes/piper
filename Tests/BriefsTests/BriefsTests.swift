@@ -32,13 +32,42 @@ final class BriefsTests: XCTestCase {
         XCTAssertEqual(stories[1].discussionURL, "https://news.ycombinator.com/item?id=1")
     }
 
-    func testBriefPromptHoldsTheStoriesAndTheirSection() {
-        let story = HackerNewsStory(title: "A story", url: "https://a.example/x", discussionURL: "https://news.ycombinator.com/item?id=1", points: 60, comments: 2, postedAt: Date())
-        let digest = HistoryDigest(visits: [], blocked: [], now: Date())
-        let prompt = BriefPrompts.writeBrief(date: "Today", digest: digest, pages: [], articles: [], stories: [story], covered: ["Old item"], failed: [])
-        XCTAssertTrue(prompt.contains("- Old item"))
-        XCTAssertTrue(prompt.contains("section named Hacker News"))
-        XCTAssertTrue(prompt.contains("A story (https://a.example/x), 60 points, 2 comments"))
+    func testPicksPromptNumbersTheLinksAndHoldsTheirDetails() {
+        let story = HackerNewsStory(title: "A story", url: "https://a.example/x", discussionURL: "https://news.ycombinator.com/item?id=1",
+                                    points: 60, comments: 2, postedAt: Date())
+        let article = FeedArticle(feed: "F", title: "An article", url: "https://b.example/y", summary: "The summary", starred: true, publishedAt: nil)
+        let candidates = [
+            BriefCandidate(url: story.url, title: story.title, host: "a.example", kind: .story, score: 2),
+            BriefCandidate(url: article.url, title: article.title, host: "b.example", kind: .starredArticle, score: 1)
+        ]
+        let prompt = BriefPrompts.choosePicks(date: "Today", candidates: candidates, digest: HistoryDigest(totalSites: 0, sites: []),
+                                              articles: [article], stories: [story])
+        XCTAssertTrue(prompt.contains("1. A story (a.example, story), 60 points, 2 comments"))
+        XCTAssertTrue(prompt.contains("2. An article (b.example, starredArticle)\n   The summary"))
+        XCTAssertFalse(prompt.contains("https://"))
+    }
+
+    func testPicksKeepOnlyListedNumbersWithAReasonInRankOrder() {
+        let candidates = (1...10).map {
+            BriefCandidate(url: "https://a.example/\($0)", title: "T\($0)", host: "a.example", kind: .pageLink, score: Double(20 - $0))
+        }
+        let answer = #"Sure: [{"id": 4, "why": " Four. "}, {"id": 2, "why": "Two"}, {"id": 4, "why": "Again"}, {"id": 11, "why": "Out"}, {"id": 0, "why": "Zero"}, {"id": 3, "why": "  "}]"#
+
+        let picks = BriefPrompts.picks(in: answer, candidates: candidates)
+
+        XCTAssertEqual(picks.map(\.title), ["T2", "T4"])
+        XCTAssertEqual(picks[1].why, "Four.")
+        XCTAssertEqual(picks[1].url, "https://a.example/4")
+        XCTAssertEqual(picks[1].state, .open)
+        XCTAssertEqual(BriefPrompts.picks(in: "no json", candidates: candidates), [])
+    }
+
+    func testPicksStopAtTheLimit() {
+        let candidates = (1...12).map {
+            BriefCandidate(url: "https://a.example/\($0)", title: "T\($0)", host: "a.example", kind: .pageLink, score: 1)
+        }
+        let answer = "[" + (1...12).map { #"{"id": \#($0), "why": "W"}"# }.joined(separator: ",") + "]"
+        XCTAssertEqual(BriefPrompts.picks(in: answer, candidates: candidates).count, BriefPrompts.pickLimit)
     }
 
     // MARK: - Repeats
@@ -49,8 +78,8 @@ final class BriefsTests: XCTestCase {
         calendar.timeZone = TimeZone(identifier: "UTC")!
         let yesterday = Date(timeIntervalSince1970: 1_700_000_000)
         let today = yesterday.addingTimeInterval(86_400)
-        try store.save("[Old](https://a.example/old/)", date: yesterday, title: "A", sites: [], feeds: [], failed: [], calendar: calendar)
-        try store.save("[Today](https://a.example/today)", date: today, title: "B", sites: [], feeds: [], failed: [], calendar: calendar)
+        try store.save(day("2023-11-14", picks: ["https://a.example/old/"]))
+        try store.save(day("2023-11-15", picks: ["https://a.example/today"]))
 
         let seen = store.linksBefore(today, calendar: calendar)
 
@@ -60,32 +89,10 @@ final class BriefsTests: XCTestCase {
         let data = Data(#"{"hits":[{"objectID":"1","title":"Old","url":"https://a.example/old","points":90,"num_comments":1},{"objectID":"2","title":"New","url":"https://a.example/new","points":60,"num_comments":1}]}"#.utf8)
         XCTAssertEqual(try HackerNews.stories(in: data, blocked: [], seen: seen).map(\.title), ["New"])
 
-        let page = LoadedPage(host: "a.example", title: "A", text: "x", links: [
+        let page = LoadedPage(host: "a.example", title: "A", links: [
             PageLink(label: "Old", url: "https://a.example/old"), PageLink(label: "New", url: "https://a.example/new")
         ]).removingLinks(in: seen)
-        XCTAssertEqual(page.page.links.map(\.label), ["New"])
-        XCTAssertEqual(page.covered, ["Old"])
-    }
-
-    // MARK: - Document
-
-    func testDocumentMakesBlocksAndKeepsLinkPlaces() {
-        let blocks = BriefDocument.blocks(in: """
-        ## Lead
-
-        **New** release of é [the tool](https://a.example/x)
-        continues here.
-
-        - An [item](https://b.example) with `code`
-        - [Bad](file:///etc/passwd)
-        """)
-        XCTAssertEqual(blocks.map(\.kind), ["heading", "paragraph", "item", "item"])
-        XCTAssertEqual(blocks[1].text, "New release of é the tool continues here.")
-        let link = blocks[1].links[0]
-        XCTAssertEqual((blocks[1].text as NSString).substring(with: NSRange(location: link.offset, length: link.length)), "the tool")
-        XCTAssertEqual(link.url, "https://a.example/x")
-        XCTAssertEqual(blocks[2].text, "An item with code")
-        XCTAssertTrue(blocks[3].links.isEmpty)
+        XCTAssertEqual(page.links.map(\.label), ["New"])
     }
 
     // MARK: - Catalog
@@ -300,7 +307,7 @@ final class BriefsTests: XCTestCase {
         let digest = HistoryDigest(totalSites: 0, sites: [])
         let links = (0..<40).map { PageLink(label: "L\($0)", url: "https://p.example/\($0)") }
             + [PageLink(label: "Same", url: "https://p.example/0/#top"), PageLink(label: "Bank", url: "https://bank.example/x")]
-        let page = LoadedPage(host: "p.example", title: "P", text: "", links: links)
+        let page = LoadedPage(host: "p.example", title: "P", links: links)
 
         let ranked = BriefRanking.rank(stories: [], articles: [], pages: [page], digest: digest,
                                        blocked: ["bank.example"], previousBuild: now.addingTimeInterval(-3_600), now: now)
@@ -313,7 +320,7 @@ final class BriefsTests: XCTestCase {
 
     func testPageLinksWithoutAnEarlierBuildAreOneDayOld() {
         let now = Date(timeIntervalSince1970: 1_000_000)
-        let page = LoadedPage(host: "p.example", title: "P", text: "", links: [PageLink(label: "L", url: "https://p.example/1")])
+        let page = LoadedPage(host: "p.example", title: "P", links: [PageLink(label: "L", url: "https://p.example/1")])
         let digest = HistoryDigest(totalSites: 0, sites: [])
 
         for previous in [nil, now.addingTimeInterval(-7 * 86_400)] {
@@ -322,32 +329,6 @@ final class BriefsTests: XCTestCase {
             XCTAssertEqual(ranked[0].score, Decay.score(points: BriefRanking.pageLinkPoints - 1, hours: BriefRanking.undatedHours),
                            accuracy: 1e-9)
         }
-    }
-
-    // MARK: - Links
-
-    func testCleanKeepsOnlyKnownLinksAndRemovesImages() {
-        let text = """
-        Read [good](https://a.example/1) and [bad](https://evil.example/?data=secret).
-        ![tracker](https://evil.example/p.png)
-        Visit https://evil.example/bare and <https://evil.example/angle> and https://a.example/1 now.
-        <img src="https://evil.example/x.png">
-        [script](javascript:alert(1))
-        [ref]: https://evil.example/ref
-        """
-
-        let clean = BriefLinks.clean(text, known: ["https://a.example/1"])
-
-        XCTAssertFalse(clean.contains("evil"), clean)
-        XCTAssertFalse(clean.contains("javascript"), clean)
-        XCTAssertTrue(clean.contains("[good](https://a.example/1)"), clean)
-        XCTAssertTrue(clean.contains("and bad."), clean)
-        XCTAssertTrue(clean.contains("and https://a.example/1 now"), clean)
-    }
-
-    func testCleanIgnoresALastSlashAndAFragment() {
-        XCTAssertEqual(BriefLinks.clean("[a](https://a.example/x/#top)", known: ["https://a.example/x"]),
-                       "[a](https://a.example/x/#top)")
     }
 
     // MARK: - Prompts
@@ -360,13 +341,6 @@ final class BriefsTests: XCTestCase {
     func testHostsUseTheTopSitesWhenTheAnswerHasNone() {
         let digest = digest(hosts: (0..<12).map { "s\($0).example" })
         XCTAssertEqual(BriefPrompts.hosts(in: "no json", digest: digest), (0..<8).map { "s\($0).example" })
-    }
-
-    func testPageTextStaysInsideTheLimit() {
-        let links = (0..<1000).map { PageLink(label: "Link \($0)", url: "https://a.example/\($0)") }
-        let page = LoadedPage(host: "a.example", title: "A", text: String(repeating: "x", count: 50_000), links: links)
-        XCTAssertLessThanOrEqual(page.promptText.count, LoadedPage.characterLimit)
-        XCTAssertTrue(page.promptText.contains("https://a.example/0"))
     }
 
     // MARK: - Schedule
@@ -386,23 +360,30 @@ final class BriefsTests: XCTestCase {
 
     // MARK: - Store
 
-    func testStoreListsTheNewestFirstAndHidesTheFrontmatter() throws {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC")!
+    func testStoreKeepsTheNewestBriefAndTheStateOfEachPick() throws {
         let store = BriefStore(folder: folder.appendingPathComponent("Briefs"))
-        let first = calendar.date(from: DateComponents(year: 2026, month: 10, day: 29))!
-        let second = calendar.date(from: DateComponents(year: 2026, month: 10, day: 30))!
+        XCTAssertNil(store.latest())
 
-        try store.save("# Old", date: first, title: "Old", sites: [], feeds: [], failed: [], calendar: calendar)
-        let file = try store.save("# New\n\n---\n\nText", date: second, title: "A \"new\" brief", sites: ["a.example"], feeds: ["F"], failed: ["x.com"], calendar: calendar)
+        try store.save(day("2026-10-29", picks: ["https://a.example/old"]))
+        try store.save(day("2026-10-30", picks: ["https://a.example/1", "https://a.example/2"]))
+        let changed = try store.set(.kept, of: "https://a.example/1", in: "2026-10-30")
 
-        XCTAssertEqual(store.files().map(\.id), ["2026-10-30", "2026-10-29"])
-        XCTAssertEqual(try store.body(of: file), "# New\n\n---\n\nText")
+        XCTAssertEqual(store.latest()?.id, "2026-10-30")
+        XCTAssertEqual(store.latest(), changed)
+        XCTAssertEqual(store.latest()?.openPicks.map(\.url), ["https://a.example/2"])
+        XCTAssertEqual(store.day("2026-10-30")?.picks.first?.state, .kept)
+        XCTAssertNil(try store.set(.read, of: "https://a.example/none", in: "2026-10-30"))
         let permissions = try FileManager.default.attributesOfItem(atPath: store.folder.path)[.posixPermissions] as? Int
         XCTAssertEqual(permissions, 0o700)
     }
 
     // MARK: - Helpers
+
+    private func day(_ id: String, picks urls: [String]) -> BriefDay {
+        BriefDay(id: id, builtAt: Date(timeIntervalSince1970: 1_700_000_000),
+                 picks: urls.map { BriefPick(url: $0, title: "T", host: "a.example", why: "W", score: 1) },
+                 sites: [], feeds: [], failed: [])
+    }
 
     private func digest(hosts: [String]) -> HistoryDigest {
         HistoryDigest(totalSites: hosts.count, sites: hosts.map {

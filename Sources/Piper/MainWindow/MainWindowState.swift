@@ -2,12 +2,11 @@ import AppKit
 
 /// What the source list has selected, and what the other panes therefore show.
 ///
-/// The brief and the capture inbox sit over the vault, because both hold
-/// items that no folder holds. Only the captures use the list pane.
+/// The capture inbox sits over the vault, because it holds items that no
+/// folder holds. Only the captures use the list pane.
 enum SidebarSelection: Codable, Equatable {
-    /// The daily brief, which the window opens on.
-    case brief
-    /// The captures, which live in the database rather than in the vault.
+    /// The captures, which live in the database rather than in the vault. The
+    /// window opens on Inbox.
     case inbox
     /// One capture section. The Inbox list scrolls to it.
     case section(String)
@@ -36,7 +35,7 @@ enum SidebarSelection: Codable, Equatable {
     var showsCaptures: Bool {
         switch self {
         case .inbox, .section, .clipboard, .archived: return true
-        case .brief, .folder, .file, .sessions: return false
+        case .folder, .file, .sessions: return false
         }
     }
 
@@ -44,7 +43,7 @@ enum SidebarSelection: Codable, Equatable {
     var showsList: Bool {
         switch self {
         case .inbox, .section, .archived: return true
-        case .brief, .clipboard, .folder, .file, .sessions: return false
+        case .clipboard, .folder, .file, .sessions: return false
         }
     }
 }
@@ -56,8 +55,8 @@ struct MainWindowState: Codable, Equatable {
 
     // MARK: - Properties
 
-    /// What the sidebar had selected. The window opens on the home page.
-    var selection = SidebarSelection.brief
+    /// What the sidebar had selected. The window opens on Inbox.
+    var selection = SidebarSelection.inbox
     /// The folder the sidebar had selected. An empty string is the vault root.
     var selectedFolder: String { selection.folder }
     /// The file the detail pane showed, as a path relative to the vault root.

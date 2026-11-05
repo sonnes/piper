@@ -37,13 +37,12 @@ private final class SinglePage: NSObject, WKNavigationDelegate {
         .filter(a => /^https?:/.test(a.href))
         .map(a => ({ label: (a.innerText || a.title || '').trim().slice(0, 200), url: a.href }))
         .filter(link => link.label.length > 0);
-      return JSON.stringify({ title: document.title, text: document.body ? document.body.innerText : '', links });
+      return JSON.stringify({ title: document.title, links });
     })()
     """
 
     private struct Extracted: Decodable {
         let title: String
-        let text: String
         let links: [PageLink]
     }
 
@@ -77,8 +76,8 @@ private final class SinglePage: NSObject, WKNavigationDelegate {
         guard let current = view.url, BlockedSites.allows(current.absoluteString, list: blocked),
               let json = try? await view.evaluateJavaScript(Self.script, in: nil, contentWorld: .defaultClient) as? String,
               let page = try? JSONDecoder().decode(Extracted.self, from: Data(json.utf8)),
-              !page.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return LoadedPage(host: host, title: page.title, text: page.text, links: page.links)
+              !page.links.isEmpty else { return nil }
+        return LoadedPage(host: host, title: page.title, links: page.links)
     }
 
     private func finish(_ loaded: Bool) {

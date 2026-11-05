@@ -13,7 +13,7 @@ import Vault
 /// The sidebar selection decides what the other panes hold. The home page and
 /// the capture inbox are rows of the sidebar, so the source list stays in place
 /// whichever one the reader picks. Only the captures show the list pane. Files,
-/// sessions, the brief, and the clipboard take its width.
+/// sessions, and the clipboard take its width.
 @MainActor
 final class MainWindowController: NSWindowController {
 
@@ -32,7 +32,6 @@ final class MainWindowController: NSWindowController {
     private var doneItem: NSToolbarItem?
 
     /// True while the panes to the right of the sidebar hold the brief.
-    private var showsBrief: Bool { state.selection == .brief }
     /// True while the detail pane shows agent sessions.
     private var showsSessions: Bool {
         if case .sessions = state.selection { return true }
@@ -110,17 +109,6 @@ final class MainWindowController: NSWindowController {
     /// because the window closes nothing.
     func hide() {
         window?.orderOut(nil)
-    }
-
-    /// Shows the files in place of the home page.
-    func showBrowser() {
-        guard showsBrief else { return }
-        select(.folder(state.selectedFolder))
-    }
-
-    /// Shows the brief in the panes beside the sidebar.
-    func showBrief() {
-        select(.brief)
     }
 
     /// Shows a file in its folder.
@@ -227,8 +215,6 @@ final class MainWindowController: NSWindowController {
         ).id(model.vault.root))
 
         switch state.selection {
-        case .brief:
-            detailViewController.setContent(BriefPage(model: model).routeSheets(model))
         case .inbox, .section, .archived:
             let content: CaptureListContent
             switch state.selection {
@@ -291,8 +277,6 @@ final class MainWindowController: NSWindowController {
         guard window != nil else { return }
         let store = model.store
         switch state.selection {
-        case .brief:
-            setTitle("Brief", "")
         case .inbox:
             setTitle("Inbox", Self.count(store.notes.filter { $0.parent == nil && !$0.isDone }.count, "item"))
         case .section(let name):
@@ -367,7 +351,7 @@ final class MainWindowController: NSWindowController {
             guard let note else { return .folder }
             return .text(note.text, noteID: note.id)
         }
-        guard !showsBrief, !showsSessions, let document = model.currentDocument else { return .folder }
+        guard !showsSessions, let document = model.currentDocument else { return .folder }
         return .page(model.vault.root.appendingPathComponent(document.relativePath).path)
     }
 

@@ -12,7 +12,7 @@ read_when:
 
 The main window keeps one or more folders in the sidebar. The selected folder is the active vault. Any folder works: Piper needs no index, no frontmatter, and no folder names. See [Wiki files](../concepts/files.md) for the scan rules.
 
-Open the window with Command-2. Command-0 opens it on the [Brief page](brief.md).
+Open the window with Command-2.
 
 ## Add A Folder
 
@@ -37,7 +37,7 @@ The window has a sidebar and a detail pane. The sidebar has these groups:
 
 | Group | Rows |
 | --- | --- |
-| Library | Brief, Inbox with a row for each other section, Clipboard, and Archived |
+| Library | Inbox with a row for each other section, Clipboard, and Archived |
 | Claude | Each folder with agent sessions, and its sessions. See [Find a session](claude.md#find-a-session). |
 | Folders | Every folder, and the tree of the active folder with its files |
 
@@ -47,7 +47,6 @@ The sidebar selection decides what the detail pane shows:
 | --- | --- |
 | Inbox, a section, or Archived | The capture that you select in the list of captures. The list shows between the sidebar and the detail pane. |
 | Clipboard | The clipboard history |
-| Brief | The brief |
 | A file | The file |
 | A folder | The last file that you opened |
 | A folder in the Claude group | A new session in the folder |
@@ -196,7 +195,7 @@ The find bar also replaces text. Press Escape to close it.
 2. Type a part of the file name or the title.
 3. Use Up and Down to select a row, then press Return.
 
-With an empty field, the palette lists the files that you opened last. With 3 characters or more, it also lists lines in files that hold the text. Type `/` to list commands, such as Show Brief, Find in File, and Refresh. The commands that you ran last show first. Press Escape to close the palette.
+With an empty field, the palette lists the files that you opened last. With 3 characters or more, it also lists lines in files that hold the text. Type `/` to list commands, such as Find in File and Refresh. The commands that you ran last show first. Press Escape to close the palette.
 
 ## Add An Image Or An HTML File
 

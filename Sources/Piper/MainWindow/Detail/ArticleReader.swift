@@ -177,7 +177,7 @@ struct ArticleReader: View {
     }
 }
 
-/// The marks and the actions of a reader page, for a link capture and a brief.
+/// The marks and the actions of a reader page.
 @MainActor
 enum ReaderMarks {
 

@@ -12,14 +12,6 @@ struct ReaderArticle: Codable, Equatable {
         /// `paragraph`, `heading`, `subheading`, `item`, `quote`, or `code`.
         let kind: String
         let text: String
-        /// The links in the text. Only a brief has them.
-        var links: [Link]? = nil
-
-        struct Link: Codable, Equatable {
-            let offset: Int
-            let length: Int
-            let url: String
-        }
     }
 
     let url: URL

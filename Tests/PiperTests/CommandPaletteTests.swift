@@ -24,10 +24,10 @@ final class CommandPaletteTests: XCTestCase {
     }
 
     func testASlashListsOnlyCommandsWithRecentOnesFirst() {
-        let commands = [command("Refresh"), command("Show Brief"), command("Show Source")]
+        let commands = [command("Refresh"), command("Show Clipboard"), command("Show Source")]
         let results = PaletteResults.rank("/show", files: files, recent: [], commands: commands, recentCommands: ["Show Source"])
         XCTAssertTrue(results.files.isEmpty)
-        XCTAssertEqual(ids(results.commands), ["command:Show Source", "command:Show Brief"])
+        XCTAssertEqual(ids(results.commands), ["command:Show Source", "command:Show Clipboard"])
     }
 
     func testLinesFindTextInsideFiles() {
@@ -38,8 +38,8 @@ final class CommandPaletteTests: XCTestCase {
     func testRecentCommandsKeepTheNewestFirst() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "CommandPaletteTests." + UUID().uuidString))
         PaletteRecents.add("Refresh", defaults)
-        PaletteRecents.add("Show Brief", defaults)
+        PaletteRecents.add("Show Clipboard", defaults)
         PaletteRecents.add("Refresh", defaults)
-        XCTAssertEqual(PaletteRecents.titles(defaults), ["Refresh", "Show Brief"])
+        XCTAssertEqual(PaletteRecents.titles(defaults), ["Refresh", "Show Clipboard"])
     }
 }

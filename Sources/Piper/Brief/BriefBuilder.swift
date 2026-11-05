@@ -3,10 +3,10 @@ import Briefs
 import Foundation
 import Observation
 
-/// Builds the daily brief and holds what the Brief page shows.
+/// Builds the daily brief and holds the picks that Inbox shows.
 ///
-/// The agent has no tools. Piper reads each source, loads each page, and checks
-/// each link, so the agent can only pick hosts and return text.
+/// The agent has no tools. Piper reads each source, loads each page, and ranks
+/// each link, so the agent can only pick hosts and numbers from lists.
 @MainActor
 @Observable
 final class BriefBuilder {
@@ -16,7 +16,7 @@ final class BriefBuilder {
         case scanning
         case choosing
         case reading([String])
-        case writing
+        case picking
         case failed(String)
 
         var isBuilding: Bool {
@@ -30,15 +30,13 @@ final class BriefBuilder {
     // MARK: - Properties
 
     private(set) var state = State.idle
-    private(set) var files: [BriefFile] = []
+    /// The newest brief. Its open picks show in Inbox until the next build.
+    private(set) var day: BriefDay?
     private(set) var sources: [BriefSource] = []
     /// True after the first brief, until the user answers about morning builds.
     private(set) var asksAboutMorning = false
 
-    /// The brief on the page. It stays while the reader opens a link and comes back.
-    var selectedID: String?
-    /// The first block on the screen in each brief.
-    @ObservationIgnored var readingBlocks: [String: Int] = [:]
+    var openPicks: [BriefPick] { day?.openPicks ?? [] }
 
     var blockedSites: [String] {
         didSet { preferences.set(blockedSites, forKey: AppDefaults.Key.briefBlockedSites) }
@@ -68,12 +66,20 @@ final class BriefBuilder {
         blockedSites = preferences.stringArray(forKey: AppDefaults.Key.briefBlockedSites) ?? BlockedSites.defaults
         disabledSources = Set(preferences.stringArray(forKey: AppDefaults.Key.briefDisabledSources) ?? [])
         morningBuilds = preferences.bool(forKey: AppDefaults.Key.briefMorning)
-        files = store.files()
+        day = store.latest()
     }
 
     // MARK: - Reading
 
-    func body(of file: BriefFile) -> String? { try? store.body(of: file) }
+    /// Records what the reader did with a pick. The pick leaves Inbox.
+    func set(_ state: BriefPick.State, of pick: BriefPick) {
+        guard let id = day?.id else { return }
+        do {
+            if let changed = try store.set(state, of: pick.url, in: id) { day = changed }
+        } catch {
+            self.state = .failed(error.localizedDescription)
+        }
+    }
 
     func refreshSources() {
         Task {
@@ -153,35 +159,33 @@ final class BriefBuilder {
 
         var hosts: [String] = []
         var pages: [LoadedPage] = []
-        var covered: [String] = []
         if !scan.digest.sites.isEmpty {
             state = .choosing
             let answer = try await turn(BriefPrompts.chooseSites(scan.digest), in: session)
             hosts = BriefPrompts.hosts(in: answer, digest: scan.digest)
             state = .reading(hosts)
-            for page in await BriefPageLoader().load(hosts, blocked: blocked) {
-                let result = page.removingLinks(in: seen)
-                pages.append(result.page)
-                covered += result.covered
-            }
+            pages = await BriefPageLoader().load(hosts, blocked: blocked).map { $0.removingLinks(in: seen) }
         }
         failed += hosts.filter { host in !pages.contains { $0.host == host } }
 
-        state = .writing
+        state = .picking
+        let candidates = BriefRanking.rank(stories: stories, articles: articles, pages: pages, digest: scan.digest,
+                                           blocked: blocked, previousBuild: lastBuilt, now: now)
+        guard !candidates.isEmpty else { throw BriefFailure("Piper found no new links to pick from.") }
         let date = now.formatted(date: .complete, time: .omitted)
-        let answer = try await turn(BriefPrompts.writeBrief(date: date, digest: scan.digest, pages: pages,
-                                                            articles: articles, stories: stories, covered: covered, failed: failed), in: session)
-        let known = Set(pages.flatMap { $0.links.map(\.url) } + articles.map(\.url)
-                        + stories.flatMap { [$0.url, $0.discussionURL] })
-        let body = BriefLinks.clean(answer, known: known).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { throw BriefFailure("The agent wrote no brief.") }
+        let answer = try await turn(BriefPrompts.choosePicks(date: date, candidates: candidates, digest: scan.digest,
+                                                             articles: articles, stories: stories), in: session)
+        let picks = BriefPrompts.picks(in: answer, candidates: candidates)
+        guard !picks.isEmpty else { throw BriefFailure("The agent picked no links.") }
 
         var feeds: [String] = []
         for article in articles where !feeds.contains(article.feed) { feeds.append(article.feed) }
         if !stories.isEmpty { feeds.append(HackerNews.name) }
-        try store.save(body, date: now, title: "Brief for \(date)", sites: pages.map(\.host), feeds: feeds, failed: failed)
+        let built = BriefDay(id: BriefStore.id(for: now), builtAt: now, picks: picks,
+                             sites: pages.map(\.host), feeds: feeds, failed: failed)
+        try store.save(built)
         preferences.set(now, forKey: AppDefaults.Key.briefLastBuilt)
-        files = store.files()
+        day = built
     }
 
     /// Sends one message and waits for the result of its turn. The runner stops a turn after its time limit.

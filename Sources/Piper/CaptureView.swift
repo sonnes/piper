@@ -407,6 +407,7 @@ struct CaptureView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
+                    if !searchMode { BriefGroup(model: model) }
                     if !recentClipboard.isEmpty {
                         SectionHeader(title: "Clipboard",
                                       detail: searchMode ? nil : "\(recentClipboard.count) latest",
@@ -474,6 +475,9 @@ struct CaptureView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
+                    if content == .stream(section: nil) && filter == .all && store.query.isEmpty {
+                        BriefGroup(model: model)
+                    }
                     ForEach(stream.groups, id: \.title) { group in
                         StreamHeader(title: group.title,
                                      action: group.kind == .started && filter == .all ? ("See All", { setFilter(.reading) }) : nil)

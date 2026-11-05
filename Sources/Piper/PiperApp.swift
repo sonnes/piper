@@ -151,7 +151,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
         windowMenu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "2").target = self
-        windowMenu.addItem(withTitle: "Brief", action: #selector(showBrief), keyEquivalent: "0").target = self
         let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
         sessionCard.keyEquivalentModifierMask = [.command, .option]
         sessionCard.target = self
@@ -169,7 +168,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let menu = NSMenu()
         menu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Brief", action: #selector(showBrief), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Capture Clipboard", action: #selector(clipboard), keyEquivalent: "").target = self
         let send = menu.addItem(withTitle: "Send Clipboard", action: #selector(sendClipboard), keyEquivalent: "w")
         send.keyEquivalentModifierMask = [.control, .option]
@@ -219,11 +217,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         mainWindowController?.show()
     }
 
-    @objc func showBrief() {
-        showLibrary()
-        mainWindowController?.showBrief()
-    }
-
     /// Opens or collapses the session card. A hidden window comes back with
     /// the card open. A detached panel comes to the front instead.
     @objc private func toggleSessionCard() {
@@ -248,7 +241,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     /// home page in front, which is not what the menu item names.
     @objc func showBrowser() {
         showLibrary()
-        mainWindowController?.showBrowser()
     }
 
     /// Saves the open file at once. The editor saves by itself 120 ms after an edit.
@@ -281,7 +273,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var paletteCommands: [PaletteCommand] {
         [
             PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.mainWindowController?.newDocument(nil) },
-            PaletteCommand(title: "Show Brief", shortcut: "⌘0") { [weak self] in self?.showBrief() },
             PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.loadedEditorPage?.command("find") },
             PaletteCommand(title: model.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
                 self?.model.showsFileSource.toggle()

@@ -1,65 +1,77 @@
 ---
 title: "Read The Daily Brief"
-summary: "Build a brief from browser history, NetNewsWire, and Hacker News, highlight it, limit what Claude receives, and turn on morning builds"
+summary: "Build a brief of up to 8 links from browser history, NetNewsWire, and Hacker News, read the picks in Inbox, limit what Claude receives, and turn on morning builds"
 read_when:
   - Building the first brief
+  - Reading, keeping, or skipping a pick
   - Blocking a site from a brief
   - Giving Piper access to Safari or NetNewsWire
   - Signing in to a site for a brief
-  - Highlighting a brief or opening its links
 ---
 
 # Read The Daily Brief
 
-The Brief page is the first page of the main window. Press Command-0 to open it. Each brief uses the last 14 days of browser history, recent NetNewsWire articles, the popular Hacker News submissions of the last day, and the pages of up to 8 sites.
+A brief is a list of up to 8 links to read today. Each link is a pick. The picks show in a Brief group at the top of Inbox, in the main window and in the capture panel. Each pick shows its title, its site, and one sentence from Claude about the reason for the pick.
+
+A brief uses the last 14 days of browser history, recent NetNewsWire articles, the popular Hacker News stories of the last day, and the links on the home pages of up to 8 sites.
 
 A brief uses Claude Code. Sign in to Claude Code before you build a brief.
 
 ## Build The First Brief
 
-1. Press Command-0.
-2. Read the list under What Claude receives.
+1. Open Settings > Brief.
+2. Select Show Sites, and read the list under What Claude receives.
 3. To remove a site, select Never Send.
 4. Select Build Brief.
 
-A build takes a few minutes. After the first brief, Piper asks one time if it must build a brief each morning. A morning build runs one time each day, between 5:00 and noon, while Piper is open. To change this choice, open Settings > Brief.
+You can also select Build Brief in the Brief group of Inbox. The group shows this button when no brief of today exists.
 
-Select the arrows at the top of the page to read an earlier brief. Select Rebuild to replace the brief of today.
+A build takes a few minutes. While it runs, the Brief group shows its progress. After the first brief, the group asks one time if Piper must build a brief each morning. A morning build runs one time each day, between 5:00 and noon, while Piper is open. To change this choice, open Settings > Brief.
+
+If a build fails, the group shows the reason and Try Again.
+
+## Read The Picks
+
+| Action | Result |
+| --- | --- |
+| Select the title | Piper saves the link to Inbox and opens it in the Web tab. The pick leaves the group. |
+| Select Keep | Piper saves the link to Inbox. The pick leaves the group. |
+| Select Skip | The pick leaves the group. Piper does not save the link. |
+| Select the circle | Piper marks the pick as read. The pick leaves the group. |
+
+A saved pick is a link capture with the source "Brief". The header of the group counts the picks that are left. To hide the picks, select the arrow in the header. When no pick is left and the brief of today exists, the group goes away.
+
+## How Piper Ranks The Links
+
+Piper ranks the links before Claude sees them. The rank uses the decay formula of Hacker News. A link gets points, and the points decrease with the age of the link:
+
+| Link | Points | Age |
+| --- | --- | --- |
+| A Hacker News story | The points of the story | The time since the post |
+| A starred NetNewsWire article | 100 | The time since the article was published. If the article has no date, 1 day. |
+| An unread NetNewsWire article | 40 | The same as a starred article |
+| A link on a home page | 30 | The time since the last brief, at most 1 day |
+
+A site that you visit often adds points to each link on that site. A visit counts more when it is recent. Piper sends the best 25 links to Claude, and Claude picks up to 8 of them.
 
 ## Repeated Links
 
-A brief does not use a link that a brief of an earlier day holds. This rule applies to NetNewsWire articles, Hacker News stories, and the links of each page. Piper also gives Claude the labels of the removed page links, and tells Claude not to write about these items. If you rebuild the brief of today, that brief can use the links of the earlier brief of today again.
+A brief does not use a link that a brief of an earlier day holds. This rule applies to NetNewsWire articles, Hacker News stories, and the links on each page. If you build the brief of today again, that brief can use the links of the earlier brief of today.
 
 Piper reads the earlier links from the saved briefs. Links must be the same to match. Only a last slash and a fragment can differ, so one story at two addresses can appear again.
-
-## Highlight A Brief
-
-A brief has the same selection bar as the Reader tab of an article. Select text to show the bar.
-
-- To highlight the text, select a color.
-- To write a note, select Note. Type the note, then press Return.
-- To ask about the text, select Ask, Explain, or Define.
-
-The first highlight of a brief adds a note named "Brief for" and the date to Inbox. Each highlight of that brief shows under this note. When you delete this note, Piper also deletes its highlights.
-
-If you rebuild the brief of today, a highlight stays only if the new brief holds its quote. If the quote is gone, the note stays in Inbox and the brief shows no mark.
-
-## Open A Link
-
-Select a link in a brief. Piper adds the link to Reading and opens the page in the Web tab. Use the Reader tab of that link to highlight the article. To go back, select Brief in the sidebar. The brief opens at the place where you stopped.
 
 ## Data That Leaves Your Mac
 
 Piper sends this data to Anthropic through Claude Code:
 
-- The top 30 sites, with visit counts and up to 5 page titles for each site. Piper does not send full URLs.
-- The text and the links of up to 8 pages.
-- Up to 40 unread or starred NetNewsWire articles.
-- Up to 30 Hacker News stories, with their titles, links, points, and comment counts.
+- The top 30 sites, with up to 5 page titles for each site. Piper does not send full URLs.
+- The titles and the sites of up to 25 links. A Hacker News link also has its points and its comment count. A NetNewsWire link also has the start of its summary.
+
+Piper does not send the URLs of the links. Claude replies with the numbers of the links, and Piper takes the title and the URL of each pick from its own list.
 
 Piper gets the Hacker News stories from the public API at `hn.algolia.com`. A story must be less than one day old and must have 50 points or more. The request holds no data from your Mac, other than your network address.
 
-CAUTION: Do not sign in to a site in Piper if its private pages must stay on your Mac. Piper sends the text of each page that it loads, and that text can appear in the brief.
+CAUTION: Do not sign in to a site in Piper if its private pages must stay on your Mac. Piper sends the link titles of each page that it loads, and these titles can appear in the brief.
 
 Piper does not change your history or your NetNewsWire read marks. It deletes each temporary copy after the read.
 
@@ -83,7 +95,7 @@ Open Settings > Brief, and enter one host on each line under Blocked Sites. A bl
 
 Piper does not use the sign-ins of your browsers. A site that needs a sign-in gives only its public page.
 
-1. Select Sites at the top of the page, or read the list of the first brief.
+1. Open Settings > Brief, and select Show Sites.
 2. Select Sign In next to the site.
 3. Sign in, then select Done.
 

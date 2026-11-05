@@ -2,16 +2,25 @@ import AppKit
 import Briefs
 import SwiftUI
 
-/// The Brief pane of Settings: the sources, the blocked sites, and morning builds.
+/// The Brief pane of Settings: the sites, the sources, the blocked sites, and morning builds.
 struct BriefSettings: View {
     @Bindable var brief: BriefBuilder
 
     @State private var blockedText = ""
+    @State private var showsSites = false
 
     private static let privacySettings = "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
 
     var body: some View {
         Form {
+            Section {
+                LabeledContent("What Claude receives") {
+                    Button("Show Sites") { showsSites = true }
+                }
+            } footer: {
+                Text("Review the sites before the first build. To sign in to a site or to block it, show the sites.")
+                    .font(PiperTheme.ui(11)).foregroundStyle(PiperTheme.secondary)
+            }
             Section {
                 ForEach(brief.sources) { source in
                     if source.needsAccess {
@@ -61,6 +70,21 @@ struct BriefSettings: View {
             }
         }
         .formStyle(.grouped)
+        .sheet(isPresented: $showsSites) {
+            VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    Button("Done") { showsSites = false }.buttonStyle(.text).keyboardShortcut(.defaultAction)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                Rule()
+                BriefSitesView(brief: brief)
+            }
+            .foregroundStyle(PiperTheme.ink)
+            .background(PiperTheme.page)
+            .frame(width: AppDefaults.Brief.signInSize.width, height: AppDefaults.Brief.signInSize.height)
+        }
         .onAppear {
             blockedText = brief.blockedSites.joined(separator: "\n")
             brief.refreshSources()

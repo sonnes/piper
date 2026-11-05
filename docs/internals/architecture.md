@@ -33,7 +33,7 @@ flowchart LR
 | `Captures` | `Note`, `CaptureStore`, `ClipboardInbox`, `CaptureLinks`, and edit sessions | `PiperCore`, `CapturesDatabase` |
 | `Vault` | One folder: scan, read, write, and watch | `PiperCore`, Yams |
 | `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, and `PermissionRule` | `PiperCore`, `CapturesDatabase` |
-| `Briefs` | `BrowserCatalog`, `HistoryReader`, `NetNewsWireReader`, `HackerNews`, `BriefDocument`, `HistoryDigest`, `BlockedSites`, `BriefLinks`, `BriefPrompts`, `BriefSchedule`, and `BriefStore` | `PiperCore`, `CSQLite` |
+| `Briefs` | `BrowserCatalog`, `HistoryReader`, `NetNewsWireReader`, `HackerNews`, `HistoryDigest`, `Decay`, `BriefRanking`, `BlockedSites`, `BriefLinks`, `BriefPrompts`, `BriefSchedule`, and `BriefStore` | `PiperCore`, `CSQLite` |
 | `Piper` | Windows, panes, views, and app state | All modules and Yams |
 
 `PiperCore`, `PiperTree`, and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser.
@@ -65,7 +65,7 @@ The panel is a non-activating `NSPanel` on every Space. Its initial size is 600 
 | --- | --- | --- |
 | Sidebar | `SidebarViewController` | `SidebarOutline`, an `NSOutlineView` |
 | List | `CaptureListViewController` | `CaptureView` for Inbox, a section, or Archived |
-| Detail | `DetailViewController` | `BriefPage`, `CaptureView` for Clipboard, `EditorPane`, `FilePreview`, `NoteDetail`, or a session |
+| Detail | `DetailViewController` | `CaptureView` for Clipboard, `EditorPane`, `FilePreview`, `NoteDetail`, or a session |
 | Session card | `DetailViewController` | `SessionOverlay`, in a hosting view over the bottom right corner of the detail pane |
 
 Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostingView`. A pane reports upward through a delegate protocol, and `MainWindowController` decides what the other panes show. The editor page is an exception. A link in it calls `AppModel.openDocument` directly, so a link does not change the sidebar selection.
@@ -76,7 +76,7 @@ Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostin
 
 The window title names the open file, and the subtitle shows the folders of the file. For other selections, the title names the selection, as in Mail, and the subtitle shows a count. The title updates through `withObservationTracking`. The toolbar has tracking separators that align with the split view dividers. Toggle Sidebar sits over the sidebar. New Capture sits over the list. Back and Forward, Mark as Done, and the More menu sit over the detail pane. `TabIsland` floats over the bottom of the detail pane, with Preview and Source for a file. The Session Card button at the end opens and collapses the session card, as does Option-Command-C. The list of captures and the clipboard history each have a search field.
 
-The sidebar has up to three groups. Library holds Brief, Inbox with one child for each capture section other than Inbox, Clipboard, and Archived. Claude holds one `SidebarSelection.sessions` row for each folder with sessions, and it shows only when a session exists. Each folder row holds a `SidebarSessionRow` for each session. A session row sets `AppModel.selectedSession` and selects its folder. A folder row clears `AppModel.selectedSession`, so the detail pane starts a new session. Folders holds every root and the tree of the active root, with its files. A click on a folder opens or closes it. `SidebarSelection.folder` keeps the last file in the detail pane. `SidebarSelection.section` shows the captures of one section, and `SidebarSelection.clipboard` shows the clipboard history in the detail pane.
+The sidebar has up to three groups. Library holds Inbox with one child for each capture section other than Inbox, Clipboard, and Archived. Claude holds one `SidebarSelection.sessions` row for each folder with sessions, and it shows only when a session exists. Each folder row holds a `SidebarSessionRow` for each session. A session row sets `AppModel.selectedSession` and selects its folder. A folder row clears `AppModel.selectedSession`, so the detail pane starts a new session. Folders holds every root and the tree of the active root, with its files. A click on a folder opens or closes it. `SidebarSelection.folder` keeps the last file in the detail pane. `SidebarSelection.section` shows the captures of one section, and `SidebarSelection.clipboard` shows the clipboard history in the detail pane.
 
 The expansion set of `SidebarPane` holds the open folder paths. It also holds two kinds of keys that start with `\u{1}`, so they cannot match a path: `SidebarOutline.inboxCollapsedKey` for a closed Inbox, and `SidebarOutline.sessionsExpandedKey` for each open Claude folder.
 
@@ -272,21 +272,21 @@ Inbox search filters the active capture section and temporary clipboard cards. G
 
 ## Daily Brief
 
-`BriefBuilder` in the application target runs each build, and `BriefPage` shows the result. The build has these steps:
+`BriefBuilder` in the application target runs each build. `BriefGroup` shows the picks at the top of Inbox, in the main window and in the panel. The build has these steps:
 
 1. `BrowserCatalog` finds each source. `HistoryReader` and `NetNewsWireReader` read a private copy of each database, so another app cannot lock the file and the original does not change. `HackerNews` gets the popular submissions of the last day from the public search API.
-2. `HistoryDigest` ranks the sites of the last 14 days. It drops blocked sites and full URLs, and it keeps 30 sites at most.
+2. `HistoryDigest` ranks the sites of the last 14 days with `Decay`. The points of a site are its visits, and the age is the time since the last visit. It drops blocked sites and full URLs, and it keeps 30 sites at most.
 3. The runner starts a session with the purpose `brief`. Claude Code starts with `--restricted --tools "" --strict-mcp-config --no-session-persistence`, so the agent has no tool. The runner stores no transcript and deletes the session after the build.
 4. The agent receives the digest and returns hosts. `BriefPrompts.hosts` keeps only the hosts in the digest.
-5. `BriefPageLoader` makes the root URL of each host and loads it in a `WKWebView` with the default data store, which the Web tab also uses. A navigation to a blocked or private host stops.
-6. The agent receives the page text, the feed articles, and the Hacker News stories, and returns Markdown.
-7. `BriefLinks` removes images, HTML, and each link that no page, feed, or story holds. `BriefStore` writes the file.
+5. `BriefPageLoader` makes the root URL of each host and loads it in a `WKWebView` with the default data store, which the Web tab also uses. A navigation to a blocked or private host stops. The loader keeps the title and the links of each page.
+6. `BriefRanking` scores each story, article, and page link with `Decay`, and raises the score by the site score of its host. It keeps the best 25.
+7. The agent receives the numbered titles and returns up to 8 numbers, each with a reason. `BriefPrompts.picks` keeps only the numbers in the list. `BriefStore` writes the day as JSON.
 
-The agent cannot put data in a URL, because Piper loads only URLs that it makes from known hosts. The Markdown can still hold false text from a page.
+The agent never receives or returns a URL. Piper takes the URL and the title of each pick from its own list, so the agent cannot put data in a URL. The reason of a pick can still hold false text from a page title.
 
-`BriefStore.linksBefore` reads the links of the briefs of earlier days. The build removes these links from each source and from the links that `BriefLinks` accepts, so no later brief repeats them.
+`BriefStore.linksBefore` reads the picks of the briefs of earlier days. The build removes these links from each source, so no later brief repeats them.
 
-`BriefDocument` converts the Markdown to the blocks of the reader page. The first highlight of a brief adds a parent note, and `ReaderMarks` handles its marks and actions for a brief and for a link capture. A selected link becomes a link capture that opens in the Web tab.
+A click on a pick saves it as a link capture with the source "Brief" and sets its state to kept. `BriefBuilder.set(_:of:)` writes each change of state to the file of the day.
 
 `BriefSchedule` decides when a morning build runs. A timer in `BriefBuilder` checks it every 15 minutes.
 
@@ -326,8 +326,8 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [MainWindow/MainWindowState.swift](../../Sources/Piper/MainWindow/MainWindowState.swift) | `SidebarSelection`, restored state, and pane delegate protocols |
 | [MainWindow/PaneViewControllers.swift](../../Sources/Piper/MainWindow/PaneViewControllers.swift) | One hosting view controller for each pane |
 | [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | The error alert |
-| [Brief/](../../Sources/Piper/Brief) | The Brief page, its settings, the sign-in sheet, the builder, and the page loader |
-| [Modules/Briefs/](../../Sources/Modules/Briefs) | Sources, history and feed reads, the digest, blocked sites, link cleaning, prompts, the schedule, and the files |
+| [Brief/](../../Sources/Piper/Brief) | The Brief group, the site list, the settings, the sign-in sheet, the builder, and the page loader |
+| [Modules/Briefs/](../../Sources/Modules/Briefs) | Sources, history and feed reads, the digest, the decay rank, blocked sites, prompts, the schedule, and the files |
 | [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | Library rows, the session rows, the folder tree, unread counts, and file warnings |
 | [InboxRow.swift](../../Sources/Piper/InboxRow.swift) | The rows of the Inbox stream and the progress ring |
 | [MainWindow/Detail/](../../Sources/Piper/MainWindow/Detail) | Header, file previews, the Reader tab, and the Notes tab |

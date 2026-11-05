@@ -16,7 +16,6 @@ read_when:
 | Control-Option-W | Save the clipboard to Inbox and open a draft for the default folder, while a folder has Claude skills |
 | Command-1 | Show the capture panel |
 | Command-2 | Show the files in the main window |
-| Command-0 | Show the brief in the main window |
 | Command-comma | Open Settings |
 | Command-Q | Quit Piper |
 

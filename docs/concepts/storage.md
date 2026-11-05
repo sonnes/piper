@@ -13,7 +13,7 @@ Piper keeps captures in a SQLite database and preferences in UserDefaults. Wiki 
 
 ## Briefs
 
-Each brief is a Markdown file in `~/Library/Application Support/Piper/Briefs`, with the date as its name. Piper does not delete old briefs. The folder is not part of the vault, so the sidebar and file search do not show it.
+Each brief is a JSON file in `~/Library/Application Support/Piper/Briefs`, with the date as its name. The file holds the picks and the state of each pick: open, kept, skipped, or read. It also holds the sites and the feeds that the build read, and the sources that failed. Piper does not delete old briefs. The folder is not part of the vault, so the sidebar and file search do not show it.
 
 ## Capture Database
 

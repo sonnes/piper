@@ -16,7 +16,7 @@ final class SidebarTreeTests: XCTestCase {
 
     func testOnlyTheCapturesShowTheListPane() {
         let withList: [SidebarSelection] = [.inbox, .section("Reading"), .archived]
-        let withoutList: [SidebarSelection] = [.brief, .clipboard, .folder("notes"), .file("notes/a.md"), .sessions("/Users/me/Wiki")]
+        let withoutList: [SidebarSelection] = [.clipboard, .folder("notes"), .file("notes/a.md"), .sessions("/Users/me/Wiki")]
         for selection in withList { XCTAssertTrue(selection.showsList, "\(selection)") }
         for selection in withoutList { XCTAssertFalse(selection.showsList, "\(selection)") }
         XCTAssertTrue(SidebarSelection.clipboard.showsCaptures)
@@ -52,7 +52,7 @@ final class SidebarTreeTests: XCTestCase {
 
     @MainActor
     func testEverySidebarGlyphLoadsAsATemplate() throws {
-        for name in ["brief", "inbox", "clipboard", "archived", "claude", "folder", "note", "image", "web", "file"] {
+        for name in ["inbox", "clipboard", "archived", "claude", "folder", "note", "image", "web", "file"] {
             let image = try XCTUnwrap(SidebarIcon.glyph(name), name)
             XCTAssertTrue(image.isTemplate, name)
         }
