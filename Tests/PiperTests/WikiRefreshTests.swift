@@ -41,11 +41,9 @@ final class WikiRefreshTests: XCTestCase {
         try Data("# Original\n".utf8).write(to: url)
         try await waitFor("The new file appears.") { model.files.contains { $0.id == "notes/nested/note.md" } }
         model.openDocument("notes/nested/note.md")
-        XCTAssertFalse(model.isUnread(try XCTUnwrap(model.currentDocument)))
 
         try Data("# Updated\n".utf8).write(to: url, options: .atomic)
         try await waitFor("The open document updates.") { model.editor?.text == "# Updated\n" }
-        XCTAssertTrue(model.isUnread(try XCTUnwrap(model.currentDocument)))
 
         let renamed = root.appendingPathComponent("renamed")
         try FileManager.default.moveItem(at: root.appendingPathComponent("notes"), to: renamed)
@@ -179,13 +177,13 @@ final class WikiRefreshTests: XCTestCase {
         var state = MainWindowState()
         state.selection = .folder("sources/prompts")
         state.selectedFile = "sources/prompts/old.md"
-        state.expandedFolders = ["sources", "sources/prompts"]
+        state.expandedRows = ["sources", "sources/prompts"]
         state.sidebarWidth = 250
         state.listWidth = 300
         state.resetForVault()
         XCTAssertEqual(state.selection, .folder(""))
         XCTAssertNil(state.selectedFile)
-        XCTAssertNil(state.expandedFolders)
+        XCTAssertNil(state.expandedRows)
         XCTAssertEqual(state.sidebarWidth, 250)
         XCTAssertEqual(state.listWidth, 300)
     }

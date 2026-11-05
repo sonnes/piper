@@ -12,7 +12,6 @@ final class AppModel {
     let store: CaptureStore
     let clipboard: ClipboardInbox
     let agents: FolderAgents
-    let fileReadState: FileReadState
     /// The highlights and questions of link captures.
     let reader: ReaderAssistant
     let brief: BriefBuilder
@@ -136,7 +135,7 @@ final class AppModel {
         }
     }
 
-    init(store: CaptureStore? = nil, wikiPath: String? = nil, fileReadState: FileReadState? = nil, preferences: UserDefaults = .standard) {
+    init(store: CaptureStore? = nil, wikiPath: String? = nil, preferences: UserDefaults = .standard) {
         self.preferences = preferences
         let defaults = preferences
         captureFloating = defaults.object(forKey: AppDefaults.Key.captureFloating) as? Bool ?? true
@@ -152,7 +151,6 @@ final class AppModel {
         self.store = store
         clipboard = ClipboardInbox(store: store)
         agents = FolderAgents(store: store, preferences: preferences)
-        self.fileReadState = fileReadState ?? FileReadState()
         let activePath = wikiPath ?? defaults.string(forKey: AppDefaults.Key.vaultPath)
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Wiki").path
         self.wikiPath = activePath
@@ -215,26 +213,6 @@ final class AppModel {
 
     var vault: Vault { Vault(root: URL(fileURLWithPath: (wikiPath as NSString).expandingTildeInPath).standardizedFileURL) }
 
-    func isUnread(_ file: VaultFile) -> Bool { fileReadState.isUnread(file, in: vault.root) }
-
-    var unreadFolderCounts: [String: Int] {
-        var counts: [String: Int] = [:]
-        for file in files where isUnread(file) {
-            counts["", default: 0] += 1
-            var folder = file.folder
-            while !folder.isEmpty {
-                counts[folder, default: 0] += 1
-                folder = (folder as NSString).deletingLastPathComponent
-            }
-        }
-        return counts
-    }
-
-    func markCurrentDocumentRead() {
-        guard let document = currentDocument else { return }
-        fileReadState.markRead(document, in: vault.root)
-    }
-
     func reload() {
         agents.refresh(paths: wikiPaths)
         let repo = vault
@@ -291,7 +269,7 @@ final class AppModel {
                        ?? files.first(where: { $0.id == "Start Here.md" })
                        ?? files.first(where: { $0.id == "index.md" })
                        ?? files.first {
-                    openDocument(first.id, markAsRead: false)
+                    openDocument(first.id)
                 }
             case .failure(let error):
                 files = []
@@ -399,11 +377,10 @@ final class AppModel {
         }
     }
 
-    func openDocument(_ path: String, anchor: String? = nil, markAsRead: Bool = true) {
+    func openDocument(_ path: String, anchor: String? = nil) {
         if path == selectedDocument {
             route = "wiki"
             beginEdit()
-            if markAsRead { markCurrentDocumentRead() }
             if let anchor { jump(to: anchor) }
             return
         }
@@ -413,7 +390,6 @@ final class AppModel {
         pruneEditors()
         beginEdit()
         jump(to: anchor)
-        if markAsRead { markCurrentDocumentRead() }
     }
 
     func navigate(_ offset: Int) {
@@ -423,7 +399,6 @@ final class AppModel {
         pruneEditors()
         beginEdit()
         jump(to: workspace.location?.anchor)
-        markCurrentDocumentRead()
     }
 
     // MARK: - Editor
@@ -500,7 +475,6 @@ final class AppModel {
         guard !session.hasChanges, session.status == .saved, let file = try? vault.read(session.path) else { return }
         session.document = file
         if let index = files.firstIndex(where: { $0.id == file.id }) { files[index] = file }
-        fileReadState.markRead(file, in: vault.root)
     }
 
     // MARK: - Margin notes of a file

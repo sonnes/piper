@@ -29,9 +29,7 @@ final class SidebarTreeTests: XCTestCase {
         XCTAssertNotEqual(key, SidebarOutline.sessionsExpandedKey("/Users/me/Other"))
     }
 
-    func testFileRowsDropTheMarkdownExtensionAndShowTheKind() {
-        XCTAssertEqual(SidebarOutline.fileTitle("claude-code.md"), "claude-code")
-        XCTAssertEqual(SidebarOutline.fileTitle("2026-09-18-openui.html"), "2026-09-18-openui.html")
+    func testFileRowsShowTheKind() {
         XCTAssertEqual(SidebarOutline.fileIcon("claude-code.md"), "note")
         XCTAssertEqual(SidebarOutline.fileIcon("figure.png"), "image")
         XCTAssertEqual(SidebarOutline.fileIcon("page.html"), "web")

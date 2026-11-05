@@ -60,7 +60,6 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Daily brief from browser history and NetNewsWire | Implemented | `BriefsTests` (decay rank, picks prompt and answer, brief files). Not checked on a real NetNewsWire database. |
 | Brief picks in Inbox, with Keep and Skip | Implemented | `BriefsTests` (pick states). Checked in the main window with seeded picks. Not checked in the capture panel or with a real build. |
 | Vault search across titles, paths, descriptions, and text | Implemented | `WikiWorkspaceTests` (multiple words) |
-| Unread state and folder counts | Implemented | `FileReadStateTests` |
 | Back and forward history | Implemented | `WikiWorkspaceTests` |
 | Wiki links and heading anchors | Implemented | `WikiWorkspaceTests`, `WikiEditingTests`, `web/test/paths.test.ts` |
 | Markdown editing with automatic save | Implemented | `WikiEditingTests`, `EditorPageTests`, `QuitSafetyTests` |

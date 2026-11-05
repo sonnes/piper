@@ -90,8 +90,6 @@ final class AppDefaults {
         static let imageMarginRight: CGFloat = 4
         static let countMarginLeft: CGFloat = 10
         static let countCornerRadius: CGFloat = 8
-        /// The blue dot of an unread file in the tree.
-        static let unreadDotSize: CGFloat = 7
         static let countPadding = NSEdgeInsets(top: 1, left: 7, bottom: 1, right: 7)
         static let minimumThickness: CGFloat = 210
 
@@ -334,7 +332,6 @@ final class AppDefaults {
         static let columnSpacing: CGFloat = 8
         /// The space from the edge of the row to the text.
         static let textInset: CGFloat = padding.leading + controlColumn + columnSpacing
-        static let unreadDot: CGFloat = 7
         static let padding = EdgeInsets(top: 9, leading: 8, bottom: 10, trailing: 10)
         static let cornerRadius: CGFloat = 8
         static let titleFontSize = PiperTheme.TextSize.body

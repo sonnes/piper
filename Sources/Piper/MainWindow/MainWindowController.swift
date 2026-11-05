@@ -197,7 +197,7 @@ final class MainWindowController: NSWindowController {
         sidebarViewController.setContent(SidebarPane(
             model: model,
             selection: state.selection,
-            restored: state.expandedFolders.map(Set.init),
+            restored: Set(state.expandedRows ?? []),
             select: { [weak self] selection in
                 guard let self else { return }
                 sidebarViewController.select(selection)
@@ -207,9 +207,9 @@ final class MainWindowController: NSWindowController {
                 model.selectedSession = id
                 sidebarViewController.select(.sessions(folder))
             },
-            expansionChanged: { [weak self] folders in
+            expansionChanged: { [weak self] rows in
                 guard let self else { return }
-                state.expandedFolders = folders.sorted()
+                state.expandedRows = rows.sorted()
                 state.save()
             }
         ).id(model.vault.root))
@@ -315,9 +315,7 @@ final class MainWindowController: NSWindowController {
     }
 
     private func fileCount(_ files: [VaultFile]) -> String {
-        let unread = files.filter { model.isUnread($0) }.count
-        let total = files.isEmpty ? "No files" : Self.count(files.count, "file")
-        return unread > 0 ? total + " · \(unread) unread" : total
+        files.isEmpty ? "No files" : Self.count(files.count, "file")
     }
 
     private static func count(_ value: Int, _ one: String, _ many: String? = nil) -> String {
@@ -637,11 +635,11 @@ extension MainWindowController: CaptureListViewControllerDelegate {
 /// removed from the hierarchy when the reader hides it.
 ///
 /// The set comes back from the saved window state. A window that has not opened
-/// before has none, so the sidebar opens every folder.
+/// before has none, so every folder starts closed.
 private struct SidebarPane: View {
     @Bindable var model: AppModel
     let selection: SidebarSelection
-    let restored: Set<String>?
+    let restored: Set<String>
     let select: (SidebarSelection) -> Void
     let selectSession: (UUID, String) -> Void
     let expansionChanged: (Set<String>) -> Void
@@ -651,18 +649,14 @@ private struct SidebarPane: View {
 
     var body: some View {
         SidebarView(model: model, expanded: $expanded, selection: selection, select: select, selectSession: selectSession)
-            .onAppear(perform: seed)
-            .onChange(of: model.files.map(\.id)) { _, _ in seed() }
-            .onChange(of: expanded) { _, folders in
-                guard seeded else { return }
-                expansionChanged(folders)
+            .onAppear {
+                expanded = restored
+                seeded = true
             }
-    }
-
-    private func seed() {
-        guard !seeded, !model.files.isEmpty else { return }
-        expanded = restored ?? SidebarView.folders(of: model.files, including: model.folders)
-        seeded = true
+            .onChange(of: expanded) { _, rows in
+                guard seeded else { return }
+                expansionChanged(rows)
+            }
     }
 }
 
@@ -701,9 +695,6 @@ private struct DetailPane: View {
             if let document = model.currentDocument, FilePresentation.sourceText(for: document) != nil {
                 TabIsland(showsSource: $model.showsFileSource, cardPresented: model.sessionPresentation == .card)
             }
-        }
-        .onChange(of: model.currentDocument?.id, initial: true) { _, _ in
-            model.markCurrentDocumentRead()
         }
     }
 

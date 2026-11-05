@@ -99,17 +99,10 @@ struct InboxRow: View {
             if style == .note {
                 noteText
             } else {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if style == .link {
-                        Circle().fill(PiperTheme.accent)
-                            .frame(width: AppDefaults.InboxRow.unreadDot, height: AppDefaults.InboxRow.unreadDot)
-                            .accessibilityLabel("Not opened")
-                    }
-                    Text(reading.title.map(CaptureText.firstLine) ?? (host + (url?.path() ?? "")))
-                        .font(PiperTheme.ui(AppDefaults.InboxRow.titleFontSize))
-                        .foregroundStyle(isComplete ? PiperTheme.secondary : PiperTheme.ink)
-                        .lineLimit(1)
-                }
+                Text(reading.title.map(CaptureText.firstLine) ?? (host + (url?.path() ?? "")))
+                    .font(PiperTheme.ui(AppDefaults.InboxRow.titleFontSize))
+                    .foregroundStyle(isComplete ? PiperTheme.secondary : PiperTheme.ink)
+                    .lineLimit(1)
             }
             meta
         }

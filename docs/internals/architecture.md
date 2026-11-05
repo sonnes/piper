@@ -78,7 +78,7 @@ The window title names the open file, and the subtitle shows the folders of the 
 
 The sidebar has up to three groups. Library holds Inbox with one child for each capture section other than Inbox, Clipboard, and Done. Claude holds one `SidebarSelection.sessions` row for each folder with sessions, and it shows only when a session exists. Each folder row holds a `SidebarSessionRow` for each session. A session row sets `AppModel.selectedSession` and selects its folder. A folder row clears `AppModel.selectedSession`, so the detail pane starts a new session. Folders holds every root and the tree of the active root, with its files. A click on a folder opens or closes it. `SidebarSelection.folder` keeps the last file in the detail pane. `SidebarSelection.section` shows the captures of one section, and `SidebarSelection.clipboard` shows the clipboard history in the detail pane.
 
-The expansion set of `SidebarPane` holds the open folder paths. It also holds two kinds of keys that start with `\u{1}`, so they cannot match a path: `SidebarOutline.inboxCollapsedKey` for a closed Inbox, and `SidebarOutline.sessionsExpandedKey` for each open Claude folder.
+The expansion set of `SidebarPane` holds the open folder paths. The empty path is the root folder. `MainWindowState.expandedRows` saves the set. A window that has not opened before has an empty set, so every folder starts closed. The set also holds two kinds of keys that start with `\u{1}`, so they cannot match a path: `SidebarOutline.inboxCollapsedKey` for a closed Inbox, and `SidebarOutline.sessionsExpandedKey` for each open Claude folder.
 
 The sidebar always uses medium rows: 13-point text and 18-point icons. It ignores the macOS sidebar size preference, so the list and the detail pane stay larger than the sidebar.
 
@@ -189,8 +189,6 @@ The `sessions` table stores each session at each change of state. Quit asks befo
 `AppModel` stores the folder list and the active root in preferences. `removeWikiFolder` moves the active root to another folder before it removes a root.
 
 `AppModel` starts the watcher with the first scan and replaces it when the active root changes. A scan runs in the background. A change during a scan requests one more scan. A scan keeps unsaved edit sessions and updates clean editors and previews. See [Wiki files](../concepts/files.md).
-
-`FileReadState` stores the last-read modification time of each file. `AppModel` computes unread state and folder counts, including subfolders. The first file selection waits until the detail pane shows before it marks the file read.
 
 ## Reading And Editing
 
@@ -328,7 +326,7 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | The error alert |
 | [Brief/](../../Sources/Piper/Brief) | The Brief group, the site list, the settings, the sign-in sheet, the builder, and the page loader |
 | [Modules/Briefs/](../../Sources/Modules/Briefs) | Sources, history and feed reads, the digest, the decay rank, blocked sites, prompts, the schedule, and the files |
-| [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | Library rows, the session rows, the folder tree, unread counts, and file warnings |
+| [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | Library rows, the session rows, the folder tree, and file warnings |
 | [InboxRow.swift](../../Sources/Piper/InboxRow.swift) | The rows of the Inbox stream and the progress ring |
 | [MainWindow/Detail/](../../Sources/Piper/MainWindow/Detail) | Header, file previews, the Reader tab, and the Notes tab |
 | [Modules/Captures/ReadingList.swift](../../Sources/Modules/Captures/ReadingList.swift) | The Reading groups and the Markdown of Save as File |

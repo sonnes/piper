@@ -1,6 +1,6 @@
 ---
 title: "Local Storage"
-summary: "Where Piper keeps captures, preferences, and read state, and the limits of each store"
+summary: "Where Piper keeps captures and preferences, and the limits of each store"
 read_when:
   - Locating local data
   - Backing up Piper
@@ -134,12 +134,7 @@ UserDefaults holds these keys:
 | `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |
 | `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |
 | `mainWindowState` | The sidebar selection, open file, open folders, and pane widths |
-| `wikiReadTimestamps` | Read state |
 | `NSWindow Frame PiperCapturePanel`, `NSWindow Frame PiperLibrary` | Window frames |
-
-### Read State
-
-`wikiReadTimestamps` stores, for each Wiki folder and relative path, the modification time of the file when you last opened it. A file is unread when it has no stored time or its time differs. A change that keeps the modification time does not make a file unread.
 
 ### Bundle ID Migration
 

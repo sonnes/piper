@@ -63,9 +63,10 @@ struct MainWindowState: Codable, Equatable {
     var selectedFile: String?
     /// The capture the detail pane showed, while the inbox was selected.
     var selectedNote: UUID?
-    /// The folders the sidebar had open. A nil value means the window has not
-    /// opened before, so the sidebar opens every folder.
-    var expandedFolders: [String]?
+    /// The rows the sidebar had open: folder paths and the keys of
+    /// `SidebarOutline`. A window that has not opened before has none, so
+    /// every folder starts closed.
+    var expandedRows: [String]?
     var sidebarWidth: CGFloat = 210
     var listWidth: CGFloat = 350
 
@@ -76,7 +77,7 @@ struct MainWindowState: Codable, Equatable {
     mutating func resetForVault() {
         selection = .folder("")
         selectedFile = nil
-        expandedFolders = nil
+        expandedRows = nil
     }
 
     static func restore() -> MainWindowState {

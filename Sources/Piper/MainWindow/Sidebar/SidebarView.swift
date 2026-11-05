@@ -19,8 +19,7 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SidebarOutline(model: model, unreadCounts: model.unreadFolderCounts,
-                           sections: sectionCounts,
+            SidebarOutline(model: model, sections: sectionCounts,
                            sessionFolders: sessionFolders, selectedSession: model.selectedSession,
                            expanded: $expanded, selection: selection, openFile: model.selectedDocument, select: select,
                            selectSession: selectSession,
@@ -96,19 +95,6 @@ struct SidebarView: View {
                 sessions: sessions.map { SidebarSessionRow(id: $0.id, folder: folder, title: $0.title, status: .init($0)) }
             )
         }
-    }
-
-    /// Every folder path in the files, at every level.
-    static func folders(of files: [VaultFile], including empty: [String] = []) -> Set<String> {
-        var result = Set(empty)
-        for document in files {
-            var folder = document.folder
-            while !folder.isEmpty {
-                result.insert(folder)
-                folder = (folder as NSString).deletingLastPathComponent
-            }
-        }
-        return result
     }
 }
 

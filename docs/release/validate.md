@@ -25,7 +25,7 @@ The tests use temporary folders and temporary databases. Each module has a test 
 | `BriefsTests` | Browser and NetNewsWire sources, Hacker News, the digest, the decay rank, the picks prompt and its answer, blocked sites, the schedule, and the brief files |
 | `CapturesTests` | The capture store, clipboard entries, and capture links |
 | `VaultTests` | Scans, path safety, reads, writes, and the watcher |
-| `PiperTests` | The app model: editing, refresh, read state, previews, and quit safety |
+| `PiperTests` | The app model: editing, refresh, previews, and quit safety |
 
 The tests do not cover the UI or the global shortcut path.
 
@@ -126,11 +126,10 @@ Only Inbox, its sections, and Done show the list of captures. Every other select
 3. Press Command-K and type a part of a file name. Make sure that Return opens the file.
 4. Click a folder in the tree. Make sure that it opens or closes, and that the detail pane keeps the file.
 5. Select Clipboard. Make sure that the clipboard history fills the detail pane.
-6. Open a file. Make sure that its unread dot goes away.
-7. Follow a Wiki link, then use Command-[ and Command-].
-8. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the pane. Make sure that Source shows their text, and that long lines wrap.
-9. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
-10. Control-click the added folder and select Remove Folder. Make sure that the folder stays on disk.
+6. Follow a Wiki link, then use Command-[ and Command-].
+7. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the pane. Make sure that Source shows their text, and that long lines wrap.
+8. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
+9. Control-click the added folder and select Remove Folder. Make sure that the folder stays on disk.
 
 ## Editing Checks
 

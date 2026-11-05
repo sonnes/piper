@@ -6,7 +6,6 @@ import UniformTypeIdentifiers
 /// AppKit owns row geometry, selection, disclosure, and keyboard navigation.
 struct SidebarOutline: NSViewRepresentable {
     let model: AppModel
-    let unreadCounts: [String: Int]
     let sections: [SidebarSection]
     /// The folders that have agent sessions.
     let sessionFolders: [SidebarSessionFolder]
@@ -75,11 +74,6 @@ struct SidebarOutline: NSViewRepresentable {
         context.coordinator.update()
     }
 
-    /// The row title of a file. A Markdown file drops its extension, as a note name does.
-    static func fileTitle(_ name: String) -> String {
-        ["md", "markdown"].contains((name as NSString).pathExtension.lowercased()) ? (name as NSString).deletingPathExtension : name
-    }
-
     /// The row icon of a file, by its kind. The name is an SVG in the resources, after `sidebar-`.
     static func fileIcon(_ name: String) -> String {
         let type = UTType(filenameExtension: (name as NSString).pathExtension)
@@ -114,9 +108,6 @@ struct SidebarOutline: NSViewRepresentable {
         private var folders: [String] = []
         private var wikiPath = ""
         private var wikiPaths: [String] = []
-        private var unreadCounts: [String: Int] = [:]
-        /// The paths of the files that the reader has not opened since they last changed.
-        private var unreadFiles: Set<String> = []
         private var sections: [SidebarSection] = []
         private var sessionFolders: [SidebarSessionFolder] = []
         /// The file whose folders the tree last opened, so a folder that the
@@ -148,13 +139,11 @@ struct SidebarOutline: NSViewRepresentable {
             updating = true
             defer { updating = false }
             let newPaths = parent.model.files.map(\.relativePath)
-            if wikiPaths != parent.model.wikiPaths || newPaths != paths || folders != parent.model.folders || wikiPath != parent.model.wikiPath || unreadCounts != parent.unreadCounts || sections != parent.sections || sessionFolders != parent.sessionFolders {
+            if wikiPaths != parent.model.wikiPaths || newPaths != paths || folders != parent.model.folders || wikiPath != parent.model.wikiPath || sections != parent.sections || sessionFolders != parent.sessionFolders {
                 paths = newPaths
                 folders = parent.model.folders
                 wikiPath = parent.model.wikiPath
                 wikiPaths = parent.model.wikiPaths
-                unreadCounts = parent.unreadCounts
-                unreadFiles = Set(parent.model.files.filter(parent.model.isUnread).map(\.relativePath))
                 sections = parent.sections
                 sessionFolders = parent.sessionFolders
                 root = Node.root(representedObject: "root")
@@ -202,7 +191,7 @@ struct SidebarOutline: NSViewRepresentable {
                     if parent.expanded.contains(SidebarOutline.sessionsExpandedKey(folder)) { outline.expandItem(node) }
                     else { outline.collapseItem(node) }
                 } else if let item = node.representedObject as? PathItem, item.isFolder {
-                    if item.path.isEmpty || parent.expanded.contains(item.path) { outline.expandItem(node) }
+                    if parent.expanded.contains(item.path) { outline.expandItem(node) }
                     else { outline.collapseItem(node) }
                 }
                 node.children.forEach(restore)
@@ -250,7 +239,8 @@ struct SidebarOutline: NSViewRepresentable {
         private func reveal(_ file: String?) {
             guard let file, file != revealedFile else { return }
             revealedFile = file
-            var folders: [String] = []
+            // The empty path is the root folder.
+            var folders = [""]
             var folder = (file as NSString).deletingLastPathComponent
             while !folder.isEmpty {
                 folders.append(folder)
@@ -310,15 +300,15 @@ struct SidebarOutline: NSViewRepresentable {
             let cell = (outlineView.makeView(withIdentifier: identifier, owner: self) as? SidebarCell) ?? SidebarCell()
             cell.identifier = identifier
             if let item = node.representedObject as? PathItem, !item.isFolder {
-                cell.configure(title: SidebarOutline.fileTitle(item.name),
+                cell.configure(title: item.name,
                                icon: .glyph(SidebarOutline.fileIcon(item.name), PiperTheme.sidebarFileNS),
-                               count: 0, unread: unreadFiles.contains(item.path))
+                               count: 0)
                 cell.toolTip = item.path
             } else if let item = node.representedObject as? PathItem {
                 let name = item.path.isEmpty ? parent.model.vault.root.lastPathComponent : item.name
                 cell.configure(title: name,
                                icon: item.path.isEmpty ? SidebarOutline.folderIcon(name, at: wikiPaths.firstIndex(of: wikiPath) ?? 0) : .glyph("folder", PiperTheme.sidebarFolderNS),
-                               count: unreadCounts[item.path, default: 0])
+                               count: 0)
                 cell.toolTip = item.path.isEmpty ? wikiPath : item.path
             } else if let url = node.representedObject as? URL {
                 cell.configure(title: url.lastPathComponent, icon: SidebarOutline.folderIcon(url.lastPathComponent, at: wikiPaths.firstIndex(of: url.path) ?? 0),
@@ -617,8 +607,6 @@ private final class SidebarCell: NSTableCellView {
     /// The orange count of the sessions that wait, on a sessions row.
     private let attentionLabel = NSTextField(labelWithString: "")
     private let attentionBadge = NSView()
-    /// The blue dot of an unread file.
-    private let unreadDot = NSView()
     private let actions = NSStackView()
     private var tint: NSColor?
     private lazy var iconWidth = icon.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.imageSize)
@@ -650,18 +638,10 @@ private final class SidebarCell: NSTableCellView {
             attentionBadge.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.countCornerRadius * 2),
             attentionBadge.widthAnchor.constraint(greaterThanOrEqualTo: attentionBadge.heightAnchor)
         ])
-        unreadDot.wantsLayer = true
-        unreadDot.layer?.cornerRadius = AppDefaults.Sidebar.unreadDotSize / 2
-        unreadDot.setAccessibilityLabel("Unread")
-        NSLayoutConstraint.activate([
-            unreadDot.widthAnchor.constraint(equalToConstant: AppDefaults.Sidebar.unreadDotSize),
-            unreadDot.heightAnchor.constraint(equalToConstant: AppDefaults.Sidebar.unreadDotSize)
-        ])
         icon.imageScaling = .scaleProportionallyUpOrDown
         actions.spacing = AppDefaults.Sidebar.actionSpacing
         actions.addArrangedSubview(countLabel)
         actions.addArrangedSubview(attentionBadge)
-        actions.addArrangedSubview(unreadDot)
         for view in [title, icon, actions] {
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
@@ -681,9 +661,7 @@ private final class SidebarCell: NSTableCellView {
 
     /// - Parameters:
     ///   - attention: Shows the count as an orange badge instead of gray text.
-    ///   - unread: Shows the blue dot of an unread file.
-    func configure(title: String, icon: SidebarIcon, count: Int, attention: Bool = false, unread: Bool = false) {
-        unreadDot.isHidden = !unread
+    func configure(title: String, icon: SidebarIcon, count: Int, attention: Bool = false) {
         self.title.stringValue = title
         self.title.font = PiperTheme.uiNS(.body)
         self.icon.image = icon.image(side: AppDefaults.Sidebar.imageSize)
@@ -693,7 +671,7 @@ private final class SidebarCell: NSTableCellView {
         countLabel.isHidden = attention || count == 0
         attentionLabel.stringValue = attention ? text : ""
         attentionBadge.isHidden = !attention || count == 0
-        let label = count > 0 ? (attention ? "\(count) waiting" : "\(count) unread") : nil
+        let label = count > 0 ? (attention ? "\(count) waiting" : "\(count) items") : nil
         countLabel.setAccessibilityLabel(label)
         attentionBadge.setAccessibilityLabel(label)
         updateColors()
@@ -707,7 +685,6 @@ private final class SidebarCell: NSTableCellView {
         icon.contentTintColor = emphasized ? .selectedControlTextColor : tint
         effectiveAppearance.performAsCurrentDrawingAppearance {
             attentionBadge.layer?.backgroundColor = PiperTheme.claudeNS.cgColor
-            unreadDot.layer?.backgroundColor = (emphasized ? NSColor.selectedControlTextColor : PiperTheme.accentNS).cgColor
         }
     }
 

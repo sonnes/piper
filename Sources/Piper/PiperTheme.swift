@@ -6,8 +6,7 @@ import SwiftUI
 ///
 /// Text and surfaces use the system colors, so they follow the dark appearance
 /// and the contrast settings of the reader. The accent is the one saturated
-/// color, and it marks selection with focus, links, unread files, and the
-/// primary button.
+/// color, and it marks selection with focus, links, and the primary button.
 enum PiperTheme {
     static let resources: Bundle = {
         if let url = Bundle.main.url(forResource: "Piper_Piper", withExtension: "bundle"), let bundle = Bundle(url: url) {

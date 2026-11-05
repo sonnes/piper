@@ -67,7 +67,7 @@ The toolbar has these controls:
 
 Tabs float over the bottom of the detail pane. A Markdown or HTML file has Preview and Source. A capture with a link has Reader, Web, and Notes.
 
-The folder tree shows every folder and every file, as in an editor. Folders come first, then files. A Markdown file shows its name without `.md`. Each top-level folder shows a colored tile with the first letter of its name. The arrows that open and close folders show only when the pointer is on the sidebar. The arrow keys open and close folders at all times.
+The folder tree shows every folder and every file, as in an editor. Folders come first, then files. Each file and folder shows its full name, with the extension. Every folder starts closed. Each top-level folder shows a colored tile with the first letter of its name. The arrows that open and close folders show only when the pointer is on the sidebar. The arrow keys open and close folders at all times.
 
 - Select a file to open it.
 - Click a folder to open or close it. The detail pane keeps the last file.
@@ -81,12 +81,6 @@ The window restores its frame, the pane widths, the selection, the open folders,
 The search field sits at the top of the list of captures and at the top of the clipboard history. In Inbox, search filters the notes of every section. In Clipboard, search filters the clipboard history.
 
 To find a file, use [Go to File](#go-to-a-file).
-
-## Track Unread Files
-
-A file you have not opened has a blue dot in the sidebar tree. A file becomes unread again when its modification time changes. A save that you make in Piper keeps the file read.
-
-The count on a folder in the sidebar includes the unread files in its subfolders. A folder with no unread files shows no count. Read state is separate for each folder and survives a restart.
 
 ## Read A File
 
@@ -225,7 +219,7 @@ Piper keeps the chip of each section until you quit.
 
 The captures that you mark as done today show under "done today" at the end of All and Notes. Select the line to show or hide them.
 
-A note has a circle. Select the circle to mark the note as done. A link has a ring that fills as you read. Select the ring to mark the article as read, or to read it again. A blue dot marks a link that you did not open. A completed note and a read article show a gray check, and their titles are gray.
+A note has a circle. Select the circle to mark the note as done. A link has a ring that fills as you read. Select the ring to mark the article as read, or to read it again. A completed note and a read article show a gray check, and their titles are gray.
 
 A link shows the first line of its title, and its site under the title. A started article also shows the minutes left. If a capture has highlights, notes, or questions, their number shows on the second line. Select the number to open the list of them. Select it again to close the list.
 
@@ -288,7 +282,7 @@ Select the Reading chip over the Inbox list. Reading shows each capture that hol
 | Group | Articles |
 | --- | --- |
 | Continue | The articles that you opened or highlighted. The newest activity is first. |
-| Up Next | The articles that you did not open. A blue dot marks them. |
+| Up Next | The articles that you did not open |
 | Finished This Week | The articles that you read to the end in the last seven days |
 
 The count on the Reading chip includes all three groups. When you scroll to the end of an article, or select its ring, Piper moves it to Finished This Week. Seven days later, Piper marks it as done, and it moves to Done. Piper makes this check at launch and each time the main window becomes active.
