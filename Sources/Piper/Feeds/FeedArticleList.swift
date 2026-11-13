@@ -30,7 +30,8 @@ struct FeedArticleList: View {
                     List(selection: Binding(get: { selectedID }, set: { id in open(articles.first { $0.id == id }) })) {
                         ForEach(articles) { article in
                             FeedArticleRow(article: article, feed: feeds.feed(article.feedID),
-                                           showsFeed: !isOneFeed)
+                                           showsFeed: !isOneFeed, favicons: model.favicons,
+                                           index: feeds.feeds.firstIndex { $0.id == article.feedID } ?? 0)
                                 .tag(article.id)
                                 .contextMenu { menu(for: article) }
                         }
@@ -181,6 +182,9 @@ private struct FeedArticleRow: View {
     let article: Article
     let feed: Feed?
     let showsFeed: Bool
+    let favicons: FaviconStore
+    /// The place of the feed in the sidebar, for the color of its letter tile.
+    let index: Int
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -191,7 +195,11 @@ private struct FeedArticleRow: View {
                 .accessibilityLabel(article.read ? "" : "Unread")
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
-                    if showsFeed, let feed { Text(feed.title).lineLimit(1) }
+                    if showsFeed, let feed {
+                        SiteIcon(favicons: favicons, host: feed.host, title: feed.title, index: index,
+                                 side: AppDefaults.Feeds.articleIconSize)
+                        Text(feed.title).lineLimit(1)
+                    }
                     Text(RowTime.text(article.date)).monospacedDigit()
                     if article.starred {
                         Image(systemName: "star.fill").foregroundStyle(PiperTheme.star)

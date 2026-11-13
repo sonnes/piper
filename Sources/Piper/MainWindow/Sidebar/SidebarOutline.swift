@@ -366,8 +366,14 @@ struct SidebarOutline: NSViewRepresentable {
                 let index = feeds.rows.firstIndex { $0.id == id } ?? 0
                 let feed = feeds.rows.indices.contains(index) ? feeds.rows[index] : nil
                 let title = feed?.title ?? id
-                let icon: SidebarIcon = feed?.error == nil ? .monogram(SidebarOutline.monogram(title), SidebarOutline.tagColor(at: index))
-                    : .glyph("rss", PiperTheme.warningNS)
+                let icon: SidebarIcon
+                if feed?.error != nil {
+                    icon = .glyph("rss", PiperTheme.warningNS)
+                } else if let data = feed?.icon {
+                    icon = .favicon(data)
+                } else {
+                    icon = .monogram(SidebarOutline.monogram(title), SidebarOutline.tagColor(at: index))
+                }
                 return (title, icon, feed?.unread ?? 0)
             }
         }
@@ -570,6 +576,8 @@ enum SidebarIcon: Equatable {
     case monogram(String, NSColor)
     /// A rounded tile with a white glyph, for a sessions folder.
     case tile(String, NSColor)
+    /// The icon of a site, for a feed.
+    case favicon(Data)
 
     /// The image of the icon. A drawn image resolves its colors each time it
     /// draws, so it follows the dark appearance.
@@ -607,6 +615,10 @@ enum SidebarIcon: Equatable {
                 ])
                 let textSize = text.size()
                 text.draw(at: NSPoint(x: rect.midX - textSize.width / 2, y: rect.midY - textSize.height / 2))
+            case .favicon(let data):
+                guard let icon = SidebarIcon.favicon(data) else { break }
+                NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).addClip()
+                icon.draw(in: rect)
             case .tile(_, let color):
                 color.setFill()
                 NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
@@ -620,6 +632,16 @@ enum SidebarIcon: Equatable {
     }
 
     private static var glyphs: [String: NSImage] = [:]
+    private static var favicons: [Data: NSImage] = [:]
+
+    /// The image of a site icon, decoded once.
+    @MainActor
+    static func favicon(_ data: Data) -> NSImage? {
+        if let image = favicons[data] { return image }
+        guard let image = NSImage(data: data) else { return nil }
+        favicons[data] = image
+        return image
+    }
 
     /// A template image from `sidebar-<name>.svg` in the resources.
     @MainActor

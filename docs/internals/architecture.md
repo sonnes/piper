@@ -289,6 +289,8 @@ After each refresh, `FeedStore` prunes the read articles that are not starred an
 
 `OPMLImport` reads an OPML file and returns each feed, also the feeds in folders. `OPMLImport.netNewsWireFile` is the OPML file of the On My Mac account of NetNewsWire.
 
+`FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` and `SidebarIcon.favicon` draw the icon.
+
 The Feeds group of the sidebar holds `SidebarSelection.feeds` rows, each with a `FeedFilter`. `FeedArticleList` fills the list pane. `FeedArticleDetail` shows the selected article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `ReaderAddressBar` and `TabIsland` as `ArticleReader`. The `keepArticle`, `star`, and `markDone` toolbar items act on the selected article. `FeedStore.revision` changes after each write, so the views read again.
 
 ## Discover

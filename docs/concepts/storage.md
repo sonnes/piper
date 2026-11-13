@@ -23,6 +23,8 @@ The feed database is `~/Library/Application Support/Piper/Feeds.sqlite`. It has 
 
 Piper removes a read article that is not starred 30 days after it arrives. A scan replaces the suggestions, but the ignored rows stay.
 
+The folder `~/Library/Application Support/Piper/Favicons` holds the icon of each site, in one file for each host. Piper fetches an icon only when the folder has no file for the host. To fetch the icons again, delete the folder.
+
 ## Capture Database
 
 The database is `~/Library/Application Support/Piper/notes.sqlite`. Settings > Local Data > Show in Finder opens its folder.

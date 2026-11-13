@@ -32,7 +32,7 @@ struct DiscoverView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: AppDefaults.Feeds.discoverRowSpacing) {
                         ForEach(Array(withFeed.enumerated()), id: \.element.id) { index, suggestion in
-                            SuggestionRow(suggestion: suggestion, index: index,
+                            SuggestionRow(suggestion: suggestion, index: index, favicons: model.favicons,
                                           subscribe: { subscribe(suggestion) },
                                           ignore: { feeds.ignore(suggestion) })
                         }
@@ -57,7 +57,7 @@ struct DiscoverView: View {
                             .padding(.bottom, 4)
                             if showsNoFeed {
                                 ForEach(Array(noFeed.enumerated()), id: \.element.id) { index, suggestion in
-                                    SuggestionRow(suggestion: suggestion, index: withFeed.count + index,
+                                    SuggestionRow(suggestion: suggestion, index: withFeed.count + index, favicons: model.favicons,
                                                   subscribe: nil, ignore: { feeds.ignore(suggestion) })
                                 }
                             }
@@ -102,6 +102,7 @@ struct DiscoverView: View {
 private struct SuggestionRow: View {
     let suggestion: Suggestion
     let index: Int
+    let favicons: FaviconStore
     /// Nil for a site with no feed. The row then offers Open.
     let subscribe: (() -> Void)?
     let ignore: () -> Void
@@ -112,12 +113,7 @@ private struct SuggestionRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(SidebarOutline.monogram(title))
-                .font(PiperTheme.ui(.caption, weight: .bold))
-                .foregroundStyle(PiperTheme.onAccent)
-                .frame(width: AppDefaults.Sidebar.imageSize, height: AppDefaults.Sidebar.imageSize)
-                .background(Color(nsColor: SidebarOutline.tagColor(at: index)),
-                            in: RoundedRectangle(cornerRadius: AppDefaults.Sidebar.imageSize * AppDefaults.Sidebar.tileCornerFraction))
+            SiteIcon(favicons: favicons, host: suggestion.host, title: title, index: index)
                 .opacity(subscribe == nil ? 0.5 : 1)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(PiperTheme.ui(.body, weight: subscribe == nil ? .regular : .semibold)).lineLimit(1)

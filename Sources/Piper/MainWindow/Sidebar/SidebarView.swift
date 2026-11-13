@@ -99,7 +99,10 @@ struct SidebarView: View {
             unread: store.totalUnread,
             starred: store.starredCount,
             suggestions: store.suggestions.filter { !$0.ignored && $0.feedURL != nil && store.feed($0.feedURL!) == nil }.count,
-            rows: store.feeds.map { SidebarFeeds.Row(id: $0.id, title: $0.title, unread: store.unreadCounts[$0.id] ?? 0, error: $0.error) }
+            rows: store.feeds.map {
+                SidebarFeeds.Row(id: $0.id, title: $0.title, unread: store.unreadCounts[$0.id] ?? 0, error: $0.error,
+                                 icon: model.favicons.icon(for: $0.host))
+            }
         )
     }
 
@@ -155,6 +158,8 @@ struct SidebarFeeds: Equatable {
         let title: String
         let unread: Int
         let error: String?
+        /// The image data of the site icon, if the site has one.
+        let icon: Data?
     }
 
     var unread = 0

@@ -7,8 +7,18 @@ final class StubProtocol: URLProtocol {
 
     struct Answer {
         let status: Int
-        let body: String
+        let data: Data
         var headers: [String: String] = [:]
+
+        init(status: Int, body: String, headers: [String: String] = [:]) {
+            self.init(status: status, data: Data(body.utf8), headers: headers)
+        }
+
+        init(status: Int, data: Data, headers: [String: String] = [:]) {
+            self.status = status
+            self.data = data
+            self.headers = headers
+        }
     }
 
     private static let lock = NSLock()
@@ -41,7 +51,7 @@ final class StubProtocol: URLProtocol {
         }
         let response = HTTPURLResponse(url: url, statusCode: answer.status, httpVersion: nil, headerFields: answer.headers)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(answer.body.utf8))
+        client?.urlProtocol(self, didLoad: answer.data)
         client?.urlProtocolDidFinishLoading(self)
     }
 
@@ -237,5 +247,57 @@ private func temporaryDatabase() -> URL {
 
     @Test func missingFileExplainsTheFix() {
         #expect(throws: FeedError.self) { try OPMLImport.feeds(in: URL(fileURLWithPath: "/nonexistent/Subscriptions.opml")) }
+    }
+}
+
+/// A PNG image of one pixel.
+private let pixel = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")!
+
+@Suite(.serialized) struct FaviconTests {
+
+    @Test func pageIconsComeBeforeTheFallback() async {
+        StubProtocol.serve(["https://icons.example/": .init(status: 200, body: """
+        <html><head>
+        <link rel="icon" type="image/svg+xml" href="/icon.svg">
+        <link rel="icon" href="/img/icon-32.png">
+        <link rel="apple-touch-icon" href="/touch.png">
+        </head></html>
+        """)])
+        let candidates = await FaviconStore.candidates("icons.example", session: StubProtocol.session())
+        #expect(candidates.map(\.absoluteString) == [
+            "https://icons.example/img/icon-32.png",
+            "https://icons.example/favicon.ico",
+            "https://icons.example/touch.png"
+        ])
+    }
+
+    @Test func findSkipsAnAnswerThatIsNotAnImage() async {
+        StubProtocol.serve([
+            "https://broken-icon.example/": .init(status: 200, body: "<link rel=\"icon\" href=\"/a.png\">"),
+            "https://broken-icon.example/a.png": .init(status: 200, body: "<html>Not found</html>"),
+            "https://broken-icon.example/favicon.ico": .init(status: 200, data: pixel)
+        ])
+        let data = await FaviconStore.find("broken-icon.example", session: StubProtocol.session())
+        #expect(data == pixel)
+    }
+
+    @Test func siteWithNoIconFindsNothing() async {
+        let data = await FaviconStore.find("no-icon.example", session: StubProtocol.session())
+        #expect(data == nil)
+    }
+
+    @Test @MainActor func storeKeepsTheIconOnDisk() async throws {
+        StubProtocol.serve(["https://kept-icon.example/favicon.ico": .init(status: 200, data: pixel)])
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("FaviconTests-\(UUID().uuidString)")
+        let store = FaviconStore(folder: folder, session: StubProtocol.session())
+        #expect(store.icon(for: "www.Kept-Icon.example") == nil)
+        for _ in 0..<50 where store.icons["kept-icon.example"] == nil { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(store.icons["kept-icon.example"] == pixel)
+        #expect(try Data(contentsOf: folder.appendingPathComponent("kept-icon.example")) == pixel)
+
+        let restarted = FaviconStore(folder: folder, session: StubProtocol.session())
+        _ = restarted.icon(for: "kept-icon.example")
+        for _ in 0..<50 where restarted.icons["kept-icon.example"] == nil { try await Task.sleep(for: .milliseconds(20)) }
+        #expect(restarted.icons["kept-icon.example"] == pixel)
     }
 }

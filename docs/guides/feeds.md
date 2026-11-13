@@ -23,6 +23,8 @@ Piper reads RSS, Atom, RSS-in-JSON, and JSON Feed. The Feeds group of the sideba
 
 Each row shows a count of unread articles. Starred shows a count of starred articles.
 
+A feed shows the icon of its site. Piper gets the icon from the home page of the site. Until Piper finds an icon, the feed shows the first letter of its title. Discover and the article rows show the same icons.
+
 ## Add A Feed
 
 1. Select the + button in the header of the Feeds group. You can also choose Add Feed from the + menu of the toolbar.

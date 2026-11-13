@@ -18,6 +18,8 @@ final class AppModel {
     let reader: ReaderAssistant
     /// The subscriptions and their articles.
     let feeds: FeedStore
+    /// The icon of each site, for the feeds and Discover.
+    let favicons: FaviconStore
     /// The sites of browser history and their feeds.
     let discover: DiscoverScan
     /// True while the Add Feed sheet shows.
@@ -189,6 +191,8 @@ final class AppModel {
             .compactMapValues { ArticleTab(rawValue: $0) }
         self.feeds = feeds ?? FeedStore(url: store == nil ? nil : FileManager.default.temporaryDirectory
             .appendingPathComponent("PiperFeeds-\(UUID().uuidString)/Feeds.sqlite"))
+        favicons = FaviconStore(folder: store == nil ? nil : FileManager.default.temporaryDirectory
+            .appendingPathComponent("PiperFavicons-\(UUID().uuidString)"))
         let store = store ?? CaptureStore()
         self.store = store
         clipboard = ClipboardInbox(store: store)
