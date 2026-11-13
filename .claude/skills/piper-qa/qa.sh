@@ -99,7 +99,8 @@ shot)
 	;;
 stop)
 	$AD close-app PiperQA >/dev/null 2>&1 || pkill -f "$APP/Contents/MacOS/" 2>/dev/null || true
-	rm -f "$QA"/*.png "$RESULT"
+	find "$QA" -maxdepth 1 -name '*.png' -delete 2>/dev/null
+	rm -f "$RESULT"
 	echo "PiperQA stopped."
 	;;
 *)

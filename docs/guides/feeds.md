@@ -48,6 +48,8 @@ If Piper cannot read the NetNewsWire file, give Piper Full Disk Access. You can 
 
 Select a row in the Feeds group. The list pane shows the articles, the newest first. Select an article to read it in the detail pane. The detail pane is the same reader as a link in Inbox. The Reader tab shows the article as clean text, and the Web tab shows the original page.
 
+![A fictional feed with its articles, and an article in the Reader tab](../images/feeds.png)
+
 When you select an article, Piper marks it as read. The article stays in the list until you select another row.
 
 | Key | Action |
