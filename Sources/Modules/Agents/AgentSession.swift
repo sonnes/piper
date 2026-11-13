@@ -28,9 +28,6 @@ public final class AgentSession: Identifiable {
         /// The hidden session that answers the margin questions of one capture.
         /// It reads files and the web, and it changes nothing.
         case margin
-        /// The hidden session that writes a brief. It has no tool, and Piper
-        /// stores no transcript of it.
-        case brief
     }
 
     /// The stored form of a session.

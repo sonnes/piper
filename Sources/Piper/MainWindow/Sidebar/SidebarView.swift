@@ -1,5 +1,6 @@
 import Agents
 import AppKit
+import Feeds
 import PiperTree
 import SwiftUI
 import Vault
@@ -20,7 +21,7 @@ struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             SidebarOutline(model: model, sections: sectionCounts,
-                           sessionFolders: sessionFolders, selectedSession: model.selectedSession,
+                           sessionFolders: sessionFolders, feeds: feedRows, selectedSession: model.selectedSession,
                            expanded: $expanded, selection: selection, openFile: model.selectedDocument, select: select,
                            selectSession: selectSession,
                            newSection: { namingSection = true },
@@ -28,7 +29,8 @@ struct SidebarView: View {
                                sectionName = section
                                editingSection = section
                            },
-                           deleteSection: { deletingSection = $0 })
+                           deleteSection: { deletingSection = $0 },
+                           addFeed: { model.addingFeed = true })
             if !model.wikiProblems.isEmpty {
                 DisclosureGroup("\(model.wikiProblems.count) file warnings") {
                     Text(model.wikiProblems.joined(separator: "\n"))
@@ -36,6 +38,12 @@ struct SidebarView: View {
                 }
                 .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.warning)
                 .padding(.horizontal, AppDefaults.Sidebar.rowInset).padding(.vertical, 6)
+            }
+        }
+        .sheet(isPresented: $model.addingFeed) {
+            AddFeedSheet(feeds: model.feeds) { added in
+                model.addingFeed = false
+                if let added { select(.feeds(.feed(added))) }
             }
         }
         .sheet(isPresented: $namingSection) {
@@ -84,6 +92,17 @@ struct SidebarView: View {
         }
     }
 
+    /// The rows of the Feeds group and their counts.
+    private var feedRows: SidebarFeeds {
+        let store = model.feeds
+        return SidebarFeeds(
+            unread: store.totalUnread,
+            starred: store.starredCount,
+            suggestions: store.suggestions.filter { !$0.ignored && $0.feedURL != nil && store.feed($0.feedURL!) == nil }.count,
+            rows: store.feeds.map { SidebarFeeds.Row(id: $0.id, title: $0.title, unread: store.unreadCounts[$0.id] ?? 0, error: $0.error) }
+        )
+    }
+
     /// The folders with agent sessions, and the sessions of each.
     private var sessionFolders: [SidebarSessionFolder] {
         let runner = model.agents.runner
@@ -127,6 +146,22 @@ struct SidebarSessionRow: Equatable {
     let folder: String
     let title: String
     let status: Status
+}
+
+/// The rows of the Feeds group in the sidebar.
+struct SidebarFeeds: Equatable {
+    struct Row: Equatable {
+        let id: String
+        let title: String
+        let unread: Int
+        let error: String?
+    }
+
+    var unread = 0
+    var starred = 0
+    /// The sites of Discover that have a feed and wait for an answer.
+    var suggestions = 0
+    var rows: [Row] = []
 }
 
 /// One capture section in the sidebar.

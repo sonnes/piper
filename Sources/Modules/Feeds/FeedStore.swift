@@ -93,8 +93,14 @@ public final class FeedStore {
 
     // MARK: - Articles
 
-    public func articles(_ filter: FeedFilter) -> [Article] {
-        (try? database?.articles(filter)) ?? []
+    /// The articles of a row of the sidebar. See `FeedDatabase.articles`.
+    public func articles(_ filter: FeedFilter, keeping: Set<String> = []) -> [Article] {
+        (try? database?.articles(filter, keeping: keeping)) ?? []
+    }
+
+    /// The article with the ID, with its current marks.
+    public func article(_ id: String) -> Article? {
+        try? database?.article(id)
     }
 
     public func setRead(_ read: Bool, _ articles: [Article]) {

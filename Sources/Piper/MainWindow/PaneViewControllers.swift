@@ -1,4 +1,5 @@
 import AppKit
+import Feeds
 import SwiftUI
 
 /// The card and tabs share the available width of the detail pane.
@@ -63,7 +64,8 @@ final class SidebarViewController: HostingPaneViewController {
     }
 }
 
-/// The captures of Inbox, of one section, or of Done. It reports a capture and nothing else.
+/// The captures of Inbox, of one section, or of Done, or the articles of a row
+/// of Feeds. It reports a capture or an article and nothing else.
 @MainActor
 final class CaptureListViewController: HostingPaneViewController {
     override var acceptsFirstResponder: Bool { true }
@@ -71,6 +73,10 @@ final class CaptureListViewController: HostingPaneViewController {
 
     func selectNote(_ id: UUID?) {
         delegate?.captureListViewController(self, didSelectNote: id)
+    }
+
+    func selectArticle(_ article: Article?) {
+        delegate?.captureListViewController(self, didSelectArticle: article)
     }
 }
 

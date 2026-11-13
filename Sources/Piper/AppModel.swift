@@ -5,6 +5,7 @@ import ApplicationServices
 import Observation
 import PiperCore
 import Captures
+import Feeds
 import Vault
 import WebKit
 
@@ -15,7 +16,12 @@ final class AppModel {
     let agents: FolderAgents
     /// The highlights and questions of link captures.
     let reader: ReaderAssistant
-    let brief: BriefBuilder
+    /// The subscriptions and their articles.
+    let feeds: FeedStore
+    /// The sites of browser history and their feeds.
+    let discover: DiscoverScan
+    /// True while the Add Feed sheet shows.
+    var addingFeed = false
     /// The tab that a link capture shows: the article, the web page, or the notes.
     var articleTab = ArticleTab.web
     /// The tab, Reader or Web, that the reader last chose for each site, by `siteKey`.
@@ -165,7 +171,9 @@ final class AppModel {
         }
     }
 
-    init(store: CaptureStore? = nil, wikiPath: String? = nil, preferences: UserDefaults = .standard) {
+    /// - Parameter feeds: The feed store. A test that gives a capture store and no
+    ///   feed store gets a feed store in a temporary folder.
+    init(store: CaptureStore? = nil, wikiPath: String? = nil, preferences: UserDefaults = .standard, feeds: FeedStore? = nil) {
         self.preferences = preferences
         let defaults = preferences
         captureFloating = defaults.object(forKey: AppDefaults.Key.captureFloating) as? Bool ?? true
@@ -179,6 +187,8 @@ final class AppModel {
         composerDraft = defaults.string(forKey: AppDefaults.Key.composerDraft) ?? ""
         siteTabs = (defaults.dictionary(forKey: AppDefaults.Key.siteTabs) as? [String: Int] ?? [:])
             .compactMapValues { ArticleTab(rawValue: $0) }
+        self.feeds = feeds ?? FeedStore(url: store == nil ? nil : FileManager.default.temporaryDirectory
+            .appendingPathComponent("PiperFeeds-\(UUID().uuidString)/Feeds.sqlite"))
         let store = store ?? CaptureStore()
         self.store = store
         clipboard = ClipboardInbox(store: store)
@@ -194,7 +204,7 @@ final class AppModel {
         let stored = UserDefaults.standard.string(forKey: "captureShortcut") ?? "Shift, Shift"
         captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
         reader = ReaderAssistant(store: store, agents: agents)
-        brief = BriefBuilder(agents: agents, preferences: preferences)
+        discover = DiscoverScan(feeds: self.feeds, preferences: preferences)
         archiveFinishedReading()
         agents.refresh(paths: wikiPaths)
         agents.showDraft = { [weak self] id in self?.showSession?(id) }

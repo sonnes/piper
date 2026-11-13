@@ -53,12 +53,9 @@ final class AppDefaults {
         /// The folder that Save as File used last.
         static let articleExportFolder = "articleExportFolder"
         static let siteTabs = "articleSiteTabs"
-        static let briefBlockedSites = "briefBlockedSites"
-        static let briefDisabledSources = "briefDisabledSources"
-        static let briefMorning = "briefMorning"
-        static let briefMorningAsked = "briefMorningAsked"
-        static let briefLastTry = "briefLastTry"
-        static let briefLastBuilt = "briefLastBuilt"
+        static let blockedSites = "briefBlockedSites"
+        static let disabledHistorySources = "briefDisabledSources"
+        static let discoverLastScan = "discoverLastScan"
 
         /// Keys carried over when the bundle identifier changed to `com.piper`.
         static let migrated = [
@@ -121,6 +118,19 @@ final class AppDefaults {
         static let headerTopMargin: CGFloat = 14
         static let firstHeaderTopMargin: CGFloat = 8
         static let headerBottomMargin: CGFloat = 4
+    }
+
+    /// The Feeds group, the article list, and Discover.
+    enum Feeds {
+        static let headerHeight: CGFloat = 38
+        static let unreadDot: CGFloat = 7
+        static let detailButtonMargin: CGFloat = 24
+        static let addSheetWidth: CGFloat = 460
+        static let discoverRowSpacing: CGFloat = 2
+        /// Discover scans again when it opens, if the last scan is older than this.
+        static let discoverInterval: TimeInterval = 86_400
+        static let discoverParallelSites = 4
+        static let settingsSize = NSSize(width: 600, height: 560)
     }
 
     enum Window {
@@ -254,22 +264,6 @@ final class AppDefaults {
         static let badgeSize: CGFloat = 22
         static let buttonHeight: CGFloat = 24
         static let buttonPadding: CGFloat = 10
-    }
-
-    /// The daily brief.
-    enum Brief {
-        static let model = "sonnet"
-        /// How often the morning build checks the clock.
-        static let scheduleInterval: TimeInterval = 900
-        /// The articles of the first brief, which has no earlier brief to start from.
-        static let firstFeedDays = 2
-        static let pageLoadTimeout: Duration = .seconds(20)
-        /// The wait after a load, for pages that draw their text with a script.
-        static let pageSettle: Duration = .seconds(2)
-        static let concurrentPages = 3
-        static let loaderSize = NSSize(width: 1200, height: 800)
-        static let signInSize = NSSize(width: 900, height: 640)
-        static let settingsSize = NSSize(width: 600, height: 620)
     }
 
     /// The Reading list and the Notes tab of a link capture.

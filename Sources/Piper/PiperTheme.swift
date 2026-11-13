@@ -61,6 +61,10 @@ enum PiperTheme {
     static let clipboardNS = color(light: 0x8B5CF6, dark: 0xA78BFA)
     /// Amber 700 and 600.
     static let archivedNS = color(light: 0xB45309, dark: 0xD97706)
+    /// Emerald 600 and 400. The rows of the Feeds group.
+    static let feedsNS = color(light: 0x059669, dark: 0x34D399)
+    /// Amber 500 and 400. A starred article.
+    static let starNS = color(light: 0xF59E0B, dark: 0xFBBF24)
     /// Orange. The tile of a sessions folder, its count of sessions that wait, and the mark of Claude Code.
     static let claudeNS = color(light: 0xF97316, dark: 0xFB923C)
     /// Teal 600 and 400. The mark of an agent that speaks ACP.
@@ -111,6 +115,8 @@ enum PiperTheme {
     static let danger = Color(nsColor: dangerNS)
     static let success = Color(nsColor: successNS)
     static let claude = Color(nsColor: claudeNS)
+    static let feeds = Color(nsColor: feedsNS)
+    static let star = Color(nsColor: starNS)
     static let acpAgent = Color(nsColor: acpAgentNS)
     /// The fill and the ring of a request that waits in a session.
     static let requestFill = Color(nsColor: color(light: 0xF97316, dark: 0xFB923C)).opacity(0.12)

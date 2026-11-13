@@ -1,6 +1,6 @@
 import Foundation
 
-/// The sites that a brief never reads. Piper applies this list in code, not in a prompt.
+/// The sites that Discover never reads.
 public enum BlockedSites {
 
     public static let defaults = [

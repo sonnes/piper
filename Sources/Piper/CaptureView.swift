@@ -414,7 +414,6 @@ struct CaptureView: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if !searchMode { BriefGroup(model: model) }
                     if !recentClipboard.isEmpty {
                         SectionHeader(title: "Clipboard", detail: nil, active: false, action: nil)
                         CaptureCard {
@@ -523,13 +522,11 @@ struct CaptureView: View {
     /// The Inbox of the main window: Continue Reading, one group for each day,
     /// and the captures done today.
     private func streamList(_ stream: InboxStream) -> some View {
-        let showsBrief = content == .stream(section: nil) && filter == .all && store.query.isEmpty
         let doneToday = filter == .reading || !store.query.isEmpty ? []
             : InboxStream.doneToday(notes: store.notes, section: streamSection).filter { filter == .all || !$0.isArticle }
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    if showsBrief { BriefGroup(model: model) }
                     ForEach(stream.groups, id: \.title) { group in
                         StreamHeader(title: group.title,
                                      action: group.kind == .started && filter == .all ? ("See All", { setFilter(.reading) }) : nil)
@@ -555,7 +552,7 @@ struct CaptureView: View {
                 .padding(.bottom, 12)
             }
             .overlay {
-                if stream.groups.isEmpty && doneToday.isEmpty && !(showsBrief && BriefGroup.shows(model.brief)) {
+                if stream.groups.isEmpty && doneToday.isEmpty {
                     if !store.query.isEmpty {
                         EmptyPane(title: "No Results", detail: "Try another word.")
                     } else if filter == .reading {

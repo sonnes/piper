@@ -16,16 +16,16 @@ public struct Visit: Equatable, Sendable {
 /// Reads visits from the history database of a browser.
 public enum HistoryReader {
 
-    public static func read(_ source: BriefSource, since: Date) throws -> [Visit] {
-        guard let database = source.database, let sql = sql(for: source.format) else { return [] }
-        return try DatabaseCopy.rows(of: database, sql: sql, since: since).compactMap { row in
+    public static func read(_ source: HistorySource, since: Date) throws -> [Visit] {
+        guard let database = source.database else { return [] }
+        return try DatabaseCopy.rows(of: database, sql: sql(for: source.format), since: since).compactMap { row in
             guard let url = row[0], let seconds = row[2].flatMap(Double.init) else { return nil }
             return Visit(url: url, title: row[1], date: Date(timeIntervalSince1970: seconds))
         }
     }
 
     /// Each format counts time from a different start. Each query gives seconds from 1970.
-    private static func sql(for format: BriefSourceFormat) -> String? {
+    private static func sql(for format: HistorySourceFormat) -> String {
         switch format {
         case .chromium:
             return """
@@ -42,8 +42,6 @@ public enum HistoryReader {
             SELECT i.url, v.title, v.visit_time + 978307200 AS seen
             FROM history_visits v JOIN history_items i ON v.history_item = i.id WHERE seen >= :since
             """
-        case .netNewsWire:
-            return nil
         }
     }
 }

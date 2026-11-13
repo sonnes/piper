@@ -1,6 +1,7 @@
 import AppKit
 import Agents
 import Captures
+import Feeds
 import SwiftUI
 import Vault
 
@@ -31,7 +32,6 @@ final class MainWindowController: NSWindowController {
     private var composerRequest: UUID?
     private var doneItem: NSToolbarItem?
 
-    /// True while the panes to the right of the sidebar hold the brief.
     /// True while the detail pane shows agent sessions.
     private var showsSessions: Bool {
         if case .sessions = state.selection { return true }
@@ -175,6 +175,7 @@ final class MainWindowController: NSWindowController {
         default:
             break
         }
+        if case .feeds(let old) = state.selection, selection != .feeds(old) { state.selectedArticle = nil }
         state.selection = selection
         state.selectedFile = model.selectedDocument
         state.save()
@@ -231,6 +232,16 @@ final class MainWindowController: NSWindowController {
             detailViewController.setContent(DetailPane(model: model).routeSheets(model))
         case .sessions(let folder):
             detailViewController.setContent(SessionDetailPane(model: model, folder: folder).routeSheets(model))
+        case .feeds(.discover):
+            detailViewController.setContent(DiscoverView(model: model).routeSheets(model))
+        case .feeds(let filter):
+            captureListViewController.setContent(FeedArticleList(
+                model: model, filter: filter, selectedID: state.selectedArticle,
+                select: { [weak self] article in
+                    guard let self else { return }
+                    captureListViewController.selectArticle(article)
+                }))
+            detailViewController.setContent(FeedArticlePane(model: model, id: state.selectedArticle).routeSheets(model))
         }
         // The detail pane already shows the sessions of a Claude folder.
         detailViewController.setOverlay(showsSessions ? AnyView(EmptyView()) : AnyView(SessionOverlay(model: model)))
@@ -300,6 +311,14 @@ final class MainWindowController: NSWindowController {
             let waiting = sessions.filter { $0.state == .needsYou }.count
             let total = Self.count(sessions.count, "session")
             setTitle(URL(fileURLWithPath: folder).lastPathComponent, waiting > 0 ? total + " · \(waiting) need you" : total)
+        case .feeds(let filter):
+            let feeds = model.feeds
+            switch filter {
+            case .discover: setTitle("Discover", "Sites from your browser history")
+            case .allUnread: setTitle("All Unread", Self.count(feeds.totalUnread, "article"))
+            case .starred: setTitle("Starred", Self.count(feeds.starredCount, "article"))
+            case .feed(let id): setTitle(feeds.feed(id)?.title ?? "Feed", Self.count(feeds.unreadCounts[id] ?? 0, "unread", "unread"))
+            }
         }
     }
 
@@ -476,11 +495,12 @@ extension MainWindowController: NSToolbarDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "New Section…", action: #selector(newSection), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Add Folder…", action: #selector(chooseFolder), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Add Feed…", action: #selector(addFeed), keyEquivalent: "").target = self
         let item = NSMenuToolbarItem(itemIdentifier: .add)
         item.isBordered = true
         item.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "Add")
         item.label = "Add"
-        item.toolTip = "New Section or Add Folder"
+        item.toolTip = "New Section, Add Folder, or Add Feed"
         item.menu = menu
         return item
     }
@@ -533,6 +553,8 @@ extension MainWindowController: NSToolbarDelegate {
     @objc private func refreshVault() { model.reload(); refreshPanes() }
 
     @objc private func chooseFolder() { model.chooseWiki() }
+
+    @objc private func addFeed() { model.addingFeed = true }
 
     @objc private func newSection() {
         guard let window else { return }
@@ -595,6 +617,21 @@ private struct SessionDetailPane: View {
     }
 }
 
+/// The detail pane while a row of Feeds is selected.
+private struct FeedArticlePane: View {
+    @Bindable var model: AppModel
+    let id: String?
+
+    var body: some View {
+        if let id, let article = model.feeds.article(id) {
+            FeedArticleDetail(model: model, article: article)
+                .id(article.id)
+        } else {
+            NoSelection()
+        }
+    }
+}
+
 /// The detail pane while the inbox is selected.
 private struct NoteDetailPane: View {
     @Bindable var model: AppModel
@@ -620,6 +657,13 @@ extension MainWindowController: SidebarViewControllerDelegate {
 }
 
 extension MainWindowController: CaptureListViewControllerDelegate {
+
+    func captureListViewController(_ controller: CaptureListViewController, didSelectArticle article: Article?) {
+        guard state.selectedArticle != article?.id else { return }
+        state.selectedArticle = article?.id
+        state.save()
+        refreshPanes()
+    }
 
     func captureListViewController(_ controller: CaptureListViewController, didSelectNote id: UUID?) {
         state.selectedNote = id

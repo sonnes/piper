@@ -126,34 +126,42 @@ public final class FeedDatabase {
     }
 
     /// The articles of a row of the sidebar, the newest first.
-    public func articles(_ filter: FeedFilter, limit: Int = 500) throws -> [Article] {
-        let condition: String
-        var argument: String?
+    ///
+    /// - Parameter keeping: Articles that the list shows already. They stay in
+    ///   the result after the reader marks them as read, as in NetNewsWire.
+    public func articles(_ filter: FeedFilter, keeping: Set<String> = [], limit: Int = 500) throws -> [Article] {
+        var condition: String
+        var arguments: [String] = []
         switch filter {
         case .discover: return []
         case .allUnread: condition = "read = 0"
         case .starred: condition = "starred = 1"
         case .feed(let id):
             condition = "feed_id = ?"
-            argument = id
+            arguments = [id]
+        }
+        if !keeping.isEmpty {
+            condition = "(\(condition)) OR id IN (\(Array(repeating: "?", count: keeping.count).joined(separator: ",")))"
+            arguments += keeping.sorted()
         }
         let statement = try prepare("""
         SELECT id, feed_id, url, title, summary, published, arrived, read, starred FROM articles
         WHERE \(condition) ORDER BY COALESCE(published, arrived) DESC LIMIT \(limit)
         """)
         defer { sqlite3_finalize(statement) }
-        if let argument { bind(argument, at: 1, in: statement) }
+        for (index, argument) in arguments.enumerated() { bind(argument, at: Int32(index + 1), in: statement) }
         var articles: [Article] = []
-        while sqlite3_step(statement) == SQLITE_ROW {
-            articles.append(Article(id: text(statement, 0), feedID: text(statement, 1), url: text(statement, 2),
-                                    title: text(statement, 3), summary: text(statement, 4),
-                                    published: sqlite3_column_type(statement, 5) == SQLITE_NULL
-                                        ? nil : Date(timeIntervalSince1970: sqlite3_column_double(statement, 5)),
-                                    arrived: Date(timeIntervalSince1970: sqlite3_column_double(statement, 6)),
-                                    read: sqlite3_column_int(statement, 7) == 1,
-                                    starred: sqlite3_column_int(statement, 8) == 1))
-        }
+        while sqlite3_step(statement) == SQLITE_ROW { articles.append(row(statement)) }
         return articles
+    }
+
+    public func article(_ id: String) throws -> Article? {
+        let statement = try prepare("""
+        SELECT id, feed_id, url, title, summary, published, arrived, read, starred FROM articles WHERE id = ?
+        """)
+        defer { sqlite3_finalize(statement) }
+        bind(id, at: 1, in: statement)
+        return sqlite3_step(statement) == SQLITE_ROW ? row(statement) : nil
     }
 
     /// The count of unread articles of each feed, by feed ID.
@@ -248,6 +256,17 @@ private extension FeedDatabase {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK else { throw failure() }
         return statement
+    }
+
+    /// An article from the columns id, feed_id, url, title, summary, published, arrived, read, starred.
+    func row(_ statement: OpaquePointer?) -> Article {
+        Article(id: text(statement, 0), feedID: text(statement, 1), url: text(statement, 2),
+                title: text(statement, 3), summary: text(statement, 4),
+                published: sqlite3_column_type(statement, 5) == SQLITE_NULL
+                    ? nil : Date(timeIntervalSince1970: sqlite3_column_double(statement, 5)),
+                arrived: Date(timeIntervalSince1970: sqlite3_column_double(statement, 6)),
+                read: sqlite3_column_int(statement, 7) == 1,
+                starred: sqlite3_column_int(statement, 8) == 1)
     }
 
     func step(_ statement: OpaquePointer?) throws {

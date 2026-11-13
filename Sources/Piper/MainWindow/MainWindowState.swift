@@ -1,4 +1,5 @@
 import AppKit
+import Feeds
 
 /// What the source list has selected, and what the other panes therefore show.
 ///
@@ -21,6 +22,8 @@ enum SidebarSelection: Codable, Equatable {
     /// A folder of the Claude group, by its absolute path. The detail pane
     /// shows `AppModel.selectedSession` when it belongs to the folder, or a new session.
     case sessions(String)
+    /// A row of the Feeds group: Discover, All Unread, Starred, or one feed.
+    case feeds(FeedFilter)
 
     /// The folder path, the folder that holds the file, or the root for the inbox.
     var folder: String {
@@ -35,7 +38,7 @@ enum SidebarSelection: Codable, Equatable {
     var showsCaptures: Bool {
         switch self {
         case .inbox, .section, .clipboard, .archived: return true
-        case .folder, .file, .sessions: return false
+        case .folder, .file, .sessions, .feeds: return false
         }
     }
 
@@ -43,6 +46,7 @@ enum SidebarSelection: Codable, Equatable {
     var showsList: Bool {
         switch self {
         case .inbox, .section, .archived: return true
+        case .feeds(let filter): return filter != .discover
         case .clipboard, .folder, .file, .sessions: return false
         }
     }
@@ -63,6 +67,8 @@ struct MainWindowState: Codable, Equatable {
     var selectedFile: String?
     /// The capture the detail pane showed, while the inbox was selected.
     var selectedNote: UUID?
+    /// The feed article the detail pane showed, while a row of Feeds was selected.
+    var selectedArticle: String?
     /// The rows the sidebar had open: folder paths and the keys of
     /// `SidebarOutline`. A window that has not opened before has none, so
     /// every folder starts closed.
@@ -109,4 +115,5 @@ protocol SidebarViewControllerDelegate: AnyObject {
 @MainActor
 protocol CaptureListViewControllerDelegate: AnyObject {
     func captureListViewController(_ controller: CaptureListViewController, didSelectNote id: UUID?)
+    func captureListViewController(_ controller: CaptureListViewController, didSelectArticle article: Article?)
 }

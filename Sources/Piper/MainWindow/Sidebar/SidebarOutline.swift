@@ -1,4 +1,5 @@
 import AppKit
+import Feeds
 import PiperTree
 import SwiftUI
 import UniformTypeIdentifiers
@@ -9,6 +10,8 @@ struct SidebarOutline: NSViewRepresentable {
     let sections: [SidebarSection]
     /// The folders that have agent sessions.
     let sessionFolders: [SidebarSessionFolder]
+    /// The rows of the Feeds group.
+    let feeds: SidebarFeeds
     /// The session that the detail pane shows while a Claude folder is selected.
     let selectedSession: UUID?
     @Binding var expanded: Set<String>
@@ -21,6 +24,7 @@ struct SidebarOutline: NSViewRepresentable {
     let newSection: () -> Void
     let editSection: (String) -> Void
     let deleteSection: (String) -> Void
+    let addFeed: () -> Void
 
     /// The entry of the expansion set that records a collapsed Inbox. No
     /// folder path starts with this character, so the two cannot collide.
@@ -110,6 +114,7 @@ struct SidebarOutline: NSViewRepresentable {
         private var wikiPaths: [String] = []
         private var sections: [SidebarSection] = []
         private var sessionFolders: [SidebarSessionFolder] = []
+        private var feeds = SidebarFeeds()
         /// The file whose folders the tree last opened, so a folder that the
         /// reader closes stays closed.
         private var revealedFile: String?
@@ -139,13 +144,14 @@ struct SidebarOutline: NSViewRepresentable {
             updating = true
             defer { updating = false }
             let newPaths = parent.model.files.map(\.relativePath)
-            if wikiPaths != parent.model.wikiPaths || newPaths != paths || folders != parent.model.folders || wikiPath != parent.model.wikiPath || sections != parent.sections || sessionFolders != parent.sessionFolders {
+            if wikiPaths != parent.model.wikiPaths || newPaths != paths || folders != parent.model.folders || wikiPath != parent.model.wikiPath || sections != parent.sections || sessionFolders != parent.sessionFolders || feeds != parent.feeds {
                 paths = newPaths
                 folders = parent.model.folders
                 wikiPath = parent.model.wikiPath
                 wikiPaths = parent.model.wikiPaths
                 sections = parent.sections
                 sessionFolders = parent.sessionFolders
+                feeds = parent.feeds
                 root = Node.root(representedObject: "root")
                 let library = Node(representedObject: "Library", parent: root)
                 library.isGroupItem = true
@@ -158,6 +164,10 @@ struct SidebarOutline: NSViewRepresentable {
                     Node(representedObject: SidebarSelection.clipboard, parent: library),
                     Node(representedObject: SidebarSelection.archived, parent: library)
                 ]
+                let feedGroup = Node(representedObject: "Feeds", parent: root)
+                feedGroup.isGroupItem = true
+                feedGroup.children = ([FeedFilter.discover, .allUnread, .starred] + feeds.rows.map { FeedFilter.feed($0.id) })
+                    .map { Node(representedObject: SidebarSelection.feeds($0), parent: feedGroup) }
                 let folderGroup = Node(representedObject: "Folders", parent: root)
                 folderGroup.isGroupItem = true
                 let wiki = PathTreeBuilder.tree(paths: paths, folders: folders)
@@ -167,7 +177,7 @@ struct SidebarOutline: NSViewRepresentable {
                     return Node(representedObject: URL(fileURLWithPath: path), parent: folderGroup)
                 }
                 if sessionFolders.isEmpty {
-                    root.children = [library, folderGroup]
+                    root.children = [library, feedGroup, folderGroup]
                 } else {
                     let claude = Node(representedObject: "Claude", parent: root)
                     claude.isGroupItem = true
@@ -176,7 +186,7 @@ struct SidebarOutline: NSViewRepresentable {
                         node.children = folder.sessions.map { Node(representedObject: $0, parent: node) }
                         return node
                     }
-                    root.children = [library, claude, folderGroup]
+                    root.children = [library, feedGroup, claude, folderGroup]
                 }
                 outline.reloadData()
             }
@@ -285,8 +295,9 @@ struct SidebarOutline: NSViewRepresentable {
                 label.font = .systemFont(ofSize: AppDefaults.Sidebar.headerFontSize, weight: .semibold)
                 label.textColor = .tertiaryLabelColor
                 label.lineBreakMode = .byTruncatingHead
-                if node.representedObject as? String == "Folders" {
-                    let button = addButton("Add Folder", action: #selector(addFolder))
+                if let header = node.representedObject as? String, header == "Folders" || header == "Feeds" {
+                    let button = header == "Feeds" ? addButton("Add Feed", action: #selector(addFeed))
+                        : addButton("Add Folder", action: #selector(addFolder))
                     (outlineView as? SidebarOutlineView)?.revealOnHover(button)
                     let header = NSStackView(views: [label, button])
                     header.spacing = AppDefaults.Sidebar.actionSpacing
@@ -326,6 +337,7 @@ struct SidebarOutline: NSViewRepresentable {
                 case .sessions(let path):
                     row = (URL(fileURLWithPath: path).lastPathComponent, .tile("claude", PiperTheme.claudeNS),
                            sessionFolders.first { $0.path == path }?.attention ?? 0)
+                case .feeds(let filter): row = feedRow(filter)
                 case .folder, .file: row = ("", .glyph("folder", PiperTheme.sidebarFolderNS), 0)
                 }
                 if case .sessions = selection {
@@ -334,11 +346,30 @@ struct SidebarOutline: NSViewRepresentable {
                     cell.configure(title: row.title, icon: row.icon, count: row.count)
                 }
                 cell.toolTip = nil
+                if case .feeds(.feed(let id)) = selection, let error = feeds.rows.first(where: { $0.id == id })?.error {
+                    cell.toolTip = error
+                }
             } else if let session = node.representedObject as? SidebarSessionRow {
                 cell.configure(title: session.title, icon: .dot(Self.color(of: session.status)), count: 0)
                 cell.toolTip = session.title
             }
             return cell
+        }
+
+        /// The title, the icon, and the count of a row of the Feeds group.
+        private func feedRow(_ filter: FeedFilter) -> (title: String, icon: SidebarIcon, count: Int) {
+            switch filter {
+            case .discover: return ("Discover", .glyph("compass", PiperTheme.feedsNS), feeds.suggestions)
+            case .allUnread: return ("All Unread", .glyph("rss", PiperTheme.feedsNS), feeds.unread)
+            case .starred: return ("Starred", .glyph("star", PiperTheme.starNS), feeds.starred)
+            case .feed(let id):
+                let index = feeds.rows.firstIndex { $0.id == id } ?? 0
+                let feed = feeds.rows.indices.contains(index) ? feeds.rows[index] : nil
+                let title = feed?.title ?? id
+                let icon: SidebarIcon = feed?.error == nil ? .monogram(SidebarOutline.monogram(title), SidebarOutline.tagColor(at: index))
+                    : .glyph("rss", PiperTheme.warningNS)
+                return (title, icon, feed?.unread ?? 0)
+            }
         }
 
         private static func color(of status: SidebarSessionRow.Status) -> NSColor {
@@ -422,6 +453,24 @@ struct SidebarOutline: NSViewRepresentable {
                 delete.representedObject = session.id
                 return
             }
+            if let selection = clickedNode?.representedObject as? SidebarSelection, case .feeds(let filter) = selection {
+                menu.removeAllItems()
+                menu.addItem(withTitle: "Add Feed…", action: #selector(addFeed), keyEquivalent: "").target = self
+                if filter != .discover {
+                    let read = menu.addItem(withTitle: "Mark All as Read", action: #selector(markAllRead(_:)), keyEquivalent: "")
+                    read.target = self
+                    read.representedObject = filter
+                }
+                guard case .feed(let id) = filter else { return }
+                menu.addItem(.separator())
+                let copy = menu.addItem(withTitle: "Copy Feed Address", action: #selector(copyFeedAddress(_:)), keyEquivalent: "")
+                copy.target = self
+                copy.representedObject = id
+                let remove = menu.addItem(withTitle: "Unsubscribe", action: #selector(unsubscribe(_:)), keyEquivalent: "")
+                remove.target = self
+                remove.representedObject = id
+                return
+            }
             if let selection = clickedNode?.representedObject as? SidebarSelection, case .section(let name) = selection {
                 menu.addItem(.separator())
                 let edit = menu.addItem(withTitle: "Edit Section…", action: #selector(editSection(_:)), keyEquivalent: "")
@@ -472,6 +521,25 @@ struct SidebarOutline: NSViewRepresentable {
         }
 
         @objc private func addFolder() { parent.model.chooseWiki() }
+
+        @objc private func addFeed() { parent.addFeed() }
+
+        @objc private func markAllRead(_ sender: NSMenuItem) {
+            guard let filter = sender.representedObject as? FeedFilter else { return }
+            parent.model.feeds.markAllRead(filter)
+        }
+
+        @objc private func copyFeedAddress(_ sender: NSMenuItem) {
+            guard let id = sender.representedObject as? String else { return }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(id, forType: .string)
+        }
+
+        @objc private func unsubscribe(_ sender: NSMenuItem) {
+            guard let id = sender.representedObject as? String else { return }
+            if parent.selection == .feeds(.feed(id)) { parent.select(.feeds(.allUnread)) }
+            parent.model.feeds.unsubscribe(id)
+        }
 
         @objc private func deleteSession(_ sender: NSMenuItem) {
             guard let id = sender.representedObject as? UUID, let session = parent.model.agents.runner.session(id) else { return }

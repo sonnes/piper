@@ -61,10 +61,6 @@ public final class ClaudeCodeConnection: AgentConnection {
         if config.purpose == .margin {
             arguments += ["--tools", marginTools, "--allowedTools", marginTools, "--strict-mcp-config"]
         }
-        // A brief reads history titles, feeds, and page text from unknown authors, so it gets no tool.
-        if config.purpose == .brief {
-            arguments += ["--restricted", "--tools", "", "--strict-mcp-config", "--no-session-persistence"]
-        }
         if let resume = config.resumeToken { arguments += ["--resume", resume] }
         return arguments
     }

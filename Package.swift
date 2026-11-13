@@ -20,20 +20,20 @@ let package = Package(
         .target(name: "Captures", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Captures"),
         .target(name: "Vault", dependencies: ["PiperCore", "Yams"], path: "Sources/Modules/Vault"),
         .target(name: "Agents", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Agents"),
-        .target(name: "Briefs", dependencies: ["PiperCore", "CSQLite"], path: "Sources/Modules/Briefs"),
+        .target(name: "History", dependencies: ["PiperCore", "CSQLite"], path: "Sources/Modules/History"),
         .target(name: "Feeds", dependencies: ["CSQLite"], path: "Sources/Modules/Feeds", exclude: ["RSParser/README.md"]),
 
         // Application target.
         .executableTarget(name: "Piper", dependencies: [
             "CSQLite", "Yams",
-            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "Agents", "Briefs", "Feeds"
+            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "Agents", "History", "Feeds"
         ], resources: [.process("Resources")]),
 
         .testTarget(name: "PiperTests", dependencies: ["Piper"]),
         .testTarget(name: "PiperTreeTests", dependencies: ["PiperTree"], path: "Tests/PiperTreeTests"),
         .testTarget(name: "CapturesTests", dependencies: ["Captures"], path: "Tests/CapturesTests"),
         .testTarget(name: "AgentsTests", dependencies: ["Agents"], path: "Tests/AgentsTests"),
-        .testTarget(name: "BriefsTests", dependencies: ["Briefs", "CSQLite"], path: "Tests/BriefsTests"),
+        .testTarget(name: "HistoryTests", dependencies: ["History", "CSQLite"], path: "Tests/HistoryTests"),
         .testTarget(name: "FeedsTests", dependencies: ["Feeds", "CSQLite"], path: "Tests/FeedsTests",
                     resources: [.copy("Resources")]),
         .testTarget(name: "VaultTests", dependencies: ["Vault"], path: "Tests/VaultTests"),

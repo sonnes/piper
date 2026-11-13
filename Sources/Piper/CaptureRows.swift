@@ -401,7 +401,7 @@ struct NoteRow: View {
                         .onTapGesture(perform: select)
                 }
             }
-            // The hit area centers the circle, so a smaller leading pad lines the circle up with the Brief picks.
+            // The hit area centers the circle, so a smaller leading pad lines the circle up with the row text.
             .padding(.leading, AppDefaults.CaptureItem.horizontalPadding - (AppDefaults.CaptureItem.buttonHitSize - AppDefaults.CaptureItem.circleSize) / 2)
             .padding(.trailing, AppDefaults.CaptureItem.horizontalPadding)
             .padding(.vertical, AppDefaults.CaptureItem.verticalPadding)

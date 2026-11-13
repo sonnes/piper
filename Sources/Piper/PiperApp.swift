@@ -44,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        model.brief.startSchedule()
+        model.feeds.start()
         NSApp.setActivationPolicy(.regular)
         installMenus()
         model.openNoteEditor = { [weak self] note in self?.showEditor(note) }

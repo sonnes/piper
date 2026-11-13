@@ -7,7 +7,7 @@ import PiperCore
 enum DatabaseCopy {
 
     static func rows(of database: URL, sql: String, since: Date, limit: Int? = nil) throws -> [[String?]] {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("piper-brief-" + UUID().uuidString)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("piper-history-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: folder) }
         let copy = folder.appendingPathComponent("copy.sqlite")
