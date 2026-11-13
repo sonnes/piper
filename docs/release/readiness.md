@@ -35,7 +35,9 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Decide whether the main window needs find in the open file.
 - [ ] Decide whether the capture tabs follow the section at the top of the list while it scrolls. Today a tab changes only on a click.
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
-- [ ] Make sure that a daily brief reads a real NetNewsWire database: the folder path, the date format, and the macOS permission.
+- [ ] Import a real NetNewsWire `Subscriptions.opml`, and make sure that each feed refreshes.
+- [ ] Run Discover in the built app with Safari history, and make sure that Settings > Feeds shows Open Privacy Settings while Piper has no Full Disk Access.
+- [ ] Take the hero and capture panel screenshots again. They still show the picks of the old brief.
 - [ ] Measure if agent sessions get the Full Disk Access of Piper.
 - [ ] While a folder is selected in the sidebar, make a link from the editor select the new file in the tree.
 - [ ] Do the Editing Checks in [validate.md](validate.md) that are not done in the built app: Japanese input, Command-F, and Reload in the conflict bar.

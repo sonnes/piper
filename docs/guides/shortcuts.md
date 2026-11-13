@@ -74,6 +74,19 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 | Option-Down Arrow / Option-Up Arrow | In the Reader tab, move to the next or the previous mark |
 | Escape | In the Reader tab, close the selection bar |
 
+## Feeds
+
+These shortcuts work in the list of articles. See [Read feeds](feeds.md).
+
+| Shortcut | Action |
+| --- | --- |
+| Space | Open the next unread article |
+| R | Mark the selected article as read or unread |
+| S | Star the selected article, or remove the star |
+| B | Open the selected article in the browser |
+| I | Keep the selected article in Inbox |
+| Command-K | Mark all articles in the list as read |
+
 ## Claude Sessions
 
 These shortcuts work in the message field of a session.

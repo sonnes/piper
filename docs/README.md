@@ -15,13 +15,13 @@ Piper captures text into a local database and browses a folder of files.
 - [Install Piper](guides/install.md): download the signed DMG, build from source, allow Accessibility access, and publish a signed release.
 - [Capture notes](guides/capture.md): the capture panel, clipboard history, selection capture, and sections.
 - [Work with agents](guides/claude.md): talk to Claude Code or an ACP agent in a folder, and send notes to the skills of the folder.
-- [Read the daily brief](guides/brief.md): the picks in Inbox, the rank of the links, what Claude receives, sign-ins, and morning builds.
+- [Read feeds](guides/feeds.md): subscribe to feeds, import from NetNewsWire, read articles, and find feeds with Discover.
 - [Browse and edit files](guides/browse.md): folders, search, previews, editing, the command palette, and the Inbox reader.
 - [Keyboard shortcuts](guides/shortcuts.md): every shortcut in both windows.
 
 ## Understand The Data
 
-- [Local storage](concepts/storage.md): the capture database, preferences, and backups.
+- [Local storage](concepts/storage.md): the capture database, the feed database, preferences, and backups.
 - [Wiki files](concepts/files.md): scan rules, links, backlinks, and automatic saves.
 
 ## Change The Code

@@ -22,7 +22,8 @@ The tests use temporary folders and temporary databases. Each module has a test 
 | --- | --- |
 | `PiperCoreTests` | Frontmatter parsing and line endings |
 | `PiperTreeTests` | Folder trees and counts |
-| `BriefsTests` | Browser and NetNewsWire sources, Hacker News, the digest, the decay rank, the picks prompt and its answer, blocked sites, the schedule, and the brief files |
+| `HistoryTests` | Browser sources, history reads, the digest, the decay rank, and blocked sites |
+| `FeedsTests` | The feed parser, the feed database, refresh, feed discovery, OPML import, and suggestions |
 | `CapturesTests` | The capture store, clipboard entries, and capture links |
 | `VaultTests` | Scans, path safety, reads, writes, and the watcher |
 | `PiperTests` | The app model: editing, refresh, previews, and quit safety |

@@ -9,11 +9,19 @@ read_when:
 
 # Local Storage
 
-Piper keeps captures in a SQLite database and preferences in UserDefaults. Wiki files stay in their folder. Piper never copies them into the database.
+Piper keeps captures and feeds in SQLite databases and preferences in UserDefaults. Wiki files stay in their folder. Piper never copies them into the database.
 
-## Briefs
+## Feeds
 
-Each brief is a JSON file in `~/Library/Application Support/Piper/Briefs`, with the date as its name. The file holds the picks and the state of each pick: open, kept, skipped, or read. It also holds the sites and the feeds that the build read, and the sources that failed. Piper does not delete old briefs. The folder is not part of the vault, so the sidebar and file search do not show it.
+The feed database is `~/Library/Application Support/Piper/Feeds.sqlite`. It has these tables:
+
+| Table | Content |
+| --- | --- |
+| `feeds` | The address, the title, and the home page of each feed. Also the ETag and Last-Modified values, the count of failures in a row, the time of the next refresh, and the last error. |
+| `articles` | Each article: the feed, the link, the title, a plain-text summary, the dates, and the read and star marks |
+| `suggestions` | The sites of the last Discover scan: the host, the feed, the visits, the score, and the ignore mark |
+
+Piper removes a read article that is not starred 30 days after it arrives. A scan replaces the suggestions, but the ignored rows stay.
 
 ## Capture Database
 
@@ -128,8 +136,8 @@ UserDefaults holds these keys:
 | `showsFileSource` | True while the main window shows the Source view of a file |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
 | `wikiFileSort` | Name or Date |
-| `briefBlockedSites`, `briefDisabledSources` | The sites that a brief never reads, and the sources that are off |
-| `briefMorning`, `briefMorningAsked`, `briefLastTry`, `briefLastBuilt` | Morning builds, and the time of the last try and the last brief |
+| `briefBlockedSites`, `briefDisabledSources` | The sites that Discover never reads, and the history sources that are off |
+| `discoverLastScan` | The time of the last Discover scan |
 | `claudePath`, `claudeModel`, `claudePermissionMode` | The `claude` command that you chose, and the default model and permissions of Claude Code |
 | `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |
 | `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |

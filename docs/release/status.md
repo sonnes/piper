@@ -57,8 +57,10 @@ This table describes the source on September 15, 2026. Implemented means that th
 | --- | --- | --- |
 | Folder tree with any folder structure | Implemented | `VaultTests`, `PathTreeBuilderTests`, `TreeControllerTests` |
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |
-| Daily brief from browser history and NetNewsWire | Implemented | `BriefsTests` (decay rank, picks prompt and answer, brief files). Not checked on a real NetNewsWire database. |
-| Brief picks in Inbox, with Keep and Skip | Implemented | `BriefsTests` (pick states). Checked in the main window with seeded picks. Not checked in the capture panel or with a real build. |
+| Feed parsing: RSS, Atom, RSS-in-JSON, JSON Feed, and OPML | Implemented | `FeedsTests` (the upstream parser tests of NetNewsWire, with their fixtures) |
+| Feed subscriptions, refresh, and read and star marks | Implemented | `FeedStoreTests` (conditional GET, failure waits, prune, marks). Not checked on a real build. |
+| Import of NetNewsWire subscriptions and OPML files | Implemented | `FeedStoreTests` (OPML with folders). Not checked on a real NetNewsWire file. |
+| Discover: feeds of the sites of browser history | Implemented | `HistoryTests` (sources, digest, decay, blocked sites), `FeedStoreTests` (feed discovery, suggestions). Not checked on a real build. |
 | Vault search across titles, paths, descriptions, and text | Implemented | `WikiWorkspaceTests` (multiple words) |
 | Back and forward history | Implemented | `WikiWorkspaceTests` |
 | Wiki links and heading anchors | Implemented | `WikiWorkspaceTests`, `WikiEditingTests`, `web/test/paths.test.ts` |

@@ -2,7 +2,7 @@
 
 Piper is a native macOS application for capturing text. It saves selected text and clipboard entries as local notes in a floating panel beside the application you work in. A separate window browses and edits a folder of files, such as a Markdown wiki.
 
-Capture and browsing need no account, cloud service, telemetry, or network connection. Notes stay in a local SQLite database. Wiki files stay on disk as they are. The web reader connects to the pages you open.
+Capture and browsing need no account, cloud service, telemetry, or network connection. Feeds connect only to the sites that you subscribe to or that Discover checks. Notes stay in a local SQLite database. Wiki files stay on disk as they are. The web reader connects to the pages you open.
 
 ![Piper Inbox with brief picks, and a fictional article with highlights and notes in the Reader tab](docs/images/hero.jpg)
 
@@ -63,7 +63,7 @@ The capture panel and the main window take turns on screen. Command-1 shows the 
 
 Both windows use the system font and colors, with one blue accent. Both follow the system appearance.
 
-The sidebar of the main window shows Inbox, the clipboard history, and your folders. A folder opens as a tree, and each file shows its extension. Inbox lists your captures, with the picks of the [daily brief](docs/guides/brief.md) at the top.
+The sidebar of the main window shows Inbox, the clipboard history, your feeds, and your folders. A folder opens as a tree, and each file shows its extension. Inbox lists your captures. [Feeds](docs/guides/feeds.md) holds your RSS subscriptions and Discover, which finds feeds on the sites of your browser history.
 
 ![The Piper main window with a reading journal open from a fictional Field Notes folder](docs/images/main-window.png)
 

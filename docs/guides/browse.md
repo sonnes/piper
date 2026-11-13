@@ -39,6 +39,7 @@ The window has a sidebar and a detail pane. The sidebar has these groups:
 | --- | --- |
 | Library | Inbox with a row for each other section, Clipboard, and Done |
 | Claude | Each folder with agent sessions, and its sessions. See [Find a session](claude.md#find-a-session). |
+| Feeds | Discover, All Unread, Starred, and each feed. See [Read feeds](feeds.md). |
 | Folders | Every folder, and the tree of the active folder with its files |
 
 The sidebar selection decides what the detail pane shows:
@@ -51,6 +52,8 @@ The sidebar selection decides what the detail pane shows:
 | A folder | The last file that you opened |
 | A folder in the Claude group | A new session in the folder |
 | A session | The session |
+| A feed, All Unread, or Starred | The article that you select in the list of articles |
+| Discover | The sites of your recent history, and their feeds |
 
 The window title names the open file. The subtitle shows the folders of the file, for example "Notes › Reading". For other selections, the title names the selection and the subtitle shows a count.
 
