@@ -138,7 +138,7 @@ UserDefaults holds these keys:
 | `showsFileSource` | True while the main window shows the Source view of a file |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
 | `wikiFileSort` | Name or Date |
-| `briefBlockedSites`, `briefDisabledSources` | The sites that Discover never reads, and the history sources that are off |
+| `blockedSites`, `disabledHistorySources` | The sites that Discover never reads, and the history sources that are off |
 | `discoverLastScan` | The time of the last Discover scan |
 | `claudePath`, `claudeModel`, `claudePermissionMode` | The `claude` command that you chose, and the default model and permissions of Claude Code |
 | `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |

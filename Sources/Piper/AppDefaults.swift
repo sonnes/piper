@@ -53,8 +53,8 @@ final class AppDefaults {
         /// The folder that Save as File used last.
         static let articleExportFolder = "articleExportFolder"
         static let siteTabs = "articleSiteTabs"
-        static let blockedSites = "briefBlockedSites"
-        static let disabledHistorySources = "briefDisabledSources"
+        static let blockedSites = "blockedSites"
+        static let disabledHistorySources = "disabledHistorySources"
         static let discoverLastScan = "discoverLastScan"
 
         /// Keys carried over when the bundle identifier changed to `com.piper`.
