@@ -1,0 +1,529 @@
+//
+//  RSSParserTests.swift
+//  RSParser
+//
+//  Created by Brent Simmons on 6/26/17.
+//  Copyright © 2017 Ranchero Software, LLC. All rights reserved.
+//
+
+import Foundation
+import Testing
+@testable import Feeds
+
+@Suite struct RSSParserTests {
+
+    @Test func natashaTheRobot() throws {
+        let d = parserData("natasha", "xml", "https://www.natashatherobot.com/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        #expect(parsedFeed.items.count == 10)
+    }
+
+    @Test func theOmniShowAttachments() throws {
+        let d = parserData("theomnishow", "rss", "https://theomnishow.omnigroup.com/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        for article in parsedFeed.items {
+            let attachments = try #require(article.attachments)
+            #expect(attachments.count == 1)
+            let attachment = try #require(Array(attachments).first)
+            #expect(attachment.mimeType != nil)
+            #expect(attachment.sizeInBytes != nil)
+            #expect(attachment.url.contains("cloudfront"))
+            if let size = attachment.sizeInBytes {
+                #expect(size >= 22275279)
+            }
+            #expect(attachment.mimeType == "audio/mpeg")
+            #expect(attachment.durationInSeconds != nil)
+        }
+    }
+
+    @Test func atpEnclosureAndMediaContentMerged() throws {
+        // Each atp.fm item has the same file as both <enclosure> and <media:content>.
+        let d = parserData("atp", "rss", "http://atp.fm/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        #expect(parsedFeed.items.count == 100)
+
+        for article in parsedFeed.items {
+            let attachments = try #require(article.attachments)
+            #expect(attachments.count == 1)
+            let attachment = try #require(attachments.first)
+            // Some items have no type attribute, only medium.
+            #expect(attachment.medium == .audio)
+            #expect(attachment.sizeInBytes != nil)
+        }
+
+        let article = try #require(parsedFeed.items.first { $0.title == "311: Mutually Assured Destruction" })
+        let attachment = try #require(article.attachments?.first)
+        #expect(attachment.url == "http://traffic.libsyn.com/atpfm/atp311.mp3")
+        #expect(attachment.mimeType == "audio/mpeg")
+        #expect(attachment.sizeInBytes == 54919661)
+        #expect(attachment.durationInSeconds == 6849) // itunes:duration 01:54:09
+        #expect(article.imageURL == "http://static1.squarespace.com/static/513abd71e4b0fe58c655c105/t/52c45a37e4b0a77a5034aa84/1388599866232/1500w/Artwork.jpg") // itunes:image
+    }
+
+    @Test func cloudBlogMediaContentImages() throws {
+        let d = parserData("cloudblog", "rss", "https://cloud.google.com/blog/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        let articlesWithAttachments = parsedFeed.items.filter { $0.attachments != nil }
+        #expect(articlesWithAttachments.count == 18)
+        for article in articlesWithAttachments {
+            let attachments = try #require(article.attachments)
+            #expect(attachments.count == 1)
+            let attachment = try #require(attachments.first)
+            #expect(attachment.url.hasPrefix("https://storage.googleapis.com/"))
+            #expect(attachment.width != nil)
+            #expect(attachment.height != nil)
+        }
+    }
+
+    @Test func mediaGroupKeepsDefaultRendition() throws {
+        let d = parserData("media-group", "rss", "https://example.com/feed")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        let item = try #require(parsedFeed.items.first)
+
+        #expect(item.title == "Real Article Title")
+        #expect(item.thumbnailURL == "https://example.com/videos/1.jpg")
+
+        let attachments = try #require(item.attachments)
+        #expect(attachments.count == 1)
+        let attachment = try #require(attachments.first)
+        #expect(attachment.url == "https://example.com/videos/1-high.mp4")
+        #expect(attachment.mimeType == "video/mp4")
+        #expect(attachment.medium == .video)
+        #expect(attachment.width == 1920)
+        #expect(attachment.height == 1080)
+        #expect(attachment.durationInSeconds == 125)
+    }
+
+    @Test func guardianImageRenditionsMergedIntoWidest() throws {
+        // The Guardian lists each image at widths 140, 460, and 700, as sibling media:content elements.
+        let rss = """
+        <?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>The Guardian</title><link>https://www.theguardian.com/uk</link><item><title>‘A global political awakening’: how gen Z protests are sweeping the world</title><link>https://www.theguardian.com/world/2026/nov/06/gen-z-protests-sweeping-the-world</link><description>&lt;p&gt;From Serbia to Bangladesh and India to France, young people are pushing back against authoritarianism&lt;/p&gt;</description><guid>https://www.theguardian.com/world/2026/nov/06/gen-z-protests-sweeping-the-world</guid><media:content width="140" url="https://i.guim.co.uk/img/media/d8c802e22e952ef416894c5d0a6ecca11d13b496/459_0_4582_3666/master/4582.jpg?width=140&amp;quality=85&amp;auto=format&amp;fit=max&amp;s=92a98b53493301af4a38acb36c24d9e4"><media:credit scheme="urn:ebu">Photograph: Uros Arsic/Reuters</media:credit></media:content><media:content width="460" url="https://i.guim.co.uk/img/media/d8c802e22e952ef416894c5d0a6ecca11d13b496/459_0_4582_3666/master/4582.jpg?width=460&amp;quality=85&amp;auto=format&amp;fit=max&amp;s=696a83c3a860b507c37e09ffd47ae7c3"><media:credit scheme="urn:ebu">Photograph: Uros Arsic/Reuters</media:credit></media:content><media:content width="700" url="https://i.guim.co.uk/img/media/d8c802e22e952ef416894c5d0a6ecca11d13b496/459_0_4582_3666/master/4582.jpg?width=700&amp;quality=85&amp;auto=format&amp;fit=max&amp;s=0e6444e5dfc451bcc781cb563d8ef201"><media:credit scheme="urn:ebu">Photograph: Uros Arsic/Reuters</media:credit></media:content></item></channel></rss>
+        """
+        let d = ParserData(url: "https://www.theguardian.com/uk/rss", data: Data(rss.utf8))
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        let item = try #require(parsedFeed.items.first)
+
+        let attachments = try #require(item.attachments)
+        #expect(attachments.count == 1)
+        let attachment = try #require(attachments.first)
+        #expect(attachment.url == "https://i.guim.co.uk/img/media/d8c802e22e952ef416894c5d0a6ecca11d13b496/459_0_4582_3666/master/4582.jpg?width=700&quality=85&auto=format&fit=max&s=0e6444e5dfc451bcc781cb563d8ef201")
+        #expect(attachment.width == 700)
+    }
+
+    @Test func gravatarBecomesAuthorAvatar() throws {
+        // WordPress adds the author’s Gravatar as a media:content titled with the author’s name.
+        let d = parserData("postpunkmonk", "rss", "https://postpunkmonk.com/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        let item = try #require(parsedFeed.items.first { $0.title?.hasPrefix("Automatic Honor") == true })
+
+        let author = try #require(item.authors?.first)
+        #expect(author.name == "postpunkmonk")
+        #expect(author.avatarURL == "https://0.gravatar.com/avatar/fb95b7a51c1ce5897b406c1e656c6eb5f1ecfb4f537d200249ad0c3c53d6b7a1?s=96&d=&r=PG")
+
+        // In feed order.
+        let attachmentURLs = try #require(item.attachments).map { $0.url }
+        #expect(attachmentURLs == [
+            "https://postpunkmonk.com/wp-content/uploads/2026/10/automatic-shadowplay.jpg",
+            "https://postpunkmonk.com/wp-content/uploads/2026/10/automatic40eulogy9-26.jpg",
+            "https://postpunkmonk.com/wp-content/uploads/2022/10/8-ball-yes.jpg"
+        ])
+    }
+
+    @Test func gravatarTitledWithUsernameBecomesAuthorAvatar() throws {
+        // Hal Mueller’s Blog: the Gravatar’s media:title is the username, which differs from dc:creator.
+        let gravatarURL = "https://2.gravatar.com/avatar/559e1cc83bb53cbd383cae605e1d28f720da7c925008e6c24eef5e0258f36878?s=96&d=https%3A%2F%2Fs0.wp.com%2Fi%2Fmu.gif&r=G"
+        let rss = """
+        <?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Hal Mueller&#039;s Blog</title><link>https://halmueller.wordpress.com</link><item><title>election</title><link>https://halmueller.wordpress.com/2024/11/06/election/</link><dc:creator><![CDATA[Hal Mueller]]></dc:creator><guid isPermaLink="false">http://halmueller.wordpress.com/?p=148</guid><description><![CDATA[Really, people? You can&#8217;t vote for a woman????]]></description><media:content url="https://2.gravatar.com/avatar/559e1cc83bb53cbd383cae605e1d28f720da7c925008e6c24eef5e0258f36878?s=96&#38;d=https%3A%2F%2Fs0.wp.com%2Fi%2Fmu.gif&#38;r=G" medium="image"><media:title type="html">halmueller</media:title></media:content></item></channel></rss>
+        """
+        let d = ParserData(url: "https://halmueller.wordpress.com/feed/", data: Data(rss.utf8))
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        let item = try #require(parsedFeed.items.first)
+
+        let author = try #require(item.authors?.first)
+        #expect(author.name == "Hal Mueller")
+        #expect(author.avatarURL == gravatarURL)
+        #expect(item.attachments == nil)
+    }
+
+    @Test func feedImageEnclosureIsSkipped() throws {
+        // Letters from an American: Substack lists the feed’s image as the enclosure of a post with no image of its own.
+        let feedImageURL = "https://substackcdn.com/image/fetch/$s_!yKDv!,w_256,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F4b47f775-3df7-41dd-8bc9-a64cdd72d948_600x600.png"
+        let rss = """
+        <?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Letters from an American</title><link>https://heathercoxrichardson.substack.com</link><image><url>\(feedImageURL)</url><title>Letters from an American</title><link>https://heathercoxrichardson.substack.com</link></image><item><title>November 8, 2026</title><link>https://heathercoxrichardson.substack.com/p/november-8-2026</link><guid isPermaLink="false">https://heathercoxrichardson.substack.com/p/november-8-2026</guid><enclosure url="\(feedImageURL)" length="0" type="image/jpeg"/><description>Since the dramatic victories of the Democrats on Tuesday, Trump has been posting increasingly provocative material on social media.</description></item></channel></rss>
+        """
+        let d = ParserData(url: "https://heathercoxrichardson.substack.com/feed", data: Data(rss.utf8))
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        let item = try #require(parsedFeed.items.first)
+
+        #expect(parsedFeed.iconURL == feedImageURL)
+        #expect(item.attachments == nil)
+    }
+
+    @Test func theOmniShowUniqueIDs() throws {
+        let d = parserData("theomnishow", "rss", "https://theomnishow.omnigroup.com/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        for article in parsedFeed.items {
+            #expect(article.uniqueID.hasPrefix("https://theomnishow.omnigroup.com/episode/"))
+        }
+    }
+
+    @Test func macworldUniqueIDs() throws {
+        // Macworld’s feed doesn’t have guids, so they should be calculated unique IDs.
+
+        let d = parserData("macworld", "rss", "https://www.macworld.com/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        for article in parsedFeed.items {
+            #expect(article.uniqueID.count == 32) // calculated unique IDs are MD5 hashes
+        }
+    }
+
+    @Test func macworldAuthors() throws {
+        // Macworld uses names instead of email addresses (despite the RSS spec saying they should be email addresses).
+
+        let d = parserData("macworld", "rss", "https://www.macworld.com/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        for article in parsedFeed.items {
+            let author = try #require(article.authors?.first)
+            #expect(author.emailAddress == nil)
+            #expect(author.url == nil)
+            #expect(author.name != nil)
+        }
+    }
+
+    @Test func monkeyDomGuids() throws {
+        // https://coding.monkeydom.de/posts.rss has a bug in the feed (at this writing):
+        // It has guids that are supposed to be permalinks, per the spec —
+        // except that they’re not actually permalinks. The RSS parser should
+        // detect this situation, and every article in the feed should have a permalink.
+
+        let d = parserData("monkeydom", "rss", "https://coding.monkeydom.de/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        for article in parsedFeed.items {
+            #expect(article.url == nil)
+        }
+    }
+
+    @Test func emptyContentEncoded() throws {
+        // The ATP feed (at the time of this writing) has some empty content:encoded elements. The parser should ignore those.
+        // https://github.com/brentsimmons/NetNewsWire/issues/529
+
+        let d = parserData("atp", "rss", "http://atp.fm/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        for article in parsedFeed.items {
+            #expect(article.contentHTML != nil)
+        }
+    }
+
+    @Test func feedKnownToHaveGuidsThatArentPermalinks() throws {
+        let d = parserData("livemint", "xml", "https://www.livemint.com/rss/news")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        for article in parsedFeed.items {
+            #expect(article.url == nil)
+        }
+    }
+
+    @Test func authorsWithTitlesInside() throws {
+        // This feed uses atom authors, and we don’t want author/title to be used as item/title.
+        // https://github.com/brentsimmons/NetNewsWire/issues/943
+        let d = parserData("cloudblog", "rss", "https://cloudblog.withgoogle.com/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        for article in parsedFeed.items {
+            #expect(article.title != "Product Manager, Office of the CTO")
+            #expect(article.title != "Developer Programs Engineer")
+            #expect(article.title != "Product Director")
+        }
+    }
+
+    @Test func titlesWithInvalidFeedWithImageStructures() throws {
+        // This invalid feed has <image> elements inside <item>s.
+        // 17 Jan 2021 bug report — we’re not parsing titles in this feed.
+        let d = parserData("aktuality", "rss", "https://www.aktuality.sk/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        for article in parsedFeed.items {
+            #expect(article.title != nil)
+        }
+    }
+
+    @Test func feedLanguage() throws {
+        let d = parserData("manton", "rss", "http://manton.org/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        #expect(parsedFeed.language == "en-US")
+    }
+
+    @Test func markdown1() throws {
+        let d = parserData("markdown1", "rss", "https://wordland.social/scripting/237777565/rss.xml")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        for article in parsedFeed.items {
+            #expect(article.markdown != nil)
+        }
+    }
+
+    @Test func markdown2() throws {
+        let d = parserData("markdown2", "rss", "https://wordland.social/scripting/246529703/rss.xml")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        for article in parsedFeed.items {
+            #expect(article.markdown != nil)
+        }
+    }
+
+    @Test func feedIconURL() throws {
+        let d = parserData("KatieFloyd", "rss", "http://katiefloyd.com/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        #expect(parsedFeed.iconURL == "https://static.feedpress.it/logo/katiefloyd.png")
+    }
+
+    @Test func feedIconURLNotSetByItemLevelImages() throws {
+        // aktuality.rss has <image> elements inside <item>s, not at the channel level.
+        // These should not be treated as the feed icon.
+        let d = parserData("aktuality", "rss", "https://www.aktuality.sk/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        #expect(parsedFeed.iconURL == nil)
+    }
+
+    @Test func medscapeExternalURLs() throws {
+        let d = parserData("medscape", "rss", "https://www.medscape.com/cx/rssfeeds/2674.xml")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        for article in parsedFeed.items {
+            #expect(article.externalURL != nil)
+        }
+    }
+
+    @Test func feedWithGB2312Encoding() throws {
+        // https://github.com/Ranchero-Software/NetNewsWire/issues/1477
+        let d = parserData("kc0011", "rss", "http://kc0011.net/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        #expect(parsedFeed.items.count > 0)
+        for article in parsedFeed.items {
+            #expect(article.contentHTML != nil)
+        }
+    }
+
+    // MARK: - Entity decoding regression
+
+    // These pin down the behavior we intentionally made libxml2-compatible in the
+    // pure-Swift port: inside CDATA no entity substitution at all, and in text
+    // content HTML named entities (`&nbsp;`, `&mdash;`, etc.) pass through literally
+    // — only predefined XML entities and numeric entities are expanded.
+
+    @Test func cdataBodyPreservesHTMLNamedEntities() throws {
+        // KatieFloyd's bodies are CDATA-wrapped and contain `&nbsp;` — the parsed
+        // contentHTML must keep that literal, not decode it to U+00A0. A future change
+        // that turned on entity decoding inside CDATA would break this.
+        let d = parserData("KatieFloyd", "rss", "http://katiefloyd.com/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        let bodyWithNbsp = parsedFeed.items.first { $0.contentHTML?.contains("&nbsp;") == true }
+        #expect(bodyWithNbsp != nil, "Expected at least one KatieFloyd item to contain literal &nbsp; in contentHTML")
+
+        for item in parsedFeed.items {
+            if let html = item.contentHTML {
+                // The non-breaking space (U+00A0) must NOT appear in these CDATA bodies —
+                // only its literal `&nbsp;` spelling.
+                #expect(!html.contains("\u{00A0}"), "unexpected decoded nbsp in contentHTML")
+            }
+        }
+    }
+
+    @Test func cdataBodyPreservesNumericEntities() throws {
+        // DaringFireball RSS bodies are CDATA-wrapped and use `&#8217;` (right-single-quote).
+        // CDATA is raw, so the entity must pass through literally.
+        let d = parserData("DaringFireball", "rss", "http://daringfireball.net/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        let bodyWithNumericEntity = parsedFeed.items.first { $0.contentHTML?.contains("&#8217;") == true }
+        #expect(bodyWithNumericEntity != nil, "Expected at least one DaringFireball item to contain literal &#8217; in contentHTML")
+    }
+
+    // MARK: - Encoding regression
+
+    @Test func gb2312FeedDecodesChineseCorrectly() throws {
+        // kc0011 declares `encoding="gb2312"`; real-world such files are usually GBK.
+        // Verify the Chinese title round-trips to UTF-8 correctly — a regression that
+        // treated it as strict GB 2312-80 (or as Latin-1) would produce garbled output.
+        let d = parserData("kc0011", "rss", "http://kc0011.net/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        #expect(parsedFeed.title == "投资资讯网交易在线--流通纪念币最新20篇论坛主题-全文")
+    }
+
+    @Test func cjkItemTitlesPreserveMultiByteUTF8() throws {
+        // Once the bytes are transcoded to UTF-8 at the stream level, the
+        // element-text path must preserve all multi-byte sequences verbatim
+        // through the character-accumulator → trim → materialize pipeline.
+        // A regression that sliced by byte count anywhere would corrupt CJK.
+        let d = parserData("kc0011", "rss", "http://kc0011.net/")
+        let feed = try #require(try FeedParser.parse(d))
+        // Every item title should contain Chinese characters (codepoints > 127).
+        var sawChinese = false
+        for item in feed.items {
+            guard let title = item.title else {
+                continue
+            }
+            if title.unicodeScalars.contains(where: { $0.value >= 0x4E00 && $0.value <= 0x9FFF }) {
+                sawChinese = true
+            }
+            // No stray replacement characters (indicates decoding failure).
+            #expect(!title.contains("\u{FFFD}"), "replacement character in title: \(title)")
+        }
+        #expect(sawChinese, "expected at least one kc0011 item title with CJK Unified Ideographs")
+    }
+
+    // MARK: - RSS 1.0 (RDF) regression
+
+    @Test func rdfFeedParsesAsRSS() throws {
+        // bio.rdf is RSS 1.0 (RDF/XML). The parser recognizes `<rdf:RDF>` as the
+        // root and uses each `<item>`'s `rdf:about` attribute as its uniqueID and
+        // permalink — that's what the old ObjC parser did, and the app relies on
+        // it to keep stable uniqueIDs across syncs. An earlier `isUnprefixed`
+        // guard in the Swift port silently broke this (items got calculated MD5
+        // uniqueIDs and nil URLs); this test pins that regression shut.
+        let d = parserData("bio", "rdf", "http://biorxiv.org/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        #expect(parsedFeed.title == "bioRxiv Subject Collection: Plant Biology")
+        #expect(parsedFeed.homePageURL == "http://biorxiv.org")
+        #expect(parsedFeed.items.count == 30)
+
+        for item in parsedFeed.items {
+            #expect(item.title != nil, "RDF item missing title")
+            #expect(item.url != nil, "RDF item missing URL — rdf:about not consumed?")
+            #expect(item.uniqueID.hasPrefix("http://biorxiv.org/cgi/content/"))
+        }
+    }
+
+    // MARK: - Date parser regression
+
+    // MARK: - Byte-stability pinning (protects iCloud sync + DB row stability)
+
+    // These tests pin specific output byte-for-byte. Once the ObjC parsers are
+    // gone we can't re-derive "the right answer" by comparison, so the contract
+    // has to be captured here. A regression that silently reshuffled these
+    // values would turn every existing article into a "new" article on next
+    // parse — blowing up the article database, the FTS index, and iCloud sync.
+
+    @Test func macworldCalculatedUniqueIDsArePinnedMD5s() throws {
+        // Macworld's feed has no `<guid>`, so uniqueIDs are deterministic MD5
+        // hashes of (title + author + pubDate + contentHTML). Pin specific
+        // hashes for specific titles to catch any change in that pipeline —
+        // whitespace handling, entity decoding, date serialization, etc.
+        let d = parserData("macworld", "rss", "https://www.macworld.com/")
+        let feed = try #require(try FeedParser.parse(d))
+        let expected: [String: String] = [
+            "Black Friday Exclusive: Save Over 40% On The Nix Mini Color Sensor - Deal Alert":
+                "7ee68b71282bbf0f9a203f5c362e048a",
+            "The iMac Pro might be the first ARM Mac, but it won’t be the last":
+                "d2d30947445157657f425924d96fd139",
+            "Cyber Monday Steal: Get 120+ Hours of iOS 11 Dev Training for $15":
+                "1da507ba09dfd933733211e182f95db7"
+        ]
+        for (title, expectedID) in expected {
+            let item = try #require(
+                feed.items.first(where: { $0.title == title }),
+                "article '\(title)' missing from Macworld fixture"
+            )
+            #expect(item.uniqueID == expectedID, "uniqueID for '\(title)' changed")
+        }
+    }
+
+    @Test func daringFireballRSSItemIsByteStable() throws {
+        // Pin title, uniqueID, datePublished, and a substantial contentHTML
+        // substring for one specific DF item. DF bodies are CDATA-wrapped and
+        // contain numeric entities and nested markup — exactly the surface
+        // where subtle parser changes leak through.
+        let d = parserData("DaringFireball", "rss", "http://daringfireball.net/")
+        let feed = try #require(try FeedParser.parse(d))
+        let item = try #require(
+            feed.items.first(where: { $0.title == "The Dangerous All Writs Act Precedent in the Apple Encryption Case" })
+        )
+        #expect(item.uniqueID == "tag:daringfireball.net,2016:/linked//6.32163")
+        #expect(item.datePublished == Date(timeIntervalSince1970: 1_456_420_033)) // 2016-02-25 17:07:13 UTC
+        let html = try #require(item.contentHTML)
+        #expect(html.count == 1360)
+        // Anchor on a stable substring. Curly quotes survive intact; CDATA
+        // pass-through preserves them as UTF-8 bytes rather than remapping
+        // to numeric entities.
+        #expect(html.hasPrefix("<p>Amy Davidson, writing for The New Yorker:</p>"))
+        #expect(html.contains("“all writs necessary"), "curly quotes must survive CDATA pass-through")
+    }
+
+    // MARK: - Author shapes (Tier 3 — no-ObjC-comparison protection)
+
+    @Test func emarleyAuthorIsNameOnly() throws {
+        // EMarley's feed has authors that are plain names (no email, no URL).
+        // Pin this shape so future changes don't accidentally parse names as
+        // emails (common RSS spec-vs-reality mismatch).
+        let d = parserData("EMarley", "rss", "https://emarley.com/")
+        let feed = try #require(try FeedParser.parse(d))
+        let item = try #require(feed.items.first)
+        let author = try #require(item.authors?.first)
+        #expect(author.name == "Liz Marley")
+        #expect(author.emailAddress == nil)
+        #expect(author.url == nil)
+    }
+
+    @Test func nonStandardSlashDateFormatParsesCorrectly() throws {
+        // kc0011 uses `YYYY/M/D HH:MM:SS` pubDates (Dvbbs.Net-style). Swift DateParser
+        // was extended to accept `/` as a date separator; regression here would send
+        // all these feeds to the fallback year=1970 path.
+        let d = parserData("kc0011", "rss", "http://kc0011.net/")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        let expectedJan10 = Calendar(identifier: .gregorian).date(from: DateComponents(
+            timeZone: TimeZone(secondsFromGMT: 0),
+            year: 2020, month: 1, day: 10
+        ))!
+        let jan10Items = parsedFeed.items.filter {
+            guard let date = $0.datePublished else {
+                return false
+            }
+            return date >= expectedJan10 && date < expectedJan10.addingTimeInterval(86400)
+        }
+        #expect(jan10Items.count > 0, "Expected at least one kc0011 item dated 2020-01-10 — date format regression?")
+    }
+
+    @Test func shopifyNamespaceDoesNotOverwriteTitle() throws {
+        // <https://github.com/Ranchero-Software/NetNewsWire/issues/4422>
+        // An unprefixed <title>Default Title</title> nested inside a
+        // namespaced <s:variant> must not overwrite the item's real <title>. The namespaces
+        // RSS actually consumes (Dublin Core, content) must keep parsing — guard against the skip
+        // logic being too broad.
+        let d = parserData("shopify-namespace", "rss", "https://example.com/feed")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+        let item = try #require(parsedFeed.items.first)
+        #expect(item.title == "Real Product Title")
+        #expect(item.contentHTML == "<p>Body HTML</p>")
+        #expect(item.authors?.first?.name == "Jane Maker")
+    }
+
+    @Test func slashdotTextInputDoesNotOverwriteFeedTitle() throws {
+        // slashdot.rss is RSS 1.0 and ends with a <textinput> element whose
+        // <title> is “Search Slashdot”.
+        let d = parserData("slashdot", "rss", "https://rss.slashdot.org/Slashdot/slashdotMain")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        #expect(parsedFeed.title == "Slashdot")
+        #expect(parsedFeed.homePageURL == "https://slashdot.org/")
+        #expect(parsedFeed.items.count == 15)
+    }
+
+    @Test func textInputInsideChannelIsIgnored() throws {
+        // RSS 2.0 <textInput> sits inside <channel>, after the channel’s <title>
+        // and before its <link>.
+        let d = parserData("textinput-rss2", "rss", "https://example.com/feed")
+        let parsedFeed = try #require(try FeedParser.parse(d))
+
+        #expect(parsedFeed.title == "Test Feed")
+        #expect(parsedFeed.homePageURL == "https://example.com")
+        #expect(parsedFeed.items.count == 1)
+
+        let item = try #require(parsedFeed.items.first)
+        #expect(item.title == "Real Article Title")
+        #expect(item.url == "https://example.com/articles/1")
+    }
+}

@@ -21,11 +21,12 @@ let package = Package(
         .target(name: "Vault", dependencies: ["PiperCore", "Yams"], path: "Sources/Modules/Vault"),
         .target(name: "Agents", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Agents"),
         .target(name: "Briefs", dependencies: ["PiperCore", "CSQLite"], path: "Sources/Modules/Briefs"),
+        .target(name: "Feeds", dependencies: ["CSQLite"], path: "Sources/Modules/Feeds"),
 
         // Application target.
         .executableTarget(name: "Piper", dependencies: [
             "CSQLite", "Yams",
-            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "Agents", "Briefs"
+            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "Agents", "Briefs", "Feeds"
         ], resources: [.process("Resources")]),
 
         .testTarget(name: "PiperTests", dependencies: ["Piper"]),
@@ -33,6 +34,8 @@ let package = Package(
         .testTarget(name: "CapturesTests", dependencies: ["Captures"], path: "Tests/CapturesTests"),
         .testTarget(name: "AgentsTests", dependencies: ["Agents"], path: "Tests/AgentsTests"),
         .testTarget(name: "BriefsTests", dependencies: ["Briefs", "CSQLite"], path: "Tests/BriefsTests"),
+        .testTarget(name: "FeedsTests", dependencies: ["Feeds", "CSQLite"], path: "Tests/FeedsTests",
+                    resources: [.copy("Resources")]),
         .testTarget(name: "VaultTests", dependencies: ["Vault"], path: "Tests/VaultTests"),
         .testTarget(name: "PiperCoreTests", dependencies: ["PiperCore"], path: "Tests/PiperCoreTests")
     ]
