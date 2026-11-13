@@ -60,6 +60,12 @@ Do not do these checks with `press`, `--headed`, or the clipboard. List them for
 
 ## Facts About Piper
 
+- A menu does not open in QA mode, because PiperQA is not the active app. This includes a SwiftUI `Menu` and an `NSMenuToolbarItem`. `click` and `expand` on the menu button fail. Put each menu item on the list of checks for the user.
+- A WebKit page, such as the Reader tab or the Web tab, can show blank in `qa.sh shot` while the page is loaded. To check the text, run `agent-desktop find --app PiperQA --role webarea`, then find a heading or a text inside it.
+- `agent-desktop select` needs a value argument. To select a row in a list, use `click` on the ref of the row.
+- To test feeds with no real data, serve fictional files with `python3 -I -m http.server` on `127.0.0.1`. Add Feed accepts a local address. Discover drops private hosts, so give the fake history public hosts.
+- PiperQA reads browser history from `$QA/home/Library`, because `CFFIXED_USER_HOME` changes the home folder. For Discover, write a fake Chrome `History` database to `$QA/home/Library/Application Support/Google/Chrome/Default/History`, with the `urls` and `visits` tables.
+
 - On `main`, the editor is a native text view. The file changes on disk only after Command-S or Save.
 - The web editor (a `WKWebView`) saves automatically. Headless `agent-desktop type` does not change it: use `qa.sh type`.
 - On the `web-editor` branch, a switch to a second file blanks the editor page. The fix is on the `main-window` branch.
