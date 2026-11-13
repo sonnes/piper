@@ -44,7 +44,7 @@ If Piper cannot read the NetNewsWire file, give Piper Full Disk Access. You can 
 
 ## Read Articles
 
-Select a row in the Feeds group. The list pane shows the articles, the newest first. Select an article to read it in the detail pane. Piper loads the page of the article and shows it as clean text in the reader page.
+Select a row in the Feeds group. The list pane shows the articles, the newest first. Select an article to read it in the detail pane. The detail pane is the same reader as a link in Inbox. The Reader tab shows the article as clean text, and the Web tab shows the original page.
 
 When you select an article, Piper marks it as read. The article stays in the list until you select another row.
 
@@ -57,9 +57,9 @@ When you select an article, Piper marks it as read. The article stays in the lis
 | I | Keep the article in Inbox |
 | Command-K | Mark all articles in the list as read |
 
-The toolbar of the detail pane has the same actions. Right-click an article for the same actions and Copy Link.
+The window toolbar has Keep in Inbox, Star, and Mark as Read over the detail pane. Right-click an article for the same actions, Open in Browser, and Copy Link.
 
-Keep saves the article to Inbox as a link capture. The source of the capture is the title of the feed. A highlight or a note on a feed article also keeps the article, because a note needs a capture.
+Keep saves the article to Inbox as a link capture. The source of the capture is the title of the feed. After Keep, the detail pane also shows the Notes tab. A highlight or a note on a feed article also keeps the article, because a note needs a capture.
 
 ## Refresh
 

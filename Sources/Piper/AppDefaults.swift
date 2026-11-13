@@ -124,7 +124,6 @@ final class AppDefaults {
     enum Feeds {
         static let headerHeight: CGFloat = 38
         static let unreadDot: CGFloat = 7
-        static let detailButtonMargin: CGFloat = 24
         static let addSheetWidth: CGFloat = 460
         static let discoverRowSpacing: CGFloat = 2
         /// Discover scans again when it opens, if the last scan is older than this.

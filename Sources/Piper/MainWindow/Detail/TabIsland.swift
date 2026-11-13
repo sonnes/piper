@@ -54,13 +54,15 @@ struct TabIsland<Tab: Hashable>: View {
 }
 
 extension TabIsland where Tab == ArticleTab {
-    /// Reader, Web, and Notes.
-    init(selection: Binding<ArticleTab>, cardPresented: Bool) {
-        self.init(items: [
+    /// Reader, Web, and Notes. A feed article that is not in Inbox has no notes,
+    /// so it shows Reader and Web only.
+    init(selection: Binding<ArticleTab>, cardPresented: Bool, showsNotes: Bool = true) {
+        let items = [
             Item(tab: .reader, title: "Reader", help: "Show the article as clean text"),
             Item(tab: .web, title: "Web", help: "Show the original page"),
             Item(tab: .notes, title: "Notes", help: "Show the highlights, notes, and questions of the article")
-        ], selection: selection, cardPresented: cardPresented)
+        ]
+        self.init(items: showsNotes ? items : items.filter { $0.tab != .notes }, selection: selection, cardPresented: cardPresented)
     }
 }
 

@@ -31,6 +31,8 @@ final class MainWindowController: NSWindowController {
     private var appliedPaneWidths = false
     private var composerRequest: UUID?
     private var doneItem: NSToolbarItem?
+    private var keepItem: NSToolbarItem?
+    private var starItem: NSToolbarItem?
 
     /// True while the detail pane shows agent sessions.
     private var showsSessions: Bool {
@@ -278,6 +280,7 @@ final class MainWindowController: NSWindowController {
     private func observeTitle() {
         withObservationTracking {
             updateTitle()
+            updateArticleItems()
         } onChange: { [weak self] in
             DispatchQueue.main.async { self?.observeTitle() }
         }
@@ -348,10 +351,13 @@ final class MainWindowController: NSWindowController {
         let note = state.selectedNote.flatMap { id in model.store.notes.first { $0.id == id } }
         if #available(macOS 15.0, *), let items = window?.toolbar?.items {
             for item in items {
-                if item.itemIdentifier == .markDone { item.isHidden = !showsNotes }
+                if item.itemIdentifier == .markDone { item.isHidden = !showsNotes && !showsArticles }
+                if item.itemIdentifier == .keepArticle || item.itemIdentifier == .star { item.isHidden = !showsArticles }
                 if item.itemIdentifier == .claude { item.isHidden = showsSessions }
             }
         }
+        keepItem?.isEnabled = false
+        starItem?.isEnabled = false
         let canComplete = state.selection.showsCaptures && state.selection != .clipboard && note != nil
         doneItem?.isEnabled = canComplete
         doneItem?.image = NSImage(systemSymbolName: note?.isDone == true ? "checkmark.circle.fill" : "checkmark.circle",
@@ -359,6 +365,39 @@ final class MainWindowController: NSWindowController {
         doneItem?.label = note?.isDone == true ? "Reopen" : "Mark as Done"
         doneItem?.toolTip = doneItem?.label
         model.actionTarget = actionTarget(note: note)
+        updateArticleItems()
+    }
+
+    /// True while the list pane shows the articles of a feed row.
+    private var showsArticles: Bool {
+        if case .feeds(let filter) = state.selection { return filter != .discover }
+        return false
+    }
+
+    /// The selected feed article, while the list pane shows articles.
+    private var selectedFeedArticle: Article? {
+        guard showsArticles, let id = state.selectedArticle else { return nil }
+        _ = model.feeds.revision
+        return model.feeds.article(id)
+    }
+
+    /// Mark as Read, Star, and Keep in Inbox act on the selected feed article.
+    private func updateArticleItems() {
+        guard showsArticles else { return }
+        let article = selectedFeedArticle
+        let kept = article.flatMap { URL(string: $0.url) }.flatMap(model.store.article(for:)) != nil
+        doneItem?.isEnabled = article != nil
+        doneItem?.image = NSImage(systemSymbolName: article?.read == true ? "checkmark.circle.fill" : "checkmark.circle",
+                                  accessibilityDescription: nil)
+        doneItem?.label = article?.read == true ? "Mark as Unread" : "Mark as Read"
+        doneItem?.toolTip = doneItem.map { $0.label + " (R)" }
+        starItem?.isEnabled = article != nil
+        starItem?.image = NSImage(systemSymbolName: article?.starred == true ? "star.fill" : "star", accessibilityDescription: nil)
+        starItem?.label = article?.starred == true ? "Remove Star" : "Star"
+        starItem?.toolTip = starItem.map { $0.label + " (S)" }
+        keepItem?.isEnabled = article != nil && !kept
+        keepItem?.label = kept ? "Kept in Inbox" : "Keep in Inbox"
+        keepItem?.toolTip = keepItem.map { $0.label + " (I)" }
     }
 
     /// What the session card takes as context: the note in the inbox, the file
@@ -430,6 +469,8 @@ extension NSToolbarItem.Identifier {
     static let add = NSToolbarItem.Identifier("add")
     static let capture = NSToolbarItem.Identifier("capture")
     static let markDone = NSToolbarItem.Identifier("markDone")
+    static let keepArticle = NSToolbarItem.Identifier("keepArticle")
+    static let star = NSToolbarItem.Identifier("star")
     static let more = NSToolbarItem.Identifier("more")
     static let readerSeparator = NSToolbarItem.Identifier("readerSeparator")
     static let claude = NSToolbarItem.Identifier("claude")
@@ -440,7 +481,7 @@ extension MainWindowController: NSToolbarDelegate {
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [.toggleSidebar, .add, .sidebarTrackingSeparator,
          .flexibleSpace, .capture, .readerSeparator,
-         .navigate, .flexibleSpace, .markDone, .more, .claude]
+         .navigate, .flexibleSpace, .keepArticle, .star, .markDone, .more, .claude]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -463,6 +504,18 @@ extension MainWindowController: NSToolbarDelegate {
             let item = button(identifier, symbol: "checkmark.circle", label: "Mark as Done", action: #selector(toggleDone))
             item.autovalidates = false
             doneItem = item
+            updateToolbarState()
+            return item
+        case .keepArticle:
+            let item = button(identifier, symbol: "tray.and.arrow.down", label: "Keep in Inbox", action: #selector(keepArticle))
+            item.autovalidates = false
+            keepItem = item
+            updateToolbarState()
+            return item
+        case .star:
+            let item = button(identifier, symbol: "star", label: "Star", action: #selector(toggleStar))
+            item.autovalidates = false
+            starItem = item
             updateToolbarState()
             return item
         case .add:
@@ -556,6 +609,17 @@ extension MainWindowController: NSToolbarDelegate {
 
     @objc private func addFeed() { model.addingFeed = true }
 
+    @objc private func toggleStar() {
+        guard let article = selectedFeedArticle else { return }
+        model.feeds.setStarred(!article.starred, article)
+    }
+
+    @objc private func keepArticle() {
+        guard let article = selectedFeedArticle, let url = URL(string: article.url) else { return }
+        model.store.saveArticle(url, title: article.title, source: model.feeds.feed(article.feedID)?.title)
+        model.feeds.setRead(true, [article])
+    }
+
     @objc private func newSection() {
         guard let window else { return }
         let sheet = NSHostingController(rootView: NewSectionSheet(sections: model.store.sections) { [weak self, weak window] name in
@@ -567,6 +631,10 @@ extension MainWindowController: NSToolbarDelegate {
     }
 
     @objc private func toggleDone() {
+        if showsArticles {
+            if let article = selectedFeedArticle { model.feeds.setRead(!article.read, [article]) }
+            return
+        }
         guard let id = state.selectedNote else { return }
         model.store.toggleDone(id)
         updateToolbarState()

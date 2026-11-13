@@ -289,7 +289,7 @@ After each refresh, `FeedStore` prunes the read articles that are not starred an
 
 `OPMLImport` reads an OPML file and returns each feed, also the feeds in folders. `OPMLImport.netNewsWireFile` is the OPML file of the On My Mac account of NetNewsWire.
 
-The Feeds group of the sidebar holds `SidebarSelection.feeds` rows, each with a `FeedFilter`. `FeedArticleList` fills the list pane, and `FeedArticleDetail` shows the selected article in `ReaderPageView`. `FeedStore.revision` changes after each write, so the views read again.
+The Feeds group of the sidebar holds `SidebarSelection.feeds` rows, each with a `FeedFilter`. `FeedArticleList` fills the list pane. `FeedArticleDetail` shows the selected article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `ReaderAddressBar` and `TabIsland` as `ArticleReader`. The `keepArticle`, `star`, and `markDone` toolbar items act on the selected article. `FeedStore.revision` changes after each write, so the views read again.
 
 ## Discover
 

@@ -30,30 +30,9 @@ struct ArticleReader: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Text(url.host() ?? url.absoluteString).foregroundStyle(PiperTheme.ink)
-                Text(url.path()).foregroundStyle(PiperTheme.secondary)
-                    .lineLimit(1).truncationMode(.middle)
-                Spacer(minLength: 8)
-                Text(reading.minutesLeft.map { "\($0) min left" }
-                     ?? "Captured " + note.createdAt.formatted(date: .omitted, time: .shortened))
-                    .foregroundStyle(PiperTheme.secondary)
-                    .monospacedDigit()
-            }
-            .font(PiperTheme.ui(AppDefaults.ArticleReader.addressFontSize))
-            .lineLimit(1)
-            .padding(.horizontal, AppDefaults.ArticleReader.horizontalInset)
-            .frame(height: AppDefaults.ArticleReader.addressHeight)
-            ZStack(alignment: .leading) {
-                Rule()
-                GeometryReader { proxy in
-                    Rectangle().fill(PiperTheme.accent)
-                        .frame(width: proxy.size.width * min(max(reading.progress, 0), 1), height: AppDefaults.ArticleReader.progressHeight)
-                }
-                .frame(height: AppDefaults.ArticleReader.progressHeight)
-            }
-            .frame(height: AppDefaults.ArticleReader.progressHeight)
-            .accessibilityHidden(true)
+            ReaderAddressBar(url: url, detail: reading.minutesLeft.map { "\($0) min left" }
+                             ?? "Captured " + note.createdAt.formatted(date: .omitted, time: .shortened),
+                             progress: reading.progress)
             if let resume {
                 HStack(spacing: 10) {
                     Image(systemName: "book").foregroundStyle(PiperTheme.accent)
@@ -678,6 +657,43 @@ struct ReaderPageView: NSViewRepresentable {
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             decisionHandler(navigationAction.request.url == page ? .allow : .cancel)
+        }
+    }
+}
+
+/// The line over an article in the Reader tab: the host, the path, a detail at
+/// the right, and the reading progress under it.
+struct ReaderAddressBar: View {
+    let url: URL
+    let detail: String
+    /// From 0 to 1.
+    let progress: Double
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text(url.host() ?? url.absoluteString).foregroundStyle(PiperTheme.ink)
+                Text(url.path()).foregroundStyle(PiperTheme.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 8)
+                Text(detail)
+                    .foregroundStyle(PiperTheme.secondary)
+                    .monospacedDigit()
+            }
+            .font(PiperTheme.ui(AppDefaults.ArticleReader.addressFontSize))
+            .lineLimit(1)
+            .padding(.horizontal, AppDefaults.ArticleReader.horizontalInset)
+            .frame(height: AppDefaults.ArticleReader.addressHeight)
+            ZStack(alignment: .leading) {
+                Rule()
+                GeometryReader { proxy in
+                    Rectangle().fill(PiperTheme.accent)
+                        .frame(width: proxy.size.width * min(max(progress, 0), 1), height: AppDefaults.ArticleReader.progressHeight)
+                }
+                .frame(height: AppDefaults.ArticleReader.progressHeight)
+            }
+            .frame(height: AppDefaults.ArticleReader.progressHeight)
+            .accessibilityHidden(true)
         }
     }
 }
