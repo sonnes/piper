@@ -21,7 +21,7 @@ let package = Package(
         .target(name: "Vault", dependencies: ["PiperCore", "Yams"], path: "Sources/Modules/Vault"),
         .target(name: "Agents", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Agents"),
         .target(name: "Briefs", dependencies: ["PiperCore", "CSQLite"], path: "Sources/Modules/Briefs"),
-        .target(name: "Feeds", dependencies: ["CSQLite"], path: "Sources/Modules/Feeds"),
+        .target(name: "Feeds", dependencies: ["CSQLite"], path: "Sources/Modules/Feeds", exclude: ["RSParser/README.md"]),
 
         // Application target.
         .executableTarget(name: "Piper", dependencies: [
