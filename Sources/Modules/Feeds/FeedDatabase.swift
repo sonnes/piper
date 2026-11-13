@@ -146,7 +146,7 @@ public final class FeedDatabase {
         }
         let statement = try prepare("""
         SELECT id, feed_id, url, title, summary, published, arrived, read, starred FROM articles
-        WHERE \(condition) ORDER BY COALESCE(published, arrived) DESC LIMIT \(limit)
+        WHERE \(condition) ORDER BY COALESCE(published, arrived) DESC, rowid LIMIT \(limit)
         """)
         defer { sqlite3_finalize(statement) }
         for (index, argument) in arguments.enumerated() { bind(argument, at: Int32(index + 1), in: statement) }

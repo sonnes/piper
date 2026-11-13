@@ -77,6 +77,18 @@ private func temporaryDatabase() -> URL {
         #expect(try database.articles(.feed("https://a.example/feed")).first?.read == true)
     }
 
+    @Test func articlesWithTheSameDateKeepTheFeedOrder() throws {
+        let database = try FeedDatabase(url: temporaryDatabase())
+        try database.save(Feed(id: "f", title: "F"))
+        let date = Date(timeIntervalSince1970: 1_000_000)
+        try database.insert(["c", "a", "b"].map {
+            Article(id: $0, feedID: "f", url: $0, title: $0, summary: "", published: date, arrived: date)
+        })
+        try database.setRead(true, ids: ["c"])
+        #expect(try database.articles(.feed("f")).map(\.id) == ["c", "a", "b"])
+        #expect(try database.articles(.allUnread, keeping: ["c"]).map(\.id) == ["c", "a", "b"])
+    }
+
     @Test func deleteFeedRemovesItsArticles() throws {
         let database = try FeedDatabase(url: temporaryDatabase())
         try database.save(Feed(id: "f", title: "F"))
