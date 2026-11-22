@@ -12,6 +12,9 @@ struct FeedArticleList: View {
     let filter: FeedFilter
     let selectedID: String?
     let select: (Article?) -> Void
+    /// Opens an article as a reader paper, after a click, Return, or Space.
+    var openPaper: (Article) -> Void = { _ in }
+    var showsTitle = true
 
     @State private var articles: [Article] = []
     @FocusState private var focused: Bool
@@ -27,7 +30,11 @@ struct FeedArticleList: View {
                 EmptyPane(title: emptyTitle, detail: emptyDetail)
             } else {
                 ScrollViewReader { proxy in
-                    List(selection: Binding(get: { selectedID }, set: { id in open(articles.first { $0.id == id }) })) {
+                    List(selection: Binding(get: { selectedID }, set: { id in
+                        let article = articles.first { $0.id == id }
+                        open(article)
+                        if let article, Self.isClick(NSApp.currentEvent) { openPaper(article) }
+                    })) {
                         ForEach(articles) { article in
                             FeedArticleRow(article: article, feed: feeds.feed(article.feedID),
                                            showsFeed: !isOneFeed, favicons: model.favicons,
@@ -53,7 +60,7 @@ struct FeedArticleList: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text(title).font(PiperTheme.ui(.body, weight: .semibold)).lineLimit(1)
+            if showsTitle { Text(title).font(PiperTheme.ui(.body, weight: .semibold)).lineLimit(1) }
             if let error = oneFeed?.error {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(PiperTheme.warning)
                     .help(error)
@@ -150,13 +157,25 @@ struct FeedArticleList: View {
         feeds.setRead(true, [article])
     }
 
+    /// True when a mouse click changed the selection. The arrow keys move the
+    /// selection without a new paper.
+    static func isClick(_ event: NSEvent?) -> Bool {
+        guard let type = event?.type else { return false }
+        return [.leftMouseDown, .leftMouseUp].contains(type)
+    }
+
     private func handle(_ press: KeyPress, proxy: ScrollViewProxy) -> KeyPress.Result {
         guard press.modifiers.isEmpty || press.modifiers == .shift else { return .ignored }
+        if press.key == .return, press.modifiers.isEmpty, let selected {
+            openPaper(selected)
+            return .handled
+        }
         switch press.characters.lowercased() {
         case " ":
             let start = articles.firstIndex { $0.id == selectedID }.map { $0 + 1 } ?? 0
             guard let next = articles[start...].first(where: { !$0.read }) else { return .handled }
             open(next)
+            openPaper(next)
             proxy.scrollTo(next.id)
         case "r":
             guard let selected else { return .ignored }

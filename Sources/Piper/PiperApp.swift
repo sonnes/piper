@@ -24,6 +24,7 @@ struct PiperApp {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
     private var panelController: CapturePanelController?
     private var mainWindowController: MainWindowController?
+    private var feedPaper: FeedPaperController?
     private var settingsWindowController: SettingsWindowController?
     private var editors: [UUID: NSWindow] = [:]
     private var editorSessions: [ObjectIdentifier: CaptureEditSession] = [:]
@@ -151,6 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
         windowMenu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "2").target = self
+        windowMenu.addItem(withTitle: "Feed Paper", action: #selector(showFeedPaper), keyEquivalent: "3").target = self
         let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
         sessionCard.keyEquivalentModifierMask = [.command, .option]
         sessionCard.target = self
@@ -215,6 +217,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         }
         panelController?.hide()
         mainWindowController?.show()
+    }
+
+    /// Shows the feed paper.
+    @objc func showFeedPaper() {
+        if feedPaper == nil {
+            let paper = FeedPaperModel(model: model)
+            paper.open = { [weak self] item in
+                guard let self else { return }
+                switch item {
+                case .note(let id): model.showNote?(id)
+                case .file: if let path = model.selectedDocument { model.showFile?(path) }
+                case .session(let id): model.showSession?(id)
+                case .article, .newSession: break
+                }
+            }
+            feedPaper = FeedPaperController(model: model, paper: paper)
+        }
+        feedPaper?.show()
     }
 
     /// Opens or collapses the session card. A hidden window comes back with

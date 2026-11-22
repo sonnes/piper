@@ -56,6 +56,8 @@ final class AppDefaults {
         static let blockedSites = "blockedSites"
         static let disabledHistorySources = "disabledHistorySources"
         static let discoverLastScan = "discoverLastScan"
+        /// The tab, the scope, the pins, and the frame of the feed paper. See `PaperDeskState`.
+        static let paperDeskState = "paperDeskState"
 
         /// Keys carried over when the bundle identifier changed to `com.piper`.
         static let migrated = [
@@ -75,9 +77,69 @@ final class AppDefaults {
 
     // MARK: Sizes
 
+    /// The feed paper and the reader papers. The sizes of a reader paper come
+    /// from the Write paper of September: a text column of 600 points with
+    /// 56-point margins at the sides.
+    enum Papers {
+        /// The number of tabs on the edge of the feed paper. Pinned folders past this number show on the Folders index.
+        static let tabLimit = 8
+        static let feedSize = NSSize(width: 520, height: 760)
+        static let feedMinimumSize = NSSize(width: 420, height: 440)
+        static let readerSize = NSSize(width: 712, height: 860)
+        static let noteSize = NSSize(width: 600, height: 560)
+        static let sessionSize = NSSize(width: 480, height: 680)
+        static let readerMinimumSize = NSSize(width: 380, height: 320)
+        static let cornerRadius: CGFloat = 20
+        /// The space between the feed paper and the first reader paper.
+        static let gap: CGFloat = 24
+        /// The offset of each next reader paper, to the right and down.
+        static let cascade: CGFloat = 24
+        /// The space that a paper keeps from the edges of the screen.
+        static let screenInset: CGFloat = 24
+        /// The cross-fade between the index and the list.
+        static let fade: Double = 0.22
+
+        static let tabWidth: CGFloat = 150
+        static let activeTabWidth: CGFloat = 164
+        static let tabHeight: CGFloat = 40
+        static let tabSpacing: CGFloat = 6
+        /// The part of a tab that lies under the paper.
+        static let tabOverlap: CGFloat = 14
+        static let tabCornerRadius: CGFloat = 14
+        /// The space between the top of the paper and the first tab.
+        static let tabsTop: CGFloat = 74
+        /// The extra space over the first pinned folder.
+        static let pinGap: CGFloat = 10
+        static let tabShadowRadius: CGFloat = 2
+        static let tabShadowOffset: CGFloat = 1
+
+        static let headerPadding = EdgeInsets(top: 26, leading: 32, bottom: 12, trailing: 24)
+        static let indexPadding = EdgeInsets(top: 8, leading: 20, bottom: 20, trailing: 20)
+        static let rowHeight: CGFloat = 44
+        static let rowRadius: CGFloat = 12
+        static let rowPadding: CGFloat = 12
+        static let indent: CGFloat = 18
+        static let iconSize: CGFloat = 18
+        static let readerHeaderHeight: CGFloat = 48
+        static let readerHeaderPadding = EdgeInsets(top: 8, leading: 20, bottom: 0, trailing: 12)
+        /// The most a count on a tab shows. A larger count shows as this number and a plus sign.
+        static let countLimit = 999
+    }
+
     enum ListSearch {
         static let horizontalInset: CGFloat = 12
         static let verticalInset: CGFloat = 8
+    }
+
+    /// The icon at the start of a row.
+    enum RowIcon {
+        static let size: CGFloat = 18
+        /// The corner radius of a tile, as a fraction of its side.
+        static let tileCornerFraction: CGFloat = 0.28
+        /// The diameter of a section dot, as a fraction of the icon side.
+        static let dotFraction: CGFloat = 0.55
+        /// The size of the symbol in a tile, as a fraction of its side.
+        static let tileSymbolFraction: CGFloat = 0.62
     }
 
     /// Sidebar cell metrics.

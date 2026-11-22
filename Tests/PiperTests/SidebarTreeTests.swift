@@ -30,28 +30,28 @@ final class SidebarTreeTests: XCTestCase {
     }
 
     func testFileRowsShowTheKind() {
-        XCTAssertEqual(SidebarOutline.fileIcon("claude-code.md"), "note")
-        XCTAssertEqual(SidebarOutline.fileIcon("figure.png"), "image")
-        XCTAssertEqual(SidebarOutline.fileIcon("page.html"), "web")
-        XCTAssertEqual(SidebarOutline.fileIcon("captions.vtt"), "file")
+        XCTAssertEqual(RowIcon.fileIcon("claude-code.md"), "note")
+        XCTAssertEqual(RowIcon.fileIcon("figure.png"), "image")
+        XCTAssertEqual(RowIcon.fileIcon("page.html"), "web")
+        XCTAssertEqual(RowIcon.fileIcon("captions.vtt"), "file")
     }
 
     func testFolderTilesAndSectionDotsTakeAColorByPositionAndALetter() {
-        XCTAssertEqual(SidebarOutline.monogram("notes"), "N")
-        XCTAssertEqual(SidebarOutline.monogram(".config"), "C")
-        XCTAssertEqual(SidebarOutline.monogram("2026 journal"), "2")
-        XCTAssertEqual(SidebarOutline.monogram("---"), "•")
+        XCTAssertEqual(RowIcon.monogram("notes"), "N")
+        XCTAssertEqual(RowIcon.monogram(".config"), "C")
+        XCTAssertEqual(RowIcon.monogram("2026 journal"), "2")
+        XCTAssertEqual(RowIcon.monogram("---"), "•")
         // Neighbors differ, and the colors repeat after the last one.
         let count = PiperTheme.tagsNS.count
-        for index in 0..<count { XCTAssertNotEqual(SidebarOutline.tagColor(at: index), SidebarOutline.tagColor(at: index + 1)) }
-        XCTAssertEqual(SidebarOutline.tagColor(at: count), SidebarOutline.tagColor(at: 0))
-        XCTAssertEqual(SidebarOutline.tagColor(at: -1), SidebarOutline.tagColor(at: 0))
+        for index in 0..<count { XCTAssertNotEqual(RowIcon.tagColor(at: index), RowIcon.tagColor(at: index + 1)) }
+        XCTAssertEqual(RowIcon.tagColor(at: count), RowIcon.tagColor(at: 0))
+        XCTAssertEqual(RowIcon.tagColor(at: -1), RowIcon.tagColor(at: 0))
     }
 
     @MainActor
     func testEverySidebarGlyphLoadsAsATemplate() throws {
         for name in ["inbox", "clipboard", "archived", "claude", "folder", "note", "image", "web", "file"] {
-            let image = try XCTUnwrap(SidebarIcon.glyph(name), name)
+            let image = try XCTUnwrap(RowIcon.glyph(name), name)
             XCTAssertTrue(image.isTemplate, name)
         }
     }

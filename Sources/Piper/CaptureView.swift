@@ -27,11 +27,11 @@ enum CaptureListContent: Equatable {
     case stream(section: String?)
 }
 
-/// The capture list, in the capture panel and in the Inbox pane of the main window.
+/// The capture list, in the capture panel and in the list of the feed paper.
 ///
 /// The list is a checklist with the add field at the top. The panel shows one
-/// section at a time and selects it with tabs. The main window selects
-/// sections from the children of Inbox in the sidebar.
+/// section at a time and selects it with tabs. The feed paper selects
+/// sections on the Inbox index.
 struct CaptureView: View {
     @Bindable var store: CaptureStore
     @Bindable var model: AppModel
@@ -39,6 +39,8 @@ struct CaptureView: View {
     let acceptsKeyboard: (NSWindow) -> Bool
     let focusNotes: () -> Void
     let selectCapture: (UUID?) -> Void
+    /// Opens one capture as a reader paper, after a click or Return.
+    let openCapture: (UUID) -> Void
     /// What the main window shows. The panel keeps its own selection.
     let embeddedContent: CaptureListContent
     let composerRequest: UUID?
@@ -48,13 +50,15 @@ struct CaptureView: View {
          composerRequest: UUID? = nil,
          acceptsKeyboard: @escaping (NSWindow) -> Bool = { $0 is CapturePanel },
          focusNotes: @escaping () -> Void = {},
-         selectCapture: @escaping (UUID?) -> Void = { _ in }) {
+         selectCapture: @escaping (UUID?) -> Void = { _ in },
+         openCapture: @escaping (UUID) -> Void = { _ in }) {
         self.embedded = embedded
         self.embeddedContent = content
         self.composerRequest = composerRequest
         self.acceptsKeyboard = acceptsKeyboard
         self.focusNotes = focusNotes
         self.selectCapture = selectCapture
+        self.openCapture = openCapture
         self.model = model
         self.store = model.store
     }
@@ -225,7 +229,7 @@ struct CaptureView: View {
         }
         .onChange(of: matching.map(\.id)) { _, ids in
             guard let window = NSApp.keyWindow,
-                  embedded ? window.windowController is MainWindowController : window is CapturePanel else { return }
+                  embedded ? (window.windowController is FeedPaperController || window.windowController is MainWindowController) : window is CapturePanel else { return }
             store.selection.formIntersection(ids)
         }
         .onChange(of: store.selection) { _, selection in
@@ -671,7 +675,7 @@ struct CaptureView: View {
     /// The dot color of a section, as the sidebar shows it.
     private func sectionColor(_ section: String) -> Color {
         let position = store.sections.filter { $0 != SidebarOutline.inboxSection }.firstIndex(of: section) ?? 0
-        return Color(nsColor: SidebarOutline.tagColor(at: position))
+        return Color(nsColor: RowIcon.tagColor(at: position))
     }
 
     /// Marks an article as read, or opens it again. A read article stays in
@@ -1014,6 +1018,7 @@ struct CaptureView: View {
         checking = false
         store.selection = [id]
         selectionAnchor = id
+        openCapture(id)
     }
 
     private func selectNote(_ id: UUID, modifiers: NSEvent.ModifierFlags? = nil) {
@@ -1092,6 +1097,7 @@ struct CaptureView: View {
                 if composing { saveNote(); return nil }
                 if !editingText, let note = store.selectedNotes.first {
                     if flags.contains(.command) { model.openNoteEditor?(note) }
+                    else if embedded { openCapture(note.id) }
                     else { sheet = .edit(model.editCapture(note)) }
                     return nil
                 }

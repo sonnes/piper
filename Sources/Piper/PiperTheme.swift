@@ -18,8 +18,8 @@ enum PiperTheme {
 
     // MARK: Colors
 
-    /// The background of the list and the detail pane.
-    static let pageNS = NSColor.textBackgroundColor
+    /// The background of a list and of a reader paper.
+    static let pageNS = paperNS
     /// The background of the capture panel, the reader bar, and the link card.
     static let panelNS = color(light: 0xF3F3F4, dark: 0x232324)
     /// The background of a grouped card on the panel.
@@ -145,6 +145,53 @@ enum PiperTheme {
     /// The line over an article that says where it opened.
     static let resumeFill = accent.opacity(0.1)
 
+    // MARK: Papers
+
+    // The papers use the zinc and indigo of September. Each color names the
+    // Tailwind shade for the light appearance, then for the dark.
+
+    /// White, and zinc 800.
+    static let paperNS = color(light: 0xFFFFFF, dark: 0x27272A)
+    /// Zinc 900, and white.
+    static let paperInkNS = color(light: 0x18181B, dark: 0xFFFFFF)
+    /// Zinc 600 and 300.
+    static let paperMutedNS = color(light: 0x52525B, dark: 0xD4D4D8)
+    /// Zinc 500 and 400.
+    static let paperFaintNS = color(light: 0x71717A, dark: 0xA1A1AA)
+    /// Zinc 200 and 700.
+    static let paperRuleNS = color(light: 0xE4E4E7, dark: 0x3F3F46)
+    /// Zinc 100 and 700. A row under the pointer, and a field.
+    static let paperTintNS = color(light: 0xF4F4F5, dark: 0x3F3F46)
+    /// Indigo 600 and 400. Links, the current mark, and the focus line.
+    static let brandNS = color(light: 0x4F46E5, dark: 0x818CF8)
+    /// Indigo 100 and 900. The current row of an index.
+    static let currentRowNS = color(light: 0xE0E7FF, dark: 0x312E81)
+    /// Indigo 500. A tab on the edge of the feed paper.
+    static let tabNS = hex(0x6366F1)
+    /// Indigo 600. The active tab.
+    static let tabActiveNS = hex(0x4F46E5)
+    /// Indigo 100, and indigo 200 when active. The tab of a pinned folder.
+    static let pinTabNS = hex(0xE0E7FF)
+    static let pinTabActiveNS = hex(0xC7D2FE)
+    /// Indigo 800. The text of a pinned folder tab.
+    static let pinTabInkNS = hex(0x3730A3)
+
+    static let paper = Color(nsColor: paperNS)
+    static let paperInk = Color(nsColor: paperInkNS)
+    static let paperMuted = Color(nsColor: paperMutedNS)
+    static let paperFaint = Color(nsColor: paperFaintNS)
+    static let paperRule = Color(nsColor: paperRuleNS)
+    static let paperTint = Color(nsColor: paperTintNS)
+    static let brand = Color(nsColor: brandNS)
+    static let currentRow = Color(nsColor: currentRowNS)
+    static let tab = Color(nsColor: tabNS)
+    static let tabActive = Color(nsColor: tabActiveNS)
+    static let pinTab = Color(nsColor: pinTabNS)
+    static let pinTabActive = Color(nsColor: pinTabActiveNS)
+    static let pinTabInk = Color(nsColor: pinTabInkNS)
+    /// The shadow of a tab.
+    static let tabShadowColor = Color.black.opacity(0.14)
+
     // MARK: Shapes
 
     /// Corner radius for controls, rows, and selection backgrounds.
@@ -167,6 +214,50 @@ enum PiperTheme {
         _ = registeredFonts
         let face = weight >= .semibold ? "Bold" : weight >= .medium ? "Medium" : "Regular"
         return NSFont(name: "IBMPlexMono-\(face)", size: size) ?? .monospacedSystemFont(ofSize: size, weight: weight)
+    }
+
+    private static let registeredPaperFonts: Void = {
+        for name in ["Fraunces", "NotoSans-Regular", "NotoSans-Medium", "NotoSans-SemiBold", "NotoSans-Bold"] {
+            if let url = resources.url(forResource: name, withExtension: "woff2") {
+                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+            }
+        }
+    }()
+
+    /// The type scale of the papers. No text on a paper is smaller than 14 points.
+    enum PaperSize: CGFloat {
+        /// Meta lines, counts, tabs, and buttons.
+        case body = 14
+        /// Rows of an index and of a list.
+        case row = 16
+        /// Text that the reader reads.
+        case reading = 18
+        /// The title of an index.
+        case heading = 22
+        /// The title of the feed paper.
+        case title = 28
+    }
+
+    /// Noto Sans, the text of the papers.
+    static func paperUINS(_ size: PaperSize, weight: NSFont.Weight = .regular) -> NSFont {
+        _ = registeredPaperFonts
+        let face = weight >= .bold ? "Bold" : weight >= .semibold ? "SemiBold" : weight >= .medium ? "Medium" : "Regular"
+        return NSFont(name: "NotoSans-\(face)", size: size.rawValue) ?? .systemFont(ofSize: size.rawValue, weight: weight)
+    }
+
+    static func paperUI(_ size: PaperSize, weight: NSFont.Weight = .regular) -> Font {
+        Font(paperUINS(size, weight: weight) as CTFont)
+    }
+
+    /// Fraunces at weight 600, the titles of the papers.
+    static func paperTitle(_ size: PaperSize) -> Font {
+        _ = registeredPaperFonts
+        guard let base = NSFont(name: "Fraunces-Regular", size: size.rawValue) else {
+            return Font(serifNS(.title).withSize(size.rawValue) as CTFont).weight(.semibold)
+        }
+        let weightAxis = 0x77676874
+        let descriptor = base.fontDescriptor.addingAttributes([.variation: [weightAxis: 600]])
+        return Font((NSFont(descriptor: descriptor, size: size.rawValue) ?? base) as CTFont)
     }
 
     /// The type scale. Each text of the app outside a web page uses one of

@@ -2,7 +2,6 @@ import AppKit
 import Feeds
 import PiperTree
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// AppKit owns row geometry, selection, disclosure, and keyboard navigation.
 struct SidebarOutline: NSViewRepresentable {
@@ -76,31 +75,6 @@ struct SidebarOutline: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.update()
-    }
-
-    /// The row icon of a file, by its kind. The name is an SVG in the resources, after `sidebar-`.
-    static func fileIcon(_ name: String) -> String {
-        let type = UTType(filenameExtension: (name as NSString).pathExtension)
-        if ["md", "markdown"].contains((name as NSString).pathExtension.lowercased()) { return "note" }
-        if type?.conforms(to: .image) == true { return "image" }
-        if type?.conforms(to: .html) == true { return "web" }
-        return "file"
-    }
-
-    /// The color of the section dot or folder tile at a position in its group.
-    /// Neighbors get different colors, and the colors repeat after the last one.
-    static func tagColor(at index: Int) -> NSColor {
-        PiperTheme.tagsNS[max(index, 0) % PiperTheme.tagsNS.count]
-    }
-
-    /// The letter on a folder tile: the first letter or digit of the name, in capitals.
-    static func monogram(_ name: String) -> String {
-        name.first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "•"
-    }
-
-    /// The tile of the folder at a position under the Folders header.
-    static func folderIcon(_ name: String, at index: Int) -> SidebarIcon {
-        .monogram(monogram(name), tagColor(at: index))
     }
 
     @MainActor
@@ -312,26 +286,26 @@ struct SidebarOutline: NSViewRepresentable {
             cell.identifier = identifier
             if let item = node.representedObject as? PathItem, !item.isFolder {
                 cell.configure(title: item.name,
-                               icon: .glyph(SidebarOutline.fileIcon(item.name), PiperTheme.sidebarFileNS),
+                               icon: .glyph(RowIcon.fileIcon(item.name), PiperTheme.sidebarFileNS),
                                count: 0)
                 cell.toolTip = item.path
             } else if let item = node.representedObject as? PathItem {
                 let name = item.path.isEmpty ? parent.model.vault.root.lastPathComponent : item.name
                 cell.configure(title: name,
-                               icon: item.path.isEmpty ? SidebarOutline.folderIcon(name, at: wikiPaths.firstIndex(of: wikiPath) ?? 0) : .glyph("folder", PiperTheme.sidebarFolderNS),
+                               icon: item.path.isEmpty ? RowIcon.folderIcon(name, at: wikiPaths.firstIndex(of: wikiPath) ?? 0) : .glyph("folder", PiperTheme.sidebarFolderNS),
                                count: 0)
                 cell.toolTip = item.path.isEmpty ? wikiPath : item.path
             } else if let url = node.representedObject as? URL {
-                cell.configure(title: url.lastPathComponent, icon: SidebarOutline.folderIcon(url.lastPathComponent, at: wikiPaths.firstIndex(of: url.path) ?? 0),
+                cell.configure(title: url.lastPathComponent, icon: RowIcon.folderIcon(url.lastPathComponent, at: wikiPaths.firstIndex(of: url.path) ?? 0),
                                count: 0)
                 cell.toolTip = url.path
             } else if let selection = node.representedObject as? SidebarSelection {
-                let row: (title: String, icon: SidebarIcon, count: Int)
+                let row: (title: String, icon: RowIcon, count: Int)
                 switch selection {
                 case .inbox: row = ("Inbox", .glyph("inbox", PiperTheme.inboxNS), sections.reduce(0) { $0 + $1.count })
                 case .section(let name):
                     let position = sections.filter { $0.name != SidebarOutline.inboxSection }.firstIndex { $0.name == name } ?? 0
-                    row = (name, .dot(SidebarOutline.tagColor(at: position)), sections.first { $0.name == name }?.count ?? 0)
+                    row = (name, .dot(RowIcon.tagColor(at: position)), sections.first { $0.name == name }?.count ?? 0)
                 case .archived: row = ("Done", .glyph("archived", PiperTheme.archivedNS), 0)
                 case .clipboard: row = ("Clipboard", .glyph("clipboard", PiperTheme.clipboardNS), 0)
                 case .sessions(let path):
@@ -357,7 +331,7 @@ struct SidebarOutline: NSViewRepresentable {
         }
 
         /// The title, the icon, and the count of a row of the Feeds group.
-        private func feedRow(_ filter: FeedFilter) -> (title: String, icon: SidebarIcon, count: Int) {
+        private func feedRow(_ filter: FeedFilter) -> (title: String, icon: RowIcon, count: Int) {
             switch filter {
             case .discover: return ("Discover", .glyph("compass", PiperTheme.feedsNS), feeds.suggestions)
             case .allUnread: return ("All Unread", .glyph("rss", PiperTheme.feedsNS), feeds.unread)
@@ -366,13 +340,13 @@ struct SidebarOutline: NSViewRepresentable {
                 let index = feeds.rows.firstIndex { $0.id == id } ?? 0
                 let feed = feeds.rows.indices.contains(index) ? feeds.rows[index] : nil
                 let title = feed?.title ?? id
-                let icon: SidebarIcon
+                let icon: RowIcon
                 if feed?.error != nil {
                     icon = .glyph("rss", PiperTheme.warningNS)
                 } else if let data = feed?.icon {
                     icon = .favicon(data)
                 } else {
-                    icon = .monogram(SidebarOutline.monogram(title), SidebarOutline.tagColor(at: index))
+                    icon = .monogram(RowIcon.monogram(title), RowIcon.tagColor(at: index))
                 }
                 return (title, icon, feed?.unread ?? 0)
             }
@@ -566,95 +540,6 @@ struct SidebarOutline: NSViewRepresentable {
     }
 }
 
-/// The icon at the start of a sidebar row.
-enum SidebarIcon: Equatable {
-    /// A Lucide SVG from the resources, in one color.
-    case glyph(String, NSColor)
-    /// A colored dot, for a capture section.
-    case dot(NSColor)
-    /// A rounded tile with a letter, for a top-level folder.
-    case monogram(String, NSColor)
-    /// A rounded tile with a white glyph, for a sessions folder.
-    case tile(String, NSColor)
-    /// The icon of a site, for a feed.
-    case favicon(Data)
-
-    /// The image of the icon. A drawn image resolves its colors each time it
-    /// draws, so it follows the dark appearance.
-    @MainActor
-    func image(side: CGFloat) -> NSImage? {
-        if case .glyph(let name, _) = self { return SidebarIcon.glyph(name) }
-        var tileGlyph: NSImage?
-        if case .tile(let name, _) = self, let glyph = SidebarIcon.glyph(name) {
-            // Paint white through the alpha of the template, in its own image so
-            // that the fill does not cover the tile.
-            tileGlyph = NSImage(size: glyph.size, flipped: false) { rect in
-                glyph.draw(in: rect)
-                NSColor.white.set()
-                rect.fill(using: .sourceAtop)
-                return true
-            }
-        }
-        let size = NSSize(width: side, height: side)
-        return NSImage(size: size, flipped: false) { rect in
-            let radius = side * AppDefaults.Sidebar.tileCornerFraction
-            switch self {
-            case .glyph:
-                break
-            case .dot(let color):
-                let diameter = side * AppDefaults.Sidebar.dotFraction
-                color.setFill()
-                NSBezierPath(ovalIn: NSRect(x: rect.midX - diameter / 2, y: rect.midY - diameter / 2,
-                                            width: diameter, height: diameter)).fill()
-            case .monogram(let letter, let color):
-                color.setFill()
-                NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-                let text = NSAttributedString(string: letter, attributes: [
-                    .font: NSFont.systemFont(ofSize: side * 0.6, weight: .bold),
-                    .foregroundColor: NSColor.white
-                ])
-                let textSize = text.size()
-                text.draw(at: NSPoint(x: rect.midX - textSize.width / 2, y: rect.midY - textSize.height / 2))
-            case .favicon(let data):
-                guard let icon = SidebarIcon.favicon(data) else { break }
-                NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).addClip()
-                icon.draw(in: rect)
-            case .tile(_, let color):
-                color.setFill()
-                NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-                guard let glyph = tileGlyph else { break }
-                let glyphSide = side * AppDefaults.Sidebar.tileSymbolFraction
-                let glyphRect = NSRect(x: rect.midX - glyphSide / 2, y: rect.midY - glyphSide / 2, width: glyphSide, height: glyphSide)
-                glyph.draw(in: glyphRect)
-            }
-            return true
-        }
-    }
-
-    private static var glyphs: [String: NSImage] = [:]
-    private static var favicons: [Data: NSImage] = [:]
-
-    /// The image of a site icon, decoded once.
-    @MainActor
-    static func favicon(_ data: Data) -> NSImage? {
-        if let image = favicons[data] { return image }
-        guard let image = NSImage(data: data) else { return nil }
-        favicons[data] = image
-        return image
-    }
-
-    /// A template image from `sidebar-<name>.svg` in the resources.
-    @MainActor
-    static func glyph(_ name: String) -> NSImage? {
-        if let image = glyphs[name] { return image }
-        guard let url = PiperTheme.resources.url(forResource: "sidebar-\(name)", withExtension: "svg"),
-              let image = NSImage(contentsOf: url) else { return nil }
-        image.isTemplate = true
-        glyphs[name] = image
-        return image
-    }
-}
-
 /// Shows the disclosure buttons and the header actions only while the pointer
 /// is over the sidebar. Keyboard navigation still opens and closes rows.
 private final class SidebarOutlineView: NSOutlineView {
@@ -751,7 +636,7 @@ private final class SidebarCell: NSTableCellView {
 
     /// - Parameters:
     ///   - attention: Shows the count as an orange badge instead of gray text.
-    func configure(title: String, icon: SidebarIcon, count: Int, attention: Bool = false) {
+    func configure(title: String, icon: RowIcon, count: Int, attention: Bool = false) {
         self.title.stringValue = title
         self.title.font = PiperTheme.uiNS(.body)
         self.icon.image = icon.image(side: AppDefaults.Sidebar.imageSize)

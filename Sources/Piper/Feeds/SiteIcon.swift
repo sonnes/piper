@@ -9,12 +9,12 @@ struct SiteIcon: View {
     let title: String
     /// The place of the site in its list, for the color of the letter tile.
     let index: Int
-    var side: CGFloat = AppDefaults.Sidebar.imageSize
+    var side: CGFloat = AppDefaults.RowIcon.size
 
-    private var radius: CGFloat { side * AppDefaults.Sidebar.tileCornerFraction }
+    private var radius: CGFloat { side * AppDefaults.RowIcon.tileCornerFraction }
 
     var body: some View {
-        if let data = favicons.icon(for: host), let image = SidebarIcon.favicon(data) {
+        if let data = favicons.icon(for: host), let image = RowIcon.favicon(data) {
             Image(nsImage: image)
                 .resizable()
                 .interpolation(.high)
@@ -22,11 +22,11 @@ struct SiteIcon: View {
                 .clipShape(RoundedRectangle(cornerRadius: radius))
                 .accessibilityHidden(true)
         } else {
-            Text(SidebarOutline.monogram(title))
+            Text(RowIcon.monogram(title))
                 .font(.system(size: side * 0.6, weight: .bold))
                 .foregroundStyle(PiperTheme.onAccent)
                 .frame(width: side, height: side)
-                .background(Color(nsColor: SidebarOutline.tagColor(at: index)), in: RoundedRectangle(cornerRadius: radius))
+                .background(Color(nsColor: RowIcon.tagColor(at: index)), in: RoundedRectangle(cornerRadius: radius))
                 .accessibilityHidden(true)
         }
     }
