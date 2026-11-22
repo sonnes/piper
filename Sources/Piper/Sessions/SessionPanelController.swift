@@ -31,7 +31,7 @@ final class SessionPanelController: NSWindowController {
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.minSize = AppDefaults.SessionCard.panelMinimumSize
-        panel.contentView = NSHostingView(rootView: SessionCard(model: model, detached: true).environment(DetailPaneLayout()))
+        panel.contentView = NSHostingView(rootView: SessionCard(model: model, detached: true).environment(PaperLayout()))
         super.init(window: panel)
         panel.delegate = self
         if !panel.setFrameUsingName(NSWindow.FrameAutosaveName(AppDefaults.WindowName.sessionPanel)) {

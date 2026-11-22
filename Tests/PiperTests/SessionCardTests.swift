@@ -16,7 +16,7 @@ final class SessionCardTests: XCTestCase {
     override func tearDownWithError() throws { try FileManager.default.removeItem(at: folder) }
 
     func testCardFitsNarrowPanesAndLeavesTabsBelow() {
-        let layout = DetailPaneLayout()
+        let layout = PaperLayout()
         for width: CGFloat in [384, 500, 640] {
             layout.width = width
             XCTAssertLessThanOrEqual(layout.cardWidth + 2 * AppDefaults.SessionCard.margin, width)

@@ -24,7 +24,7 @@ struct PiperApp {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
     private var panelController: CapturePanelController?
     private var mainWindowController: MainWindowController?
-    private var feedPaper: FeedPaperController?
+    private lazy var desk = PaperDesk(model: model)
     private var settingsWindowController: SettingsWindowController?
     private var editors: [UUID: NSWindow] = [:]
     private var editorSessions: [ObjectIdentifier: CaptureEditSession] = [:]
@@ -153,6 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
         windowMenu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "2").target = self
         windowMenu.addItem(withTitle: "Feed Paper", action: #selector(showFeedPaper), keyEquivalent: "3").target = self
+        windowMenu.addItem(withTitle: "Next Paper", action: #selector(nextPaper), keyEquivalent: "`").target = self
         let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
         sessionCard.keyEquivalentModifierMask = [.command, .option]
         sessionCard.target = self
@@ -221,20 +222,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     /// Shows the feed paper.
     @objc func showFeedPaper() {
-        if feedPaper == nil {
-            let paper = FeedPaperModel(model: model)
-            paper.open = { [weak self] item in
-                guard let self else { return }
-                switch item {
-                case .note(let id): model.showNote?(id)
-                case .file: if let path = model.selectedDocument { model.showFile?(path) }
-                case .session(let id): model.showSession?(id)
-                case .article, .newSession: break
-                }
-            }
-            feedPaper = FeedPaperController(model: model, paper: paper)
-        }
-        feedPaper?.show()
+        desk.show()
+    }
+
+    /// Gives the keyboard focus to the next paper.
+    @objc private func nextPaper() {
+        desk.cycle()
     }
 
     /// Opens or collapses the session card. A hidden window comes back with
@@ -273,8 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     /// Takes the newest text from the editor page, which can be newer than its last save.
     private func flushEditor() async {
-        guard let page = model.loadedEditorPage, let (path, text) = await page.flush() else { return }
-        model.editorChanged(path: path, text: text)
+        await model.flushEditor()
     }
     @objc private func refreshVault() { model.reload(); mainWindowController?.refreshPanes() }
     @objc private func goBack() { model.navigate(-1); mainWindowController?.refreshPanes() }

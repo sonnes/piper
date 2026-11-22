@@ -200,7 +200,7 @@ struct SessionCard: View {
 private struct CardShape: ViewModifier {
     let detached: Bool
     let height: Double
-    @Environment(DetailPaneLayout.self) private var layout
+    @Environment(PaperLayout.self) private var layout
 
     func body(content: Content) -> some View {
         if detached {

@@ -512,6 +512,12 @@ final class AppModel {
     }
 
     /// Drops the sessions of the files that are not open and that hold no text off disk.
+    /// Takes the newest text from the editor page, which can be newer than its last save.
+    func flushEditor() async {
+        guard let page = loadedEditorPage, let (path, text) = await page.flush() else { return }
+        editorChanged(path: path, text: text)
+    }
+
     func pruneEditors() {
         let kept = editors.filter { $0.key == selectedDocument || $0.value.hasChanges || $0.value.status == .conflict }
         if kept.count != editors.count { editors = kept }

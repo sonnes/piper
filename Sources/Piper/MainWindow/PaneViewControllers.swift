@@ -2,23 +2,6 @@ import AppKit
 import Feeds
 import SwiftUI
 
-/// The card and tabs share the available width of the detail pane.
-@MainActor @Observable
-final class DetailPaneLayout {
-    var width: CGFloat = 0
-
-    var cardWidth: CGFloat {
-        min(AppDefaults.SessionCard.width, max(0, width - 2 * AppDefaults.SessionCard.margin))
-    }
-
-    var stacksControls: Bool {
-        width < AppDefaults.SessionCard.width + 2 * AppDefaults.SessionCard.margin + AppDefaults.SessionCard.tabsMinimumWidth
-    }
-
-    var cardBottomInset: CGFloat { stacksControls ? AppDefaults.TabIsland.clearance : 0 }
-    var tabsTrailingInset: CGFloat { stacksControls ? 0 : AppDefaults.SessionCard.width + AppDefaults.SessionCard.margin }
-}
-
 /// A view controller whose view is a SwiftUI view.
 ///
 /// AppKit owns the window chrome, the split view, and the responder chain,
@@ -92,7 +75,7 @@ final class DetailViewController: NSViewController {
 
     private var hostingView: NSHostingView<AnyView>?
     private var overlayView: NSHostingView<AnyView>?
-    private let layout = DetailPaneLayout()
+    private let layout = PaperLayout()
 
     // MARK: - NSViewController
 

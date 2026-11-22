@@ -16,7 +16,7 @@ struct TabIsland<Tab: Hashable>: View {
     let items: [Item]
     @Binding var selection: Tab
     let cardPresented: Bool
-    @Environment(DetailPaneLayout.self) private var layout
+    @Environment(PaperLayout.self) private var layout
     private var metrics: AppDefaults.TabIsland.Type { AppDefaults.TabIsland.self }
 
     var body: some View {
