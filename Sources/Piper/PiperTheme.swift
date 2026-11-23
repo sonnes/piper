@@ -201,6 +201,52 @@ enum PiperTheme {
     /// The line under the focused paper. Black at 4 percent.
     static let paperEdgeShadowNS = shade(light: 0.04, dark: 0)
     static let paperShadow = Color(nsColor: paperShadowNS)
+
+    // MARK: Lists And Chrome
+
+    // The lists and the chrome of the papers follow the Apple apps, such as
+    // Mail and Reminders, in the zinc and indigo of September. Text has three
+    // levels: the label, the secondary label, and the tertiary label.
+
+    /// The text of a row and of a title.
+    static let label = paperInk
+    /// The meta line and the time of a row, and the header of a group.
+    static let secondaryLabel = paperMuted
+    /// A count, an empty state, and the text of a done row.
+    static let tertiaryLabel = paperFaint
+    /// The hairline between two rows.
+    static let separator = paperRule
+    /// The fill of a row under the pointer: zinc 900 at 4 percent, and white at 6 percent.
+    static let rowHoverNS = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor.white.withAlphaComponent(0.06) : NSColor(srgbRed: 0x18 / 255, green: 0x18 / 255, blue: 0x1B / 255, alpha: 0.04)
+    }
+    static let rowHover = Color(nsColor: rowHoverNS)
+    /// The fill of the selected row while its paper has the focus: indigo at
+    /// 14 percent, and indigo 400 at 24 percent in the dark.
+    static let rowSelectionNS = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0x81 / 255, green: 0x8C / 255, blue: 0xF8 / 255, alpha: 0.24)
+            : NSColor(srgbRed: 0x4F / 255, green: 0x46 / 255, blue: 0xE5 / 255, alpha: 0.12)
+    }
+    static let rowSelection = Color(nsColor: rowSelectionNS)
+
+    /// The fill of a row: the selection, the fill under the pointer, or none.
+    /// The selection of a paper without the focus is gray, as in Finder.
+    static func rowFill(selected: Bool, focused: Bool, hovered: Bool) -> Color {
+        if selected { return focused ? rowSelection : paperTint }
+        return hovered ? rowHover : .clear
+    }
+
+    /// The thin line around a floating bar, such as the toolbar of a reader paper.
+    static let barEdgeNS = NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor.white.withAlphaComponent(0.12) : NSColor.black.withAlphaComponent(0.08)
+    }
+    static let barEdge = Color(nsColor: barEdgeNS)
+    /// The two shadows of a floating bar: a contact shadow and a soft shadow.
+    static let barContactShadow = Color.black.opacity(0.08)
+    static let barSoftShadow = Color.black.opacity(0.12)
     static let paperRestShadow = Color(nsColor: paperRestShadowNS)
     static let paperEdgeShadow = Color(nsColor: paperEdgeShadowNS)
 

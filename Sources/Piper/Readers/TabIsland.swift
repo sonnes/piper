@@ -17,19 +17,33 @@ struct TabIsland<Tab: Hashable>: View {
     @Binding var selection: Tab
     let cardPresented: Bool
     @Environment(PaperLayout.self) private var layout
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var thumb
     private var metrics: AppDefaults.TabIsland.Type { AppDefaults.TabIsland.self }
 
+    /// A segmented control in a capsule on a material, as on macOS. The
+    /// selected segment is a raised capsule that slides to the new segment.
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 0) {
             ForEach(items, id: \.tab) { item in
                 let active = item.tab == selection
-                Button { selection = item.tab } label: {
+                Button {
+                    withAnimation(reduceMotion ? nil : .spring(duration: AppDefaults.Papers.spring)) { selection = item.tab }
+                } label: {
                     Text(item.title)
-                        .font(PiperTheme.paperUI(.body, weight: .medium))
-                        .foregroundStyle(active ? PiperTheme.paperInk : PiperTheme.paperMuted)
+                        .font(PiperTheme.paperUI(.body, weight: active ? .semibold : .medium))
+                        .foregroundStyle(active ? PiperTheme.label : PiperTheme.secondaryLabel)
                         .padding(.horizontal, metrics.segmentPadding)
                         .frame(height: metrics.segmentHeight)
-                        .background(active ? PiperTheme.paperTint : .clear, in: Capsule())
+                        .background {
+                            if active {
+                                Capsule()
+                                    .fill(PiperTheme.paper)
+                                    .shadow(color: PiperTheme.barContactShadow, radius: 1, y: 0.5)
+                                    .shadow(color: PiperTheme.barSoftShadow, radius: 3, y: 1)
+                                    .matchedGeometryEffect(id: "thumb", in: thumb)
+                            }
+                        }
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -38,9 +52,10 @@ struct TabIsland<Tab: Hashable>: View {
             }
         }
         .padding(metrics.inset)
-        .background(PiperTheme.paper, in: Capsule())
-        .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 1))
-        .shadow(color: PiperTheme.tabShadowColor, radius: metrics.shadowRadius, y: metrics.shadowOffset)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(PiperTheme.barEdge, lineWidth: 0.5))
+        .shadow(color: PiperTheme.barContactShadow, radius: 1, y: 0.5)
+        .shadow(color: PiperTheme.barSoftShadow, radius: metrics.shadowRadius * 1.6, y: metrics.shadowOffset + 1)
         .padding(.bottom, metrics.bottomMargin)
         .padding(.trailing, cardPresented ? layout.tabsTrailingInset : 0)
         .accessibilityElement(children: .contain)

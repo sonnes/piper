@@ -40,7 +40,7 @@ struct FolderTreeView: View {
         }
         .overlay {
             if rows.isEmpty, !model.loading {
-                PaperEmpty(title: "No Files", detail: "This folder holds no files.")
+                PaperEmpty(symbol: "folder", title: "No Files", detail: "This folder holds no files.")
             }
         }
     }
@@ -82,6 +82,8 @@ private struct TreeRow: View {
     let toggle: () -> Void
 
     @Environment(DeskMarks.self) private var marks: DeskMarks?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hovered = false
     private typealias Metrics = AppDefaults.Papers
 
     private var onDesk: Bool { !row.isFolder && marks?.isOpenFile(row.path) == true }
@@ -103,9 +105,10 @@ private struct TreeRow: View {
         .padding(.vertical, Metrics.treeRowPadding.top)
         .frame(maxWidth: .infinity, minHeight: Metrics.treeRowHeight, alignment: .leading)
         .background(alignment: .leading) { guide }
-        .background(selected ? PiperTheme.paperTint : .clear,
+        .background(PiperTheme.rowFill(selected: selected, focused: marks?.feedFocused == true, hovered: hovered),
                     in: RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
-        .overlay(alignment: .leading) { selectionBar }
+        .onHover { hovered = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: Metrics.hoverFade), value: hovered)
         .overlay { slot }
         .contentShape(Rectangle())
         .onTapGesture(perform: click)
@@ -149,11 +152,11 @@ private struct TreeRow: View {
     @ViewBuilder private var meta: some View {
         Group {
             if row.isFolder {
-                Text("\(row.count)").foregroundStyle(PiperTheme.paperFaint)
+                Text("\(row.count)").foregroundStyle(PiperTheme.secondaryLabel)
             } else if onDesk {
                 Text("on the desk").fontWeight(.medium).foregroundStyle(PiperTheme.brand)
             } else if let date {
-                Text(RowTime.text(date)).foregroundStyle(PiperTheme.paperFaint)
+                Text(RowTime.text(date)).foregroundStyle(PiperTheme.secondaryLabel)
             }
         }
         .font(PiperTheme.paperUI(.body))
@@ -167,15 +170,6 @@ private struct TreeRow: View {
         if row.depth > 0 {
             Rectangle().fill(PiperTheme.paperRule).frame(width: 1)
                 .padding(.leading, Metrics.treeGuide + CGFloat(row.depth - 1) * Metrics.treeIndent)
-        }
-    }
-
-    @ViewBuilder private var selectionBar: some View {
-        if selected {
-            RoundedRectangle(cornerRadius: Metrics.selectionBarWidth)
-                .fill(marks?.feedFocused == true ? PiperTheme.brand : PiperTheme.paperBar)
-                .frame(width: Metrics.selectionBarWidth)
-                .padding(.vertical, Metrics.selectionBarInset)
         }
     }
 

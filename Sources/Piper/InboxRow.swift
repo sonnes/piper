@@ -57,6 +57,8 @@ struct InboxRow: View {
                 meta
                 if !children.isEmpty { RowNotes(notes: children, open: openChild) }
             }
+        } actions: {
+            RowAction(symbol: note.isDone ? "arrow.uturn.backward.circle" : "checkmark.circle", title: completionTitle, action: complete)
         }
         .accessibilityHint("Click to open. Command-click or Shift-click to select several captures.")
         .contextMenu { menu }

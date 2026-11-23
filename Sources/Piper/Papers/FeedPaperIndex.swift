@@ -156,8 +156,8 @@ struct IndexHeader: View {
 
     var body: some View {
         Text(title)
-            .font(PiperTheme.paperUI(.body, weight: .medium))
-            .foregroundStyle(PiperTheme.paperFaint)
+            .font(PiperTheme.paperUI(.body, weight: .semibold))
+            .foregroundStyle(PiperTheme.secondaryLabel)
             .padding(AppDefaults.Papers.indexHeaderPadding)
             .accessibilityAddTraits(.isHeader)
     }
@@ -192,6 +192,7 @@ struct IndexRow: View {
 
     @Environment(DeskMarks.self) private var marks: DeskMarks?
     @State private var hovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private typealias Metrics = AppDefaults.Papers
 
     var body: some View {
@@ -201,20 +202,23 @@ struct IndexRow: View {
             Spacer(minLength: 8)
             if count > 0 {
                 Text("\(count)").monospacedDigit().fontWeight(.regular)
-                    .foregroundStyle(current ? PiperTheme.markInk : PiperTheme.paperFaint)
+                    .foregroundStyle(PiperTheme.secondaryLabel)
             }
         }
         .font(PiperTheme.paperUI(.row, weight: .medium))
-        .foregroundStyle(current ? PiperTheme.markInk : PiperTheme.paperInk)
+        .foregroundStyle(PiperTheme.label)
         .padding(.horizontal, Metrics.rowPadding)
         .frame(minHeight: Metrics.rowHeight)
         .background(background, in: RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
-        .overlay(alignment: .leading) {
+        .overlay {
+            // The keyboard cursor is a focus ring, as in the Apple apps.
             if keyed {
-                Rectangle().fill(PiperTheme.brand).frame(width: Metrics.selectionBarWidth)
+                RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous)
+                    .strokeBorder(PiperTheme.brand, lineWidth: Metrics.cursorRing)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
+        .animation(reduceMotion ? nil : .easeOut(duration: Metrics.hoverFade), value: hovered)
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .onHover { hovered = $0 }
@@ -231,9 +235,8 @@ extension IndexRow {
     fileprivate var keyed: Bool { cursor && marks?.feedFocused == true }
 
     fileprivate var background: Color {
-        if current { return PiperTheme.currentRow }
-        if keyed || hovered { return PiperTheme.paperTint }
-        return .clear
+        if current { return PiperTheme.rowSelection }
+        return hovered ? PiperTheme.rowHover : .clear
     }
 }
 

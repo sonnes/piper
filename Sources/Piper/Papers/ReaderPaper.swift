@@ -42,48 +42,69 @@ struct ReaderPaper: View {
     /// The foot of a note paper: the save state, and Mark as Done.
     private func noteFoot(_ note: Note) -> some View {
         HStack(spacing: 8) {
-            Text("Saved as you type").foregroundStyle(PiperTheme.paperFaint)
+            Label("Saved as you type", systemImage: "checkmark.icloud")
+                .labelStyle(.titleAndIcon)
+                .foregroundStyle(PiperTheme.tertiaryLabel)
             Spacer(minLength: 8)
-            Button(note.isDone ? "Open Again" : "Mark as Done") { model.store.toggleDone(note.id) }
-                .buttonStyle(.plain)
-                .font(PiperTheme.paperUI(.body, weight: .medium))
-                .foregroundStyle(PiperTheme.onAccent)
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(PiperTheme.indigo, in: Capsule())
-                .help(note.isDone ? "Open the note again" : "Mark the note as done")
+            Button { model.store.toggleDone(note.id) } label: {
+                Label(note.isDone ? "Open Again" : "Mark as Done",
+                      systemImage: note.isDone ? "arrow.uturn.backward" : "checkmark")
+                    .font(PiperTheme.paperUI(.body, weight: .semibold))
+                    .foregroundStyle(PiperTheme.onAccent)
+                    .padding(.horizontal, 14).frame(height: Metrics.toolbarHeight)
+                    .background(PiperTheme.indigo, in: Capsule())
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(PressStyle())
+            .help(note.isDone ? "Open the note again" : "Mark the note as done")
         }
         .font(PiperTheme.paperUI(.body))
         .padding(Metrics.noteFootPadding)
-        .overlay(alignment: .top) { Rectangle().fill(PiperTheme.paperRule).frame(height: 1) }
+        .overlay(alignment: .top) {
+            PiperTheme.separator.frame(height: Metrics.separatorHeight)
+                .padding(.horizontal, Metrics.noteFootPadding.leading)
+        }
     }
 
     // MARK: - Header
 
+    /// The header: what the paper shows at the left, and a floating toolbar
+    /// of symbols at the right, as in the Apple apps.
     @ViewBuilder private var header: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             switch item {
             case .note(let id): noteHeader(model.store.notes.first { $0.id == id })
             case .article(let id): articleHeader(model.feeds.article(id))
             case .file: fileHeader
             case .session(let id): sessionHeader(model.agents.runner.session(id))
-            case .newSession(let folder): label("New Session in " + URL(fileURLWithPath: folder).lastPathComponent)
+            case .newSession(let folder):
+                label("New Session in " + URL(fileURLWithPath: folder).lastPathComponent)
+                PaperToolbar { closeButton }
             }
-            PaperButton(title: "Put back", key: "esc", help: "Close the paper · Escape", action: close)
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
+    }
+
+    private var closeButton: some View {
+        PaperButton(title: "Put Back", symbol: "xmark", help: "Put the paper back · Escape", action: close)
     }
 
     @ViewBuilder private func noteHeader(_ note: Note?) -> some View {
         if let note, note.isArticle {
             let host = note.articleURL.map(ArticleBadge.host) ?? note.section
             label(([host] + (note.reading?.minutes.map { ["\($0) min"] } ?? [])).joined(separator: " · "))
-            PaperButton(title: note.isDone ? "Open Again" : "Mark as Done",
-                        symbol: note.isDone ? "checkmark.circle.fill" : "checkmark.circle",
-                        help: note.isDone ? "Open the link again" : "Mark the link as done") { model.store.toggleDone(note.id) }
+            PaperToolbar {
+                PaperButton(title: note.isDone ? "Open Again" : "Mark as Done",
+                            symbol: note.isDone ? "checkmark.circle.fill" : "checkmark.circle", active: note.isDone,
+                            help: note.isDone ? "Open the link again" : "Mark the link as done") { model.store.toggleDone(note.id) }
+                closeButton
+            }
         } else if let note {
             label(([note.section] + note.sources.prefix(1) + [RowTime.text(note.modifiedAt)]).joined(separator: " · "))
+            PaperToolbar { closeButton }
         } else {
             label("")
+            PaperToolbar { closeButton }
         }
     }
 
@@ -96,24 +117,30 @@ struct ReaderPaper: View {
                          index: model.feeds.feeds.firstIndex { $0.id == feed.id } ?? 0)
             }
             label([feed?.title, RowTime.text(article.date)].compactMap { $0 }.joined(separator: " · "))
-            PaperButton(title: article.read ? "Unread" : "Read",
-                        symbol: article.read ? "checkmark.circle.fill" : "checkmark.circle",
-                        help: article.read ? "Mark as Unread (R)" : "Mark as Read (R)") {
-                model.feeds.setRead(!article.read, [article])
+            PaperToolbar {
+                PaperButton(title: article.read ? "Mark as Unread" : "Mark as Read",
+                            symbol: article.read ? "envelope.open" : "envelope.badge",
+                            help: article.read ? "Mark as Unread (R)" : "Mark as Read (R)") {
+                    model.feeds.setRead(!article.read, [article])
+                }
+                PaperButton(title: article.starred ? "Remove Star" : "Star", symbol: article.starred ? "star.fill" : "star",
+                            active: article.starred, help: article.starred ? "Remove Star (S)" : "Star (S)") {
+                    model.feeds.setStarred(!article.starred, article)
+                }
+                PaperButton(title: kept ? "Kept in Inbox" : "Keep in Inbox",
+                            symbol: kept ? "tray.full.fill" : "tray.and.arrow.down",
+                            help: kept ? "Kept in Inbox" : "Keep in Inbox (I)") {
+                    guard let url = URL(string: article.url) else { return }
+                    model.store.saveArticle(url, title: article.title, source: feed?.title)
+                    model.feeds.setRead(true, [article])
+                }
+                .disabled(kept)
+                PaperToolbarDivider()
+                closeButton
             }
-            PaperButton(title: article.starred ? "Starred" : "Star", symbol: article.starred ? "star.fill" : "star",
-                        active: article.starred, help: article.starred ? "Remove Star (S)" : "Star (S)") {
-                model.feeds.setStarred(!article.starred, article)
-            }
-            PaperButton(title: kept ? "Kept" : "Keep", symbol: "tray.and.arrow.down",
-                        help: kept ? "Kept in Inbox" : "Keep in Inbox (I)") {
-                guard let url = URL(string: article.url) else { return }
-                model.store.saveArticle(url, title: article.title, source: feed?.title)
-                model.feeds.setRead(true, [article])
-            }
-            .disabled(kept)
         } else {
             label("")
+            PaperToolbar { closeButton }
         }
     }
 
@@ -126,20 +153,25 @@ struct ReaderPaper: View {
             label("")
         }
         let workspace = model.workspace
-        PaperButton(title: "", symbol: "chevron.left", help: "Back · Command-[") { model.navigate(-1) }
-            .disabled(!workspace.history.indices.contains(workspace.position - 1))
-        PaperButton(title: "", symbol: "chevron.right", help: "Forward · Command-]") { model.navigate(1) }
-            .disabled(!workspace.history.indices.contains(workspace.position + 1))
+        PaperToolbar {
+            PaperButton(title: "Back", symbol: "chevron.left", help: "Back · Command-[") { model.navigate(-1) }
+                .disabled(!workspace.history.indices.contains(workspace.position - 1))
+            PaperButton(title: "Forward", symbol: "chevron.right", help: "Forward · Command-]") { model.navigate(1) }
+                .disabled(!workspace.history.indices.contains(workspace.position + 1))
+            PaperToolbarDivider()
+            closeButton
+        }
     }
 
     @ViewBuilder private func sessionHeader(_ session: AgentSession?) -> some View {
         label(session?.title ?? "Session")
         if let session { SessionStateChip(session: session) }
+        PaperToolbar { closeButton }
     }
 
     private func label(_ text: String) -> some View {
         Text(text)
-            .foregroundStyle(PiperTheme.paperFaint)
+            .foregroundStyle(PiperTheme.secondaryLabel)
             .lineLimit(1).truncationMode(.middle)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -174,36 +206,79 @@ struct ReaderPaper: View {
     }
 }
 
-/// A button in the header of a reader paper: a symbol, a title, or both, and
-/// an optional key.
+/// The floating toolbar of a reader paper: a capsule of symbols on a
+/// material, with a thin edge and two soft shadows.
+struct PaperToolbar<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    private typealias Metrics = AppDefaults.Papers
+
+    var body: some View {
+        HStack(spacing: 0) { content() }
+            .padding(Metrics.toolbarInset)
+            .frame(height: Metrics.toolbarHeight + 2 * Metrics.toolbarInset)
+            .background(.regularMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(PiperTheme.barEdge, lineWidth: 0.5))
+            .shadow(color: PiperTheme.barContactShadow, radius: 1, y: 0.5)
+            .shadow(color: PiperTheme.barSoftShadow, radius: 8, y: 3)
+            .fixedSize()
+    }
+}
+
+/// The thin line between two groups of a toolbar.
+struct PaperToolbarDivider: View {
+    var body: some View {
+        PiperTheme.separator.frame(width: 1, height: 16).padding(.horizontal, 3).accessibilityHidden(true)
+    }
+}
+
+/// A button of a toolbar: a symbol in a circle that fills under the pointer.
+/// A button without a symbol shows its title. The title is the accessibility
+/// label, and the help names the key.
 struct PaperButton: View {
     let title: String
     var symbol: String?
-    var key: String?
     var active = false
     let help: String
     let action: () -> Void
 
     @State private var hovered = false
     @Environment(\.isEnabled) private var enabled
+    private typealias Metrics = AppDefaults.Papers
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                if let symbol { Image(systemName: symbol).font(.system(size: 14)) }
-                if !title.isEmpty { Text(title).lineLimit(1).fixedSize() }
-                if let key { KeyCap(text: key) }
+            Group {
+                if let symbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: Metrics.toolbarGlyph, weight: .medium))
+                        .frame(width: Metrics.toolbarButton, height: Metrics.toolbarButton)
+                } else {
+                    Text(title).lineLimit(1).fixedSize()
+                        .padding(.horizontal, 12).frame(height: Metrics.toolbarButton)
+                }
             }
-            .foregroundStyle(!enabled ? PiperTheme.paperFaint : active ? PiperTheme.brand : PiperTheme.paperMuted)
-            .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(hovered && enabled ? PiperTheme.paperTint : .clear,
-                        in: RoundedRectangle(cornerRadius: AppDefaults.Papers.rowRadius, style: .continuous))
-            .contentShape(Rectangle())
+            .foregroundStyle(!enabled ? PiperTheme.tertiaryLabel.opacity(0.6)
+                             : active ? (symbol == "star.fill" ? PiperTheme.star : PiperTheme.brand) : PiperTheme.label)
+            .background(hovered && enabled ? PiperTheme.rowHover : .clear, in: Capsule())
+            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .onHover { hovered = $0 }
         .help(help)
         .accessibilityLabel(title.isEmpty ? help : title)
+    }
+}
+
+/// A press that dims the control and shrinks it a little, as on macOS.
+struct PressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .animation(reduceMotion ? nil : .spring(duration: AppDefaults.Papers.spring), value: configuration.isPressed)
     }
 }
 

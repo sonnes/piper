@@ -28,14 +28,16 @@ struct FeedArticleList: View {
         VStack(spacing: 0) {
             header
             if articles.isEmpty {
-                PaperEmpty(title: emptyTitle, detail: emptyDetail)
+                PaperEmpty(symbol: "dot.radiowaves.up.forward", title: emptyTitle, detail: emptyDetail)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(articles) { article in
                                 FeedArticleRow(article: article, feed: feeds.feed(article.feedID),
-                                               showsFeed: !isOneFeed, selected: article.id == selectedID) {
+                                               showsFeed: !isOneFeed, selected: article.id == selectedID,
+                                               toggleRead: { feeds.setRead(!article.read, [article]) },
+                                               toggleStar: { feeds.setStarred(!article.starred, article) }) {
                                     open(article)
                                     openPaper(article)
                                 }
@@ -72,14 +74,12 @@ struct FeedArticleList: View {
             }
             Spacer(minLength: 8)
             if feeds.fetching.isEmpty {
-                Button("Refresh") { feeds.refreshAll() }
-                    .buttonStyle(.plain).foregroundStyle(PiperTheme.paperMuted)
-                    .help("Refresh All Feeds")
+                RowAction(symbol: "arrow.clockwise", title: "Refresh All Feeds") { feeds.refreshAll() }
             } else {
-                ProgressView().controlSize(.small)
+                ProgressView().controlSize(.small).frame(width: AppDefaults.Papers.rowActionSize)
             }
-            Button("Mark All as Read") { feeds.markAllRead(filter) }
-                .buttonStyle(.plain).foregroundStyle(PiperTheme.brand)
+            RowAction(symbol: "envelope.open", title: "Mark All as Read · Command-K",
+                      tint: articles.contains { !$0.read } ? PiperTheme.brand : PiperTheme.tertiaryLabel) { feeds.markAllRead(filter) }
                 .disabled(!articles.contains { !$0.read })
                 .keyboardShortcut("k", modifiers: .command)
         }
@@ -190,6 +190,8 @@ private struct FeedArticleRow: View {
     let feed: Feed?
     let showsFeed: Bool
     let selected: Bool
+    let toggleRead: () -> Void
+    let toggleStar: () -> Void
     let action: () -> Void
 
     var body: some View {
@@ -205,6 +207,11 @@ private struct FeedArticleRow: View {
                     Text(showsFeed ? feed?.title ?? "" : feed?.host ?? "")
                 }
             }
+        } actions: {
+            RowAction(symbol: article.starred ? "star.fill" : "star", title: article.starred ? "Remove Star (S)" : "Star (S)",
+                      tint: article.starred ? PiperTheme.star : PiperTheme.secondaryLabel, action: toggleStar)
+            RowAction(symbol: article.read ? "circle.fill" : "circle", title: article.read ? "Mark as Unread (R)" : "Mark as Read (R)",
+                      action: toggleRead)
         }
     }
 }

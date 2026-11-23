@@ -526,12 +526,15 @@ struct CaptureView: View {
             : InboxStream.doneToday(notes: store.notes, section: streamSection).filter { filter == .all || !$0.isArticle }
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                     ForEach(stream.groups, id: \.title) { group in
-                        PaperGroupHeader(title: group.title,
-                                         action: group.kind == .started && filter == .all ? ("See All", { setFilter(.reading) }) : nil)
-                        ForEach(Array(group.notes.enumerated()), id: \.element.id) { index, note in
-                            inboxRow(note, style: rowStyle(note, in: group, at: index)).id(note.id)
+                        Section {
+                            ForEach(Array(group.notes.enumerated()), id: \.element.id) { index, note in
+                                inboxRow(note, style: rowStyle(note, in: group, at: index)).id(note.id)
+                            }
+                        } header: {
+                            PaperGroupHeader(title: group.title,
+                                             action: group.kind == .started && filter == .all ? ("See All", { setFilter(.reading) }) : nil)
                         }
                     }
                     if !doneToday.isEmpty {
@@ -548,11 +551,11 @@ struct CaptureView: View {
             .overlay {
                 if stream.groups.isEmpty && doneToday.isEmpty {
                     if !store.query.isEmpty {
-                        PaperEmpty(title: "No Results", detail: "Try another word.")
+                        PaperEmpty(symbol: "magnifyingglass", title: "No Results", detail: "Try another word.")
                     } else if filter == .reading {
-                        PaperEmpty(title: "Nothing to Read", detail: "On a web page, press Shift twice to save it here.")
+                        PaperEmpty(symbol: "book", title: "Nothing to Read", detail: "On a web page, press Shift twice to save it here.")
                     } else {
-                        PaperEmpty(title: "No Notes", detail: "Type a note above, or press Shift twice in another app.")
+                        PaperEmpty(symbol: "tray", title: "No Notes", detail: "Type a note above, or press Shift twice in another app.")
                     }
                 }
             }
@@ -569,12 +572,15 @@ struct CaptureView: View {
         let groups = archiveGroups
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: embedded ? [.sectionHeaders] : []) {
                     ForEach(groups, id: \.title) { group in
                         if embedded {
-                            PaperGroupHeader(title: group.title)
-                            ForEach(group.notes) { note in
-                                inboxRow(note, style: note.isArticle ? .compact : .note).id(note.id)
+                            Section {
+                                ForEach(group.notes) { note in
+                                    inboxRow(note, style: note.isArticle ? .compact : .note).id(note.id)
+                                }
+                            } header: {
+                                PaperGroupHeader(title: group.title)
                             }
                         } else {
                             SectionHeader(title: group.title, detail: "\(group.notes.count)", active: false, action: nil)
@@ -588,9 +594,9 @@ struct CaptureView: View {
             .overlay {
                 if groups.isEmpty {
                     if store.query.isEmpty {
-                        PaperEmpty(title: "No Done Notes", detail: "Notes that you mark as done show here.")
+                        PaperEmpty(symbol: "checkmark.circle", title: "No Done Notes", detail: "Notes that you mark as done show here.")
                     } else {
-                        PaperEmpty(title: "No Results", detail: "Try another word.")
+                        PaperEmpty(symbol: "magnifyingglass", title: "No Results", detail: "Try another word.")
                     }
                 }
             }
@@ -686,12 +692,15 @@ struct CaptureView: View {
     private var paperClipboardHistory: some View {
         let days = Dictionary(grouping: clipboardEntries) { Calendar.current.startOfDay(for: $0.copiedAt) }
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
                 ForEach(days.keys.sorted(by: >), id: \.self) { day in
-                    PaperGroupHeader(title: Self.dayTitle(day))
-                    ForEach(days[day] ?? []) { entry in
-                        PaperClipboardRow(entry: entry, keep: { keep(entry) }, copy: { paste(entry) },
-                                          agents: agents, send: { send(entry, $0) })
+                    Section {
+                        ForEach(days[day] ?? []) { entry in
+                            PaperClipboardRow(entry: entry, keep: { keep(entry) }, copy: { paste(entry) },
+                                              agents: agents, send: { send(entry, $0) })
+                        }
+                    } header: {
+                        PaperGroupHeader(title: Self.dayTitle(day))
                     }
                 }
                 if !clipboardEntries.isEmpty && store.query.isEmpty {
@@ -707,9 +716,9 @@ struct CaptureView: View {
         .overlay {
             if clipboardEntries.isEmpty {
                 if store.query.isEmpty {
-                    PaperEmpty(title: "No Copies", detail: "Text you copy appears here for 7 days.")
+                    PaperEmpty(symbol: "doc.on.clipboard", title: "No Copies", detail: "Text you copy appears here for 7 days.")
                 } else {
-                    PaperEmpty(title: "No Results", detail: "Try another word.")
+                    PaperEmpty(symbol: "magnifyingglass", title: "No Results", detail: "Try another word.")
                 }
             }
         }

@@ -4,11 +4,14 @@ import SwiftUI
 
 /// One row of a list on the feed paper: a mark, the text, and a time.
 ///
-/// The selected row has a fill and a bar at its left edge, in indigo while
-/// the feed paper has the focus. A row whose item is open as a reader paper
-/// shows a dashed slot and "on the desk" in place of its time. The row
-/// flashes when its paper goes back, and when a note lands under it.
-struct PaperRow<Mark: View, Content: View>: View {
+/// The rows follow Mail and Reminders. A hairline that starts at the text
+/// column parts two rows. The selected row has a round fill, in indigo while
+/// the feed paper has the focus and in gray when it does not. A row under the
+/// pointer has a faint fill, and its actions take the place of its time. A
+/// row whose item is open as a reader paper shows a dashed slot and "on the
+/// desk" in place of its time. The row flashes when its paper goes back, and
+/// when a note lands under it.
+struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     /// The item that the row opens, for its slot and its flash.
     let item: PaperItem?
     var openOnDesk = false
@@ -19,19 +22,26 @@ struct PaperRow<Mark: View, Content: View>: View {
     let action: () -> Void
     @ViewBuilder let mark: () -> Mark
     @ViewBuilder let content: () -> Content
+    /// The buttons that show at the end of the row while the pointer is over it.
+    @ViewBuilder let actions: () -> Actions
 
     @Environment(DeskMarks.self) private var marks: DeskMarks?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var flashing = false
+    @State private var hovered = false
     private typealias Metrics = AppDefaults.Papers
 
     private var lifted: Bool { openOnDesk || (item.map { marks?.isOpen($0) == true } ?? false) }
+    private var showsActions: Bool { hovered && Actions.self != EmptyView.self }
 
     var body: some View {
         decorated
             .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
+            .background(alignment: .bottom) { separator }
             .contentShape(Rectangle())
             .onTapGesture(perform: action)
+            .onHover { hovered = $0 }
+            .animation(reduceMotion ? nil : .easeOut(duration: Metrics.hoverFade), value: hovered)
             .onChange(of: flashID) { _, id in
                 if id != nil { flash() }
             }
@@ -55,7 +65,7 @@ struct PaperRow<Mark: View, Content: View>: View {
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .environment(\.rowLifted, lifted)
-            timeLabel
+            trailing
         }
         .padding(Metrics.listRowPadding)
     }
@@ -63,17 +73,17 @@ struct PaperRow<Mark: View, Content: View>: View {
     private var decorated: some View {
         line
             .background(background)
-            .overlay(alignment: .leading) { selectionBar }
             .overlay { slot }
     }
 
-    @ViewBuilder private var selectionBar: some View {
-        if selected {
-            let color: Color = marks?.feedFocused == true ? PiperTheme.brand : PiperTheme.paperBar
-            RoundedRectangle(cornerRadius: Metrics.selectionBarWidth)
-                .fill(color)
-                .frame(width: Metrics.selectionBarWidth)
-                .padding(.vertical, Metrics.selectionBarInset)
+    /// The hairline under the row. It hides beside a fill, as in Mail.
+    @ViewBuilder private var separator: some View {
+        if !selected && !hovered && !lifted {
+            PiperTheme.separator
+                .frame(height: Metrics.separatorHeight)
+                .padding(.leading, Metrics.separatorInset)
+                .padding(.trailing, Metrics.listRowPadding.trailing)
+                .accessibilityHidden(true)
         }
     }
 
@@ -86,10 +96,21 @@ struct PaperRow<Mark: View, Content: View>: View {
         }
     }
 
+    /// The time, or the actions while the pointer is over the row.
+    @ViewBuilder private var trailing: some View {
+        if showsActions && !lifted {
+            HStack(spacing: 2) { actions() }
+                .frame(minHeight: Metrics.rowLineHeight)
+                .transition(.opacity)
+        } else {
+            timeLabel
+        }
+    }
+
     private var timeLabel: some View {
         let text: String = lifted ? "on the desk" : time
         let weight: NSFont.Weight = lifted ? .medium : .regular
-        let color: Color = lifted ? PiperTheme.brand : PiperTheme.paperFaint
+        let color: Color = lifted ? PiperTheme.brand : PiperTheme.secondaryLabel
         return Text(text)
             .font(PiperTheme.paperUI(.body, weight: weight))
             .foregroundStyle(color)
@@ -99,7 +120,7 @@ struct PaperRow<Mark: View, Content: View>: View {
 
     private var background: some View {
         ZStack {
-            if selected { PiperTheme.paperTint }
+            PiperTheme.rowFill(selected: selected, focused: marks?.feedFocused == true, hovered: hovered)
             PiperTheme.currentRow.opacity(flashing ? 1 : 0)
         }
     }
@@ -112,6 +133,41 @@ struct PaperRow<Mark: View, Content: View>: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + hold) {
             withAnimation(.easeOut(duration: Metrics.flash - hold)) { flashing = false }
         }
+    }
+}
+
+extension PaperRow where Actions == EmptyView {
+    /// A row without actions under the pointer.
+    init(item: PaperItem?, openOnDesk: Bool = false, notes: Int = 0, selected: Bool, time: String,
+         action: @escaping () -> Void, @ViewBuilder mark: @escaping () -> Mark, @ViewBuilder content: @escaping () -> Content) {
+        self.init(item: item, openOnDesk: openOnDesk, notes: notes, selected: selected, time: time, action: action,
+                  mark: mark, content: content, actions: { EmptyView() })
+    }
+}
+
+/// A round button at the end of a row under the pointer, with a symbol only.
+struct RowAction: View {
+    let symbol: String
+    let title: String
+    var tint: Color = PiperTheme.secondaryLabel
+    let action: () -> Void
+
+    @State private var hovered = false
+    private typealias Metrics = AppDefaults.Papers
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: Metrics.rowActionGlyph, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(width: Metrics.rowActionSize, height: Metrics.rowActionSize)
+                .background(hovered ? PiperTheme.rowHover : .clear, in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovered = $0 }
+        .help(title)
+        .accessibilityLabel(title)
     }
 }
 
@@ -147,7 +203,7 @@ struct PaperRowMeta<Content: View>: View {
     var body: some View {
         HStack(spacing: 5) { content() }
             .font(PiperTheme.paperUI(.body))
-            .foregroundStyle(PiperTheme.paperFaint)
+            .foregroundStyle(PiperTheme.secondaryLabel)
             .lineLimit(1)
             .padding(.top, 1)
     }
@@ -155,9 +211,12 @@ struct PaperRowMeta<Content: View>: View {
 
 // MARK: - Marks
 
-/// The circle of a capture: a ring, or a filled indigo circle with a check when done.
+/// The circle of a capture, as in Reminders: a ring that turns indigo under
+/// the pointer, or a filled indigo circle with a check when done.
 struct TickMark: View {
     let done: Bool
+
+    @State private var hovered = false
 
     var body: some View {
         let metrics = AppDefaults.Papers.self
@@ -166,28 +225,24 @@ struct TickMark: View {
                 Circle().fill(PiperTheme.indigo)
                 Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(PiperTheme.onAccent)
             } else {
-                Circle().strokeBorder(PiperTheme.paperFaint, lineWidth: metrics.markLine)
+                Circle().strokeBorder(hovered ? PiperTheme.brand : PiperTheme.tertiaryLabel, lineWidth: metrics.markLine)
             }
         }
         .frame(width: metrics.tickSize, height: metrics.tickSize)
+        .onHover { hovered = $0 }
     }
 }
 
-/// The dot of an article: filled indigo while unread, a ring once read.
+/// The dot of an article, as in Mail: an indigo dot while unread, and no dot once read.
 struct UnreadDot: View {
     let unread: Bool
 
     var body: some View {
         let metrics = AppDefaults.Papers.self
-        Group {
-            if unread {
-                Circle().fill(PiperTheme.brand)
-            } else {
-                Circle().strokeBorder(PiperTheme.paperBar, lineWidth: metrics.markLine)
-            }
-        }
-        .frame(width: metrics.dotSize, height: metrics.dotSize)
-        .accessibilityLabel(unread ? "Unread" : "")
+        Circle()
+            .fill(unread ? PiperTheme.brand : .clear)
+            .frame(width: metrics.dotSize, height: metrics.dotSize)
+            .accessibilityLabel(unread ? "Unread" : "")
     }
 }
 
@@ -254,22 +309,25 @@ struct RowNotes: View {
     }
 }
 
-/// A group header in a list of the feed paper, such as Today.
+/// A group header in a list of the feed paper, such as Today. In a list
+/// with pinned section headers, it sticks to the top while the list scrolls,
+/// on the color of the paper.
 struct PaperGroupHeader: View {
     let title: String
     var action: (title: String, run: () -> Void)?
 
     var body: some View {
         HStack {
-            Text(title)
+            Text(title).foregroundStyle(PiperTheme.secondaryLabel)
             Spacer(minLength: 8)
             if let action {
                 Button(action.title, action: action.run).buttonStyle(.plain).foregroundStyle(PiperTheme.brand)
             }
         }
-        .font(PiperTheme.paperUI(.body, weight: .medium))
-        .foregroundStyle(PiperTheme.paperFaint)
+        .font(PiperTheme.paperUI(.body, weight: .semibold))
         .padding(AppDefaults.Papers.groupHeaderPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(PiperTheme.paper.opacity(0.94))
         .accessibilityAddTraits(.isHeader)
     }
 }
@@ -301,16 +359,22 @@ struct PaperDoneToday: View {
     }
 }
 
-/// A title and a line under it, in a list of the feed paper that has nothing to show.
+/// The empty state of a list, as in the Apple apps: a symbol, a title, and one line.
 struct PaperEmpty: View {
+    var symbol = "tray"
     let title: String
     var detail: String?
 
     var body: some View {
-        VStack(spacing: 4) {
-            Text(title).font(PiperTheme.paperUI(.row, weight: .semibold)).foregroundStyle(PiperTheme.paperMuted)
+        VStack(spacing: 6) {
+            Image(systemName: symbol)
+                .font(.system(size: AppDefaults.Papers.emptySymbol, weight: .light))
+                .foregroundStyle(PiperTheme.tertiaryLabel)
+                .padding(.bottom, 6)
+                .accessibilityHidden(true)
+            Text(title).font(PiperTheme.paperUI(.row, weight: .semibold)).foregroundStyle(PiperTheme.secondaryLabel)
             if let detail {
-                Text(detail).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
+                Text(detail).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.tertiaryLabel)
             }
         }
         .multilineTextAlignment(.center)
@@ -320,7 +384,8 @@ struct PaperEmpty: View {
     }
 }
 
-/// One copy in the clipboard list of the feed paper. Keep saves it to Inbox.
+/// One copy in the clipboard list of the feed paper. Under the pointer, the
+/// row shows Keep and Copy in place of its time.
 struct PaperClipboardRow: View {
     let entry: ClipboardEntry
     let keep: () -> Void
@@ -328,24 +393,22 @@ struct PaperClipboardRow: View {
     let agents: FolderAgents
     let send: (FolderAgents.Action?) -> Void
 
-    @State private var hovered = false
-
     var body: some View {
         PaperRow(item: nil, selected: false, time: RowTime.text(entry.copiedAt), action: copy) {
-            SheetMark()
+            Image(systemName: "doc.on.clipboard")
+                .font(.system(size: 14))
+                .foregroundStyle(PiperTheme.tertiaryLabel)
         } content: {
             VStack(alignment: .leading, spacing: 2) {
                 PaperRowTitle(text: Text(entry.text.replacingOccurrences(of: "\n", with: " ")), lines: 2)
-                PaperRowMeta {
-                    if let source = entry.source { Text(source) }
-                    if hovered {
-                        Button("Keep", action: keep).buttonStyle(.plain)
-                            .font(PiperTheme.paperUI(.body, weight: .medium)).foregroundStyle(PiperTheme.brand)
-                    }
+                if let source = entry.source {
+                    PaperRowMeta { Text(source) }
                 }
             }
+        } actions: {
+            RowAction(symbol: "tray.and.arrow.down", title: "Keep in Inbox", tint: PiperTheme.brand, action: keep)
+            RowAction(symbol: "doc.on.doc", title: "Copy", action: copy)
         }
-        .onHover { hovered = $0 }
         .contextMenu {
             Button("Copy", action: copy)
             Button("Keep in Inbox", action: keep)

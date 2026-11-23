@@ -209,10 +209,27 @@ final class AppDefaults {
         static let dotSize: CGFloat = 9
         static let markLine: CGFloat = 1.5
         static let sheetMark = NSSize(width: 12, height: 15)
-        static let selectionBarWidth: CGFloat = 3
-        static let selectionBarInset: CGFloat = 8
         static let slotDash: [CGFloat] = [4, 3]
-        static let groupHeaderPadding = EdgeInsets(top: 14, leading: 20, bottom: 2, trailing: 20)
+        /// A group header, such as Today. It sticks to the top of the list while the list scrolls.
+        static let groupHeaderPadding = EdgeInsets(top: 16, leading: 14, bottom: 6, trailing: 20)
+        /// The hairline between two rows starts at the text column, as in Mail.
+        static let separatorInset = listRowPadding.leading + markColumn + rowSpacing
+        static let separatorHeight: CGFloat = 0.5
+        /// The fade of a row fill under the pointer, and the spring of the papers.
+        static let hoverFade: Double = 0.12
+        /// The ring of the keyboard cursor on a row of an index.
+        static let cursorRing: CGFloat = 2
+        static let spring: Double = 0.25
+        /// The trailing actions of a row under the pointer, in place of its time.
+        static let rowActionSize: CGFloat = 28
+        static let rowActionGlyph: CGFloat = 14
+        /// An empty list: a symbol over one line.
+        static let emptySymbol: CGFloat = 34
+        /// The floating toolbar of a reader paper.
+        static let toolbarHeight: CGFloat = 34
+        static let toolbarButton: CGFloat = 30
+        static let toolbarGlyph: CGFloat = 14
+        static let toolbarInset: CGFloat = 2
         /// The notes under a row: the last two, then a count of the others.
         static let rowNoteLimit = 2
         static let rowNotesPadding = EdgeInsets(top: 8, leading: 12, bottom: 2, trailing: 0)
@@ -355,8 +372,8 @@ final class AppDefaults {
 
     /// The tabs that float over the bottom of a reader paper.
     enum TabIsland {
-        static let segmentHeight: CGFloat = 32
-        static let segmentPadding: CGFloat = 14
+        static let segmentHeight: CGFloat = 30
+        static let segmentPadding: CGFloat = 16
         /// The space between the capsule and the segments.
         static let inset: CGFloat = 3
         static let shadowRadius: CGFloat = 5

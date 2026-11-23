@@ -226,6 +226,21 @@ final class PaperDeskStateTests: XCTestCase {
                       "One more folder past the height of the paper makes stubs.")
     }
 
+    /// A selected row is indigo while its paper has the focus and gray when
+    /// it does not, as in Finder. A row under the pointer has a faint fill.
+    func testARowFillFollowsTheSelectionTheFocusAndThePointer() {
+        XCTAssertEqual(PiperTheme.rowFill(selected: true, focused: true, hovered: false), PiperTheme.rowSelection)
+        XCTAssertEqual(PiperTheme.rowFill(selected: true, focused: false, hovered: true), PiperTheme.paperTint)
+        XCTAssertEqual(PiperTheme.rowFill(selected: false, focused: true, hovered: true), PiperTheme.rowHover)
+        XCTAssertEqual(PiperTheme.rowFill(selected: false, focused: true, hovered: false), .clear)
+    }
+
+    /// The hairline between two rows starts at the text column, after the mark.
+    func testTheRowSeparatorStartsAtTheTextColumn() {
+        let metrics = AppDefaults.Papers.self
+        XCTAssertEqual(metrics.separatorInset, metrics.listRowPadding.leading + metrics.markColumn + metrics.rowSpacing)
+    }
+
     func testATabCountStopsAtItsLimit() {
         XCTAssertEqual(TabColumn.countText(4), "4")
         XCTAssertEqual(TabColumn.countText(AppDefaults.Papers.countLimit + 1), "\(AppDefaults.Papers.countLimit)+")

@@ -18,7 +18,7 @@ struct SessionList: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 PaperRow(item: .newSession(folder), selected: current == .newSession(folder), time: "",
                          action: { pick(.newSession(folder)) }) {
-                    Text("+").font(PiperTheme.paperUI(.reading)).foregroundStyle(PiperTheme.brand)
+                    Image(systemName: "square.and.pencil").font(.system(size: 15, weight: .medium)).foregroundStyle(PiperTheme.brand)
                 } content: {
                     PaperRowTitle(text: Text("New Session"))
                 }

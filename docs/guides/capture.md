@@ -205,7 +205,7 @@ Undo reverses the last note change. Piper keeps one undo step, and a restart cle
 
 On the feed paper, select a note to open it on a reader paper. You edit the note in place on the paper. Piper saves the change shortly after you stop typing. A note that holds only a link opens in the Reader tab or the Web tab, and it has no editor. See [Read captures in Inbox](browse.md#read-captures-in-inbox).
 
-The circle on a note row marks the note as done. The ring on an article marks it as read. On the feed paper, Space marks the selected notes as done. On a note paper, select Mark as Done. Mark as Done is also in the selection bar and the context menu. A note that you mark as done moves to "done today" at the end of its list. The next day, it shows only in Done.
+The circle on a note row marks the note as done. The dot on an unread article marks it as read. On the feed paper, Space marks the selected notes as done. On a note paper, select Mark as Done. Mark as Done is also in the selection bar and the context menu. A note that you mark as done moves to "done today" at the end of its list. The next day, it shows only in Done.
 
 Done is on the Inbox index of the feed paper and in the More tab of the capture panel. Done groups the completed notes by the month in which you marked them as done. The newest month is first. In the capture panel, a completed note shows a gray check, and its text is gray. On the feed paper, it shows an indigo check, and a line goes through its text. Search in Done matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
 

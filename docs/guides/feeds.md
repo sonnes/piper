@@ -62,13 +62,13 @@ When you select an article, Piper marks it as read. The article stays in the lis
 | I | Keep the article in Inbox |
 | Command-K | Mark all articles in the list as read |
 
-The keys act on the article that you select in the list. R, S, I, and B also act on an article paper with the focus. The header of an article paper has Read, Star, and Keep. Right-click an article in the list for the same actions, Open in Browser, and Copy Link.
+The keys act on the article that you select in the list. R, S, I, and B also act on an article paper with the focus. The toolbar of an article paper has Mark as Read, Star, and Keep in Inbox. When the pointer is over an article in the list, the row shows Star and Mark as Read in place of its time. Right-click an article in the list for the same actions, Open in Browser, and Copy Link.
 
 Keep saves the article to Inbox as a link capture. The source of the capture is the title of the feed. After Keep, the paper also shows the Notes tab. A highlight or a note on a feed article also keeps the article, because a note needs a capture.
 
 ## Refresh
 
-Piper refreshes each feed every 30 minutes, while Piper is open. Piper refreshes up to 4 feeds at the same time. To refresh all feeds now, select the refresh button in the header of the list.
+Piper refreshes each feed every 30 minutes, while Piper is open. Piper refreshes up to 4 feeds at the same time. To refresh all feeds now, select the refresh button (a circular arrow) at the top right of the list. The button next to it marks all articles in the list as read.
 
 If a feed fails, its row shows a warning icon. Move the pointer over the row to read the error. Piper tries again after 30 minutes, and again after 30 more minutes. Then the waits are 2 hours, 8 hours, and 24 hours.
 

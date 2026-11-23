@@ -69,11 +69,21 @@ These keys work while the feed paper has the focus and no text field is active:
 
 - To show a tab, press its number, from 1 to 9. The numbers follow the order of the column.
 - To open the index of the active tab, press Left Arrow or the number of the tab.
-- On the index, press Up Arrow or Down Arrow to move the cursor. A bar at the left marks the row of the cursor.
+- On the index, press Up Arrow or Down Arrow to move the cursor. A ring marks the row of the cursor.
 - To show the scope at the cursor, press Return or Right Arrow.
 - To show the previous or the next scope of the tab, press `[` or `]`.
 
 If the active tab shows a scope other than its first scope, its number shows the first scope. A second press opens the index.
+
+A hairline parts two rows of a list. The selected row has an indigo fill while the feed paper has the focus, and a gray fill when it does not. Group headers, such as Today, stay at the top of the list while it scrolls.
+
+When the pointer is over a row, its actions show in place of its time:
+
+| Row | Actions |
+| --- | --- |
+| A capture | Mark as Done, or Reopen |
+| An article | Star, and Mark as Read or Mark as Unread |
+| A copy on the Clipboard tab | Keep in Inbox, and Copy |
 
 The title of the list names the tab and the scope, for example "Feeds › All Unread". The More menu at the top right has New Capture, New Section, Add Folder, Add Feed, Show in Finder, Refresh, and Settings. While the tab of a folder is active, the menu also has Remove Folder.
 
@@ -83,17 +93,17 @@ Select a row in a list to open the item on a reader paper. The paper opens to th
 
 A capture, an article, a file, and a session each open on a paper. One file paper shows all files: a second file replaces the first file on the same paper.
 
-The header of a reader paper holds the actions of the item:
+The header of a reader paper names the item at the left. A toolbar at the right holds the actions of the item as symbols. Move the pointer over a symbol to see its name and its key.
 
-| Item | Header |
-| --- | --- |
-| A note | The section, the source app, and the time |
-| A link | The site, the reading time, and Mark as Done or Open Again |
-| An article | The site icon, the feed, the time, Read, Star, and Keep |
-| A file | The folder, the folders of the file, the file name, Back, and Forward |
-| A session | The title of the session and its state |
+| Item | Header | Toolbar |
+| --- | --- | --- |
+| A note | The section, the source app, and the time | Put Back |
+| A link | The site and the reading time | Mark as Done or Open Again, and Put Back |
+| An article | The site icon, the feed, and the time | Mark as Read, Star, Keep in Inbox, and Put Back |
+| A file | The folder, the folders of the file, and the file name | Back, Forward, and Put Back |
+| A session | The title of the session and its state | Put Back |
 
-Each header ends with Put Back. The foot of a note paper says "Saved as you type" and has Mark as Done or Open Again.
+Put Back is the x at the end of each toolbar. The foot of a note paper says "Saved as you type" and has Mark as Done or Open Again.
 
 The paper with the focus has a deep shadow. Each other reader paper tilts a little, and its content fades. The row of an open item shows a dashed outline and "on the desk" in place of its time. When the paper goes back, the row flashes.
 
@@ -273,7 +283,7 @@ The field to add a note is the first line of the list. The list shows the newest
 
 The captures that you mark as done today show under "done today" at the end of All Sections and Notes. Select the line to show or hide them.
 
-A note has a circle. Select the circle to mark the note as done. A done note shows an indigo circle with a check, and a line goes through its text. A link has a dot, which is indigo until you open the link. Select the dot to mark the article as read, or to read it again.
+A note has a circle. Select the circle to mark the note as done. A done note shows an indigo circle with a check, and a line goes through its text. A link has an indigo dot until you open the link. Select the dot to mark the article as read. A read article has no dot. To read it again, select the empty place of the dot.
 
 The last two notes of a capture show under its row, with the quoted text. A line under them gives the number of the other notes. Select a note to open it. When a new note lands under a row, the row flashes.
 
