@@ -14,11 +14,11 @@ This table describes the source on September 15, 2026. Implemented means that th
 
 | Capability | Status | Evidence or limit |
 | --- | --- | --- |
-| Notes, sections, and search in the capture panel | Implemented | `CaptureStoreTests`, `ReleaseTests` |
+| Notes, sections, and search in the Inbox list | Implemented | `CaptureStoreTests`, `ReleaseTests` |
 | Merge, copy as list, done, move, delete, and one-step undo | Implemented | `CaptureStoreTests` |
-| One list for every section, with tabs that scroll to a section | Implemented | Manual checks in [Validate a build](validate.md). No automated UI test. |
-| Composer draft that survives a restart | Implemented | Stored in UserDefaults. No automated test. |
+| Add field draft that survives a restart | Implemented | Stored in UserDefaults. No automated test. |
 | Note editing in a sheet, a window, or in place | Implemented | `ReleaseTests` (editor conflict), `QuitSafetyTests`. In-place saving has no automated test. |
+| Command-1, New Capture, and the menu bar item open the Inbox add field | Implemented | `PaperDeskTests` (New Capture). The keys and the menu bar item are not checked in the app. |
 | Selection capture with double Shift or Control-Option-Space | Implemented, compatibility unverified | `PiperTests` (gesture), `ReleaseTests` (selection range). The app matrix in [Validate a build](validate.md) is open. |
 | Arbitrary capture shortcut | Not implemented | Two presets only |
 | Capture Clipboard | Implemented | `ReleaseTests`, `CaptureStoreTests` |
@@ -92,7 +92,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Reader tab with highlights and questions | Partial | `CaptureStoreTests` (child notes), `NoteAnchorTests` (anchors and threads). The reader page was checked in WebKit on sqlite.org and paulgraham.com. Not checked in the app window with Claude Code answers. |
 | Notes on highlights, reading position, and progress | Implemented | `ReadingTests` (reading state, comments). The reader page was checked in Chrome with sample notes. The saved position is not checked in the app window. |
 | Inbox stream with day groups, the Notes and Reading filters, and section filters | Implemented | `InboxStreamTests`, `ReadingTests` (groups, archive after seven days). Checked in the app window with seeded notes. |
-| Checklist rows, the add field at the top, and Done Today | Implemented | `InboxStreamTests` (done today). Checked in the main window with seeded notes. The capture panel was rendered offscreen. Hover and keyboard focus are not checked in the panel. |
+| Checklist rows, the add field at the top, and Done Today | Implemented | `InboxStreamTests` (done today). Checked in the main window with seeded notes. |
 | Notes tab, Save as File, and Update File | Implemented | `ReadingTests` (Markdown file and update). Rendered offscreen. Not checked in the app window. |
 | Text style popover and Summary in the Reader tab | Not implemented | The reader has one font, one size, and no summary |
 

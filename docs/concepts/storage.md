@@ -131,10 +131,7 @@ UserDefaults holds these keys:
 | `wikiPath` | The active Wiki folder |
 | `wikiPaths` | The folders that Piper keeps, in the order of their tabs on the feed paper |
 | `captureShortcut` | `Shift, Shift` or `Control-Option-Space` |
-| `captureFloating` | True by default. Keeps the capture panel above other apps. |
-| `composerDraft` | The unsaved composer text |
-| `accessibilityTipDismissed` | True after you close the Accessibility tip in the capture panel |
-| `clipboardStripFolded` | True after you fold the clipboard strip of the capture panel |
+| `composerDraft` | The unsaved text of the Inbox add field |
 | `showsFileSource` | True while the file paper shows the Source view of a file |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
 | `wikiFileSort` | Name or Date |
@@ -146,11 +143,11 @@ UserDefaults holds these keys:
 | `articleSiteTabs` | The tab, Reader or Web, that each site of a link capture opens in |
 | `paperDeskState` | The tab and the scope of the feed paper, its frame, the open folders, the tab color and the last file count of each folder, and the open file |
 | `readerFrames` | The frame of each reader paper that you moved or resized, by its item. Piper keeps the 200 newest frames. It also keeps the last size of each kind of paper, for the next new paper of that kind. |
-| `NSWindow Frame PiperCapturePanel`, `NSWindow Frame PiperLibrary` | Window frames |
+| `NSWindow Frame PiperSessionPanel` | The frame of the detached session card |
 
 ### Bundle ID Migration
 
-The release bundle ID is `com.piper`. On the first launch, Piper copies missing keys from the earlier `local.piper` domain. It copies `wikiPath`, `captureShortcut`, `composerDraft`, `wikiReaderSize`, and the two window frames. The database path does not change.
+The release bundle ID is `com.piper`. On the first launch, Piper copies missing keys from the earlier `local.piper` domain. It copies `wikiPath`, `captureShortcut`, `composerDraft`, `wikiReaderSize`, and `NSWindow Frame PiperLibrary`. The database path does not change.
 
 ## Back Up Piper
 

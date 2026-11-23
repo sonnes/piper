@@ -84,7 +84,7 @@ When the pointer is over a row, its actions show in place of its time:
 | --- | --- |
 | A capture | Mark as Done, or Reopen |
 | An article | Star, and Mark as Read or Mark as Unread |
-| A copy on the Clipboard tab | Keep in Inbox, and Copy |
+| A copy on the Clipboard tab | Keep in Inbox, Add to Reading for a web link, and Copy |
 
 The title of the list names the tab and the scope, for example "Feeds › All Unread". The More menu at the top right has New Capture, New Section, Add Folder, Add Feed, Show in Finder, Refresh, and Settings. While the tab of a folder is active, the menu also has Remove Folder.
 

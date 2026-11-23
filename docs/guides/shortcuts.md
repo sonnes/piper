@@ -1,6 +1,6 @@
 ---
 title: "Keyboard Shortcuts"
-summary: "Every keyboard shortcut in the capture panel and on the papers"
+summary: "Every keyboard shortcut of the feed paper and the reader papers"
 read_when:
   - Looking up a shortcut
 ---
@@ -14,29 +14,28 @@ read_when:
 | Shift, Shift | Capture the selection in another app (default). On a web page, highlight the selection, or save the page when no text is selected. While a highlight toast shows, add a note to the highlight. |
 | Control-Option-Space | Capture the selection, if you choose it in Settings > Capture |
 | Control-Option-W | Save the clipboard to Inbox and open a draft for the default folder, while a folder has Claude skills |
-| Command-1 | Show the capture panel |
+| Command-1 | Show the feed paper on the Inbox list, with the cursor in the add field |
 | Command-2 | Show the feed paper and the open reader papers |
 | Command-comma | Open Settings |
 | Command-Q | Quit Piper |
 
-Command-S, Command-[, and Command-] act on the file paper even when the capture panel is in front.
+Command-S, Command-[, and Command-] act on the file paper even when another paper has the focus.
 
-## Capture Panel And Inbox
+## Inbox
 
-These shortcuts work in the capture panel or in the Inbox list of the feed paper when no sheet is open. On the feed paper, the list must have keyboard focus.
+These shortcuts work in the Inbox list of the feed paper when no sheet is open. The list must have keyboard focus.
 
 | Shortcut | Action |
 | --- | --- |
-| Return | Save the composer. In the capture panel, edit the selected note. On the feed paper, open the selected note on a paper. |
-| Shift-Return | Add a new line in the composer |
+| Return | Save the add field, or open the selected note on a paper |
+| Shift-Return | Add a new line in the add field |
 | Command-Return | Save in an editor, or open the selected note in a separate window |
-| Command-N | In the capture panel, move the focus to the composer and clear the selection |
 | Command-K | Choose the section for new notes, or create one |
-| Command-F | Search notes and the clipboard |
+| Command-F | Search the notes, or the clipboard history on the Clipboard tab |
 | Up / Down | Select the previous or next note |
-| Click | On the feed paper, open a note on a paper. In the capture panel, select or deselect it. |
+| Click | Open a note on a paper |
 | Click the circle or ring | Mark a note as done, or mark an article as read |
-| Command-click | On the feed paper, select or deselect a note for an action on several notes |
+| Command-click | Select or deselect a note for an action on several notes |
 | Shift-click | Select a range of notes |
 | Shift-Up / Shift-Down | Add the previous or next note to the selection |
 | Command-A | Select all matching notes |
@@ -47,10 +46,10 @@ These shortcuts work in the capture panel or in the Inbox list of the feed paper
 | Command-Shift-Return | Prepare a draft for each selected note in the default folder |
 | Command-Z | Undo the last note change |
 | Delete / Forward Delete | Delete the selected notes, with no confirmation |
-| Escape | Clear the selection, then clear the search. In the capture panel, another Escape closes the panel. |
+| Escape | Clear the selection, then clear the search |
 | Command-W | Close the current window |
 
-When the composer shows the skill list, Up and Down move the highlight. Tab puts the skill in the composer. Return does the same, or runs a skill that takes no argument. Escape clears the command.
+When the add field shows the skill list, Up and Down move the highlight. Tab puts the skill in the add field. Return does the same, or runs a skill that takes no argument. Escape clears the command.
 
 Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit the text.
 

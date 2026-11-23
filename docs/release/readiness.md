@@ -24,6 +24,8 @@ Acceptance: a supported app saves the exact selected text. The clipboard and the
 
 - [ ] Run the capture checks, including a restart.
 - [ ] Test Save and Cancel in a separate note editor.
+- [ ] Test Command-1, Command-N, and New Capture in the menu bar icon with real input, from another app. QA called the same action in PiperQA, but no real key or menu reached it.
+- [ ] Test Copy, Keep in Inbox, Add to Reading, and Send To on a row of the Clipboard tab with the pointer and the context menu.
 - [x] Keep the current notes when a database write fails. `ReleaseTests` covers locked, invalid, and stale databases.
 - [x] Protect capture drafts from conflicting edits and from quit. `ReleaseTests` and `QuitSafetyTests` cover this.
 
@@ -35,7 +37,6 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Decide whether the file paper needs find in the open file.
 - [ ] Test the paper keys, the hint strip, and the paper motion with real input. QA posted the key events to PiperQA in a locked session, so the menus, the mouse, a drag, and the animations are not checked.
 - [ ] Take new screenshots of the papers for the README and the guides. `main-window.png` and `feeds.png` show the old main window.
-- [ ] Decide whether the capture tabs follow the section at the top of the list while it scrolls. Today a tab changes only on a click.
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
 - [ ] Import a real NetNewsWire `Subscriptions.opml`, and make sure that each feed refreshes.
 - [ ] Run Discover in the built app with Safari history, and make sure that Settings > Feeds shows Open Privacy Settings while Piper has no Full Disk Access.

@@ -15,7 +15,7 @@ Piper is a Swift package. Model code lives in modules under `Sources/Modules`. T
 flowchart LR
     CS[CaptureService] --> S[CaptureStore]
     CB[ClipboardInbox] --> S
-    P[Capture panel] --> S
+    P[Inbox add field] --> S
     S --> D[(SQLite snapshot)]
     V[Vault scan and watcher] --> M[AppModel]
     M --> W[Papers]
@@ -47,16 +47,13 @@ Each module has a test target with the same name and a `Tests` suffix. `PiperTes
 
 | Window | Owner |
 | --- | --- |
-| Capture panel | `CapturePanelController` |
 | Feed paper and reader papers | `PaperDesk`, with `FeedPaperController` and one `ReaderPaperController` for each reader paper |
 | Settings | `SettingsWindowController` |
 | Note editor windows | `AppDelegate`, one for each note |
 | Capture toast | `AppDelegate` |
 | Reading toast | `ReadingToast`, which `AppDelegate` owns |
 
-The capture panel and the papers are exclusive. `showPanel()` hides the papers, and `showLibrary()` hides the panel. Neither closes, so drafts and edit sessions stay. Closing every window leaves the app running in the menu bar.
-
-The panel is a non-activating `NSPanel` on every Space. Its initial size is 600 by 960 points with 22-point corners. It scales down on a small screen.
+The feed paper is the main window. Piper shows it at launch, and `showLibrary()` shows it with the open reader papers. `newCapture()` shows the feed paper on the Inbox list and asks `CaptureView` to focus the add field through `FeedPaperModel.composerRequest`. Window > Inbox (Command-1), File > New Capture (Command-N), and New Capture in the menu bar item call `newCapture()`. Closing every window leaves the app running in the menu bar.
 
 ### Papers
 
@@ -130,13 +127,13 @@ The service then looks for a web page. It reads `AXDocument` from the focused el
 
 `CaptureStore` builds a candidate state and saves it before it replaces the current state. `Database` compares the stored blob with the last loaded blob on every save. A database error or a stale snapshot leaves the current notes as they are. See [Local storage](../concepts/storage.md).
 
-`ClipboardInbox` polls the pasteboard and keeps the 50 latest texts from the last 7 days, with the copy time and the app in front. It stores them in the `clipboard` table through the `Database` of `CaptureStore`. `ClipboardRow` in `CaptureRows.swift` saves to Inbox with Keep, and pastes through `ClipboardPaster` on a double-click.
+`ClipboardInbox` polls the pasteboard and keeps the 50 latest texts from the last 7 days, with the copy time and the app in front. It stores them in the `clipboard` table through the `Database` of `CaptureStore`. `PaperClipboardRow` saves a text to Inbox with Keep, and puts the text on the clipboard again with Copy. For a web link, Add to Reading saves the page and opens it.
 
-`CaptureView` draws the capture list for both windows. The add field is at the top of the list in both windows. In the panel, the list holds the active section, the newest note first. A search shows every section under a header. Tabs select the first `AppDefaults.CaptureItem.sectionTabCount` sections, and `CaptureSectionMenu` holds the others. The clipboard strip under the panel list shows the latest clipboard texts. `InboxStream.doneToday` gives the captures done today for the fold at the end of each list. On the feed paper, `CaptureListContent.stream` shows the `InboxStream` of the scope: every section for Inbox, or one section. `InboxStream` filters the captures by section, filter, and search, and groups them as Continue Reading and days, or as Continue, Up Next, and Finished This Week. `AppModel.inboxFilters` keeps the filter of each section. The Notes and Reading rows of the Inbox index set the filter. `InboxRow` draws each capture of the stream, and `NoteContextMenu` gives the panel rows and the stream rows the same menu. On the feed paper, a click on a row calls `openCapture`, which opens the capture on a reader paper. Command-click and Shift-click set `checking` and select several captures. The selection bar shows while `checking` is true. The circle completes a note, and the dot marks an article as read. `NoteDetail` shows a link capture in its tabs and any other note in an editor. `SessionTarget` reads the open note from `AppModel.actionTarget`. For a note, the card shows the selected session when it belongs to the note, or else the newest session of the note, and it leaves out the margin sessions. A message from the card starts a session with the `noteID` of the note. `AppModel.newSessionNote` keeps the card empty after New Session. The child notes of an article stay hidden until the reader opens them. Done shows `InboxStream.archive`, which groups the done captures by the month of `modifiedAt`, because marking a capture as done sets that time. `CaptureView` takes keys on the feed paper only while the paper shows a list.
+`CaptureView` draws the capture list of the feed paper. The add field is at the top of the list. `InboxStream.doneToday` gives the captures done today for the fold at the end of each list. `CaptureListContent.stream` shows the `InboxStream` of the scope: every section for Inbox, or one section. `InboxStream` filters the captures by section, filter, and search, and groups them as Continue Reading and days, or as Continue, Up Next, and Finished This Week. `AppModel.inboxFilters` keeps the filter of each section. The Notes and Reading rows of the Inbox index set the filter. `InboxRow` draws each capture of the stream, with the menu of `NoteContextMenu`. A click on a row calls `openCapture`, which opens the capture on a reader paper. Command-click and Shift-click set `checking` and select several captures. The selection bar shows while `checking` is true. The circle completes a note, and the dot marks an article as read. `NoteDetail` shows a link capture in its tabs and any other note in an editor. `SessionTarget` reads the open note from `AppModel.actionTarget`. For a note, the card shows the selected session when it belongs to the note, or else the newest session of the note, and it leaves out the margin sessions. A message from the card starts a session with the `noteID` of the note. `AppModel.newSessionNote` keeps the card empty after New Session. The child notes of an article stay hidden until the reader opens them. Done shows `InboxStream.archive`, which groups the done captures by the month of `modifiedAt`, because marking a capture as done sets that time. `CaptureView` takes keys on the feed paper only while the paper shows a list.
 
 ## Agent Sessions
 
-`FolderAgents` in the application target holds the agents, the defaults of a new session and of a margin answer, the added folders that have skills, the default folder, and the default skill for links and for text. `AppModel` refreshes the folders when the folder list changes, on each scan, and when the capture panel becomes key.
+`FolderAgents` in the application target holds the agents, the defaults of a new session and of a margin answer, the added folders that have skills, the default folder, and the default skill for links and for text. `AppModel` refreshes the folders when the folder list changes and on each scan.
 
 `SessionRunner` in the `Agents` module owns every `AgentSession`. Each session is an `@Observable` object, so a view of one session redraws only when that session changes. A session records its agent, its purpose, its model, its mode, and the ACP session id in `resumeToken`.
 
@@ -331,10 +328,9 @@ The Feeds index holds one row for each `FeedFilter`. `FeedArticleList` fills the
 
 A debug build that starts with `-PiperQA YES` is in QA mode. A test uses QA mode to drive Piper while the user works in another app.
 
-- At launch, Piper opens the feed paper instead of the capture panel.
 - `QA.activate` replaces `NSApp.activate`, so Piper never becomes the active app.
 - `QAScripts` runs JavaScript in the editor page. A test posts the distributed notification `com.piper.qa.eval` with the body of an async function. Piper writes the result to the file that `-PiperQAResult` names.
-- The distributed notification `com.piper.qa.do` runs one command on the papers: `key`, `focus`, `open`, `reader`, `appearance`, or `shot`. The `key` command posts a key event, which the local key monitors read. The `shot` command draws the feed paper window into a PNG file, which works while the screen is locked. See `QAScripts` for the syntax.
+- The distributed notification `com.piper.qa.do` runs one command on the papers: `capture`, `key`, `focus`, `open`, `reader`, `appearance`, or `shot`. The `key` command posts a key event, which the local key monitors read. The `shot` command draws the feed paper window into a PNG file, which works while the screen is locked. See `QAScripts` for the syntax.
 - In QA mode, `PaperKey.focusedWindow` is the paper that QA gave the focus, because Piper has no key window while it is not active.
 
 macOS sends keys only to the active app. Thus a test in QA mode inserts text with a script, not with keys. A release build has no QA mode.
@@ -357,9 +353,8 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [Sessions/](../../Sources/Piper/Sessions) | The session pane, the transcript views, the cards, the message field, the session card, and the detached session panel |
 | [SendShortcut.swift](../../Sources/Piper/SendShortcut.swift) | The Control-Option-W hotkey |
 | [Modules/Agents/](../../Sources/Modules/Agents) | Skill discovery, command parsing, sessions, the JSON stream, allow rules, and the session runner |
-| [CapturePanel/](../../Sources/Piper/CapturePanel) | `CapturePanelController` and `ClipboardPaster` |
-| [CaptureView.swift](../../Sources/Piper/CaptureView.swift) | The capture list, tabs, selection bar, and composer |
-| [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | Capture rows, headers, and the section and note sheets |
+| [CaptureView.swift](../../Sources/Piper/CaptureView.swift) | The capture list of the feed paper, the selection bar, and the add field |
+| [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | `RowTime`, the note context menu, and the section and note sheets |
 | [CaptureEditor.swift](../../Sources/Piper/CaptureEditor.swift) | The composer text view |
 | [Papers/PaperDesk.swift](../../Sources/Piper/Papers/PaperDesk.swift) | The feed paper, the reader papers, their placement, and the focus |
 | [Papers/PaperFrames.swift](../../Sources/Piper/Papers/PaperFrames.swift) | The saved frames of the reader papers, the rules that keep a paper on the screen, and the double-click setting |

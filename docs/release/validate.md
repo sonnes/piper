@@ -33,14 +33,15 @@ The tests do not cover the UI or the global shortcut path.
 ## Capture Checks
 
 1. Run `make run`.
-2. Save a note with Return, and edit it with Save.
-3. Copy text in another app. Move the pointer over its row in the panel and select Keep.
-4. Double-click another clipboard row. Make sure that the text pastes into the app in front.
-5. Select each section tab. Make sure that the list shows only that section and the placeholder of the add field names it.
-6. Select See All in the clipboard strip. Make sure that the rows show the source app and the time, and that Clear History empties the list.
-7. Select notes, then use Merge, Move, Copy, Delete, Command-Shift-C, and Undo.
-8. Restart Piper.
-9. Make sure that the notes, sections, and composer draft are still there.
+2. Make another app active. Select New Capture in the menu bar icon. Make sure that the feed paper shows the Inbox list with the cursor in the add field.
+3. Select the Feeds tab, then press Command-1. Make sure that the feed paper changes to the Inbox list with the cursor in the add field.
+4. Save a note with Return. Control-click it, select Edit, and select Save.
+5. Copy text in another app. Select the Clipboard tab, move the pointer over its row, and select Keep in Inbox.
+6. Copy a web link. On the Clipboard tab, select Add to Reading on its row. Make sure that the page opens on a reader paper.
+7. Click another clipboard row. Make sure that its text is on the clipboard. Make sure that Clear History empties the list.
+8. Select notes, then use Merge, Move, Copy, Delete, Command-Shift-C, and Undo.
+9. Restart Piper.
+10. Make sure that the notes, sections, and the add field draft are still there.
 
 ## Feed Paper Inbox
 
@@ -60,7 +61,7 @@ The tests do not cover the UI or the global shortcut path.
 Use a copy of a folder with skills, because a session changes files.
 
 1. Add the copy with Add Folder. Make sure that Settings > AI shows the folder, the path of `claude`, and a green dot for Claude Code.
-2. Copy a URL. Open the capture panel and select Send on the clipboard row. Make sure that the note shows Running, then Done or Failed.
+2. Copy a URL. On the Clipboard tab, Control-click its row and select a skill in Send To. Send the draft. Make sure that the note shows Running, then Done or Failed.
 3. With Auto, send a link to a skill that fetches the page. Make sure that the note shows Done.
 4. Select Ask Every Time in Settings > AI > Claude Code > Permissions. Send a link to a skill that needs a shell command. Make sure that the note shows Needs you.
 5. Select the note. On its reader paper, select Deny on the card. Make sure that Claude continues and names the denied call.

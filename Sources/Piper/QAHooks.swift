@@ -36,6 +36,8 @@ enum QA {
 ///
 /// - `key <name>`: a key on the paper with the focus, such as `key down`,
 ///   `key enter`, `key esc`, `key left`, `key 3`, `key ]`, or `key t`.
+/// - `capture`: shows the feed paper on the Inbox list with the cursor in
+///   the add field, as Command-1 and New Capture do.
 /// - `focus feed` or `focus <n>`: gives the focus to the feed paper or to
 ///   reader paper `n`, from 0.
 /// - `open note <text>`, `open article <title>`, `open file <path>`: opens an
@@ -69,6 +71,7 @@ final class QAScripts: NSObject {
         var result = "ok"
         switch verb {
         case "key": result = key(rest)
+        case "capture": desk.newCapture()
         case "focus": result = focus(rest)
         case "open": result = open(rest)
         case "appearance":

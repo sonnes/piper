@@ -40,18 +40,18 @@ The steps below build Piper from source.
 
 The Markdown editor is a web page in `Sources/Piper/Resources/editor.html`. The repository holds the built page, so `make run` needs no Node. If you change the code in `web/`, run `make web` to build the page again. `make web` needs Node and pnpm. `make test` runs the tests in `web/` when pnpm is installed.
 
-Piper starts with the capture panel and a menu bar icon. A second launch opens the copy that is already running.
+Piper starts with the feed paper and a menu bar icon. A second launch opens the copy that is already running.
 
 ## Allow Selection Capture
 
-Piper reads selected text through the macOS Accessibility API. Without this permission, the capture panel and the papers still work.
+Piper reads selected text through the macOS Accessibility API. Without this permission, the papers still work.
 
 1. Open Settings with Command-comma.
 2. Select Capture.
 3. Select Open System Settings.
 4. Turn on Piper in the Accessibility list.
 
-Piper checks the permission every four seconds. You do not need to restart it. Until the permission is on, the capture panel shows a tip with an Enable button. You can close the tip.
+Piper checks the permission every four seconds. You do not need to restart it. Settings > Capture shows the state of the permission.
 
 To use selection capture, see [Capture notes](capture.md#capture-a-selection).
 

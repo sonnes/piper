@@ -1,6 +1,6 @@
 ---
 title: "Capture Notes"
-summary: "Save text in the capture panel, from the clipboard, from a selection in another app, and from a web page"
+summary: "Save text on the feed paper, from the clipboard, from a selection in another app, and from a web page"
 read_when:
   - Saving a note
   - Capturing a selection from another application
@@ -10,70 +10,36 @@ read_when:
 
 # Capture Notes
 
-The capture panel is a window for short notes. By default, it floats above other apps, on every Space. Piper saves each note in a local database. See [Local storage](../concepts/storage.md) for the details.
-
-Settings > Capture > Float Above Other Windows controls whether the panel stays above other apps. With this setting off, other windows can cover the panel. The change takes effect immediately and survives a restart. The panel remains available on every Space.
-
-Open the panel with Command-1 or the menu bar icon.
-
-The panel and the papers take turns. When the panel opens, the papers leave the screen. When the papers open, the panel leaves the screen. Nothing closes, so a draft stays as it is.
-
-To move the panel, drag an empty part of it. To resize it, move the pointer to an edge or corner until the resize cursor appears. Drag to change the size. Piper keeps the size and the position for the next launch.
-
-The default panel size is 600 by 960 points in portrait orientation. On smaller screens, Piper reduces both dimensions to fit the available height. A saved size takes precedence over the default.
-
-## Read The Panel
-
-The panel shows one section at a time, as a checklist. The field to add a note is at the top of the list. The newest note shows first, under the field. A row shows the text of the note. A link row also shows its site and the number of its notes. To see the time or the source app of a note, move the pointer over the row.
-
-The header has a tab for each of the first three sections. Select a tab to show its section. New notes go to that section. The More tab lists every section, Done, and New Section. When the selected section has no tab of its own, the More tab shows its name.
-
-The notes that you mark as done today show under "done today" at the end of the list. Select the line to show or hide them.
-
-A strip at the bottom of the panel shows the three latest clipboard texts. Select the arrow to fold the strip. Select See All to show the full clipboard history. See [Save a clipboard text](#save-a-clipboard-text).
-
-The More Actions menu has Capture Clipboard, Capture To, New Section, Open Feed Paper, Settings, Undo Last Change, and Close Capture.
-
-If Accessibility access is off, a tip at the top of the list has an Enable button. Select the close button to hide the tip. Settings > Capture keeps the permanent control.
+The Inbox tab of the feed paper holds your notes. The field to add a note is at the top of the Inbox list. Piper saves each note in a local database. See [Local storage](../concepts/storage.md) for the details.
 
 ## Save A Note
 
-1. Open the capture panel with Command-1.
+1. Press Command-1, or select New Capture in the menu bar icon.
 2. Type or paste text into the field at the top of the list.
 3. Press Return.
 
-Shift-Return adds a new line. The note goes to the selected section, which is Inbox at first. The placeholder of the field names that section, for example "Add to Inbox". The composer keeps the keyboard focus after each save.
+Command-1 is Window > Inbox. Command-N (File > New Capture) and New Capture in the More menu of the feed paper do the same thing. Each one shows the feed paper and puts the cursor in the add field. If the feed paper shows a section of Inbox, the note goes to that section. From another tab, the feed paper changes to the Inbox list.
 
-If you close the panel with Escape, Piper keeps the unfinished text in the composer.
-
-### On The Feed Paper
-
-1. Press Command-N, or select New Capture in the More menu of the feed paper.
-2. Type or paste text into the field at the top of the list.
-3. Press Return.
-
-New Capture shows the feed paper. It uses the selected Inbox section, or opens Inbox from another list.
-
-The composer uses the same draft and controls as the capture panel. Shift-Return adds a new line. Command-K chooses a section. Section commands and folder skills work in both composers.
+Shift-Return adds a new line. The note goes to the selected section, which is Inbox at first. The placeholder of the field names that section, for example "Add to Inbox". The field keeps the keyboard focus after each save. Piper keeps unfinished text in the field until you save it.
 
 ## Save A Clipboard Text
 
 Piper shows the texts that you copy while it runs. These texts are not saved.
 
 1. Copy text in any app.
-2. Open the capture panel with Command-1.
-3. Move the pointer over a row in the clipboard strip.
-4. Select Keep.
+2. Select the Clipboard tab of the feed paper.
+3. Move the pointer over a row.
+4. Select Keep in Inbox.
 
-Keep always saves to Inbox, even when another section is selected. The row goes away after a successful save.
+Keep always saves to Inbox, even when another section is selected. The row goes away after a successful save. Under the lists of the feed paper, a line shows the latest clipboard text. Select Keep on that line to save it to Inbox.
 
-The menu bar item has a Capture Clipboard command. It saves the current clipboard text to the active capture section.
+The menu bar icon has a Capture Clipboard command. It saves the current clipboard text to the selected section.
 
-If one of your folders has Claude Code skills, the row also shows Send to <folder>. See [Work with agents](claude.md).
+If one of your folders has Claude Code skills, the context menu of a row has Send To. See [Work with agents](claude.md).
 
-Double-click a row to paste the text into the app in front. The row context menu has Paste and Keep in Inbox. Paste needs Accessibility access. Without it, Piper copies the text, and you paste it with Command-V.
+Click a row, or select Copy, to put its text on the clipboard again. For a copied web link, Add to Reading saves the page to Inbox and opens it. The context menu of a row has the same actions.
 
-See All in the strip shows the full history, grouped by day. On the feed paper, select the Clipboard tab. Each row shows the text, the app that was in front when you copied it, and the time. Clear History at the end of the list removes every unsaved text.
+The Clipboard tab groups the history by day. Each row shows the text, the app that was in front when you copied it, and the time. Clear History at the end of the list removes every unsaved text.
 
 Clipboard texts obey these rules:
 
@@ -82,7 +48,6 @@ Clipboard texts obey these rules:
 - Text that is already a saved note does not show.
 - Piper skips images, text larger than 500 KB, and items that the source app marks concealed, transient, or autogenerated.
 - If a save fails, the row stays.
-- If a text looks like source code, its row shows the first line of the code in a monospaced font. Piper treats a text as code when it has two or more lines and at least half of them are indented or have a bracket at the start or end.
 
 ## Capture A Selection
 
@@ -102,7 +67,7 @@ A secure text field or an empty selection creates no note. A small toast confirm
 If an app does not expose its selection, use the clipboard:
 
 1. Copy the text in the source app.
-2. Select Capture Clipboard in the menu bar icon, or in the More Actions menu of the panel.
+2. Select Capture Clipboard in the menu bar icon.
 
 ## Capture From A Web Page
 
@@ -144,7 +109,7 @@ Piper loads a page in its own web view, and that web view does not have the sign
 
 ### Save A Link From Piper
 
-- In the capture panel, move the pointer over a copied link and select Read. Piper adds the page to Inbox and opens it.
+- On the Clipboard tab, move the pointer over a copied link and select Add to Reading. Piper adds the page to Inbox and opens it.
 - Control-click a note that holds a link and more text, then select Add Link to Reading.
 - Save a note that holds only a link. Reading on the Inbox index shows each capture that holds only a link.
 
@@ -152,13 +117,11 @@ Piper loads a page in its own web view, and that web view does not have the sign
 
 Sections group notes.
 
-- To create a section, select New Section in the More tab. On the feed paper, select New Section on the Inbox index or in the More menu.
-- To change the section for new notes, select its tab, choose it from the More tab, or press Command-K.
-- To create or select a section from the composer, type `# Research` alone and press Return.
+- To create a section, select New Section on the Inbox index or in the More menu of the feed paper.
+- To change the section for new notes, select the section on the Inbox index, or press Command-K.
+- To create or select a section from the add field, type `# Research` alone and press Return.
 - To run a folder skill, type `/` and the skill name. See [Work with agents](claude.md#run-a-skill-from-the-composer).
-- To find notes, press Command-F. Search matches note text in all sections and in the clipboard. To end the search, select Cancel or press Escape.
-
-The More tab has a search field and a note count for each section. Done and New Section show under the list of sections. A search in the panel shows the matches of every section, each under its own header.
+- To find notes, press Command-F. Search matches note text in all sections. On the Clipboard tab, search matches the clipboard history. To end the search, press Escape.
 
 Section names have 1 to 80 characters and ignore case.
 
@@ -166,19 +129,11 @@ On the Inbox index, right-click a section to open Edit Section or Delete Section
 
 ## Act On Several Notes
 
-On the feed paper:
-
 1. Command-click a note to add it to the selection. The selection bar opens.
 2. Command-click more notes, or Shift-click to select a range. Shift-Up and Shift-Down also add notes.
 3. Select an action in the selection bar.
 
 A click on a note opens the note on a paper, and it ends the selection of several. To end the selection, select Cancel or press Escape.
-
-In the capture panel:
-
-1. Click a note.
-2. Click more notes, or Shift-click to select a range.
-3. Select an action in the selection bar.
 
 | Action | Result |
 | --- | --- |
@@ -189,9 +144,9 @@ In the capture panel:
 | Send | Runs the default Claude Code skill on each note. See [Work with agents](claude.md). |
 | Delete | Deletes the notes, with no confirmation |
 
-The selection bar wraps its buttons to fit narrow panes.
+The selection bar wraps its buttons to fit narrow papers.
 
-In the capture panel, click a selected note to deselect it. On the feed paper, Command-click a selected note to deselect it. Command-C copies the selected notes. Delete removes the selected notes.
+Command-click a selected note to deselect it. Command-C copies the selected notes. Delete removes the selected notes.
 
 Command-Shift-C copies the notes as a numbered list. The note context menu also has Copy as List, Mark as Done, Edit, and Open in Browser.
 
@@ -199,15 +154,14 @@ Undo reverses the last note change. Piper keeps one undo step, and a restart cle
 
 ## Edit A Note
 
-- To edit the selected note in the panel, press Return.
+Select a note to open it on a reader paper. You edit the note in place on the paper. Piper saves the change shortly after you stop typing. A note that holds only a link opens in the Reader tab or the Web tab, and it has no editor. See [Read captures in Inbox](browse.md#read-captures-in-inbox).
+
+- To edit the note in a sheet, Control-click it and select Edit. Select Save to keep the change.
 - To open the note in a separate editor window, press Command-Return.
-- To write the edit, select Save.
 
-On the feed paper, select a note to open it on a reader paper. You edit the note in place on the paper. Piper saves the change shortly after you stop typing. A note that holds only a link opens in the Reader tab or the Web tab, and it has no editor. See [Read captures in Inbox](browse.md#read-captures-in-inbox).
+The circle on a note row marks the note as done. The dot on an unread article marks it as read. Space marks the selected notes as done. On a note paper, select Mark as Done. Mark as Done is also in the selection bar and the context menu. A note that you mark as done moves to "done today" at the end of its list. The next day, it shows only in Done.
 
-The circle on a note row marks the note as done. The dot on an unread article marks it as read. On the feed paper, Space marks the selected notes as done. On a note paper, select Mark as Done. Mark as Done is also in the selection bar and the context menu. A note that you mark as done moves to "done today" at the end of its list. The next day, it shows only in Done.
-
-Done is on the Inbox index of the feed paper and in the More tab of the capture panel. Done groups the completed notes by the month in which you marked them as done. The newest month is first. In the capture panel, a completed note shows a gray check, and its text is gray. On the feed paper, it shows an indigo check, and a line goes through its text. Search in Done matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
+Done is on the Inbox index. Done groups the completed notes by the month in which you marked them as done. The newest month is first. A completed note shows an indigo check, and a line goes through its text. Search in Done matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
 
 If you close a changed editor or quit Piper, Piper asks you to Save, Discard, or Cancel. A failed save keeps the draft.
 

@@ -73,7 +73,7 @@ Do not do these checks with `press`, `--headed`, or the clipboard. List them for
 - `agent-desktop click` takes only a ref. With `--app`, it stops with `INVALID_ARGS`.
 - To add notes before a test, start and stop PiperQA once. Then write a `SavedState` JSON blob to the `state` table of `$QA/home/Library/Application Support/Piper/notes.sqlite`, with version 2. Dates are seconds from 2001-01-01. A later `qa.sh start` keeps this database.
 - PiperQA records the system clipboard of the user in the `clipboard` table of its `notes.sqlite`. Before you render a view from a copy of that database, delete the `clipboard` rows and add fake rows. The `copied_at` column holds seconds from 1970.
-- To check the capture panel without key focus, render `CaptureView(model:)` in an `NSHostingView` from a temporary test, and write the PNG to `/tmp`. Run the test with `CFFIXED_USER_HOME=$QA/home`. Delete the test and the PNG after the check.
+- To check the Inbox list without key focus, post the `shot <path>` QA command. PiperQA draws the feed paper window into a PNG file. This command also works while the screen is locked.
 - `qa.sh type` inserts the whole string at once, so Tiptap input rules do not run. To test an input rule, call `handleTextInput` for each character in `qa.sh js`. Place the caret with `editor.commands.setTextSelection`.
 
 ## Stop And Record

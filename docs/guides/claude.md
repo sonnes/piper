@@ -236,8 +236,7 @@ To remove an agent, select Remove on its row. A session of a removed agent fails
 
 ## Send A Note
 
-- In the capture panel, move the pointer over a clipboard row, then select Send to <folder>. Piper saves the text to Inbox and opens a draft.
-- In the capture panel, a link note that has no session shows Send to <folder> on its row. Select it.
+- On the Clipboard tab, Control-click a row, then select a folder and a skill in Send To. Piper saves the text to Inbox and opens a draft.
 - To send any note, Control-click it and select Send to <folder> with /<skill>.
 - To send several notes, select them, then select Send in the selection bar, or press Command-Shift-Return. Each note gets a draft with its default skill.
 - To choose a different skill, open the menu on the Send button, or select Send To in the context menu. The menu lists each folder and its skills.

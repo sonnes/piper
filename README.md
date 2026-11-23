@@ -1,6 +1,6 @@
 # Piper
 
-Piper is a native macOS application for capturing text. It saves selected text and clipboard entries as local notes in a floating panel beside the application you work in. A separate window browses and edits a folder of files, such as a Markdown wiki.
+Piper is a native macOS application for capturing text. It saves selected text and clipboard entries as local notes on a paper that floats beside the application you work in. The same paper browses and edits a folder of files, such as a Markdown wiki.
 
 Capture and browsing need no account, cloud service, telemetry, or network connection. Feeds connect only to the sites that you subscribe to or that Discover checks. Notes stay in a local SQLite database. Wiki files stay on disk as they are. The web reader connects to the pages you open.
 
@@ -44,9 +44,9 @@ The app that you build runs on macOS 14 or later.
    make run
    ```
 
-2. Type a note in the capture panel and press Return.
-3. Copy text in another app. Click its card in the panel to save it to Inbox.
-4. Press Command-2 to open the feed paper on `~/Desktop/Wiki`.
+2. Type a note in the add field of the Inbox list and press Return.
+3. Copy text in another app. Select Keep on the clipboard line at the foot of the feed paper to save it to Inbox.
+4. Select a folder tab to browse the files of `~/Desktop/Wiki`.
 
 To add another folder, select the Folders tab of the feed paper, then select Add Folder. To capture a selection with Shift pressed twice, allow Accessibility access first. See [Install Piper](docs/guides/install.md).
 
@@ -54,23 +54,20 @@ To add another folder, select the Folders tab of the feed paper, then select Add
 
 | Window | Purpose |
 | --- | --- |
-| Capture panel | Save, organize, edit, and copy notes |
 | Feed paper | Tabs for Inbox, Clipboard, Feeds, Folders, and Agents, with the list of the tab |
 | Reader paper | Read or edit one capture, article, file, or session |
 | Note editor | Edit one capture in a separate window with Save |
 | Settings | Folders, the capture shortcut, and reading preferences |
 
-The capture panel and the papers take turns on screen. Command-1 shows the panel, and Command-2 shows the papers. Nothing closes, so a draft stays open.
+Command-1 shows the feed paper on the Inbox list, with the cursor in the add field. Command-2 shows the feed paper and the open reader papers.
 
-The capture panel uses the system font and colors, with one blue accent. The papers use Fraunces for titles, Noto Sans for the interface, and an indigo accent. Both follow the system appearance.
+The papers use Fraunces for titles, Noto Sans for the interface, and an indigo accent. They follow the system appearance.
 
 The feed paper has a tab for Inbox, the clipboard history, your feeds, and your folders. A tab shows its index, and a pick on the index shows a list. A row of the list opens on a reader paper, to the right of the feed paper. Inbox lists your captures. [Feeds](docs/guides/feeds.md) holds your RSS subscriptions and Discover, which finds feeds on the sites of your browser history.
 
 ![The Feeds group with fictional sites and their icons, and an article in the Reader tab](docs/images/feeds.png)
 
 ![The Piper main window with a reading journal open from a fictional Field Notes folder](docs/images/main-window.png)
-
-<img src="docs/images/capture-panel.png" alt="The Piper capture panel with fictional notes, article links, highlights, and clipboard texts" width="360">
 
 ## Highlights And Notes
 
