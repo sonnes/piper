@@ -60,6 +60,7 @@ struct ReaderPaper: View {
         }
         .font(PiperTheme.paperUI(.body))
         .padding(Metrics.noteFootPadding)
+        .background(WindowDragArea())
         .overlay(alignment: .top) {
             PiperTheme.separator.frame(height: Metrics.separatorHeight)
                 .padding(.horizontal, Metrics.noteFootPadding.leading)

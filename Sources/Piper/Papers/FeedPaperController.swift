@@ -42,9 +42,9 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         hosting.sizingOptions = []
         window.contentView = hosting
 
-        if let saved = paper.state.feedFrame, let screen = NSScreen.main,
-           screen.visibleFrame.intersects(NSRectFromString(saved)) {
-            window.setPaperFrame(NSRectFromString(saved), display: false)
+        if let saved = paper.state.feedFrame {
+            window.setPaperFrame(PaperPlacement.clamp(NSRectFromString(saved), to: NSScreen.screens.map(\.visibleFrame),
+                                                      minimum: minimum), display: false)
         } else if let screen = NSScreen.main {
             let frame = screen.visibleFrame
             window.setPaperFrame(NSRect(x: frame.minX + AppDefaults.Papers.screenInset * 2, y: frame.midY - size.height / 2,

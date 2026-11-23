@@ -202,6 +202,150 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertEqual(small, NSRect(x: 44, y: 24, width: 712, height: 552))
     }
 
+    // MARK: - Saved Frames
+
+    func testAReaderPaperFrameRestoresForItsItem() {
+        let note = UUID()
+        var frames = PaperFrames()
+        frames.set(NSRect(x: 10, y: 20, width: 500, height: 400), of: .note(note))
+        frames.set(NSRect(x: 30, y: 40, width: 640, height: 700), of: .article("harbor-1"))
+        frames.set(NSRect(x: 50, y: 60, width: 520, height: 410), of: .note(note))
+        frames.save(to: defaults)
+
+        let restored = PaperFrames.restore(from: defaults)
+        XCTAssertEqual(restored.frame(of: .note(note)), NSRect(x: 50, y: 60, width: 520, height: 410))
+        XCTAssertEqual(restored.frame(of: .article("harbor-1")), NSRect(x: 30, y: 40, width: 640, height: 700))
+        XCTAssertNil(restored.frame(of: .file))
+        XCTAssertEqual(restored.entries.count, 2)
+    }
+
+    func testTheStoreOfFramesForgetsTheOldestFrameWhenItIsFull() {
+        var frames = PaperFrames()
+        let limit = AppDefaults.Papers.savedFrameLimit
+        for index in 0...limit {
+            frames.set(NSRect(x: index, y: 0, width: 500, height: 400), of: .article("article-\(index)"))
+        }
+        XCTAssertEqual(frames.entries.count, limit)
+        XCTAssertNil(frames.frame(of: .article("article-0")))
+        XCTAssertNotNil(frames.frame(of: .article("article-\(limit)")))
+    }
+
+    func testAPaperWithoutASavedFrameCascadesAndAPaperWithOneOpensThere() {
+        let screens = [NSRect(x: 0, y: 0, width: 2000, height: 1200)]
+        var frames = PaperFrames()
+        XCTAssertNil(PaperDesk.frame(of: .file, saved: frames, screens: screens))
+        frames.set(NSRect(x: 300, y: 200, width: 700, height: 800), of: .file)
+        XCTAssertEqual(PaperDesk.frame(of: .file, saved: frames, screens: screens),
+                       NSRect(x: 300, y: 200, width: 700, height: 800))
+        // A frame from a display that is gone comes back onto the screen.
+        frames.set(NSRect(x: 3000, y: 200, width: 700, height: 800), of: .file)
+        XCTAssertEqual(PaperDesk.frame(of: .file, saved: frames, screens: screens),
+                       NSRect(x: 1300, y: 200, width: 700, height: 800))
+    }
+
+    // MARK: - On The Screen
+
+    func testAPaperOffTheScreenMovesOntoTheFirstScreen() {
+        let screens = [NSRect(x: 0, y: 0, width: 1440, height: 900), NSRect(x: 1440, y: 0, width: 1920, height: 1080)]
+        let minimum = AppDefaults.Papers.readerMinimumSize
+        XCTAssertEqual(PaperPlacement.clamp(NSRect(x: -2000, y: 1500, width: 600, height: 500), to: screens, minimum: minimum),
+                       NSRect(x: 0, y: 400, width: 600, height: 500))
+        XCTAssertEqual(PaperPlacement.clamp(NSRect(x: 100, y: -300, width: 600, height: 500), to: screens, minimum: minimum),
+                       NSRect(x: 100, y: 0, width: 600, height: 500))
+    }
+
+    func testAPaperStaysOnTheScreenThatHoldsMostOfIt() {
+        let screens = [NSRect(x: 0, y: 0, width: 1440, height: 900), NSRect(x: 1440, y: 0, width: 1920, height: 1080)]
+        let frame = NSRect(x: 1300, y: 100, width: 600, height: 500)
+        XCTAssertEqual(PaperPlacement.clamp(frame, to: screens, minimum: AppDefaults.Papers.readerMinimumSize),
+                       NSRect(x: 1440, y: 100, width: 600, height: 500))
+    }
+
+    func testAPaperLargerThanItsScreenShrinksButNotBelowItsMinimum() {
+        let screens = [NSRect(x: 0, y: 0, width: 1000, height: 700)]
+        let minimum = AppDefaults.Papers.readerMinimumSize
+        XCTAssertEqual(PaperPlacement.clamp(NSRect(x: 100, y: 100, width: 1400, height: 900), to: screens, minimum: minimum),
+                       NSRect(x: 0, y: 0, width: 1000, height: 700))
+        let tiny = [NSRect(x: 0, y: 0, width: 300, height: 200)]
+        XCTAssertEqual(PaperPlacement.clamp(NSRect(x: 0, y: 0, width: 800, height: 600), to: tiny, minimum: minimum).size, minimum)
+    }
+
+    // MARK: - Resize
+
+    func testEachPaperHasItsMinimumSize() {
+        let reader = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: AppDefaults.Papers.readerMinimumSize)
+        XCTAssertEqual(reader.minimumPaperSize, NSSize(width: 420, height: 320))
+        let feedMinimum = NSSize(width: AppDefaults.Papers.feedMinimumSize.width + AppDefaults.Papers.tabVisible,
+                                 height: AppDefaults.Papers.feedMinimumSize.height)
+        let feed = PaperWindow(paperSize: NSSize(width: 600, height: 760), minimumPaperSize: feedMinimum)
+        XCTAssertEqual(feed.minimumPaperSize, feedMinimum)
+    }
+
+    func testTheEdgeUnderThePointerPicksTheResize() {
+        let paper = NSRect(x: 100, y: 100, width: 600, height: 500)
+        XCTAssertEqual(PaperResize.edges(at: NSPoint(x: 97, y: 300), paper: paper), .left)
+        XCTAssertEqual(PaperResize.edges(at: NSPoint(x: 701, y: 300), paper: paper), .right)
+        XCTAssertEqual(PaperResize.edges(at: NSPoint(x: 400, y: 599), paper: paper), .top)
+        XCTAssertEqual(PaperResize.edges(at: NSPoint(x: 400, y: 98), paper: paper), .bottom)
+        XCTAssertEqual(PaperResize.edges(at: NSPoint(x: 108, y: 98), paper: paper), [.left, .bottom])
+        XCTAssertEqual(PaperResize.edges(at: NSPoint(x: 698, y: 590), paper: paper), [.right, .top])
+        // The text inside the paper and the margin far outside it take no resize.
+        XCTAssertEqual(PaperResize.edges(at: NSPoint(x: 400, y: 300), paper: paper), [])
+        XCTAssertEqual(PaperResize.edges(at: NSPoint(x: 80, y: 300), paper: paper), [])
+    }
+
+    func testAResizeKeepsTheMinimumAndTheScreen() {
+        let screen = NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let start = NSRect(x: 100, y: 100, width: 600, height: 500)
+        let minimum = NSSize(width: 420, height: 320)
+        XCTAssertEqual(PaperResize.frame(from: start, edges: [.right, .bottom], delta: CGSize(width: 50, height: -40),
+                                         minimum: minimum, screen: screen),
+                       NSRect(x: 100, y: 60, width: 650, height: 540))
+        XCTAssertEqual(PaperResize.frame(from: start, edges: .left, delta: CGSize(width: 400, height: 0),
+                                         minimum: minimum, screen: screen),
+                       NSRect(x: 280, y: 100, width: 420, height: 500))
+        XCTAssertEqual(PaperResize.frame(from: start, edges: [.left, .top], delta: CGSize(width: -500, height: 900),
+                                         minimum: minimum, screen: screen),
+                       NSRect(x: 0, y: 100, width: 700, height: 800))
+    }
+
+    /// The band takes a click on each edge of the paper, the top edge under
+    /// the hidden title bar too. A click inside the paper reaches the content.
+    func testTheResizeBandTakesTheEdgesOfThePaperOnly() throws {
+        let window = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: AppDefaults.Papers.readerMinimumSize)
+        window.contentView = NSView()
+        window.setPaperFrame(NSRect(x: 100, y: 100, width: 600, height: 560), display: true)
+        let frameView = try XCTUnwrap(window.contentView?.superview)
+        frameView.layoutSubtreeIfNeeded()
+        let paper = PaperWindow.paperFrame(of: NSRect(origin: .zero, size: window.frame.size))
+        for point in [NSPoint(x: paper.midX, y: paper.maxY - 1), NSPoint(x: paper.midX, y: paper.minY + 1),
+                      NSPoint(x: paper.minX - 2, y: paper.midY), NSPoint(x: paper.maxX + 2, y: paper.midY)] {
+            XCTAssertTrue(frameView.hitTest(point) is PaperResizeView, "\(point)")
+        }
+        XCTAssertFalse(frameView.hitTest(NSPoint(x: paper.midX, y: paper.midY)) is PaperResizeView)
+    }
+
+    func testADoubleClickOnTheHeaderFollowsTheSettingOfMacOS() {
+        XCTAssertEqual(TitleBarDoubleClick.action(for: nil), .zoom)
+        XCTAssertEqual(TitleBarDoubleClick.action(for: "Maximize"), .zoom)
+        XCTAssertEqual(TitleBarDoubleClick.action(for: "Fill"), .zoom)
+        XCTAssertEqual(TitleBarDoubleClick.action(for: "Minimize"), .minimize)
+        XCTAssertEqual(TitleBarDoubleClick.action(for: "None"), .none)
+    }
+
+    func testAZoomFillsTheScreenAndASecondZoomPutsThePaperBack() throws {
+        let window = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: AppDefaults.Papers.readerMinimumSize)
+        let screen = try XCTUnwrap(window.screen ?? NSScreen.main, "The test needs a display.")
+        let start = NSRect(x: screen.visibleFrame.minX + 100, y: screen.visibleFrame.minY + 100, width: 600, height: 560)
+        window.setPaperFrame(start, display: false)
+        window.zoom(nil)
+        XCTAssertEqual(window.paperFrame, PaperPlacement.zoomed(in: (window.screen ?? screen).visibleFrame))
+        XCTAssertTrue(window.isPaperZoomed)
+        window.zoom(nil)
+        XCTAssertEqual(window.paperFrame, start)
+        XCTAssertFalse(window.isPaperZoomed)
+    }
+
     // MARK: - Tab Stubs
 
     func testTheColumnHeightCountsTheOverlapAndTheAddTab() {

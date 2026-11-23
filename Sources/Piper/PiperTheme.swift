@@ -216,6 +216,9 @@ enum PiperTheme {
     static let tertiaryLabel = paperFaint
     /// The hairline between two rows.
     static let separator = paperRule
+    /// The band around a paper that resizes it: black at the least alpha
+    /// that the window server counts, so that the band takes a click.
+    static let resizeBand = NSColor(white: 0, alpha: 1 / 255)
     /// The fill of a row under the pointer: zinc 900 at 4 percent, and white at 6 percent.
     static let rowHoverNS = NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua

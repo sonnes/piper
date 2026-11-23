@@ -60,7 +60,11 @@ The panel is a non-activating `NSPanel` on every Space. Its initial size is 600 
 
 ### Papers
 
-`PaperDesk` owns the feed paper and the reader papers. A paper is a `PaperWindow`: a titled window with a full-size content view, a transparent title bar, and no title bar buttons. Its background is clear, and the content clips to a rounded rectangle of 20 points. The window is larger than its paper by `AppDefaults.Papers.shadowMargin`, and the paper draws its own shadow in that margin. The system shadow is off. A drag on the background or on the header moves the paper. `PaperWindow.cancelOperation` calls its `escape` closure, so Escape reaches the paper after the views in it.
+`PaperDesk` owns the feed paper and the reader papers. A paper is a `PaperWindow`: a titled window with a full-size content view, a transparent title bar, and no title bar buttons. Its background is clear, and the content clips to a rounded rectangle of 20 points. The window is larger than its paper by `AppDefaults.Papers.shadowMargin`, and the paper draws its own shadow in that margin. The system shadow is off. A drag on the background or on the header moves the paper. `WindowDragArea` starts the drag. On a paper, its double click calls `PaperWindow.titleBarDoubleClick()`, which reads `AppleActionOnDoubleClick` through `TitleBarDoubleClick` and zooms, minimizes, or does nothing. `PaperWindow.zoom(_:)` fills the visible frame of the screen, less `screenInset`, and a second zoom restores the frame before it.
+
+The system resize edges of the window lie at the outer edge of the shadow margin, away from the paper. So `PaperWindow` puts a `PaperResizeView` over the content, in the frame view of the window. The view takes a click only in a band on each edge of the paper, `resizeOutside` points outside it and `resizeInside` points inside it, with corners of `resizeCorner` points. The band outside the paper has a fill at an alpha of 1/255, because the window server sends no click to a clear pixel. Each part of the band sets the resize pointer of macOS. `PaperResize.frame(from:edges:delta:minimum:screen:)` gives the new frame, which keeps the minimum size and stays inside the visible frame of the screen.
+
+`PaperWindow.cancelOperation` calls its `escape` closure, so Escape reaches the paper after the views in it.
 
 `FeedPaperController` owns the feed paper. `FeedPaperView` draws the column of tabs on the left edge, and the sheet with the index, the list, or the folder tree. `FeedPaperModel` holds the state of the paper:
 
@@ -89,6 +93,8 @@ A row of a list calls `FeedPaperModel.open`, which `PaperDesk.open(_:)` handles.
 `AppModel.sessionPresentation` is the pill, the card, or the detached panel, and preferences keep it. `SessionCard` hosts `SessionPane`, and `SessionTarget` picks its folder, its session, and its context page. `SessionPanelController` shows the same card in a non-activating `NSPanel` on every Space. Its close button returns the presentation to the pill. When a reader paper becomes key, the desk sets `AppModel.actionTarget` from its item.
 
 `PaperDesk.cycle()` moves the focus to the next visible paper, for Next Paper (Command-`). `PaperDesk.closeFocused()` closes the reader paper with the focus. `PaperDesk.tidy()` moves each reader paper back to its place of the cascade.
+
+`PaperFrames` keeps the frame of each reader paper by its `PaperItem`, in `readerFrames`, with the newest 200 frames. `ReaderPaperController` reports each move and each resize to the desk after the paper is in its place. `PaperDesk.frame(of:saved:screens:)` gives the saved frame of a new paper, or nil, and a paper with no saved frame takes the cascade. `PaperPlacement.clamp(_:to:minimum:)` moves a frame onto the screen that holds the most of it, or onto the first screen, and shrinks it to that screen. The feed paper and the saved reader frames pass through it. On `NSApplication.didChangeScreenParametersNotification`, the desk calls `PaperWindow.keepOnScreen()` on each paper.
 
 ### Paper Keys
 
@@ -356,6 +362,7 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | Capture rows, headers, and the section and note sheets |
 | [CaptureEditor.swift](../../Sources/Piper/CaptureEditor.swift) | The composer text view |
 | [Papers/PaperDesk.swift](../../Sources/Piper/Papers/PaperDesk.swift) | The feed paper, the reader papers, their placement, and the focus |
+| [Papers/PaperFrames.swift](../../Sources/Piper/Papers/PaperFrames.swift) | The saved frames of the reader papers, the rules that keep a paper on the screen, and the double-click setting |
 | [Papers/PaperDeskState.swift](../../Sources/Piper/Papers/PaperDeskState.swift) | `PaperTab`, `PaperScope`, and the restored state of the feed paper |
 | [Papers/](../../Sources/Piper/Papers) | The feed paper, its tabs, its index, its lists, the reader papers, the row icons, and the error alert |
 | [Feeds/](../../Sources/Piper/Feeds) | The article list, the article detail, Add Feed, Discover, its scan, and the Feeds settings |

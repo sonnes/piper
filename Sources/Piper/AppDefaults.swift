@@ -58,6 +58,8 @@ final class AppDefaults {
         static let discoverLastScan = "discoverLastScan"
         /// The tab, the scope, the pins, and the frame of the feed paper. See `PaperDeskState`.
         static let paperDeskState = "paperDeskState"
+        /// The frame of each reader paper, by its item.
+        static let readerFrames = "readerFrames"
 
         /// Keys carried over when the bundle identifier changed to `com.piper`.
         static let migrated = [
@@ -83,7 +85,14 @@ final class AppDefaults {
         static let readerSize = NSSize(width: 712, height: 860)
         static let noteSize = NSSize(width: 440, height: 420)
         static let sessionSize = NSSize(width: 480, height: 680)
-        static let readerMinimumSize = NSSize(width: 380, height: 320)
+        static let readerMinimumSize = NSSize(width: 420, height: 320)
+        /// The number of reader paper frames that Piper keeps.
+        static let savedFrameLimit = 200
+        /// The band around the edge of a paper that resizes it: its width
+        /// outside the paper and inside it, and the length of a corner.
+        static let resizeOutside: CGFloat = 6
+        static let resizeInside: CGFloat = 3
+        static let resizeCorner: CGFloat = 16
         static let cornerRadius: CGFloat = 20
         /// The space around a paper in its window, for the shadow of the paper.
         static let shadowMargin = NSEdgeInsets(top: 16, left: 24, bottom: 36, right: 24)

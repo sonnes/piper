@@ -4,6 +4,7 @@ summary: "Move between the tabs of the feed paper, open items on reader papers, 
 read_when:
   - Adding or removing a folder, or changing the color of its tab
   - Opening, closing, or moving between papers
+  - Moving, resizing, or zooming a paper
   - Searching, reading, or editing a file
   - Reading web links from captures
   - Continuing an article, or saving its notes as a file
@@ -89,7 +90,7 @@ The title of the list names the tab and the scope, for example "Feeds › All Un
 
 ### Open An Item On A Paper
 
-Select a row in a list to open the item on a reader paper. The paper opens to the right of the feed paper, in the first free place of a cascade. Each place of the cascade is 24 points to the right of and lower than the place before it. If the item is already open, Piper brings its paper to the front.
+Select a row in a list to open the item on a reader paper. The paper opens to the right of the feed paper, in the first free place of a cascade. Each place of the cascade is 24 points to the right of and lower than the place before it. If you moved or resized the paper of an item before, its paper opens in that frame. If the item is already open, Piper brings its paper to the front.
 
 A capture, an article, a file, and a session each open on a paper. One file paper shows all files: a second file replaces the first file on the same paper.
 
@@ -107,7 +108,19 @@ Put Back is the x at the end of each toolbar. The foot of a note paper says "Sav
 
 The paper with the focus has a deep shadow. Each other reader paper tilts a little, and its content fades. The row of an open item shows a dashed outline and "on the desk" in place of its time. When the paper goes back, the row flashes.
 
-To close a reader paper, press Escape or Command-W, or select Put Back. To move the focus to the next paper, press Command-`. To move a paper, drag its header. To put each reader paper back in its place of the cascade, press T.
+To close a reader paper, press Escape or Command-W, or select Put Back. To move the focus to the next paper, press Command-`. To put each reader paper back in its place of the cascade, press T.
+
+### Move And Resize A Paper
+
+- To move a paper, drag its header. On a note paper, you can also drag its foot.
+- To change the size of a paper, drag one of its edges or corners. The pointer changes to a resize pointer at the edge.
+- To zoom a paper, double-click its header. The paper fills the screen. Double-click the header again to put the paper back.
+
+A double-click on the header obeys the setting "Double-click a window's title bar to" in System Settings > Desktop & Dock. If the setting is Minimize, the paper goes to the Dock. If the setting is Do Nothing, the paper stays.
+
+A reader paper is at least 420 points wide. The feed paper is at least as wide as the column of tabs and a list. A paper is never larger than the screen.
+
+Piper keeps the frame of the feed paper and the frame of each reader paper across restarts. If you disconnect a display, each paper moves onto a screen that is still connected.
 
 While Piper is active, a strip at the bottom of the screen shows the keys for the paper with the focus.
 

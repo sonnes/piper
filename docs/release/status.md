@@ -57,6 +57,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | --- | --- | --- |
 | Feed paper with tabs, an index for each tab, and the scoped list | Implemented | `PaperDeskStateTests` (state, overflow, folder index). Checked in the app with agent-desktop. Keys not checked in the app. |
 | Reader papers: placement, cascade, focus of an open item, Escape, and Next Paper | Implemented | `PaperDeskStateTests` (placement, free places), `PaperDeskTests` (the open file). Open, focus, Put Back, and placement checked in the app with agent-desktop. Escape and Command-` not checked in the app. |
+| Move, resize, and zoom a paper, and keep its frame | Implemented | `PaperDeskStateTests` (saved frames, the frame limit, the clamp to the screens, the minimum sizes, the resize band and its math, zoom, the double-click setting, the cascade with no saved frame). A real drag of an edge, the pointers, and a change of displays are not checked in the app. |
 | A tab for each folder, with its own color | Implemented | `PaperDeskStateTests` (column, colors, stubs), `PaperDeskTests` (active folder on a tab click) |
 | Folder tree with any folder structure | Implemented | `VaultTests`, `PathTreeBuilderTests`, `TreeControllerTests` |
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |

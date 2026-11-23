@@ -9,6 +9,8 @@ protocol ReaderPaperControllerDelegate: AnyObject {
     func readerPaperWillClose(_ controller: ReaderPaperController)
     /// The first message of a new session started the session.
     func readerPaper(_ controller: ReaderPaperController, didStart session: UUID)
+    /// The paper moved or changed its size.
+    func readerPaperDidMove(_ controller: ReaderPaperController)
 }
 
 /// Owns one reader paper: a frameless window with round corners for one item.
@@ -180,6 +182,16 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
 
     func windowDidBecomeKey(_ notification: Notification) {
         delegate?.readerPaperDidBecomeKey(self)
+    }
+
+    func windowDidMove(_ notification: Notification) { frameChanged() }
+    func windowDidEndLiveResize(_ notification: Notification) { frameChanged() }
+
+    /// Reports a new frame once the paper is in its place. The rise of a new
+    /// paper and its fade on close do not count.
+    private func frameChanged() {
+        guard shown, !closing, window?.inLiveResize != true else { return }
+        delegate?.readerPaperDidMove(self)
     }
 
     func windowWillClose(_ notification: Notification) {

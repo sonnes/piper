@@ -129,10 +129,12 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 7. Press Command-` several times. Make sure that the focus moves through every paper. Press Escape on a reader paper. Make sure that it closes.
 8. Add two more folders. Make sure that their tabs take teal, rose, and clay in order. Select each folder tab. Make sure that the title and the tree change to that folder. Select a swatch. Make sure that the tab takes the color. Make the feed paper short. Make sure that the folder tabs show one letter.
 9. Quit Piper and open it again. Make sure that the feed paper restores its frame, its tab, its scope, its tab colors, and its open folders.
-10. Follow a Wiki link, then use Command-[ and Command-].
-11. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the paper. Make sure that Source shows their text, and that long lines wrap.
-12. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
-13. Control-click the tab of the added folder and select Remove Folder. Make sure that its tab leaves the column. Make sure that the folder stays on disk.
+10. Drag each edge and each corner of the feed paper and of a reader paper. Make sure that the pointer shows the resize arrows, that the paper keeps its minimum size, and that the column of tabs stays on the feed paper. Drag the body text of an article. Make sure that the drag selects text and does not move the paper.
+11. Double-click the header of a reader paper. Make sure that it fills the screen, and that a second double-click puts it back. Close the paper and open its item again. Make sure that the paper opens in its last frame.
+12. Follow a Wiki link, then use Command-[ and Command-].
+13. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the paper. Make sure that Source shows their text, and that long lines wrap.
+14. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
+15. Control-click the tab of the added folder and select Remove Folder. Make sure that its tab leaves the column. Make sure that the folder stays on disk.
 
 ## Editing Checks
 

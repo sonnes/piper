@@ -8,6 +8,10 @@ import Captures
 /// moves down and to the right by `AppDefaults.Papers.cascade`. An item that
 /// opens again brings its paper to the front. Only one file paper exists,
 /// because the editor page is shared, so a second file replaces the first.
+///
+/// A paper that the reader moved or resized opens again in that frame, from
+/// `PaperFrames`. After a change of the displays, every paper moves back
+/// onto a screen.
 @MainActor
 final class PaperDesk {
 
@@ -19,15 +23,23 @@ final class PaperDesk {
     private var readers: [ReaderPaperController] = []
     /// The number of papers that opened, which picks the tilt of the next paper.
     private var opened = 0
+    private var frames: PaperFrames
+    private let defaults: UserDefaults
     private lazy var hints = HintStrip(paper: paper)
 
     // MARK: - Initialization
 
     init(model: AppModel, defaults: UserDefaults = .standard) {
         self.model = model
+        self.defaults = defaults
+        frames = PaperFrames.restore(from: defaults)
         paper = FeedPaperModel(model: model, defaults: defaults)
         paper.open = { [weak self] item in self?.open(item) }
         paper.tidy = { [weak self] in self?.tidy() }
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.keepOnScreen() }
+        }
     }
 
     // MARK: - API
@@ -70,9 +82,10 @@ final class PaperDesk {
         }
         let size = Self.size(of: item, model: model)
         let screen = feed?.window?.screen ?? NSScreen.main
-        let frame = Self.frame(size: size, feed: feedPaperFrame,
-                               screen: screen?.visibleFrame ?? NSRect(origin: .zero, size: size),
-                               open: readers.compactMap(\.paperFrame))
+        let frame = Self.frame(of: item, saved: frames, screens: NSScreen.screens.map(\.visibleFrame)) ??
+            Self.frame(size: size, feed: feedPaperFrame,
+                       screen: screen?.visibleFrame ?? NSRect(origin: .zero, size: size),
+                       open: readers.compactMap(\.paperFrame))
         let tilts = AppDefaults.Papers.tilts
         let reader = ReaderPaperController(item: item, model: model, frame: frame, tilt: tilts[opened % tilts.count])
         opened += 1
@@ -196,6 +209,13 @@ final class PaperDesk {
         return frame(index: open.count, size: size, feed: feed, screen: screen)
     }
 
+    /// The saved frame of the paper of an item, moved onto a screen, or nil
+    /// when the paper has no saved frame. A paper without one takes a place in the cascade.
+    nonisolated static func frame(of item: PaperItem, saved: PaperFrames, screens: [NSRect]) -> NSRect? {
+        guard let frame = saved.frame(of: item) else { return nil }
+        return PaperPlacement.clamp(frame, to: screens, minimum: AppDefaults.Papers.readerMinimumSize)
+    }
+
     /// The size of a new paper for an item. An article and a file take the
     /// size of the Write paper. A short note and a session take less.
     static func size(of item: PaperItem, model: AppModel) -> NSSize {
@@ -208,6 +228,12 @@ final class PaperDesk {
         case .session, .newSession:
             return AppDefaults.Papers.sessionSize
         }
+    }
+
+    /// Moves every paper back onto a screen, after a change of the displays.
+    private func keepOnScreen() {
+        (feed?.window as? PaperWindow)?.keepOnScreen()
+        for reader in readers { (reader.window as? PaperWindow)?.keepOnScreen() }
     }
 
     /// Shows the strip of keys while a paper has the focus. A paper that
@@ -274,5 +300,11 @@ extension PaperDesk: ReaderPaperControllerDelegate {
         paper.marks.open.remove(controller.item)
         paper.marks.open.insert(.session(session))
         controller.replace(with: .session(session))
+    }
+
+    func readerPaperDidMove(_ controller: ReaderPaperController) {
+        guard let frame = controller.paperFrame else { return }
+        frames.set(frame, of: controller.item)
+        frames.save(to: defaults)
     }
 }
