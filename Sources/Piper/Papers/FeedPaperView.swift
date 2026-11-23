@@ -1,4 +1,5 @@
 import AppKit
+import Captures
 import Feeds
 import SwiftUI
 
@@ -16,7 +17,8 @@ struct FeedPaperView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: -Metrics.tabOverlap) {
-            PaperTabs(tabs: paper.column.tabs, active: paper.state.tab, count: count, choose: paper.choose)
+            PaperTabs(tabs: paper.column.tabs, active: paper.state.tab, count: count, choose: paper.choose,
+                      addFolder: paper.showFoldersIndex)
                 .padding(.top, Metrics.tabsTop)
             sheet.zIndex(1)
         }
@@ -58,6 +60,9 @@ struct FeedPaperView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(reduceMotion ? nil : .easeInOut(duration: Metrics.fade), value: paper.showsIndex)
+            if !paper.showsIndex, paper.state.scope != .clipboard, let entry = model.clipboard.entries.first {
+                clipboardFoot(entry)
+            }
         }
         .background(PiperTheme.paper)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
@@ -110,6 +115,26 @@ struct FeedPaperView: View {
         .background(WindowDragArea())
     }
 
+    /// The last copy, at the foot of the paper. Keep saves it to Inbox.
+    private func clipboardFoot(_ entry: ClipboardEntry) -> some View {
+        HStack(spacing: 10) {
+            Text("Clipboard").foregroundStyle(PiperTheme.paperFaint)
+            Text(entry.text.replacingOccurrences(of: "\n", with: " "))
+                .foregroundStyle(PiperTheme.paperMuted)
+                .lineLimit(1).truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Keep") { model.clipboard.save(entry.id) }
+                .buttonStyle(.plain)
+                .font(PiperTheme.paperUI(.body, weight: .medium))
+                .foregroundStyle(PiperTheme.brand)
+                .help("Save the copy to Inbox")
+        }
+        .font(PiperTheme.paperUI(.body))
+        .padding(Metrics.footPadding)
+        .overlay(alignment: .top) { Rectangle().fill(PiperTheme.paperRule).frame(height: 1) }
+        .padding(.horizontal, Metrics.footMargin)
+    }
+
     private var moreMenu: some View {
         Menu {
             Button("New Capture") { paper.newCapture() }
@@ -136,14 +161,15 @@ struct FeedPaperView: View {
         case .feed(let filter):
             FeedArticleList(model: model, filter: filter, selectedID: paper.selectedArticle,
                             select: { paper.selectedArticle = $0?.id },
-                            openPaper: { paper.open(.article($0.id)) })
+                            openPaper: { paper.open(.article($0.id)) },
+                            setKeys: { paper.listKeys = $0 })
         case .folder(let path):
-            FolderListView(model: model, folder: path) { file in
+            FolderListView(model: model, folder: path, open: { file in
                 model.openDocument(file)
                 paper.open(.file)
-            }
+            }, setKeys: { paper.listKeys = $0 })
         case .sessions(let folder):
-            SessionList(model: model, folder: folder, open: paper.open)
+            SessionList(model: model, folder: folder, open: paper.open, setKeys: { paper.listKeys = $0 })
         }
     }
 
@@ -165,7 +191,12 @@ struct FeedPaperView: View {
     private var title: String {
         let tab = paper.state.tab
         switch paper.state.scope {
-        case .inbox(nil): return "Inbox"
+        case .inbox(nil):
+            switch paper.inboxFilter {
+            case .all: return "Inbox"
+            case .notes: return "Inbox › Notes"
+            case .reading: return "Inbox › Reading"
+            }
         case .inbox(let section?): return "Inbox › " + section
         case .done: return "Inbox › Done"
         case .clipboard: return "Clipboard"

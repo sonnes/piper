@@ -22,11 +22,16 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     // MARK: - Properties
 
     weak var delegate: ReaderPaperControllerDelegate?
+    /// Puts the reader papers back in their cascade, after T. `PaperDesk` sets it.
+    var tidy: () -> Void = {}
+    /// Called when the paper takes the keyboard focus or loses it.
+    var focusChanged: (ReaderPaperController, Bool) -> Void = { _, _ in }
     private(set) var item: PaperItem
     private let model: AppModel
     private let viewController: ReaderPaperViewController
     private var shown = false
     private var closing = false
+    private var keyMonitor: Any?
 
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
@@ -45,8 +50,16 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
         window.escape = { [weak window] in window?.performClose(nil) }
         window.contentViewController = viewController
         window.setPaperFrame(frame, display: false)
-        window.focusChanged = { [weak viewController] focused in viewController?.setFocused(focused) }
+        window.focusChanged = { [weak self, weak viewController] focused in
+            viewController?.setFocused(focused)
+            guard let self else { return }
+            self.focusChanged(self, focused)
+        }
         refresh()
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, let key = PaperKey(event), self.handle(key, in: event.window) else { return event }
+            return nil
+        }
     }
 
     @available(*, unavailable)
@@ -103,6 +116,39 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
         viewController.setOverlay(shown && !sessions ? AnyView(SessionOverlay(model: model)) : AnyView(EmptyView()))
     }
 
+    // MARK: - Keyboard
+
+    /// Reads a key on the paper with the focus. Up Arrow and Down Arrow
+    /// scroll an article. H highlights the selected text of an article and N
+    /// adds a note to it. An article of a feed takes R, S, I, and B as its
+    /// row on the list does. T tidies the desk.
+    ///
+    /// - Returns: True when the paper used the key.
+    func handle(_ key: PaperKey, in eventWindow: NSWindow?) -> Bool {
+        guard let window, PaperKey.focusedWindow === window, eventWindow == nil || eventWindow === window,
+              !PaperKey.editsText(window) else { return false }
+        switch key {
+        case .up, .down:
+            return model.scrollReader(down: key == .down, in: window)
+        case .letter("t"):
+            tidy()
+            return true
+        case .letter("h"), .letter("n"):
+            return model.sendReaderKey(key == .letter("h") ? "h" : "n", in: window)
+        case .letter(let character):
+            guard case .article(let id) = item, let article = model.feeds.article(id) else { return false }
+            return model.articleKey(character, on: article)
+        default:
+            return false
+        }
+    }
+
+    /// Stops reading keys, after the paper closes.
+    func stopKeys() {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
+    }
+
     // MARK: - NSWindowDelegate
 
     /// The paper fades out before it closes.
@@ -121,6 +167,7 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        stopKeys()
         delegate?.readerPaperWillClose(self)
     }
 

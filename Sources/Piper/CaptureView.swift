@@ -1129,7 +1129,7 @@ struct CaptureView: View {
     private func installKeyboardShortcuts() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard !showingSections, let window = NSApp.keyWindow, window.attachedSheet == nil,
+            guard !showingSections, let window = PaperKey.focusedWindow, window.attachedSheet == nil,
                   acceptsKeyboard(window) else { return event }
             let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             let textView = window.firstResponder as? NSTextView

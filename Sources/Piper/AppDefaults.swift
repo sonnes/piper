@@ -128,12 +128,19 @@ final class AppDefaults {
         /// The extra space over the first pinned folder.
         static let pinGap: CGFloat = 10
         static let tabShadowRadius: CGFloat = 2
+        static let activeTabShadowRadius: CGFloat = 2.5
+        /// The dashed + Folder tab at the end of the column.
+        static let addTabWidth: CGFloat = 132
         static let tabShadowOffset: CGFloat = 1
 
         /// The smallest scale of the title of the feed paper before it truncates.
         static let titleMinimumScale: CGFloat = 0.7
         static let headerPadding = EdgeInsets(top: 28, leading: 32, bottom: 0, trailing: 24)
         static let indexPadding = EdgeInsets(top: 16, leading: 20, bottom: 20, trailing: 20)
+        /// A group header of an index, such as Sections.
+        static let indexHeaderPadding = EdgeInsets(top: 12, leading: 12, bottom: 4, trailing: 12)
+        /// The folder outline of a row of an index.
+        static let folderMark = CGSize(width: 15, height: 11)
         static let rowHeight: CGFloat = 48
         static let rowRadius: CGFloat = 12
         static let rowPadding: CGFloat = 12
@@ -171,6 +178,9 @@ final class AppDefaults {
         static let composerTextInset: CGFloat = 40
         static let focusRingWidth: CGFloat = 3
         /// The line under the list with the latest copy of the clipboard.
+        /// The strip of keys at the bottom of the screen.
+        static let hintBottom: CGFloat = 18
+        static let hintHeight: CGFloat = 40
         static let footPadding = EdgeInsets(top: 12, leading: 12, bottom: 10, trailing: 12)
         static let footMargin: CGFloat = 20
         /// The most a count on a tab shows. A larger count shows as this number and a plus sign.

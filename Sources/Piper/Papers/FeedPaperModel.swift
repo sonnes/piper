@@ -1,4 +1,5 @@
 import AppKit
+import Captures
 import Feeds
 
 /// One item that a reader paper shows.
@@ -36,6 +37,8 @@ final class DeskMarks {
     var flash: Flash?
     /// True while the feed paper has the keyboard focus.
     var feedFocused = false
+    /// The item of the reader paper with the keyboard focus.
+    var focusedPaper: PaperItem?
 
     func isOpen(_ item: PaperItem) -> Bool { open.contains(item) }
 
@@ -59,7 +62,11 @@ final class FeedPaperModel {
         didSet { if state != oldValue { state.save(to: defaults) } }
     }
     /// True while the paper shows the index of the active tab in place of the list.
-    var showsIndex = false
+    var showsIndex = false {
+        didSet { if showsIndex && !oldValue { indexCursor = currentEntry } }
+    }
+    /// The row of the index that Return picks. Up Arrow and Down Arrow move it.
+    var indexCursor: IndexEntry?
     /// The open papers and the flash of a row.
     let marks = DeskMarks()
     /// A new value puts the cursor in the add field of the Inbox list.
@@ -68,6 +75,11 @@ final class FeedPaperModel {
     var selectedArticle: String?
     /// Opens an item as a reader paper. `PaperDesk` sets it.
     @ObservationIgnored var open: (PaperItem) -> Void = { _ in }
+    /// Puts the reader papers back in their cascade. `PaperDesk` sets it.
+    @ObservationIgnored var tidy: () -> Void = {}
+    /// The keys of the list that shows: Up Arrow, Down Arrow, and Return.
+    /// A list of captures reads its keys itself and sets none.
+    @ObservationIgnored var listKeys: ListKeys?
     @ObservationIgnored private let defaults: UserDefaults
 
     // MARK: - Initialization
@@ -102,8 +114,107 @@ final class FeedPaperModel {
 
     /// A pick on the index: the paper shows the list of the scope.
     func pick(_ scope: PaperScope) {
+        if case .inbox(nil) = scope { model.inboxFilters[""] = .all }
         setScope(scope)
         showsIndex = false
+    }
+
+    /// A pick of a Show row on the Inbox index: every section, with only notes or only links.
+    func pickFilter(_ filter: InboxStream.Filter) {
+        setScope(.inbox(section: nil))
+        model.inboxFilters[""] = filter
+        showsIndex = false
+    }
+
+    /// The filter of the list of every Inbox section.
+    var inboxFilter: InboxStream.Filter { model.inboxFilter(for: nil) }
+
+    // MARK: - Keyboard
+
+    /// The keys of a list that is not a list of captures.
+    struct ListKeys {
+        let move: (Int) -> Void
+        let open: () -> Void
+        /// A letter key, such as S to star an article. Returns true when the list used it.
+        var letter: (Character) -> Bool = { _ in false }
+    }
+
+    /// The rows of the index of the active tab that the keyboard can pick.
+    var indexEntries: [IndexEntry] {
+        let runner = model.agents.runner
+        let tree = FolderIndex.rows(paths: model.files.map(\.relativePath), folders: model.folders,
+                                    expanded: Set(state.expandedFolders))
+        return IndexEntry.entries(tab: state.tab, sections: model.store.sections, feeds: model.feeds.feeds.map(\.id),
+                                  overflow: column.overflow, roots: model.wikiPaths, activeRoot: model.wikiPath,
+                                  tree: tree, sessionFolders: runner.folders())
+    }
+
+    /// The row of the index for the list that shows.
+    var currentEntry: IndexEntry {
+        IndexEntry.current(scope: state.scope, filter: inboxFilter)
+    }
+
+    /// Moves the cursor of the index by one row.
+    func moveIndexCursor(_ delta: Int) {
+        indexCursor = IndexEntry.move(indexCursor, by: delta, in: indexEntries)
+    }
+
+    /// Picks the row under the cursor of the index.
+    func pickIndexCursor() {
+        guard let indexCursor else { return }
+        pick(indexCursor)
+    }
+
+    /// Picks a row of the index.
+    func pick(_ entry: IndexEntry) {
+        switch entry {
+        case .scope(let scope): pick(scope)
+        case .inboxFilter(let filter): pickFilter(filter)
+        case .pinned(let path): pickPinned(path)
+        case .root(let path):
+            model.changeWiki(to: URL(fileURLWithPath: path))
+            indexCursor = .scope(.folder(""))
+        case .file(let path):
+            model.openDocument(path)
+            open(.file)
+        }
+    }
+
+    /// Shows the Folders index, after a click on the + Folder tab.
+    func showFoldersIndex() {
+        if state.tab != .folders { choose(.folders) }
+        showsIndex = true
+    }
+
+    /// Shows the index of the active tab, after Left Arrow.
+    func showIndex() {
+        guard state.tab.hasIndex else { return }
+        showsIndex = true
+    }
+
+    /// Shows the scope before or after the scope of the list, after `[` or `]`.
+    func cycleScope(_ delta: Int) {
+        guard let scope = IndexEntry.cycle(state.scope, by: delta, in: indexEntries) else { return }
+        pick(scope)
+    }
+
+    /// A number key: 1 is the first tab of the column.
+    func numberKey(_ number: Int) {
+        let root = model.vault.root.path
+        let folders = model.agents.runner.folders()
+        let atDefault = state.scope == state.defaultScope(for: state.tab, root: root, sessionFolders: folders)
+            && (state.tab != .inbox || inboxFilter == .all)
+        switch NumberKey.action(number, tabs: column.tabs, active: state.tab, showsIndex: showsIndex,
+                                atDefaultScope: atDefault) {
+        case .toggleIndex: showsIndex.toggle()
+        case .showTab(let tab):
+            if case .pinned(let path) = tab, !enterRoot(of: path) { return }
+            state.tab = tab
+            if tab == .inbox { model.inboxFilters[""] = .all }
+            setScope(state.defaultScope(for: tab, root: model.vault.root.path, sessionFolders: folders))
+            showsIndex = false
+        case .none: break
+        }
     }
 
     /// A pick of a pinned folder on the Folders index.
@@ -147,6 +258,7 @@ final class FeedPaperModel {
         let old = state.scope
         if old != scope {
             selectedArticle = nil
+            listKeys = nil
             if old.showsCaptures != scope.showsCaptures || [old, scope].contains(.clipboard) || [old, scope].contains(.done) {
                 model.store.query = ""
                 model.store.selection.removeAll()

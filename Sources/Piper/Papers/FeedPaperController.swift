@@ -12,6 +12,9 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     let paper: FeedPaperModel
     private let model: AppModel
+    private var keyMonitor: Any?
+    /// Called when the paper takes the keyboard focus or loses it.
+    var focusChanged: () -> Void = {}
 
     /// The width of the column of tabs beside the paper.
     static let tabColumn = AppDefaults.Papers.activeTabWidth - AppDefaults.Papers.tabOverlap
@@ -29,7 +32,10 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.escape = { [weak paper] in paper?.showList() }
-        window.focusChanged = { [weak paper] focused in paper?.marks.feedFocused = focused }
+        window.focusChanged = { [weak self, weak paper] focused in
+            paper?.marks.feedFocused = focused
+            self?.focusChanged()
+        }
 
         let hosting = NSHostingView(rootView: FeedPaperView(paper: paper, model: model, window: { [weak window] in window }))
         // The window sets its own size. The SwiftUI size would pin it to its content.
@@ -46,6 +52,10 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         }
         NotificationCenter.default.addObserver(self, selector: #selector(vaultChanged),
                                                name: .vaultPathDidChange, object: model)
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, let key = PaperKey(event), self.handle(key, in: event.window) else { return event }
+            return nil
+        }
     }
 
     @available(*, unavailable)
@@ -80,6 +90,45 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     /// reader comes back to the paper.
     func windowDidBecomeKey(_ notification: Notification) {
         model.archiveFinishedReading()
+    }
+
+    // MARK: - Keyboard
+
+    /// Reads a key on the feed paper. A list of captures reads its own Up
+    /// Arrow, Down Arrow, and Return.
+    ///
+    /// - Returns: True when the paper used the key.
+    func handle(_ key: PaperKey, in eventWindow: NSWindow?) -> Bool {
+        guard let window, PaperKey.focusedWindow === window, eventWindow == nil || eventWindow === window,
+              !PaperKey.editsText(window) else { return false }
+        switch key {
+        case .number(let number):
+            paper.numberKey(number)
+        case .previousScope:
+            paper.cycleScope(-1)
+        case .nextScope:
+            paper.cycleScope(1)
+        case .letter("t"):
+            paper.tidy()
+        case .left where !paper.showsIndex:
+            guard paper.state.tab.hasIndex else { return false }
+            paper.showIndex()
+        case .up where paper.showsIndex:
+            paper.moveIndexCursor(-1)
+        case .down where paper.showsIndex:
+            paper.moveIndexCursor(1)
+        case .enter where paper.showsIndex, .right where paper.showsIndex:
+            paper.pickIndexCursor()
+        case .up, .down, .enter:
+            guard !paper.state.scope.showsCaptures, let keys = paper.listKeys else { return false }
+            if key == .enter { keys.open() } else { keys.move(key == .down ? 1 : -1) }
+        case .letter(let character):
+            guard !paper.showsIndex, let keys = paper.listKeys else { return false }
+            return keys.letter(character)
+        default:
+            return false
+        }
+        return true
     }
 
     // MARK: - Private

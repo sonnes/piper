@@ -19,6 +19,7 @@ final class PaperDesk {
     private var readers: [ReaderPaperController] = []
     /// The number of papers that opened, which picks the tilt of the next paper.
     private var opened = 0
+    private lazy var hints = HintStrip(paper: paper)
 
     // MARK: - Initialization
 
@@ -26,6 +27,7 @@ final class PaperDesk {
         self.model = model
         paper = FeedPaperModel(model: model, defaults: defaults)
         paper.open = { [weak self] item in self?.open(item) }
+        paper.tidy = { [weak self] in self?.tidy() }
     }
 
     // MARK: - API
@@ -40,7 +42,10 @@ final class PaperDesk {
 
     /// Shows the feed paper, with the reader papers that are open.
     func show() {
-        if feed == nil { feed = FeedPaperController(model: model, paper: paper) }
+        if feed == nil {
+            feed = FeedPaperController(model: model, paper: paper)
+            feed?.focusChanged = { [weak self] in self?.updateHints() }
+        }
         for reader in readers { reader.window?.orderFront(nil) }
         feed?.show()
     }
@@ -49,6 +54,7 @@ final class PaperDesk {
     func hide() {
         feed?.hide()
         for reader in readers { reader.window?.orderOut(nil) }
+        updateHints()
     }
 
     /// Opens an item as a reader paper, or brings its open paper to the front.
@@ -71,6 +77,13 @@ final class PaperDesk {
         let reader = ReaderPaperController(item: item, model: model, frame: frame, tilt: tilts[opened % tilts.count])
         opened += 1
         reader.delegate = self
+        reader.tidy = { [weak self] in self?.tidy() }
+        reader.focusChanged = { [weak self] reader, focused in
+            guard let self else { return }
+            if focused { paper.marks.focusedPaper = reader.item }
+            else if paper.marks.focusedPaper == reader.item { paper.marks.focusedPaper = nil }
+            updateHints()
+        }
         readers.append(reader)
         paper.marks.open.insert(item)
         reader.focus()
@@ -128,7 +141,7 @@ final class PaperDesk {
 
     /// Closes the reader paper with the keyboard focus. Returns false when no reader paper has it.
     @discardableResult func closeFocused() -> Bool {
-        guard let reader = readers.first(where: { $0.window?.isKeyWindow == true }) else { return false }
+        guard let reader = readers.first(where: { $0.window === PaperKey.focusedWindow }) else { return false }
         reader.window?.performClose(nil)
         return true
     }
@@ -138,7 +151,7 @@ final class PaperDesk {
     func cycle() {
         let windows = ([feed?.window] + readers.map(\.window)).compactMap { $0 }.filter(\.isVisible)
         guard !windows.isEmpty else { return show() }
-        let current = windows.firstIndex { $0.isKeyWindow } ?? -1
+        let current = windows.firstIndex { $0 === PaperKey.focusedWindow } ?? -1
         windows[(current + 1) % windows.count].makeKeyAndOrderFront(nil)
         QA.activate()
     }
@@ -197,6 +210,16 @@ final class PaperDesk {
         }
     }
 
+    /// Shows the strip of keys while a paper has the focus. A paper that
+    /// loses the focus to another paper hands it over at once, so the strip
+    /// waits for the next turn of the run loop.
+    private func updateHints() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            hints.update(on: (PaperKey.focusedWindow ?? feed?.window)?.screen)
+        }
+    }
+
     /// The frame of the paper of the feed paper, without its column of tabs.
     private var feedPaperFrame: NSRect? {
         guard let window = feed?.window as? PaperWindow, window.isVisible else { return nil }
@@ -236,6 +259,8 @@ extension PaperDesk: ReaderPaperControllerDelegate {
 
     func readerPaperWillClose(_ controller: ReaderPaperController) {
         readers.removeAll { $0 === controller }
+        if paper.marks.focusedPaper == controller.item { paper.marks.focusedPaper = nil }
+        updateHints()
         paper.marks.open.remove(controller.item)
         paper.marks.flash = DeskMarks.Flash(item: controller.item)
         // The editor page stays, so the last edit of the file still saves.

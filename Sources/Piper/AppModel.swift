@@ -40,6 +40,14 @@ final class AppModel {
 
     /// Scrolls the Reader tab of a window by one arrow step. Returns false if
     /// the window shows no Reader tab.
+    /// Sends H or N to the reader page of a window: H highlights the selected
+    /// text, and N highlights it and opens its note.
+    func sendReaderKey(_ key: String, in window: NSWindow) -> Bool {
+        guard let page = readerPages.allObjects.first(where: { $0.window === window }) else { return false }
+        page.evaluateJavaScript("window.piperKey && window.piperKey('\(key)')")
+        return true
+    }
+
     func scrollReader(down: Bool, in window: NSWindow) -> Bool {
         guard let page = readerPages.allObjects.first(where: { $0.window === window }) else { return false }
         let step = AppDefaults.ArticleReader.arrowScrollStep * (down ? 1 : -1)

@@ -74,14 +74,13 @@ struct FeedPaperIndex: View {
 
     @ViewBuilder private var inbox: some View {
         let open = store.notes.filter { $0.parent == nil && !$0.isDone }
-        IndexRow(title: "All Sections", icon: .glyph("inbox", PiperTheme.inboxNS), count: open.count,
-                 current: scope == .inbox(section: nil)) { paper.pick(.inbox(section: nil)) }
+        row(.scope(.inbox(section: nil)), title: "All Sections", count: open.count)
+        IndexHeader(title: "Show")
+        row(.inboxFilter(.notes), title: "Notes", count: open.filter { !$0.isArticle }.count)
+        row(.inboxFilter(.reading), title: "Reading", count: open.filter(\.isArticle).count)
         IndexHeader(title: "Sections")
         ForEach(store.sections, id: \.self) { section in
-            IndexRow(title: section, icon: section == RowIcon.inboxSection ? .glyph("inbox", PiperTheme.inboxNS)
-                        : .dot(RowIcon.sectionColor(section, in: store.sections)),
-                     count: open.filter { $0.section == section }.count,
-                     current: scope == .inbox(section: section)) { paper.pick(.inbox(section: section)) }
+            row(.scope(.inbox(section: section)), title: section, count: open.filter { $0.section == section }.count)
                 .contextMenu {
                     Button("Edit Section…") {
                         sectionName = section
@@ -91,28 +90,29 @@ struct FeedPaperIndex: View {
                 }
         }
         IndexHeader(title: "Finished")
-        IndexRow(title: "Done", icon: .glyph("archived", PiperTheme.archivedNS), count: 0,
-                 current: scope == .done) { paper.pick(.done) }
+        row(.scope(.done), title: "Done", count: 0)
         IndexAction(title: "New Section…") { namingSection = true }
+    }
+
+    /// A row that the keyboard can pick. It is current while the list shows its scope.
+    private func row(_ entry: IndexEntry, title: String, leading: AnyView? = nil, count: Int,
+                     current: Bool? = nil) -> IndexRow {
+        IndexRow(title: title, leading: leading, count: count, current: current ?? (paper.currentEntry == entry),
+                 cursor: paper.indexCursor == entry) { paper.pick(entry) }
     }
 
     // MARK: - Feeds
 
     @ViewBuilder private var feedRows: some View {
         let waiting = feeds.suggestions.filter { !$0.ignored && $0.feedURL != nil && feeds.feed($0.feedURL!) == nil }.count
-        IndexRow(title: "Discover", icon: .glyph("compass", PiperTheme.feedsNS), count: waiting,
-                 current: scope == .feed(.discover)) { paper.pick(.feed(.discover)) }
-        IndexRow(title: "All Unread", icon: .glyph("rss", PiperTheme.feedsNS), count: feeds.totalUnread,
-                 current: scope == .feed(.allUnread)) { paper.pick(.feed(.allUnread)) }
+        row(.scope(.feed(.discover)), title: "Discover", count: waiting)
+        row(.scope(.feed(.allUnread)), title: "All Unread", count: feeds.totalUnread)
             .contextMenu { Button("Mark All as Read") { feeds.markAllRead(.allUnread) } }
-        IndexRow(title: "Starred", icon: .glyph("star", PiperTheme.starNS), count: feeds.starredCount,
-                 current: scope == .feed(.starred)) { paper.pick(.feed(.starred)) }
+        row(.scope(.feed(.starred)), title: "Starred", count: feeds.starredCount)
         if !feeds.feeds.isEmpty { IndexHeader(title: "Feeds") }
         ForEach(Array(feeds.feeds.enumerated()), id: \.element.id) { index, feed in
-            IndexRow(title: feed.title,
-                     leading: AnyView(feedIcon(feed, index: index)),
-                     count: feeds.unreadCounts[feed.id] ?? 0,
-                     current: scope == .feed(.feed(feed.id))) { paper.pick(.feed(.feed(feed.id))) }
+            row(.scope(.feed(.feed(feed.id))), title: feed.title, leading: AnyView(feedIcon(feed, index: index)),
+                count: feeds.unreadCounts[feed.id] ?? 0)
                 .help(feed.error ?? feed.title)
                 .contextMenu {
                     Button("Mark All as Read") { feeds.markAllRead(.feed(feed.id)) }
@@ -143,27 +143,24 @@ struct FeedPaperIndex: View {
     @ViewBuilder private var folderRows: some View {
         let overflow = paper.column.overflow
         if !overflow.isEmpty {
-            IndexHeader(title: "Pinned")
+            IndexHeader(title: "Pinned, With No Tab")
             ForEach(overflow, id: \.self) { path in
-                IndexRow(title: URL(fileURLWithPath: path).lastPathComponent,
-                         icon: .glyph("folder", PiperTheme.folderNS), count: 0,
-                         current: false) { paper.pickPinned(path) }
+                row(.pinned(path), title: URL(fileURLWithPath: path).lastPathComponent,
+                    leading: AnyView(FolderMark()), count: 0)
                     .contextMenu { folderMenu(path, root: nil) }
             }
             IndexHeader(title: "Folders")
         }
-        ForEach(Array(model.wikiPaths.enumerated()), id: \.element) { index, root in
+        ForEach(model.wikiPaths, id: \.self) { root in
             let name = URL(fileURLWithPath: root).lastPathComponent
             if root == model.wikiPath {
-                IndexRow(title: name, icon: RowIcon.folderIcon(name, at: index), count: 0,
-                         current: paper.state.tab == .folders && scope == .folder("")) { paper.pick(.folder("")) }
+                row(.scope(.folder("")), title: name, leading: AnyView(FolderMark()), count: 0,
+                    current: paper.state.tab == .folders && scope == .folder(""))
                     .contextMenu { folderMenu(model.vault.root.path, root: root) }
                 tree
             } else {
-                IndexRow(title: name, icon: RowIcon.folderIcon(name, at: index), count: 0, current: false) {
-                    model.changeWiki(to: URL(fileURLWithPath: root))
-                }
-                .contextMenu { folderMenu(root, root: root) }
+                row(.root(root), title: name, leading: AnyView(FolderMark()), count: 0)
+                    .contextMenu { folderMenu(root, root: root) }
             }
         }
         IndexAction(title: "Add Folder…") { model.chooseWiki() }
@@ -182,14 +179,16 @@ struct FeedPaperIndex: View {
         let rows = FolderIndex.rows(paths: model.files.map(\.relativePath), folders: model.folders, expanded: expanded)
         ForEach(rows) { row in
             if row.isFolder {
-                IndexRow(title: row.name, icon: .glyph("folder", PiperTheme.folderNS), count: 0,
+                IndexRow(title: row.name, leading: AnyView(FolderMark()), count: 0,
                          depth: row.depth, disclosure: row.hasChildren ? row.expanded : nil,
                          current: paper.state.tab == .folders && scope == .folder(row.path),
+                         cursor: paper.indexCursor == .scope(.folder(row.path)),
                          toggle: { toggle(row.path) }) { paper.pick(.folder(row.path)) }
                     .contextMenu { folderMenu(model.vault.root.appendingPathComponent(row.path).path, root: nil) }
             } else {
-                IndexRow(title: row.name, icon: .glyph(RowIcon.fileIcon(row.name), PiperTheme.fileNS), count: 0,
-                         depth: row.depth, weight: .regular, current: false) {
+                IndexRow(title: row.name, leading: AnyView(SheetMark()), count: 0,
+                         depth: row.depth, weight: .regular, current: false,
+                         cursor: paper.indexCursor == .file(row.path)) {
                     model.openDocument(row.path)
                     paper.open(.file)
                 }
@@ -220,9 +219,9 @@ struct FeedPaperIndex: View {
     @ViewBuilder private var agentRows: some View {
         let runner = model.agents.runner
         ForEach(runner.folders(), id: \.self) { folder in
-            IndexRow(title: URL(fileURLWithPath: folder).lastPathComponent, icon: .tile("claude", PiperTheme.claudeNS),
-                     count: runner.sessions(in: folder).filter { $0.state == .needsYou }.count,
-                     current: scope == .sessions(folder)) { paper.pick(.sessions(folder)) }
+            row(.scope(.sessions(folder)), title: URL(fileURLWithPath: folder).lastPathComponent,
+                leading: AnyView(FolderMark()),
+                count: runner.sessions(in: folder).filter { $0.state == .needsYou }.count)
                 .help(folder)
         }
     }
@@ -238,8 +237,7 @@ struct IndexHeader: View {
         Text(title)
             .font(PiperTheme.paperUI(.body, weight: .medium))
             .foregroundStyle(PiperTheme.paperFaint)
-            .padding(.horizontal, AppDefaults.Papers.rowPadding)
-            .padding(.top, 14).padding(.bottom, 4)
+            .padding(AppDefaults.Papers.indexHeaderPadding)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -272,15 +270,19 @@ struct IndexRow: View {
     var disclosure: Bool?
     var weight: NSFont.Weight = .medium
     let current: Bool
+    /// True for the row that Return picks.
+    var cursor = false
     var toggle: () -> Void = {}
     let action: () -> Void
 
+    @Environment(DeskMarks.self) private var marks: DeskMarks?
     @State private var hovered = false
     private typealias Metrics = AppDefaults.Papers
 
     init(title: String, leading: AnyView? = nil, icon: RowIcon? = nil, count: Int, depth: Int = 0,
-         disclosure: Bool? = nil, weight: NSFont.Weight = .medium, current: Bool,
+         disclosure: Bool? = nil, weight: NSFont.Weight = .medium, current: Bool, cursor: Bool = false,
          toggle: @escaping () -> Void = {}, action: @escaping () -> Void) {
+        self.cursor = cursor
         self.title = title
         self.leading = leading
         self.icon = icon
@@ -313,16 +315,22 @@ struct IndexRow: View {
             Text(title).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
             if count > 0 {
-                Text("\(count)").monospacedDigit().foregroundStyle(current ? PiperTheme.paperInk : PiperTheme.paperFaint)
+                Text("\(count)").monospacedDigit().fontWeight(.regular)
+                    .foregroundStyle(current ? PiperTheme.markInk : PiperTheme.paperFaint)
             }
         }
         .font(PiperTheme.paperUI(.row, weight: weight))
-        .foregroundStyle(PiperTheme.paperInk)
+        .foregroundStyle(current ? PiperTheme.markInk : PiperTheme.paperInk)
         .padding(.leading, Metrics.rowPadding + CGFloat(max(0, depth - 1)) * Metrics.indent)
         .padding(.trailing, Metrics.rowPadding)
         .frame(minHeight: Metrics.rowHeight)
-        .background(current ? PiperTheme.currentRow : hovered ? PiperTheme.paperTint : .clear,
-                    in: RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
+        .background(background, in: RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
+        .overlay(alignment: .leading) {
+            if keyed {
+                Rectangle().fill(PiperTheme.brand).frame(width: Metrics.selectionBarWidth)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .onHover { hovered = $0 }
@@ -336,6 +344,35 @@ struct IndexRow: View {
                 Button(disclosure == true ? "Close \(title)" : "Open \(title)", action: toggle)
             }
         }
+    }
+}
+
+extension IndexRow {
+    /// True when the row shows the keyboard cursor: the cursor is on the row and the feed paper has the focus.
+    fileprivate var keyed: Bool { cursor && marks?.feedFocused == true }
+
+    fileprivate var background: Color {
+        if current { return PiperTheme.currentRow }
+        if keyed || hovered { return PiperTheme.paperTint }
+        return .clear
+    }
+}
+
+/// The folder of a row of an index: a folder outline in the color of the faint text.
+struct FolderMark: View {
+    var body: some View {
+        let metrics = AppDefaults.Papers.self
+        RoundedRectangle(cornerRadius: 2)
+            .strokeBorder(PiperTheme.paperFaint, lineWidth: metrics.markLine)
+            .frame(width: metrics.folderMark.width, height: metrics.folderMark.height)
+            .overlay(alignment: .topLeading) {
+                UnevenRoundedRectangle(topLeadingRadius: 2, topTrailingRadius: 2)
+                    .stroke(PiperTheme.paperFaint, lineWidth: metrics.markLine)
+                    .frame(width: 7, height: 3)
+                    .offset(x: 0, y: -3)
+            }
+            .padding(.top, 3)
+            .accessibilityHidden(true)
     }
 }
 

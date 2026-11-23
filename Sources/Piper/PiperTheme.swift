@@ -166,6 +166,8 @@ enum PiperTheme {
     static let brandNS = color(light: 0x4F46E5, dark: 0x818CF8)
     /// Indigo 100 and 900. The current row of an index.
     static let currentRowNS = color(light: 0xE0E7FF, dark: 0x312E81)
+    /// Zinc 900 and white. The text of the current row of an index, and of a highlight.
+    static let markInkNS = color(light: 0x18181B, dark: 0xFFFFFF)
     /// Indigo 500. A tab on the edge of the feed paper.
     static let tabNS = hex(0x6366F1)
     /// Indigo 600. The active tab.
@@ -196,6 +198,7 @@ enum PiperTheme {
     static let paperTint = Color(nsColor: paperTintNS)
     static let brand = Color(nsColor: brandNS)
     static let currentRow = Color(nsColor: currentRowNS)
+    static let markInk = Color(nsColor: markInkNS)
     static let tab = Color(nsColor: tabNS)
     static let tabActive = Color(nsColor: tabActiveNS)
     static let pinTab = Color(nsColor: pinTabNS)

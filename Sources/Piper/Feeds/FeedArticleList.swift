@@ -15,8 +15,11 @@ struct FeedArticleList: View {
     /// Opens an article as a reader paper, after a click, Return, or Space.
     var openPaper: (Article) -> Void = { _ in }
 
+    /// Sets the keys of the list on the feed paper.
+    var setKeys: (FeedPaperModel.ListKeys?) -> Void = { _ in }
+
     @State private var articles: [Article] = []
-    @FocusState private var focused: Bool
+    @State private var scrollTarget: String?
 
     private var feeds: FeedStore { model.feeds }
     private var selected: Article? { articles.first { $0.id == selectedID } }
@@ -24,63 +27,65 @@ struct FeedArticleList: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Rule()
             if articles.isEmpty {
-                EmptyPane(title: emptyTitle, detail: emptyDetail)
+                PaperEmpty(title: emptyTitle, detail: emptyDetail)
             } else {
                 ScrollViewReader { proxy in
-                    List(selection: Binding(get: { selectedID }, set: { id in
-                        let article = articles.first { $0.id == id }
-                        open(article)
-                        if let article, Self.isClick(NSApp.currentEvent) { openPaper(article) }
-                    })) {
-                        ForEach(articles) { article in
-                            FeedArticleRow(article: article, feed: feeds.feed(article.feedID),
-                                           showsFeed: !isOneFeed, favicons: model.favicons,
-                                           index: feeds.feeds.firstIndex { $0.id == article.feedID } ?? 0)
-                                .tag(article.id)
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(articles) { article in
+                                FeedArticleRow(article: article, feed: feeds.feed(article.feedID),
+                                               showsFeed: !isOneFeed, selected: article.id == selectedID) {
+                                    open(article)
+                                    openPaper(article)
+                                }
+                                .id(article.id)
                                 .contextMenu { menu(for: article) }
-                                // A press, as from VoiceOver, opens the article as a click does.
-                                .accessibilityAction(.default) { openPaper(article) }
+                            }
                         }
+                        .padding(AppDefaults.Papers.listPadding)
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .focused($focused)
-                    .onKeyPress(phases: .down) { press in handle(press, proxy: proxy) }
+                    .onChange(of: scrollTarget) { _, id in
+                        guard let id else { return }
+                        proxy.scrollTo(id)
+                    }
                 }
             }
         }
-        .background(PiperTheme.page)
-        .onAppear { reload(keeping: false) }
+        .onAppear {
+            reload(keeping: false)
+            setKeys(keys)
+        }
         .onChange(of: filter) { _, _ in reload(keeping: false) }
         .onChange(of: feeds.revision) { _, _ in reload(keeping: true) }
+        .onChange(of: articles.map(\.id)) { _, _ in setKeys(keys) }
+        .onChange(of: selectedID) { _, _ in setKeys(keys) }
     }
 
     // MARK: - Parts
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 14) {
             if let error = oneFeed?.error {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(PiperTheme.warning)
                     .help(error)
             }
             Spacer(minLength: 8)
             if feeds.fetching.isEmpty {
-                Button { feeds.refreshAll() } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(.plain).foregroundStyle(PiperTheme.secondary)
+                Button("Refresh") { feeds.refreshAll() }
+                    .buttonStyle(.plain).foregroundStyle(PiperTheme.paperMuted)
                     .help("Refresh All Feeds")
             } else {
                 ProgressView().controlSize(.small)
             }
             Button("Mark All as Read") { feeds.markAllRead(filter) }
-                .buttonStyle(.text)
+                .buttonStyle(.plain).foregroundStyle(PiperTheme.brand)
                 .disabled(!articles.contains { !$0.read })
                 .keyboardShortcut("k", modifiers: .command)
         }
-        .font(PiperTheme.ui(.secondary))
-        .padding(.horizontal, 12)
-        .frame(height: AppDefaults.Feeds.headerHeight)
+        .font(PiperTheme.paperUI(.body, weight: .medium))
+        .padding(.horizontal, AppDefaults.Papers.footMargin)
+        .padding(.top, 8)
     }
 
     @ViewBuilder
@@ -145,100 +150,92 @@ struct FeedArticleList: View {
         if let article, !article.read { feeds.setRead(true, [article]) }
     }
 
-    private func keep(_ article: Article) {
+    private func keep(_ article: Article) { model.keep(article) }
+
+    private func openInBrowser(_ article: Article) { model.openInBrowser(article) }
+
+    /// The keys of the list: the arrows move the selection, Return opens the
+    /// article as a paper, Space opens the next unread article, and the
+    /// letters act on the selected article.
+    private var keys: FeedPaperModel.ListKeys {
+        FeedPaperModel.ListKeys(
+            move: { delta in
+                let current = articles.firstIndex { $0.id == selectedID }
+                let next = max(0, min(articles.count - 1, (current ?? (delta > 0 ? -1 : articles.count)) + delta))
+                guard articles.indices.contains(next) else { return }
+                open(articles[next])
+                scrollTarget = articles[next].id
+            },
+            open: {
+                if let selected { openPaper(selected) }
+            },
+            letter: { key in
+                if key == " " {
+                    let start = articles.firstIndex { $0.id == selectedID }.map { $0 + 1 } ?? 0
+                    guard start <= articles.count, let next = articles[start...].first(where: { !$0.read }) else { return true }
+                    open(next)
+                    openPaper(next)
+                    scrollTarget = next.id
+                    return true
+                }
+                guard let selected else { return false }
+                return model.articleKey(key, on: selected)
+            })
+    }
+}
+
+/// One article in the list: the unread dot, the title in serif, and the feed.
+private struct FeedArticleRow: View {
+    let article: Article
+    let feed: Feed?
+    let showsFeed: Bool
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        PaperRow(item: .article(article.id), selected: selected, time: RowTime.text(article.date), action: action) {
+            UnreadDot(unread: !article.read)
+        } content: {
+            VStack(alignment: .leading, spacing: 0) {
+                PaperRowTitle(text: Text(article.title), read: true, bold: !article.read)
+                PaperRowMeta {
+                    if article.starred {
+                        Text("★").foregroundStyle(PiperTheme.star).accessibilityLabel("Starred")
+                    }
+                    Text(showsFeed ? feed?.title ?? "" : feed?.host ?? "")
+                }
+            }
+        }
+    }
+}
+
+extension AppModel {
+    /// Saves an article to Inbox as a link capture, and marks it as read.
+    func keep(_ article: Article) {
         guard let url = URL(string: article.url) else { return }
-        model.store.saveArticle(url, title: article.title, source: feeds.feed(article.feedID)?.title)
+        store.saveArticle(url, title: article.title, source: feeds.feed(article.feedID)?.title)
         feeds.setRead(true, [article])
     }
 
-    private func openInBrowser(_ article: Article) {
+    func openInBrowser(_ article: Article) {
         guard let url = URL(string: article.url) else { return }
         NSWorkspace.shared.open(url)
         feeds.setRead(true, [article])
     }
 
-    /// True when a mouse click changed the selection. The arrow keys move the
-    /// selection without a new paper.
-    static func isClick(_ event: NSEvent?) -> Bool {
-        guard let type = event?.type else { return false }
-        return [.leftMouseDown, .leftMouseUp].contains(type)
-    }
-
-    private func handle(_ press: KeyPress, proxy: ScrollViewProxy) -> KeyPress.Result {
-        guard press.modifiers.isEmpty || press.modifiers == .shift else { return .ignored }
-        if press.key == .return, press.modifiers.isEmpty, let selected {
-            openPaper(selected)
-            return .handled
+    /// The letter keys of an article, on its row or on its paper: R marks it
+    /// as read or unread, S stars it, I keeps it in Inbox, and B opens it in
+    /// the browser.
+    ///
+    /// - Returns: True when the key is one of these.
+    func articleKey(_ key: Character, on article: Article) -> Bool {
+        switch key {
+        case "r": feeds.setRead(!article.read, [article])
+        case "s": feeds.setStarred(!article.starred, article)
+        case "i": keep(article)
+        case "b": openInBrowser(article)
+        default: return false
         }
-        switch press.characters.lowercased() {
-        case " ":
-            let start = articles.firstIndex { $0.id == selectedID }.map { $0 + 1 } ?? 0
-            guard let next = articles[start...].first(where: { !$0.read }) else { return .handled }
-            open(next)
-            openPaper(next)
-            proxy.scrollTo(next.id)
-        case "r":
-            guard let selected else { return .ignored }
-            feeds.setRead(!selected.read, [selected])
-        case "s":
-            guard let selected else { return .ignored }
-            feeds.setStarred(!selected.starred, selected)
-        case "b":
-            guard let selected else { return .ignored }
-            openInBrowser(selected)
-        case "i":
-            guard let selected else { return .ignored }
-            keep(selected)
-        default:
-            return .ignored
-        }
-        return .handled
-    }
-}
-
-/// One article in the list: the feed and the time, the title, and the start of the summary.
-private struct FeedArticleRow: View {
-    let article: Article
-    let feed: Feed?
-    let showsFeed: Bool
-    let favicons: FaviconStore
-    /// The place of the feed on the Feeds index, for the color of its letter tile.
-    let index: Int
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Circle()
-                .fill(article.read ? Color.clear : PiperTheme.accent)
-                .frame(width: AppDefaults.Feeds.unreadDot, height: AppDefaults.Feeds.unreadDot)
-                .padding(.top, 5)
-                .accessibilityLabel(article.read ? "" : "Unread")
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    if showsFeed, let feed {
-                        SiteIcon(favicons: favicons, host: feed.host, title: feed.title, index: index,
-                                 side: AppDefaults.Feeds.articleIconSize)
-                        Text(feed.title).lineLimit(1)
-                    }
-                    Text(RowTime.text(article.date)).monospacedDigit()
-                    if article.starred {
-                        Image(systemName: "star.fill").foregroundStyle(PiperTheme.star)
-                            .accessibilityLabel("Starred")
-                    }
-                }
-                .font(PiperTheme.ui(.caption))
-                .foregroundStyle(PiperTheme.secondary)
-                Text(article.title)
-                    .font(PiperTheme.ui(.body, weight: article.read ? .regular : .semibold))
-                    .foregroundStyle(article.read ? PiperTheme.secondary : PiperTheme.ink)
-                    .lineLimit(2)
-                if !article.summary.isEmpty {
-                    Text(article.summary)
-                        .font(PiperTheme.ui(.secondary))
-                        .foregroundStyle(PiperTheme.secondary)
-                        .lineLimit(2)
-                }
-            }
-        }
-        .padding(.vertical, 4)
+        return true
     }
 }
