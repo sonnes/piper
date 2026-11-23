@@ -15,6 +15,8 @@ read_when:
 | Control-Option-Space | Capture the selection, if you choose it in Settings > Capture |
 | Control-Option-W | Save the clipboard to Inbox and open a draft for the default folder, while a folder has Claude skills |
 | Command-1 | Show the feed paper on Today, with the cursor in the capture field |
+| Command-2 | Show the feed paper on Feeds, with Sources |
+| Shift-Command-N | Add a feed: show Sources with the cursor in its address field |
 | Command-0 | Show the feed paper and the open reader papers |
 | Command-comma | Open Settings |
 | Command-Q | Quit Piper |
@@ -76,7 +78,7 @@ In the File list, Up Arrow and Down Arrow choose a place, Return files the rows,
 | Command-` | Move the focus to the next paper |
 | T | Put each reader paper back in its place of the cascade |
 | Command-1 to Command-9 | On the feed paper, show the tab with that number, in the order of the column. The number of the active tab shows its first scope, then opens its index. |
-| Left Arrow | On the feed paper, open the index of Today or Agents |
+| Left Arrow | On the feed paper, open the index of Today, Feeds, or Agents |
 | Up Arrow / Down Arrow | On the index, move the cursor. In the folder tree, move the cursor through the rows that show. In a list of sessions, select the previous or next row. |
 | Return / Right Arrow | On the index, show the scope at the cursor. Return in a list of sessions opens the row on a paper. |
 | Right Arrow | In the folder tree, open a closed folder. On an open folder, move to its first row. |

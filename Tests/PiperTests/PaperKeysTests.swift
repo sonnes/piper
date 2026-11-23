@@ -7,16 +7,25 @@ import XCTest
 final class PaperKeysTests: XCTestCase {
 
     private func entries(_ tab: PaperTab) -> [IndexEntry] {
-        IndexEntry.entries(tab: tab, sections: ["Inbox", "Work"], sessionFolders: ["/notes", "/talks"])
+        IndexEntry.entries(tab: tab, sections: ["Inbox", "Work"], feeds: ["https://a.example/feed", "https://b.example/feed"],
+                           sessionFolders: ["/notes", "/talks"])
     }
 
     // MARK: - Index
 
-    func testTheTodayIndexListsTheLensesTheSectionsDoneAndSources() {
+    func testTheTodayIndexListsTheLensesTheSectionsAndDone() {
         XCTAssertEqual(entries(.today), [
             .lens(.all), .lens(.notes), .lens(.reading), .lens(.kept),
-            .scope(.today(section: "Inbox")), .scope(.today(section: "Work")), .scope(.done), .scope(.sources)
+            .scope(.today(section: "Inbox")), .scope(.today(section: "Work")), .scope(.done)
         ])
+    }
+
+    func testTheFeedsIndexListsSourcesThenEachFeed() {
+        XCTAssertEqual(entries(.feeds), [
+            .scope(.sources), .scope(.feed("https://a.example/feed")), .scope(.feed("https://b.example/feed"))
+        ])
+        XCTAssertTrue(PaperTab.feeds.hasIndex)
+        XCTAssertEqual(PaperTab.feeds.title, "Feeds")
     }
 
     func testAFolderTabHasNoIndex() {
@@ -44,12 +53,28 @@ final class PaperKeysTests: XCTestCase {
     func testTheBracketKeysGoRoundTheRowsOfTheIndex() {
         let rows = entries(.today)
         XCTAssertEqual(IndexEntry.cycle(.lens(.kept), by: 1, in: rows), .scope(.today(section: "Inbox")))
-        XCTAssertEqual(IndexEntry.cycle(.lens(.all), by: -1, in: rows), .scope(.sources))
+        XCTAssertEqual(IndexEntry.cycle(.lens(.all), by: -1, in: rows), .scope(.done))
         XCTAssertEqual(IndexEntry.cycle(.scope(.sessions("/notes")), by: 1, in: entries(.agents)), .scope(.sessions("/talks")))
         XCTAssertNil(IndexEntry.cycle(.scope(.folder), by: 1, in: entries(.folder("/notes/Talks"))))
     }
 
     // MARK: - Number Keys
+
+    /// Today is Command-1 and Feeds is Command-2, so each folder tab comes after them.
+    func testFeedsIsTheSecondTabAndTheFolderNumbersFollowIt() {
+        let tabs = PaperTab.column(folders: ["/notes", "/talks"], showsAgents: false)
+        XCTAssertEqual(tabs, [.today, .feeds, .folder("/notes"), .folder("/talks")])
+        XCTAssertEqual(PaperTab.number(of: .today, in: tabs), 1)
+        XCTAssertEqual(PaperTab.number(of: .feeds, in: tabs), 2)
+        XCTAssertEqual(PaperTab.number(of: .folder("/notes"), in: tabs), 3)
+        XCTAssertNil(PaperTab.number(of: .agents, in: tabs))
+        XCTAssertEqual(NumberKey.action(2, tabs: tabs, active: .today, showsIndex: false, atDefaultScope: true), .showTab(.feeds))
+        XCTAssertEqual(NumberKey.action(3, tabs: tabs, active: .today, showsIndex: false, atDefaultScope: true), .showTab(.folder("/notes")))
+        let withAgents = PaperTab.column(folders: ["/notes"], showsAgents: true)
+        XCTAssertEqual(withAgents, [.today, .feeds, .agents, .folder("/notes")])
+        XCTAssertEqual(PaperTab.number(of: .feeds, in: withAgents), 2)
+        XCTAssertEqual(PaperTab.number(of: .folder("/notes"), in: withAgents), 4)
+    }
 
     func testCommandAndTheNumberOfTheActiveTabTogglesItsIndexAtItsDefaultScope() {
         let tabs: [PaperTab] = [.today, .agents, .folder("/notes")]

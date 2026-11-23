@@ -7,7 +7,7 @@ import Stream
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Sources: the only place for feeds.
+/// Sources: the place to add and manage feeds, on the Feeds tab.
 ///
 /// It has a field that adds a feed from the address of a site or a feed, the
 /// feeds with how often each one posts and how much of it the reader keeps,
@@ -64,6 +64,11 @@ struct SourcesView: View {
             take(paper.sourcesAddress)
         }
         .onChange(of: paper.sourcesAddress) { _, address in take(address) }
+        .onChange(of: paper.addressRequest, initial: true) { _, request in
+            guard request != nil else { return }
+            paper.addressRequest = nil
+            DispatchQueue.main.async { addressFocused = true }
+        }
         .onDisappear { search?.cancel() }
     }
 

@@ -76,6 +76,8 @@ final class FeedPaperModel {
     let today: TodayModel
     /// The address that Sources looks up when it opens, after a paste of a feed or site address.
     var sourcesAddress: String?
+    /// A new value puts the cursor in the address field of Sources.
+    var addressRequest: UUID?
     /// The selected article of the list of a feed.
     var selectedArticle: String?
     /// The row under the cursor of the folder tree, by its absolute path, for each folder tab.
@@ -160,11 +162,13 @@ final class FeedPaperModel {
         showsIndex = tab.hasIndex
     }
 
-    /// A pick on the index: the paper shows the list of the scope.
+    /// A pick on the index: the paper shows the list of the scope. A capture
+    /// scope shows on Today, and a feed scope shows on Feeds.
     func pick(_ scope: PaperScope) {
         switch scope {
-        case .feed, .sources: if !state.tab.isFolder { state.tab = .today }
-        default: break
+        case .today, .done: state.tab = .today
+        case .feed, .sources: state.tab = .feeds
+        case .folder, .sessions: break
         }
         setScope(scope)
         showsIndex = false
@@ -178,10 +182,17 @@ final class FeedPaperModel {
         showsIndex = false
     }
 
-    /// Shows Sources. An address, from a paste of a feed or site address, goes in its add field.
+    /// Shows Sources on the Feeds tab. An address, from a paste of a feed or
+    /// site address, goes in its add field.
     func showSources(address: String? = nil) {
         sourcesAddress = address
         pick(.sources)
+    }
+
+    /// Shows Sources with the cursor in its address field, for Add Feed.
+    func addFeed() {
+        showSources()
+        addressRequest = UUID()
     }
 
     // MARK: - Keyboard
@@ -196,7 +207,8 @@ final class FeedPaperModel {
 
     /// The rows of the index of the active tab that the keyboard can pick.
     var indexEntries: [IndexEntry] {
-        IndexEntry.entries(tab: state.tab, sections: model.store.sections, sessionFolders: model.agents.runner.folders())
+        IndexEntry.entries(tab: state.tab, sections: model.store.sections, feeds: model.feeds.feeds.map(\.id),
+                           sessionFolders: model.agents.runner.folders())
     }
 
     /// The row of the index for the list that shows.

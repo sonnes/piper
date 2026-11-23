@@ -18,23 +18,26 @@ enum TabColor: String, Codable, CaseIterable, Identifiable {
 
 /// One tab on the left edge of the feed paper.
 ///
-/// Today comes first, then Agents. Each folder of the folder list follows
+/// Today comes first, then Feeds and Agents. Each folder of the folder list follows
 /// them, in the order that the reader added the folders. Each tab has its own color.
 enum PaperTab: Codable, Hashable {
     /// The stream of notes, links, and feed articles.
     case today
+    /// The feeds: Sources, where the reader adds a feed, and the articles of each feed.
+    case feeds
     /// The folders that have agent sessions. The tab shows only while a session exists.
     case agents
     /// A folder of the folder list, by its path in the list.
     case folder(String)
 
     /// The fixed tabs, in the order of the column.
-    static let fixed: [PaperTab] = [.today, .agents]
+    static let fixed: [PaperTab] = [.today, .feeds, .agents]
 
     /// The name on the tab.
     var title: String {
         switch self {
         case .today: return "Today"
+        case .feeds: return "Feeds"
         case .agents: return "Agents"
         case .folder(let path): return URL(fileURLWithPath: path).lastPathComponent
         }
@@ -44,7 +47,7 @@ enum PaperTab: Codable, Hashable {
     var hasIndex: Bool {
         switch self {
         case .folder: return false
-        case .today, .agents: return true
+        case .today, .feeds, .agents: return true
         }
     }
 
@@ -58,6 +61,7 @@ enum PaperTab: Codable, Hashable {
     func color(folders: [String: TabColor]) -> TabColor {
         switch self {
         case .today: return .indigo
+        case .feeds: return .sky
         case .agents: return .plum
         case .folder(let path): return folders[path] ?? .teal
         }
@@ -67,6 +71,11 @@ enum PaperTab: Codable, Hashable {
     /// Agents shows only while a session exists.
     static func column(folders: [String], showsAgents: Bool) -> [PaperTab] {
         fixed.filter { $0 != .agents || showsAgents } + folders.map(PaperTab.folder)
+    }
+
+    /// The number of the tab in a column, from 1, for Command and a number key.
+    static func number(of tab: PaperTab, in column: [PaperTab]) -> Int? {
+        column.firstIndex(of: tab).map { $0 + 1 }
     }
 }
 
@@ -127,6 +136,7 @@ struct PaperDeskState: Codable, Equatable {
     func defaultScope(for tab: PaperTab, root: String, sessionFolders: [String]) -> PaperScope {
         switch tab {
         case .today: return .today(section: nil)
+        case .feeds: return .sources
         case .agents: return .sessions(sessionFolders.first ?? root)
         case .folder: return .folder
         }
@@ -180,11 +190,16 @@ extension PaperDeskState {
     }
 
     /// Reads a saved state. A key that is missing or that this version cannot
-    /// read takes its default, so the rest of the state stays.
+    /// read takes its default, so the rest of the state stays. A feed scope
+    /// shows on the Feeds tab, and the Feeds tab shows only a feed scope.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         tab = (try? container.decodeIfPresent(PaperTab.self, forKey: .tab)) ?? .today
         scope = (try? container.decodeIfPresent(PaperScope.self, forKey: .scope)) ?? .today(section: nil)
+        switch scope {
+        case .feed, .sources: tab = .feeds
+        default: if tab == .feeds { scope = .sources }
+        }
         lens = (try? container.decodeIfPresent(UnifiedStream.Lens.self, forKey: .lens)) ?? .all
         expandedFolders = (try? container.decodeIfPresent([String].self, forKey: .expandedFolders)) ?? []
         folderColors = (try? container.decodeIfPresent([String: TabColor].self, forKey: .folderColors)) ?? [:]

@@ -16,7 +16,7 @@ Piper shows your captures, your feeds, and your folders on papers. A paper is a 
 
 Piper keeps one or more folders. The folder that you work in is the active folder. Any folder works: Piper needs no index, no frontmatter, and no folder names. See [Wiki files](../concepts/files.md) for the scan rules.
 
-To open the feed paper, press Command-0, or select Feed Paper in the menu bar icon. Command-1 opens it on Today.
+To open the feed paper, press Command-0, or select Feed Paper in the menu bar icon. Command-1 opens it on Today. Command-2 opens it on Feeds.
 
 ## Add A Folder
 
@@ -41,7 +41,8 @@ The feed paper has a column of tabs on its left edge. Each tab looks like a file
 
 | Tab | Color | Count | Index |
 | --- | --- | --- | --- |
-| Today | Indigo | The captures that are not done | All, Notes, Reading, Kept, each section, Done, Sources, and New Section. See [Capture notes](capture.md#today). |
+| Today | Indigo | The captures that are not done | All, Notes, Reading, Kept, each section, Done, and New Section. See [Capture notes](capture.md#today). |
+| Feeds | Sky | The unread articles of all feeds | Sources, then each feed with its unread articles. See [Read feeds](feeds.md#browse-your-feeds). |
 | Agents | Plum | The sessions that wait for you | Each folder that has sessions. See [Find a session](claude.md#find-a-session). |
 | A folder | Teal, rose, clay, or emerald | The files in the folder | None. The tab shows the tree of the folder. |
 

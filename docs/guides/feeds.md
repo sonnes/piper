@@ -1,8 +1,9 @@
 ---
 title: "Read Feeds"
-summary: "Subscribe to RSS, Atom, and JSON feeds on Sources, choose how each feed reaches Today, import NetNewsWire subscriptions, and keep articles"
+summary: "Browse your feeds on the Feeds tab, subscribe to RSS, Atom, and JSON feeds on Sources, choose how each feed reaches Today, import NetNewsWire subscriptions, and keep articles"
 read_when:
   - Adding a feed or importing an OPML file
+  - Browsing the articles of one feed
   - Moving from NetNewsWire
   - Choosing how often a feed shows in Today
   - Reading or keeping an article
@@ -15,13 +16,24 @@ read_when:
 
 Piper reads RSS, Atom, RSS-in-JSON, and JSON Feed. The new articles of your feeds show in Today, with your notes and links. See [Capture notes](capture.md#today). Sources is the only place where you add, set, and remove feeds.
 
+## Browse Your Feeds
+
+The Feeds tab comes after Today on the feed paper. Its index shows Sources first, then each feed with its site icon, its title, and its number of unread articles. The count on the tab is the number of unread articles of all feeds.
+
+To show the Feeds index, click the Feeds tab. Select a feed to show its articles, or select Sources to add and manage feeds.
+
+When the Feeds tab shows a list, the title of the paper is "Feeds › Sources" or "Feeds › " with the title of the feed. To show the index again, press Left Arrow or click the Feeds tab.
+
 ## Open Sources
 
 Do one of these steps:
 
-- In the More menu of the feed paper, choose Sources.
-- Select the Today tab to show its index, then select Sources.
-- In the command palette, choose Sources.
+- On the Feeds index, select Sources.
+- On the feed paper, press Command-2.
+- Choose Window > Feeds, or choose Feeds in the command palette.
+- In the More menu of the feed paper, choose Add Feed. Sources opens with the cursor in its address field.
+- Press Shift-Command-N, or choose File > Add Feed. Sources opens with the cursor in its address field.
+- In the command palette, choose Add Feed.
 - Paste the address of a site or a feed in the capture field of Today, then press Return. Sources opens and looks for the feeds at that address.
 
 Sources lists each feed with these items:

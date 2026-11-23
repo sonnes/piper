@@ -6,8 +6,8 @@ import SwiftUI
 
 /// The index of the active tab, in place of the list of the feed paper.
 ///
-/// Today shows its lenses, its sections, Done, and Sources. Agents shows the folders
-/// that have sessions.
+/// Today shows its lenses, its sections, and Done. Feeds shows Sources and
+/// each feed. Agents shows the folders that have sessions.
 struct FeedPaperIndex: View {
     @Bindable var paper: FeedPaperModel
     @Bindable var model: AppModel
@@ -25,6 +25,7 @@ struct FeedPaperIndex: View {
             LazyVStack(alignment: .leading, spacing: 2) {
                 switch paper.state.tab {
                 case .today: todayRows
+                case .feeds: feedRows
                 case .agents: agentRows
                 case .folder: EmptyView()
                 }
@@ -87,7 +88,6 @@ struct FeedPaperIndex: View {
         }
         IndexHeader(title: "Finished")
         row(.scope(.done), title: "Done", count: 0)
-        row(.scope(.sources), title: "Sources", count: model.feeds.feeds.count)
         IndexAction(title: "New Section…") { namingSection = true }
     }
 
@@ -95,6 +95,24 @@ struct FeedPaperIndex: View {
     private func row(_ entry: IndexEntry, title: String, leading: AnyView? = nil, count: Int) -> IndexRow {
         IndexRow(title: title, leading: leading, count: count, current: paper.currentEntry == entry,
                  cursor: paper.indexCursor == entry) { paper.pick(entry) }
+    }
+
+    // MARK: - Feeds
+
+    /// Sources first, where the reader adds a feed, then each feed with its unread count.
+    @ViewBuilder private var feedRows: some View {
+        let feeds = model.feeds
+        let unread = feeds.unreadCounts()
+        row(.scope(.sources), title: "Sources", leading: AnyView(Image(systemName: "plus.circle")
+            .foregroundStyle(PiperTheme.paperFaint).accessibilityHidden(true)), count: 0)
+            .help("Add a feed and manage feeds")
+        IndexHeader(title: "Feeds")
+        ForEach(feeds.feeds) { feed in
+            row(.scope(.feed(feed.id)), title: feed.title,
+                leading: AnyView(SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title)),
+                count: unread[feed.id] ?? 0)
+                .help(feed.id)
+        }
     }
 
     // MARK: - Agents

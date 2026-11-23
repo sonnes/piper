@@ -28,9 +28,12 @@ final class SourcesTests: XCTestCase {
         XCTAssertEqual(SourcesView.sites(suggestions, feeds: feeds, limit: 1).map(\.host), ["tidewater.example"])
     }
 
-    func testSourcesIsTheLastRowOfTheTodayIndex() {
-        let entries = IndexEntry.entries(tab: .today, sections: ["Inbox"], sessionFolders: [])
-        XCTAssertEqual(entries.suffix(2), [.scope(.done), .scope(.sources)])
+    func testTheTodayIndexHasNoSourcesRowAndTheFeedsIndexStartsWithSources() {
+        let today = IndexEntry.entries(tab: .today, sections: ["Inbox"], feeds: ["f"], sessionFolders: [])
+        XCTAssertFalse(today.contains(.scope(.sources)))
+        XCTAssertFalse(today.contains(.scope(.feed("f"))))
+        let feeds = IndexEntry.entries(tab: .feeds, sections: ["Inbox"], feeds: ["f"], sessionFolders: [])
+        XCTAssertEqual(feeds, [.scope(.sources), .scope(.feed("f"))])
         XCTAssertFalse(PaperScope.sources.showsCaptures)
     }
 }

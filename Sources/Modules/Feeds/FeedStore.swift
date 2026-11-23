@@ -111,6 +111,13 @@ public final class FeedStore {
         (try? database?.articleCounts(since: now.addingTimeInterval(-Double(days) * 86_400))) ?? [:]
     }
 
+    /// The count of unread articles of each feed, by feed ID. A view that
+    /// reads it shows the new count after each write.
+    public func unreadCounts() -> [String: Int] {
+        _ = revision
+        return (try? database?.unreadCounts()) ?? [:]
+    }
+
     /// The articles that an older version of Piper starred.
     public func starredArticles() -> [Article] {
         (try? database?.starredArticles()) ?? []

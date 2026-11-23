@@ -12,13 +12,16 @@ enum IndexEntry: Equatable {
     ///
     /// - Parameters:
     ///   - sections: The capture sections, for the Today index.
+    ///   - feeds: The feed addresses, for the Feeds index.
     ///   - sessionFolders: The folders that have agent sessions.
-    static func entries(tab: PaperTab, sections: [String], sessionFolders: [String]) -> [IndexEntry] {
+    static func entries(tab: PaperTab, sections: [String], feeds: [String], sessionFolders: [String]) -> [IndexEntry] {
         switch tab {
         case .today:
             return UnifiedStream.Lens.allCases.map(IndexEntry.lens)
                 + sections.map { .scope(.today(section: $0)) }
-                + [.scope(.done), .scope(.sources)]
+                + [.scope(.done)]
+        case .feeds:
+            return [.scope(.sources)] + feeds.map { .scope(.feed($0)) }
         case .agents:
             return sessionFolders.map { .scope(.sessions($0)) }
         case .folder:

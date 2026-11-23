@@ -100,6 +100,17 @@ private func temporaryDatabase() -> URL {
         #expect(try database.articles(.allUnread, keeping: ["c"]).map(\.id) == ["c", "a", "b"])
     }
 
+    @Test func unreadCountsCountOnlyUnreadArticlesOfEachFeed() throws {
+        let database = try FeedDatabase(url: temporaryDatabase())
+        try database.save(Feed(id: "f", title: "F"))
+        try database.save(Feed(id: "g", title: "G"))
+        try database.insert([("1", "f"), ("2", "f"), ("3", "g")].map {
+            Article(id: $0.0, feedID: $0.1, url: $0.0, title: $0.0, summary: "", published: nil, arrived: Date())
+        })
+        try database.setRead(true, ids: ["3"])
+        #expect(try database.unreadCounts() == ["f": 2])
+    }
+
     @Test func deleteFeedRemovesItsArticles() throws {
         let database = try FeedDatabase(url: temporaryDatabase())
         try database.save(Feed(id: "f", title: "F"))

@@ -179,6 +179,17 @@ public final class FeedDatabase {
         return counts
     }
 
+    /// The count of unread articles of each feed, by feed ID.
+    public func unreadCounts() throws -> [String: Int] {
+        let statement = try prepare("SELECT feed_id, COUNT(*) FROM articles WHERE read = 0 GROUP BY feed_id")
+        defer { sqlite3_finalize(statement) }
+        var counts: [String: Int] = [:]
+        while sqlite3_step(statement) == SQLITE_ROW {
+            counts[text(statement, 0)] = Int(sqlite3_column_int(statement, 1))
+        }
+        return counts
+    }
+
     public func setRead(_ read: Bool, ids: [String]) throws {
         try execute("BEGIN")
         do {

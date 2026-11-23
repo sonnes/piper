@@ -20,7 +20,7 @@ final class PaperDeskStateTests: XCTestCase {
     func testStateRestoresAfterASave() {
         var state = PaperDeskState()
         state.tab = .folder("/tmp/notes")
-        state.scope = .feed("harbor")
+        state.scope = .folder
         state.lens = .kept
         state.expandedFolders = ["/tmp/notes/Field Notes", "/tmp/notes/Field Notes/Essays"]
         state.folderColors = ["/tmp/notes": .rose]
@@ -54,8 +54,7 @@ final class PaperDeskStateTests: XCTestCase {
 
     /// A key that this version cannot read takes its default, and the other keys stay.
     func testAStateWithATabThatNoLongerExistsOpensOnToday() throws {
-        let old = [#"{"tab":{"inbox":{}},"scope":{"clipboard":{}},"expandedFolders":["/n/a"]}"#,
-                   #"{"tab":{"feeds":{}},"scope":{"inbox":{"section":"Work"}},"expandedFolders":["/n/a"]}"#]
+        let old = [#"{"tab":{"inbox":{}},"scope":{"clipboard":{}},"expandedFolders":["/n/a"]}"#]
         for json in old {
             defaults.set(Data(json.utf8), forKey: AppDefaults.Key.paperDeskState)
             let state = PaperDeskState.restore(from: defaults)
@@ -66,22 +65,42 @@ final class PaperDeskStateTests: XCTestCase {
         }
     }
 
+    /// A feed scope restores on the Feeds tab, and the Feeds tab restores with a feed scope.
+    func testAFeedScopeRestoresOnTheFeedsTab() {
+        let saved: [(PaperTab, PaperScope, PaperTab, PaperScope)] = [
+            (.today, .sources, .feeds, .sources),
+            (.today, .feed("a"), .feeds, .feed("a")),
+            (.folder("/n/a"), .feed("a"), .feeds, .feed("a")),
+            (.feeds, .done, .feeds, .sources),
+            (.feeds, .feed("a"), .feeds, .feed("a")),
+        ]
+        for (tab, scope, restoredTab, restoredScope) in saved {
+            var state = PaperDeskState()
+            state.tab = tab
+            state.scope = scope
+            state.save(to: defaults)
+            let restored = PaperDeskState.restore(from: defaults)
+            XCTAssertEqual(restored.tab, restoredTab)
+            XCTAssertEqual(restored.scope, restoredScope)
+        }
+    }
+
     // MARK: - Folder Tabs
 
     func testTheColumnHasTheFixedTabsThenOneTabForEachFolder() {
         let folders = ["/n/a", "/n/b", "/n/c"]
         XCTAssertEqual(PaperTab.column(folders: folders, showsAgents: true),
-                       [.today, .agents, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
+                       [.today, .feeds, .agents, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
         XCTAssertEqual(PaperTab.column(folders: folders, showsAgents: false),
-                       [.today, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
+                       [.today, .feeds, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
         XCTAssertEqual(PaperTab.today.color(folders: [:]), .indigo)
         let many = (1...12).map { "/n/\($0)" }
-        XCTAssertEqual(PaperTab.column(folders: many, showsAgents: false).count, 13, "The column has no limit.")
+        XCTAssertEqual(PaperTab.column(folders: many, showsAgents: false).count, 14, "The column has no limit.")
         XCTAssertEqual(PaperTab.folder("/n/Field Notes").title, "Field Notes")
     }
 
     func testEachFixedTabHasItsColorAndNewFoldersTakeTheFolderColorsInOrder() {
-        XCTAssertEqual(PaperTab.fixed.map { $0.color(folders: [:]) }, [.indigo, .plum])
+        XCTAssertEqual(PaperTab.fixed.map { $0.color(folders: [:]) }, [.indigo, .sky, .plum])
         var state = PaperDeskState()
         state.assignColors(to: ["/n/a", "/n/b", "/n/c"])
         XCTAssertEqual(state.folderColors, ["/n/a": .teal, "/n/b": .rose, "/n/c": .clay])
@@ -127,10 +146,10 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertNil(state.selectedFile)
 
         var feeds = PaperDeskState()
-        feeds.tab = .today
+        feeds.tab = .feeds
         feeds.scope = .feed("a")
         feeds.resetForVault(root: "/tmp/b")
-        XCTAssertEqual(feeds.tab, .today)
+        XCTAssertEqual(feeds.tab, .feeds)
         XCTAssertEqual(feeds.scope, .feed("a"))
     }
 
@@ -138,6 +157,7 @@ final class PaperDeskStateTests: XCTestCase {
         let state = PaperDeskState()
         XCTAssertEqual(state.defaultScope(for: .folder("/tmp/a"), root: "/tmp/root", sessionFolders: []), .folder)
         XCTAssertEqual(state.defaultScope(for: .today, root: "/tmp/root", sessionFolders: []), .today(section: nil))
+        XCTAssertEqual(state.defaultScope(for: .feeds, root: "/tmp/root", sessionFolders: []), .sources)
         XCTAssertEqual(state.defaultScope(for: .agents, root: "/tmp/root", sessionFolders: ["/tmp/s"]), .sessions("/tmp/s"))
         XCTAssertEqual(state.defaultScope(for: .agents, root: "/tmp/root", sessionFolders: []), .sessions("/tmp/root"))
     }
@@ -501,9 +521,9 @@ final class PaperDeskTests: XCTestCase {
         XCTAssertEqual(desk.paper.state.selectedFile, "notes/journal.md")
     }
 
-    /// The More menu, the command palette, and a pasted feed address open
-    /// Sources on Today. A pasted address waits for Sources to look it up.
-    func testShowSourcesOpensSourcesOnTodayWithTheAddress() async throws {
+    /// Window > Feeds, the command palette, and a pasted feed address open
+    /// Sources on the Feeds tab. A pasted address waits for Sources to look it up.
+    func testShowSourcesOpensSourcesOnTheFeedsTabWithTheAddress() async throws {
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
         let suite = "piper-paper-desk-sources-tests"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -514,9 +534,22 @@ final class PaperDeskTests: XCTestCase {
         desk.paper.state.tab = .agents
         desk.showSources()
         XCTAssertTrue(desk.isVisible)
-        XCTAssertEqual(desk.paper.state.tab, .today)
+        XCTAssertEqual(desk.paper.state.tab, .feeds)
         XCTAssertEqual(desk.paper.state.scope, .sources)
         XCTAssertNil(desk.paper.sourcesAddress)
+
+        desk.paper.pick(.today(section: nil))
+        XCTAssertEqual(desk.paper.state.tab, .today)
+        desk.paper.pick(.feed("https://tides.example/feed.xml"))
+        XCTAssertEqual(desk.paper.state.tab, .feeds, "A feed shows on the Feeds tab.")
+        desk.paper.choose(.folder(model.library.wikiPath))
+        desk.paper.pick(.sources)
+        XCTAssertEqual(desk.paper.state.tab, .feeds, "Sources leaves a folder tab for the Feeds tab.")
+
+        let request = desk.paper.addressRequest
+        desk.addFeed()
+        XCTAssertEqual(desk.paper.state.scope, .sources)
+        XCTAssertNotEqual(desk.paper.addressRequest, request, "Add Feed asks for the cursor in the address field.")
 
         desk.paper.pick(.today(section: nil))
         desk.paper.showSources(address: "https://tides.example/feed.xml")

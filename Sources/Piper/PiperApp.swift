@@ -117,6 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         // AppKit expects them and which shows them to the reader.
         let fileMenu = NSMenu(title: "File")
         fileMenu.addItem(withTitle: "New Capture", action: #selector(newCapture), keyEquivalent: "n").target = self
+        fileMenu.addItem(withTitle: "Add Feed…", action: #selector(addFeed), keyEquivalent: "N").target = self
         fileMenu.addItem(withTitle: "Save", action: #selector(saveFile), keyEquivalent: "s").target = self
         fileMenu.addItem(withTitle: "Refresh", action: #selector(refreshVault), keyEquivalent: "r").target = self
         fileMenu.addItem(.separator())
@@ -135,7 +136,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         main.addItem(goItem)
 
         let windowMenu = NSMenu(title: "Window")
-        windowMenu.addItem(withTitle: "Today", action: #selector(newCapture), keyEquivalent: "1").target = self
+        windowMenu.addItem(withTitle: "Today", action: #selector(newCapture), keyEquivalent: tabKey(.today)).target = self
+        windowMenu.addItem(withTitle: "Feeds", action: #selector(showFeeds), keyEquivalent: tabKey(.feeds)).target = self
         windowMenu.addItem(withTitle: "Feed Paper", action: #selector(showLibrary), keyEquivalent: "0").target = self
         windowMenu.addItem(withTitle: "Next Paper", action: #selector(nextPaper), keyEquivalent: "`").target = self
         let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
@@ -194,6 +196,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         desk.newCapture()
     }
 
+    /// Shows the feed paper on the Feeds tab, with Sources.
+    @objc private func showFeeds() {
+        desk.showSources()
+    }
+
+    @objc private func addFeed() {
+        desk.addFeed()
+    }
+
+    /// The number key of Today or Feeds: the same number that the feed paper
+    /// reads, because these tabs always lead the column.
+    private func tabKey(_ tab: PaperTab) -> String {
+        PaperTab.number(of: tab, in: PaperTab.column(folders: [], showsAgents: false)).map(String.init) ?? ""
+    }
+
     /// Gives the keyboard focus to the next paper.
     @objc private func nextPaper() {
         desk.cycle()
@@ -242,7 +259,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var paletteCommands: [PaletteCommand] {
         [
             PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.newCapture() },
-            PaletteCommand(title: "Sources", shortcut: "") { [weak self] in self?.desk.showSources() },
+            PaletteCommand(title: "Feeds", shortcut: "⌘" + tabKey(.feeds)) { [weak self] in self?.showFeeds() },
+            PaletteCommand(title: "Add Feed", shortcut: "⇧⌘N") { [weak self] in self?.desk.addFeed() },
             PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.files.find() },
             PaletteCommand(title: model.files.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
                 self?.model.files.showsFileSource.toggle()

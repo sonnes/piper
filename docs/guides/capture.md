@@ -190,7 +190,7 @@ Piper loads a page in its own web view, and that web view does not have the sign
 
 ## Organize Notes
 
-Sections group notes. The Today index lists the lenses, the sections, Done, and Sources. To show the index, select the Today tab.
+Sections group notes. The Today index lists the lenses, the sections, and Done. To show the index, select the Today tab.
 
 - To create a section, select New Section on the Today index or in the More menu of the feed paper.
 - To create or choose a section from the capture field, type `# Research` alone and press Return. The list then shows that section.

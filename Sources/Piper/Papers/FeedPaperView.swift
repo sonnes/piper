@@ -126,7 +126,7 @@ struct FeedPaperView: View {
             Button("New Capture") { paper.newCapture() }
             Button("New Section…") { namingSection = true }
             Button("Add Folder…") { paper.addFolder() }
-            Button("Sources…") { paper.showSources() }
+            Button("Add Feed…") { paper.addFeed() }
             Divider()
             Button("Show in Finder") { NSWorkspace.shared.open(model.library.vault.root) }
             if case .folder(let path) = paper.state.tab, model.library.wikiPaths.count > 1 {
@@ -168,8 +168,8 @@ struct FeedPaperView: View {
         case .today(nil): return "Today"
         case .today(let section?): return "Today › " + section
         case .done: return "Today › Done"
-        case .feed(let id): return "Today › " + (model.feeds.feed(id)?.title ?? "Feed")
-        case .sources: return "Today › Sources"
+        case .feed(let id): return "Feeds › " + (model.feeds.feed(id)?.title ?? "Feed")
+        case .sources: return "Feeds › Sources"
         case .folder:
             return tab.title
         case .sessions(let folder): return "Agents › " + URL(fileURLWithPath: folder).lastPathComponent
@@ -180,6 +180,7 @@ struct FeedPaperView: View {
     private func count(_ tab: PaperTab) -> Int {
         switch tab {
         case .today: return model.store.notes.filter { $0.parent == nil && !$0.isDone }.count
+        case .feeds: return model.feeds.unreadCounts().values.reduce(0, +)
         case .agents:
             let runner = model.agents.runner
             return runner.folders().reduce(0) { total, folder in

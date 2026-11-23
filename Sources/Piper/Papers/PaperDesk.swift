@@ -139,10 +139,16 @@ final class PaperDesk {
         paper.newCapture()
     }
 
-    /// Shows the feed paper with Sources.
+    /// Shows the feed paper on the Feeds tab, with Sources.
     func showSources() {
         show()
         paper.showSources()
+    }
+
+    /// Shows Sources with the cursor in its address field.
+    func addFeed() {
+        show()
+        paper.addFeed()
     }
 
     /// Opens the session card of the focused reader paper, or collapses it.
