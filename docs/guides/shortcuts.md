@@ -14,7 +14,7 @@ read_when:
 | Shift, Shift | Capture the selection in another app (default). On a web page, highlight the selection, or save the page when no text is selected. While a highlight toast shows, add a note to the highlight. |
 | Control-Option-Space | Capture the selection, if you choose it in Settings > Capture |
 | Control-Option-W | Save the clipboard to Inbox and open a draft for the default folder, while a folder has Claude skills |
-| Command-1 | Show the feed paper on Today, with the cursor in the capture field |
+| Command-1 | Show the feed paper on Today, with the cursor in the capture field. This works from every paper. |
 | Command-2 | Show the feed paper on Feeds, with Sources |
 | Shift-Command-N | Add a feed: show Sources with the cursor in its address field |
 | Command-0 | Show the feed paper and the open reader papers |
@@ -79,7 +79,7 @@ In the File list, Up Arrow and Down Arrow choose a place, Return files the rows,
 | Escape | Close the reader paper with the focus. On the feed paper, go from the index back to the list. |
 | Command-` | Move the focus to the next paper |
 | T | Put each reader paper back in its place of the cascade |
-| Command-1 to Command-9 | On the feed paper, show the tab with that number, in the order of the column. The number of the active tab shows its first scope, then opens its index. |
+| Command-3 to Command-9 | On the feed paper, show the tab with that number at its first scope, in the order of the column |
 | Left Arrow | On the feed paper, open the index of Today, Feeds, or Agents |
 | Up Arrow / Down Arrow | On the index, move the cursor. In the folder tree, move the cursor through the rows that show. In a list of sessions, select the previous or next row. |
 | Return / Right Arrow | On the index, show the scope at the cursor. Return in a list of sessions opens the row on a paper. |
@@ -104,7 +104,7 @@ These shortcuts work in the list of one feed. K and B also work on an article pa
 | Space | Open the next unread article |
 | K | Keep the selected article |
 | B | Open the selected article in the browser |
-| Command-K | Mark all articles in the list as read |
+| Shift-Command-K | Mark all articles in the list as read. File > Mark All as Read does the same. |
 
 ## Claude Sessions
 

@@ -267,7 +267,7 @@ struct SessionPill: View {
                 icon(session)
                 Text(text(session)).lineLimit(1)
                 if session?.isActive != true {
-                    Text("⌥⌘C").font(PiperTheme.paperUI(.body)).foregroundStyle(needsYou ? PiperTheme.onAccentSecondary : PiperTheme.paperFaint)
+                    Text(Command.sessionCard.key?.glyph ?? "").font(PiperTheme.paperUI(.body)).foregroundStyle(needsYou ? PiperTheme.onAccentSecondary : PiperTheme.paperFaint)
                 }
             }
             .font(PiperTheme.paperUI(.body))
@@ -286,7 +286,7 @@ struct SessionPill: View {
         .buttonStyle(.plain)
         .fixedSize()
         .padding(SessionCard.Metrics.margin)
-        .help("Open the Session Card · Option-Command-C")
+        .help("Open the Session Card · " + (Command.sessionCard.key?.name ?? ""))
         .accessibilityLabel("Session: " + text(session))
     }
 

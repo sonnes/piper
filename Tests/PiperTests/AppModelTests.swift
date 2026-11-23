@@ -18,12 +18,12 @@ final class AppModelTests: XCTestCase {
         model.composerDraft = "Draft " + suite
         model.files.showsFileSource.toggle()
         model.sessionPresentation = model.sessionPresentation == .card ? .pill : .card
-        model.captureShortcut = model.captureShortcut == "Shift, Shift" ? "Control-Option-Space" : "Shift, Shift"
+        model.captureShortcut = model.captureShortcut == .shiftShift ? .controlOptionSpace : .shiftShift
 
         XCTAssertEqual(keys.map { UserDefaults.standard.object(forKey: $0) as? NSObject }, before)
         XCTAssertEqual(preferences.string(forKey: AppDefaults.Key.composerDraft), "Draft " + suite)
         XCTAssertEqual(preferences.bool(forKey: AppDefaults.Key.showsFileSource), model.files.showsFileSource)
         XCTAssertEqual(preferences.string(forKey: AppDefaults.Key.sessionPresentation), model.sessionPresentation.rawValue)
-        XCTAssertEqual(preferences.string(forKey: AppDefaults.Key.captureShortcut), model.captureShortcut)
+        XCTAssertEqual(preferences.string(forKey: AppDefaults.Key.captureShortcut), model.captureShortcut.rawValue)
     }
 }

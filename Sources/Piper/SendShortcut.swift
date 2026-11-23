@@ -1,7 +1,7 @@
 import AppKit
 import Carbon
 
-/// Control-Option-W, a system hotkey that sends the clipboard to the default folder.
+/// The system hotkey of Send Clipboard, which sends the clipboard to the default folder.
 ///
 /// The hotkey is registered only while a folder has Claude skills, so the
 /// keystroke stays free for other applications otherwise.
@@ -12,7 +12,6 @@ final class SendShortcut {
 
     static let signature: OSType = 0x50697072
     static let identifier: UInt32 = 2
-    static let glyphs = "⌃⌥W"
 
     var action: (() -> Void)?
     /// Reports a failed registration once.
@@ -54,6 +53,7 @@ final class SendShortcut {
             return noErr
         }, 1, &event, Unmanaged.passUnretained(self).toOpaque(), &handler)
         guard installed == noErr else { fail(); return }
+        // Carbon names the key of Command.sendClipboard with its own codes.
         let registered = RegisterEventHotKey(UInt32(kVK_ANSI_W), UInt32(controlKey | optionKey),
                                              EventHotKeyID(signature: Self.signature, id: Self.identifier),
                                              GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &hotKey)
@@ -65,6 +65,6 @@ final class SendShortcut {
 
     private func fail() {
         failed = true
-        failure?("\(Self.glyphs) is unavailable, because another application holds it. Use Send Clipboard in the menu bar icon.")
+        failure?("\(Command.sendClipboard.key?.glyph ?? "") is unavailable, because another application holds it. Use Send Clipboard in the menu bar icon.")
     }
 }

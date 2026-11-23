@@ -26,6 +26,7 @@ final class ReadingToast {
     private let store: CaptureStore
     private let toast: Toast
     private let messages: Messages
+    private let shortcut: () -> CaptureShortcut
     /// Opens an article as a reader paper.
     var open: (UUID) -> Void = { _ in }
 
@@ -38,11 +39,17 @@ final class ReadingToast {
 
     // MARK: - Initialization
 
-    init(store: CaptureStore, toast: Toast, messages: Messages) {
+    /// - Parameter shortcut: The capture shortcut that Settings shows. A second
+    ///   capture of a highlight asks for a note on it.
+    init(store: CaptureStore, toast: Toast, messages: Messages, shortcut: @escaping () -> CaptureShortcut) {
         self.store = store
         self.toast = toast
         self.messages = messages
+        self.shortcut = shortcut
     }
+
+    /// The key text of the highlight card: the capture shortcut, again.
+    var noteKeys: String { shortcut().glyph }
 
     // MARK: - Showing
 
@@ -77,7 +84,7 @@ private extension ReadingToast {
                 ToastArticle(article: article, detail: "in Reading")
                 HStack(spacing: 8) {
                     HStack(spacing: 5) {
-                        KeyChip(text: "⇧⇧")
+                        KeyChip(text: noteKeys)
                         Text("again to add a note")
                     }
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)

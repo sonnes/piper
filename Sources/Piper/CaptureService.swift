@@ -29,17 +29,54 @@ struct ShiftGesture {
     }
 }
 
+/// The keys that capture the selection of the app in front. Settings sets it.
+enum CaptureShortcut: String, CaseIterable {
+    case shiftShift = "Shift, Shift"
+    case controlOptionSpace = "Control-Option-Space"
+
+    /// Reads a stored value. Piper stored "Control-Option-C" before Control-Option-Space replaced it.
+    init(stored: String?) {
+        self = stored == "Control-Option-C" ? .controlOptionSpace : CaptureShortcut(rawValue: stored ?? "") ?? .shiftShift
+    }
+
+    /// The Carbon hotkey of Control-Option-Space.
+    static let spaceKey = CommandKey(" ", [.control, .option])
+
+    var glyph: String {
+        switch self {
+        case .shiftShift: return "⇧⇧"
+        case .controlOptionSpace: return Self.spaceKey.glyph
+        }
+    }
+
+    /// The name in a sentence, for example in an error message.
+    var name: String {
+        switch self {
+        case .shiftShift: return "Shift twice"
+        case .controlOptionSpace: return Self.spaceKey.name
+        }
+    }
+
+    /// The title of the shortcut in Settings.
+    var title: String {
+        switch self {
+        case .shiftShift: return "\(glyph) (\(name))"
+        case .controlOptionSpace: return glyph
+        }
+    }
+}
+
 @MainActor
 final class CaptureService {
     private var global: Any?
     private var local: Any?
     private var hotKey: EventHotKeyRef?
     private var hotKeyHandler: EventHandlerRef?
-    private var monitoredShortcut: String?
+    private var monitoredShortcut: CaptureShortcut?
     private var gesture = ShiftGesture()
     private let store: CaptureStore
     private let messages: Messages
-    private let shortcut: () -> String
+    private let shortcut: () -> CaptureShortcut
     private let accessibilityChanged: (Bool) -> Void
     private let queue = DispatchQueue(label: "piper.capture")
     private var busy = false
@@ -52,7 +89,7 @@ final class CaptureService {
     /// - Parameters:
     ///   - shortcut: The capture shortcut that Settings shows.
     ///   - accessibilityChanged: Takes the Accessibility access of Piper each time the service checks it.
-    init(store: CaptureStore, messages: Messages, shortcut: @escaping () -> String, accessibilityChanged: @escaping (Bool) -> Void) {
+    init(store: CaptureStore, messages: Messages, shortcut: @escaping () -> CaptureShortcut, accessibilityChanged: @escaping (Bool) -> Void) {
         self.store = store
         self.messages = messages
         self.shortcut = shortcut
@@ -67,7 +104,7 @@ final class CaptureService {
         guard monitoredShortcut != shortcut else { return }
         stop()
         monitoredShortcut = shortcut
-        if shortcut == "Control-Option-Space" {
+        if shortcut == .controlOptionSpace {
             registerHotKey()
             return
         }
@@ -105,12 +142,12 @@ final class CaptureService {
             return noErr
         }, 1, &event, Unmanaged.passUnretained(self).toOpaque(), &hotKeyHandler)
         guard installed == noErr else {
-            messages.report(PiperError("Cannot register the capture shortcut. Choose Shift, Shift in Settings."))
+            messages.report(PiperError("Cannot register the capture shortcut. Choose \(CaptureShortcut.shiftShift.name) in Settings."))
             return
         }
         let registered = RegisterEventHotKey(49, UInt32(controlKey | optionKey), EventHotKeyID(signature: 0x50697072, id: 1), GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &hotKey)
         if registered != noErr {
-            messages.report(PiperError("Control-Option-Space is unavailable. Choose Shift, Shift or release the shortcut in the other application."))
+            messages.report(PiperError("\(CaptureShortcut.controlOptionSpace.name) is unavailable. Choose \(CaptureShortcut.shiftShift.name) or release the shortcut in the other application."))
         }
     }
 
@@ -120,7 +157,7 @@ final class CaptureService {
             gesture.cancel()
             return
         }
-        guard shortcut() == "Shift, Shift", [56, 60].contains(event.keyCode) else { gesture.cancel(); return }
+        guard shortcut() == .shiftShift, [56, 60].contains(event.keyCode) else { gesture.cancel(); return }
         if gesture.shift(down: flags.contains(.shift), time: event.timestamp, otherModifier: !flags.subtracting(.shift).isEmpty) { capture() }
     }
 

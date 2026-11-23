@@ -106,7 +106,7 @@ The list of one feed has these keys:
 | Space | Open the next unread article on a paper |
 | K | Keep the article |
 | B | Open the article in the browser |
-| Command-K | Mark all articles in the list as read |
+| Shift-Command-K | Mark all articles in the list as read. File > Mark All as Read does the same. |
 
 K and B also act on an article paper with the focus. The toolbar of an article paper has Keep. Right-click an article in the list for Mark as Read, Keep, Open in Browser, and Copy Link.
 

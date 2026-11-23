@@ -135,8 +135,9 @@ private struct CaptureSettings: View {
         Form {
             Section("Selection Capture") {
                 Picker(selection: $model.captureShortcut) {
-                    Text("⇧ ⇧ (Shift twice)").tag("Shift, Shift")
-                    Text("⌃⌥Space").tag("Control-Option-Space")
+                    ForEach(CaptureShortcut.allCases, id: \.self) { shortcut in
+                        Text(shortcut.title).tag(shortcut)
+                    }
                 } label: {
                     Text("Shortcut")
                     Text("Saves the selected text from the app in front.")
@@ -275,7 +276,7 @@ private struct AISettings: View {
             } header: {
                 Text("Folders")
             } footer: {
-                Text("Send runs a Claude Code skill for links or for text in the folder you used last. \(SendShortcut.glyphs) sends the clipboard.")
+                Text("Send runs a Claude Code skill for links or for text in the folder you used last. \(Command.sendClipboard.key?.glyph ?? "") sends the clipboard.")
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             }
         }

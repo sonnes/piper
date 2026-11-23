@@ -50,27 +50,3 @@ enum IndexEntry: Equatable {
         return entries[(index + delta + entries.count) % entries.count]
     }
 }
-
-/// What Command and a number key do on the feed paper.
-enum NumberKey: Equatable {
-    /// Show the index of the active tab, or hide it.
-    case toggleIndex
-    /// Show the tab in its default scope, as a list.
-    case showTab(PaperTab)
-    /// No tab has this number.
-    case none
-
-    /// The action of Command and `number`, from 1.
-    ///
-    /// The key of the active tab shows its index when the list shows the
-    /// default scope of the tab, and hides the index while it shows. The key
-    /// of the active tab in another scope, or of another tab, shows the
-    /// default scope of that tab.
-    static func action(_ number: Int, tabs: [PaperTab], active: PaperTab, showsIndex: Bool,
-                       atDefaultScope: Bool) -> NumberKey {
-        guard number >= 1, number <= tabs.count else { return .none }
-        let tab = tabs[number - 1]
-        if tab == active, tab.hasIndex, showsIndex || atDefaultScope { return .toggleIndex }
-        return .showTab(tab)
-    }
-}

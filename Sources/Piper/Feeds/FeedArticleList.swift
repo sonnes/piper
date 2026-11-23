@@ -5,7 +5,7 @@ import SwiftUI
 /// The articles of one feed, in the list of the feed paper.
 ///
 /// Space goes to the next unread article, as in NetNewsWire. K keeps the
-/// article, B opens it in the browser, and Command-K marks every article as read.
+/// article, B opens it in the browser, and Shift-Command-K marks every article as read.
 struct FeedArticleList: View {
     @Bindable var model: AppModel
     let feedID: String
@@ -77,10 +77,9 @@ struct FeedArticleList: View {
             } else {
                 ProgressView().controlSize(.small).frame(width: PaperRowMetrics.rowActionSize)
             }
-            RowAction(symbol: "envelope.open", title: "Mark All as Read · Command-K",
+            RowAction(symbol: "envelope.open", title: Command.markAllAsRead.title + " · " + (Command.markAllAsRead.key?.name ?? ""),
                       tint: articles.contains { !$0.read } ? PiperTheme.brand : PiperTheme.paperFaint) { feeds.markAllRead(.feed(feedID)) }
                 .disabled(!articles.contains { !$0.read })
-                .keyboardShortcut("k", modifiers: .command)
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
         .padding(.horizontal, HintStrip.Metrics.footMargin)

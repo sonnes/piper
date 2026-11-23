@@ -67,13 +67,13 @@ To go back to the list, press Escape, select Back to the List, or select the act
 
 These keys work while the feed paper has the focus and no text field is active:
 
-- To show a tab, press Command and its number, from 1 to 9. The numbers follow the order of the column.
-- To open the index of the active tab, press Left Arrow, or Command and the number of the tab.
+- To show a tab at its first scope, press Command and its number, from 1 to 9. The numbers follow the order of the column. Command-1 also puts the cursor in the capture field of Today.
+- To open the index of the active tab, press Left Arrow.
 - On the index, press Up Arrow or Down Arrow to move the cursor. A ring marks the row of the cursor.
 - To show the scope at the cursor, press Return or Right Arrow.
 - To show the previous or the next scope of the tab, press `[` or `]`.
 
-If the active tab shows a scope other than its first scope, Command and its number show the first scope. A second press opens the index. In Today, the keys 1 to 4 without Command choose a lens.
+In Today, the keys 1 to 4 without Command choose a lens.
 
 A hairline parts two rows of a list. The selected row has an indigo fill while the feed paper has the focus, and a gray fill when it does not. Group headers, such as Today, stay at the top of the list while it scrolls.
 

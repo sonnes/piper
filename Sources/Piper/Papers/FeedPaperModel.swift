@@ -290,21 +290,15 @@ final class FeedPaperModel {
         pick(entry)
     }
 
-    /// Command and a number key: Command-1 is the first tab of the column.
+    /// Command and a number key shows the tab with that number, at its
+    /// default scope. Command-1 is the first tab of the column.
     func numberKey(_ number: Int) {
-        let root = model.library.vault.root.path
-        let folders = model.agents.runner.folders()
-        let atDefault = state.scope == state.defaultScope(for: state.tab, root: root, sessionFolders: folders)
-        switch NumberKey.action(number, tabs: tabs, active: state.tab, showsIndex: showsIndex,
-                                atDefaultScope: atDefault) {
-        case .toggleIndex: showsIndex.toggle()
-        case .showTab(let tab):
-            guard enter(tab) else { return }
-            state.tab = tab
-            setScope(state.defaultScope(for: tab, root: model.library.vault.root.path, sessionFolders: folders))
-            showsIndex = false
-        case .none: break
-        }
+        guard tabs.indices.contains(number - 1) else { return }
+        let tab = tabs[number - 1]
+        guard enter(tab) else { return }
+        state.tab = tab
+        setScope(state.defaultScope(for: tab, root: model.library.vault.root.path, sessionFolders: model.agents.runner.folders()))
+        showsIndex = false
     }
 
     /// Escape, or Back to the List.

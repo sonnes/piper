@@ -180,7 +180,7 @@ private struct MessageCard: View {
                 if let action {
                     Button(action.title, action: action.perform).buttonStyle(ToastButtonStyle())
                 } else if !message.isError {
-                    Text("⌘1").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
+                    Text(Command.today.key?.glyph ?? "").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                 }
             }
         }

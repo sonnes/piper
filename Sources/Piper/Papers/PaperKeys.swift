@@ -10,6 +10,17 @@ enum PaperKey: Equatable {
     case previousScope, nextScope
     case letter(Character)
 
+    /// The virtual key codes of the keys that the papers read, and that QA sends.
+    enum Code {
+        static let up: UInt16 = 126
+        static let down: UInt16 = 125
+        static let left: UInt16 = 123
+        static let right: UInt16 = 124
+        static let enter: UInt16 = 36
+        static let keypadEnter: UInt16 = 76
+        static let space: UInt16 = 49
+    }
+
     init?(_ event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard flags.isDisjoint(with: [.command, .option, .control]) else { return nil }
@@ -19,11 +30,11 @@ enum PaperKey: Equatable {
 
     init?(keyCode: UInt16, characters: String, shift: Bool) {
         switch keyCode {
-        case 126: self = .up
-        case 125: self = .down
-        case 123: self = .left
-        case 124: self = .right
-        case 36, 76: self = .enter
+        case Code.up: self = .up
+        case Code.down: self = .down
+        case Code.left: self = .left
+        case Code.right: self = .right
+        case Code.enter, Code.keypadEnter: self = .enter
         default:
             guard !shift, let character = characters.lowercased().first else { return nil }
             switch character {

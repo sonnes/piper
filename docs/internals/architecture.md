@@ -84,6 +84,14 @@ Some errors happen where no caller waits:
 
 The feed paper is the main window. Piper shows it at launch, and `showLibrary()` shows it with the open reader papers. `newCapture()` shows the feed paper on Today and asks `TodayView` to focus the capture field through `FeedPaperModel.composerRequest`. Window > Today (Command-1), File > New Capture (Command-N), and New Capture in the menu bar item call `newCapture()`. Closing every window leaves the app running in the menu bar.
 
+### Commands
+
+`Command` in `Command.swift` is the table of the app actions. Each case has a title, an optional `CommandKey`, and the menu that holds it. `AppDelegate` builds the main menu and the menu of the menu bar item from `Command.Menu.groups` and `Command.statusMenu`. The command palette lists each command where `isInPalette` is true. `AppDelegate.perform(_:)` runs a command from a menu item or from the palette. A command with a `standardAction`, such as Copy, goes to the responder chain.
+
+`CommandKey` gives the glyph of a key, such as ⇧⌘K, and its name, such as Shift-Command-K. Views that show a key read it from the table, for example the session pill and the toast. Mark All as Read is in no menu. The list of a feed binds its key while the list shows. A test makes sure that no two commands share a key.
+
+`CaptureShortcut` is the capture shortcut that Settings sets: Shift twice or Control-Option-Space. `CaptureShortcut(stored:)` reads the stored preference, and it reads the old value `Control-Option-C` as Control-Option-Space.
+
 ### Papers
 
 `PaperDesk` owns the feed paper and the reader papers. `AppDelegate` makes the desk at launch, before the first scan. A paper is a `PaperWindow`: a titled window with a full-size content view, a transparent title bar, and no title bar buttons. Its background is clear, and the content clips to a rounded rectangle of 20 points. The window is larger than its paper by `PaperWindow.Metrics.shadowMargin`, and the paper draws its own shadow in that margin. The system shadow is off. A drag on the background or on the header moves the paper. `WindowDragArea` starts the drag. On a paper, its double click calls `PaperWindow.titleBarDoubleClick()`, which reads `AppleActionOnDoubleClick` through `TitleBarDoubleClick` and zooms, minimizes, or does nothing. `PaperWindow.zoom(_:)` fills the visible frame of the screen, less `screenInset`, and a second zoom restores the frame before it.
@@ -132,7 +140,7 @@ If a paper of the item is open, the desk brings it to the front. If not, `PaperD
 
 `PaperKey` turns a key event with no modifier into a paper key: an arrow, Return, a number, a bracket, or a letter. `FeedPaperController` and each `ReaderPaperController` have a local key monitor. A monitor acts only when its window is `PaperKey.focusedWindow` and `PaperKey.editsText` is false. A text view or a sheet keeps its keys.
 
-- The feed paper reads the number keys through `NumberKey.action`, Left Arrow, the brackets, and T. On the index, the arrows move `FeedPaperModel.indexCursor` over `IndexEntry.entries`, and Return picks the row.
+- The feed paper reads Command and a number for the tabs, Left Arrow, the brackets, and T. It gives the numbers of Today and Feeds to their menu commands. On the index, the arrows move `FeedPaperModel.indexCursor` over `IndexEntry.entries`, and Return picks the row.
 - A list of articles, files, or sessions sets `FeedPaperModel.listKeys` for its arrows, Return, and letters. Today reads its own keys in `TodayView`. `FeedPaperController` reads Command and a number first, for the tabs, so the plain digits stay free for the lenses.
 - A reader paper scrolls the Reader tab with the arrows, sends H and N to the reader page, and gives K and B to `AppModel.articleKey`. While the reader page has the focus, the page reads its own keys. It posts each letter that it does not use, and the paper performs it.
 
@@ -405,13 +413,14 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | Source | Responsibility |
 | --- | --- |
 | [PiperApp.swift](../../Sources/Piper/PiperApp.swift) | `AppDelegate`, menus, the menu bar item, editor windows, the toast, and quit |
+| [Command.swift](../../Sources/Piper/Command.swift) | `Command`, the table of app actions with their titles, keys, and menus, and `CommandKey` |
 | [AppModel.swift](../../Sources/Piper/AppModel.swift) | The container of the stores, `Library`, and `FileEditor`, with the state that the papers share |
 | [Library/](../../Sources/Piper/Library) | `Library` (the folder list, the scan, and the watcher) and `FileEditor` (the open file, its history, its editor sessions, the editor page, its margin notes, and its links) |
 | [AppDefaults.swift](../../Sources/Piper/AppDefaults.swift) | The preference keys |
 | [PiperTheme.swift](../../Sources/Piper/PiperTheme.swift) | The shared colors, fonts, type sizes, and the dark appearance test. Each feature keeps its own sizes, times, and colors in a `Metrics` enum next to its views. |
 | [SharedViews.swift](../../Sources/Piper/SharedViews.swift) | `IconButton`, `Rule`, and `EmptyPane`, which views in several folders use |
 | [FileReadState.swift](../../Sources/Piper/FileReadState.swift) | Read timestamps for each file |
-| [CaptureService.swift](../../Sources/Piper/CaptureService.swift) | Global shortcuts, Accessibility selection, and web page capture |
+| [CaptureService.swift](../../Sources/Piper/CaptureService.swift) | `CaptureShortcut`, global shortcuts, Accessibility selection, and web page capture |
 | [Messages.swift](../../Sources/Piper/Messages.swift) | `Messages`, the one channel for messages and errors |
 | [Toast.swift](../../Sources/Piper/Toast.swift) | `Toast`, the one panel that shows messages and the cards of a web page capture |
 | [ReadingToast.swift](../../Sources/Piper/ReadingToast.swift) | The cards of a web page capture and the note field |
@@ -419,7 +428,7 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [FolderAgents.swift](../../Sources/Piper/FolderAgents.swift) | Folders with skills, default skills, and every send action |
 | [AgentViews.swift](../../Sources/Piper/AgentViews.swift) | The session badge, the Send button, and the skill list |
 | [Sessions/](../../Sources/Piper/Sessions) | The session pane, the transcript views, the cards, the message field, the session card, and the detached session panel |
-| [SendShortcut.swift](../../Sources/Piper/SendShortcut.swift) | The Control-Option-W hotkey |
+| [SendShortcut.swift](../../Sources/Piper/SendShortcut.swift) | The system hotkey of Send Clipboard |
 | [Modules/Agents/](../../Sources/Modules/Agents) | Skill discovery, command parsing, sessions, the JSON stream, allow rules, and the session runner |
 | [Today/](../../Sources/Piper/Today) | `TodayModel`, `TodayView`, `TodayRow`, `FilePicker`, and `SegmentedCapsule` |
 | [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | `RowTime`, and the section and note sheets |

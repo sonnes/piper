@@ -63,10 +63,28 @@ final class CaptureServiceTests: XCTestCase {
         XCTAssertThrowsError(try save("", on: nil, in: store, shown: shown), "An empty selection without a page saves nothing")
     }
 
+    func testAStoredShortcutReadsAsAShortcutOfSettings() {
+        XCTAssertEqual(CaptureShortcut(stored: nil), .shiftShift)
+        XCTAssertEqual(CaptureShortcut(stored: "Shift, Shift"), .shiftShift)
+        XCTAssertEqual(CaptureShortcut(stored: "Control-Option-Space"), .controlOptionSpace)
+        XCTAssertEqual(CaptureShortcut(stored: "Control-Option-C"), .controlOptionSpace)
+        XCTAssertEqual(CaptureShortcut(stored: "Something Else"), .shiftShift)
+    }
+
+    /// The highlight card asks for the shortcut again, so it shows the shortcut that the reader chose.
+    func testTheReadingToastShowsTheChosenShortcut() {
+        let store = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
+        var shortcut = CaptureShortcut.controlOptionSpace
+        let toast = ReadingToast(store: store, toast: Toast(), messages: Messages()) { shortcut }
+        XCTAssertEqual(toast.noteKeys, "⌃⌥Space")
+        shortcut = .shiftShift
+        XCTAssertEqual(toast.noteKeys, "⇧⇧")
+    }
+
     func testACaptureWithPiperInFrontAsksForAnotherApp() {
         let store = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
         let messages = Messages()
-        let service = CaptureService(store: store, messages: messages, shortcut: { "Shift, Shift" }, accessibilityChanged: { _ in })
+        let service = CaptureService(store: store, messages: messages, shortcut: { .shiftShift }, accessibilityChanged: { _ in })
         service.capture(trusted: true, frontmost: nil)
         XCTAssertEqual(messages.last?.text, "Select text in another app first")
         service.capture(trusted: true, frontmost: .current)

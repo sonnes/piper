@@ -54,7 +54,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         window.contentView = hosting
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
-            if let number = PaperKey.tabNumber(event), self.handleTab(number, in: event.window) { return nil }
+            if Command.matching(event) == nil, let number = PaperKey.tabNumber(event), self.handleTab(number, in: event.window) { return nil }
             guard let key = PaperKey(event), self.handle(key, in: event.window) else { return event }
             return nil
         }
@@ -87,7 +87,8 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Keyboard
 
-    /// Command and a number shows a tab of the column, while the feed paper has the focus.
+    /// Command and a number shows a tab of the column, while the feed paper
+    /// has the focus. The menu takes the numbers of Today and Feeds.
     func handleTab(_ number: Int, in eventWindow: NSWindow?) -> Bool {
         guard let window, PaperKey.focusedWindow === window, eventWindow === window else { return false }
         paper.numberKey(number)

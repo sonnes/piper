@@ -108,8 +108,8 @@ final class QAScripts: NSObject {
             return "ok"
         }
         let codes: [String: (UInt16, String)] = [
-            "up": (126, "\u{F700}"), "down": (125, "\u{F701}"), "left": (123, "\u{F702}"),
-            "right": (124, "\u{F703}"), "enter": (36, "\r"), "space": (49, " ")
+            "up": (PaperKey.Code.up, "\u{F700}"), "down": (PaperKey.Code.down, "\u{F701}"), "left": (PaperKey.Code.left, "\u{F702}"),
+            "right": (PaperKey.Code.right, "\u{F703}"), "enter": (PaperKey.Code.enter, "\r"), "space": (PaperKey.Code.space, " ")
         ]
         let (code, characters) = codes[name] ?? (0, name)
         guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,

@@ -68,21 +68,10 @@ final class PaperKeysTests: XCTestCase {
         XCTAssertEqual(PaperTab.number(of: .feeds, in: tabs), 2)
         XCTAssertEqual(PaperTab.number(of: .folder("/notes"), in: tabs), 3)
         XCTAssertNil(PaperTab.number(of: .agents, in: tabs))
-        XCTAssertEqual(NumberKey.action(2, tabs: tabs, active: .today, showsIndex: false, atDefaultScope: true), .showTab(.feeds))
-        XCTAssertEqual(NumberKey.action(3, tabs: tabs, active: .today, showsIndex: false, atDefaultScope: true), .showTab(.folder("/notes")))
         let withAgents = PaperTab.column(folders: ["/notes"], showsAgents: true)
         XCTAssertEqual(withAgents, [.today, .feeds, .agents, .folder("/notes")])
         XCTAssertEqual(PaperTab.number(of: .feeds, in: withAgents), 2)
         XCTAssertEqual(PaperTab.number(of: .folder("/notes"), in: withAgents), 4)
-    }
-
-    func testCommandAndTheNumberOfTheActiveTabTogglesItsIndexAtItsDefaultScope() {
-        let tabs: [PaperTab] = [.today, .agents, .folder("/notes")]
-        XCTAssertEqual(NumberKey.action(1, tabs: tabs, active: .today, showsIndex: false, atDefaultScope: true), .toggleIndex)
-        XCTAssertEqual(NumberKey.action(1, tabs: tabs, active: .today, showsIndex: true, atDefaultScope: false), .toggleIndex)
-        XCTAssertEqual(NumberKey.action(1, tabs: tabs, active: .today, showsIndex: false, atDefaultScope: false), .showTab(.today))
-        XCTAssertEqual(NumberKey.action(3, tabs: tabs, active: .today, showsIndex: false, atDefaultScope: true), .showTab(.folder("/notes")))
-        XCTAssertEqual(NumberKey.action(4, tabs: tabs, active: .today, showsIndex: false, atDefaultScope: true), .none)
     }
 
     func testPlainKeysMapToPaperKeys() {

@@ -21,7 +21,7 @@ struct PiperApp {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate, NSMenuItemValidation {
     private let model: AppModel
     /// Opens every paper. It exists before the first scan, which opens the file that the file paper restores.
     private let desk: PaperDesk
@@ -57,10 +57,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         if model.sessionPresentation == .detached { DispatchQueue.main.async { [weak self] in self?.desk.showSessionPanel() } }
         model.messages.present = { [toast] message in toast.show(message) }
         if let message = model.messages.last { toast.show(message) }
-        let readingToast = ReadingToast(store: model.store, toast: toast, messages: model.messages)
+        let readingToast = ReadingToast(store: model.store, toast: toast, messages: model.messages) { [weak model] in
+            model?.captureShortcut ?? .shiftShift
+        }
         readingToast.open = { [weak self] id in self?.showArticle(id) }
         self.readingToast = readingToast
-        let capture = CaptureService(store: model.store, messages: model.messages, shortcut: { [weak model] in model?.captureShortcut ?? "" },
+        let capture = CaptureService(store: model.store, messages: model.messages, shortcut: { [weak model] in model?.captureShortcut ?? .shiftShift },
                                      accessibilityChanged: { [weak model] enabled in model?.accessibilityEnabled = enabled })
         capture.didCapture = { [weak self] outcome in self?.captured(outcome) }
         capture.shownHighlight = { [weak readingToast] in readingToast?.shownHighlight }
@@ -89,59 +91,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         showLibrary()
     }
 
+    /// Builds the main menu and the menu of the menu bar item from `Command`.
+    /// A menu item puts a key on the responder chain, where AppKit expects it.
     private func installMenus() {
         let main = NSMenu()
-        let application = NSMenu()
-        let appItem = NSMenuItem()
-        application.addItem(withTitle: "About Piper", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
-        application.addItem(.separator())
-        application.addItem(withTitle: "Settings...", action: #selector(settings), keyEquivalent: ",").target = self
-        application.addItem(.separator())
-        application.addItem(withTitle: "Quit Piper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        appItem.submenu = application
-        main.addItem(appItem)
-        let edit = NSMenu(title: "Edit")
-        for (title, action, key) in [("Undo", Selector(("undo:")), "z"), ("Redo", Selector(("redo:")), "Z"), ("Cut", #selector(NSText.cut(_:)), "x"), ("Copy", #selector(NSText.copy(_:)), "c"), ("Paste", #selector(NSTextView.pasteAsPlainText(_:)), "v"), ("Select All", #selector(NSText.selectAll(_:)), "a")] {
-            edit.addItem(withTitle: title, action: action, keyEquivalent: key)
+        for menu in Command.Menu.allCases {
+            let submenu = NSMenu(title: menu.title)
+            add(menu.groups, to: submenu)
+            let item = NSMenuItem(title: menu.title, action: nil, keyEquivalent: "")
+            item.submenu = submenu
+            main.addItem(item)
         }
-        edit.addItem(.separator())
-        edit.addItem(withTitle: "Find…", action: #selector(EditorWebView.findInPage(_:)), keyEquivalent: "f")
-        let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
-        editItem.submenu = edit
-        main.addItem(editItem)
-        // A menu item puts these keys on the responder chain, which is where
-        // AppKit expects them and which shows them to the reader.
-        let fileMenu = NSMenu(title: "File")
-        fileMenu.addItem(withTitle: "New Capture", action: #selector(newCapture), keyEquivalent: "n").target = self
-        fileMenu.addItem(withTitle: "Add Feed…", action: #selector(addFeed), keyEquivalent: "N").target = self
-        fileMenu.addItem(withTitle: "Save", action: #selector(saveFile), keyEquivalent: "s").target = self
-        fileMenu.addItem(withTitle: "Refresh", action: #selector(refreshVault), keyEquivalent: "r").target = self
-        fileMenu.addItem(.separator())
-        fileMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        let fileItem = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
-        fileItem.submenu = fileMenu
-        main.addItem(fileItem)
-
-        let goMenu = NSMenu(title: "Go")
-        goMenu.addItem(withTitle: "Back", action: #selector(goBack), keyEquivalent: "[").target = self
-        goMenu.addItem(withTitle: "Forward", action: #selector(goForward), keyEquivalent: "]").target = self
-        goMenu.addItem(.separator())
-        goMenu.addItem(withTitle: "Go to File…", action: #selector(showPalette), keyEquivalent: "k").target = self
-        let goItem = NSMenuItem(title: "Go", action: nil, keyEquivalent: "")
-        goItem.submenu = goMenu
-        main.addItem(goItem)
-
-        let windowMenu = NSMenu(title: "Window")
-        windowMenu.addItem(withTitle: "Today", action: #selector(newCapture), keyEquivalent: tabKey(.today)).target = self
-        windowMenu.addItem(withTitle: "Feeds", action: #selector(showFeeds), keyEquivalent: tabKey(.feeds)).target = self
-        windowMenu.addItem(withTitle: "Feed Paper", action: #selector(showLibrary), keyEquivalent: "0").target = self
-        windowMenu.addItem(withTitle: "Next Paper", action: #selector(nextPaper), keyEquivalent: "`").target = self
-        let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
-        sessionCard.keyEquivalentModifierMask = [.command, .option]
-        sessionCard.target = self
-        let windowItem = NSMenuItem(title: "Window", action: nil, keyEquivalent: "")
-        windowItem.submenu = windowMenu
-        main.addItem(windowItem)
         NSApp.mainMenu = main
         let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let mark = PiperTheme.mark?.copy() as? NSImage {
@@ -151,19 +111,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             status.button?.setAccessibilityLabel("Piper")
         }
         let menu = NSMenu()
-        menu.addItem(withTitle: "New Capture", action: #selector(newCapture), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Feed Paper", action: #selector(showLibrary), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Capture Clipboard", action: #selector(clipboard), keyEquivalent: "").target = self
-        let send = menu.addItem(withTitle: "Send Clipboard", action: #selector(sendClipboard), keyEquivalent: "w")
-        send.keyEquivalentModifierMask = [.control, .option]
-        send.target = self
-        sendClipboardItem = send
-        menu.addItem(withTitle: "Settings...", action: #selector(settings), keyEquivalent: "").target = self
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit Piper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        add(Command.statusMenu, to: menu)
+        sendClipboardItem = menu.items.first { $0.representedObject as? Command == .sendClipboard }
         menu.delegate = self
         status.menu = menu
         statusItem = status
+    }
+
+    private func add(_ groups: [[Command]], to menu: NSMenu) {
+        for (index, group) in groups.enumerated() {
+            if index > 0 { menu.addItem(.separator()) }
+            for command in group {
+                let item = NSMenuItem(title: command.title, action: command.standardAction ?? #selector(performMenuItem(_:)),
+                                      keyEquivalent: command.key?.character ?? "")
+                if let key = command.key { item.keyEquivalentModifierMask = key.modifiers }
+                if command.standardAction == nil { item.target = self }
+                item.representedObject = command
+                menu.addItem(item)
+            }
+        }
+    }
+
+    @objc private func performMenuItem(_ sender: NSMenuItem) {
+        guard let command = sender.representedObject as? Command else { return }
+        perform(command)
+    }
+
+    /// Find works on the file editor, while its paper has the focus.
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        switch menuItem.representedObject as? Command {
+        case .find:
+            let window = model.files.loadedEditorPage?.webView.window
+            return window != nil && window === PaperKey.focusedWindow
+        case .markAllAsRead:
+            if case .feed = desk.paper.state.scope { return true }
+            return false
+        default:
+            return true
+        }
+    }
+
+    /// Performs a command of a menu item or of the command palette.
+    private func perform(_ command: Command) {
+        switch command {
+        case .about, .quit, .undo, .redo, .cut, .copy, .paste, .selectAll, .closeWindow:
+            if let action = command.standardAction { NSApp.sendAction(action, to: nil, from: nil) }
+        case .settings: settings()
+        case .find: model.files.find()
+        case .newCapture, .today: desk.newCapture()
+        case .addFeed: desk.addFeed()
+        // The editor also saves by itself 120 ms after an edit.
+        case .save: Task { @MainActor in await model.files.save() }
+        case .refresh: model.library.reload()
+        case .back: model.files.navigate(-1)
+        case .forward: model.files.navigate(1)
+        case .goToFile: showPalette()
+        case .feeds: desk.showSources()
+        case .feedPaper: showLibrary()
+        case .nextPaper: desk.cycle()
+        case .sessionCard: desk.toggleSessionCard()
+        case .captureClipboard: model.captureClipboard()
+        case .sendClipboard: sendClipboard()
+        case .toggleFileSource: model.files.showsFileSource.toggle()
+        // The list of a feed binds the key of Mark All as Read while it shows.
+        case .markAllAsRead:
+            if case .feed(let id) = desk.paper.state.scope { model.feeds.markAllRead(.feed(id)) }
+        }
     }
 
     private func showEditor(_ note: Note) {
@@ -183,37 +196,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     /// Shows the feed paper and the open reader papers.
-    @objc func showLibrary() {
+    private func showLibrary() {
         desk.show()
-    }
-
-    /// Shows the feed paper on Today, with the cursor in its capture field.
-    @objc private func newCapture() {
-        desk.newCapture()
-    }
-
-    /// Shows the feed paper on the Feeds tab, with Sources.
-    @objc private func showFeeds() {
-        desk.showSources()
-    }
-
-    @objc private func addFeed() {
-        desk.addFeed()
-    }
-
-    /// The number key of Today or Feeds: the same number that the feed paper
-    /// reads, because these tabs always lead the column.
-    private func tabKey(_ tab: PaperTab) -> String {
-        PaperTab.number(of: tab, in: PaperTab.column(folders: [], showsAgents: false)).map(String.init) ?? ""
-    }
-
-    /// Gives the keyboard focus to the next paper.
-    @objc private func nextPaper() {
-        desk.cycle()
-    }
-
-    @objc private func toggleSessionCard() {
-        desk.toggleSessionCard()
     }
 
     /// Shows a link capture of the reading toast in the opening tab of its site.
@@ -224,17 +208,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         desk.open(.note(id))
     }
 
-    /// Saves the open file at once. The editor saves by itself 120 ms after an edit.
-    @objc private func saveFile() {
-        Task { @MainActor in await model.files.save() }
-    }
-
-    @objc private func refreshVault() { model.library.reload() }
-    @objc private func goBack() { model.files.navigate(-1) }
-    @objc private func goForward() { model.files.navigate(1) }
-
     /// Opens the command palette over the paper with the keyboard focus, or over the feed paper.
-    @objc private func showPalette() {
+    private func showPalette() {
         let key = NSApp.keyWindow
         if !(key?.windowController is FeedPaperController || key?.windowController is ReaderPaperController) {
             showLibrary()
@@ -247,37 +222,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     private var paletteCommands: [PaletteCommand] {
-        [
-            PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.newCapture() },
-            PaletteCommand(title: "Feeds", shortcut: "⌘" + tabKey(.feeds)) { [weak self] in self?.showFeeds() },
-            PaletteCommand(title: "Add Feed", shortcut: "⇧⌘N") { [weak self] in self?.desk.addFeed() },
-            PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.files.find() },
-            PaletteCommand(title: model.files.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
-                self?.model.files.showsFileSource.toggle()
-            },
-            PaletteCommand(title: "Back", shortcut: "⌘[") { [weak self] in self?.goBack() },
-            PaletteCommand(title: "Forward", shortcut: "⌘]") { [weak self] in self?.goForward() },
-            PaletteCommand(title: "Refresh", shortcut: "⌘R") { [weak self] in self?.refreshVault() },
-            PaletteCommand(title: "Settings", shortcut: "⌘,") { [weak self] in self?.settings() },
-        ]
+        Command.allCases.filter(\.isInPalette).map { command in
+            let title = command == .toggleFileSource && model.files.showsFileSource ? "Show Preview" : command.title
+            return PaletteCommand(title: title, shortcut: command.key?.glyph ?? "") { [weak self] in self?.perform(command) }
+        }
     }
 
-    @objc private func settings() {
+    private func settings() {
         if settingsWindowController == nil { settingsWindowController = SettingsWindowController(model: model) }
         settingsWindowController?.show()
     }
-    @objc private func clipboard() { model.captureClipboard() }
 
     /// Names the default folder in the menu bar item, and hides the item when
     /// no folder has Claude skills.
     func menuNeedsUpdate(_ menu: NSMenu) {
         model.agents.refresh(paths: model.library.wikiPaths)
         sendClipboardItem?.isHidden = model.agents.folders.isEmpty
-        sendClipboardItem?.title = "Send Clipboard to " + (model.agents.defaultFolder?.name ?? "Folder")
+        sendClipboardItem?.title = Command.sendClipboard.title + " to " + (model.agents.defaultFolder?.name ?? "Folder")
     }
 
     /// Saves the clipboard to Inbox and opens a draft in the default folder.
-    @objc private func sendClipboard() {
+    private func sendClipboard() {
         do {
             let run = try model.agents.sendPasteboard()
             desk.open(.session(run.id))

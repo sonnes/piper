@@ -100,9 +100,9 @@ final class AppModel {
         didSet { preferences.set(composerDraft, forKey: AppDefaults.Key.composerDraft) }
     }
     var accessibilityEnabled = AXIsProcessTrusted()
-    var captureShortcut: String {
+    var captureShortcut: CaptureShortcut {
         didSet {
-            preferences.set(captureShortcut, forKey: AppDefaults.Key.captureShortcut)
+            preferences.set(captureShortcut.rawValue, forKey: AppDefaults.Key.captureShortcut)
             captureShortcutChanged?()
         }
     }
@@ -166,10 +166,7 @@ final class AppModel {
         clipboard = ClipboardInbox(store: store) { [weak messages] in messages?.report($0) }
         let agents = FolderAgents(store: store, messages: messages, preferences: preferences)
         self.agents = agents
-        // Control-Option-C was the earlier alternative. A stored value that no
-        // longer matches a preset leaves the capture shortcut dead.
-        let stored = preferences.string(forKey: AppDefaults.Key.captureShortcut) ?? "Shift, Shift"
-        captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
+        captureShortcut = CaptureShortcut(stored: preferences.string(forKey: AppDefaults.Key.captureShortcut))
         let reader = ReaderAssistant(store: store, agents: agents, messages: messages)
         self.reader = reader
         let library = Library(wikiPath: wikiPath, preferences: preferences, agents: agents)
