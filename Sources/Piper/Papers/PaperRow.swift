@@ -7,11 +7,13 @@ import SwiftUI
 /// The selected row has a fill and a bar at its left edge, in indigo while
 /// the feed paper has the focus. A row whose item is open as a reader paper
 /// shows a dashed slot and "on the desk" in place of its time. The row
-/// flashes when its paper goes back.
+/// flashes when its paper goes back, and when a note lands under it.
 struct PaperRow<Mark: View, Content: View>: View {
     /// The item that the row opens, for its slot and its flash.
     let item: PaperItem?
     var openOnDesk = false
+    /// The count of the notes under the row. The row flashes when it grows.
+    var notes = 0
     let selected: Bool
     let time: String
     let action: () -> Void
@@ -32,6 +34,9 @@ struct PaperRow<Mark: View, Content: View>: View {
             .onTapGesture(perform: action)
             .onChange(of: flashID) { _, id in
                 if id != nil { flash() }
+            }
+            .onChange(of: notes) { old, new in
+                if new > old { flash() }
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)

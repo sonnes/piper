@@ -49,7 +49,7 @@ struct InboxRow: View {
     }
 
     var body: some View {
-        PaperRow(item: .note(note.id), selected: selected, time: RowTime.text(note.createdAt), action: select) {
+        PaperRow(item: .note(note.id), notes: children.count, selected: selected, time: RowTime.text(note.createdAt), action: select) {
             control
         } content: {
             VStack(alignment: .leading, spacing: 0) {

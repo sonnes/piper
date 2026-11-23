@@ -184,10 +184,10 @@ final class AppDefaults {
         static let composerPadding = EdgeInsets(top: 16, leading: 20, bottom: 4, trailing: 20)
         static let composerTextInset: CGFloat = 40
         static let focusRingWidth: CGFloat = 3
-        /// The line under the list with the latest copy of the clipboard.
         /// The strip of keys at the bottom of the screen.
         static let hintBottom: CGFloat = 18
         static let hintHeight: CGFloat = 40
+        /// The line under the list with the latest copy of the clipboard.
         static let footPadding = EdgeInsets(top: 12, leading: 12, bottom: 10, trailing: 12)
         static let footMargin: CGFloat = 20
         /// The most a count on a tab shows. A larger count shows as this number and a plus sign.
