@@ -324,7 +324,7 @@ A debug build that starts with `-PiperQA YES` is in QA mode. A test uses QA mode
 - At launch, Piper opens the feed paper instead of the capture panel.
 - `QA.activate` replaces `NSApp.activate`, so Piper never becomes the active app.
 - `QAScripts` runs JavaScript in the editor page. A test posts the distributed notification `com.piper.qa.eval` with the body of an async function. Piper writes the result to the file that `-PiperQAResult` names.
-- The distributed notification `com.piper.qa.do` runs one command on the papers: `key`, `focus`, `open`, or `reader`. The `key` command posts a key event, which the local key monitors read. See `QAScripts` for the syntax.
+- The distributed notification `com.piper.qa.do` runs one command on the papers: `key`, `focus`, `open`, `reader`, `appearance`, or `shot`. The `key` command posts a key event, which the local key monitors read. The `shot` command draws the feed paper window into a PNG file, which works while the screen is locked. See `QAScripts` for the syntax.
 - In QA mode, `PaperKey.focusedWindow` is the paper that QA gave the focus, because Piper has no key window while it is not active.
 
 macOS sends keys only to the active app. Thus a test in QA mode inserts text with a script, not with keys. A release build has no QA mode.

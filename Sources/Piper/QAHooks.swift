@@ -41,6 +41,10 @@ enum QA {
 /// - `open note <text>`, `open article <title>`, `open file <path>`: opens an
 ///   item whose text or title starts with the words.
 /// - `reader <script>`: runs JavaScript in the reader page of the paper with the focus.
+/// - `appearance light`, `appearance dark`, or `appearance system`: sets the appearance of Piper.
+/// - `shot <path>`: draws the feed paper window into a PNG file on the desk
+///   color of the mock. It works while the screen is locked, when a capture
+///   of the screen fails.
 @MainActor
 final class QAScripts: NSObject {
     static let name = Notification.Name("com.piper.qa.eval")
@@ -67,6 +71,9 @@ final class QAScripts: NSObject {
         case "key": result = key(rest)
         case "focus": result = focus(rest)
         case "open": result = open(rest)
+        case "appearance":
+            NSApp.appearance = rest == "dark" ? NSAppearance(named: .darkAqua) : rest == "light" ? NSAppearance(named: .aqua) : nil
+        case "shot": result = shot(rest)
         case "reader":
             guard let window = PaperKey.focusedWindow,
                   let page = model.readerPages.allObjects.first(where: { $0.window === window }) else {
@@ -108,6 +115,22 @@ final class QAScripts: NSObject {
             return "error\nNo event."
         }
         NSApp.postEvent(event, atStart: false)
+        return "ok"
+    }
+
+    /// Draws the feed paper window, on zinc 100 in the light or zinc 900 in the dark.
+    private func shot(_ path: String) -> String {
+        guard let view = desk.feedWindow?.contentView,
+              let image = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return "error\nNo feed paper." }
+        let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        view.wantsLayer = true
+        let background = view.layer?.backgroundColor
+        view.layer?.backgroundColor = NSColor(srgbRed: dark ? 0x18 / 255 : 0xF4 / 255, green: dark ? 0x18 / 255 : 0xF4 / 255,
+                                              blue: dark ? 0x1B / 255 : 0xF5 / 255, alpha: 1).cgColor
+        view.cacheDisplay(in: view.bounds, to: image)
+        view.layer?.backgroundColor = background
+        guard let png = image.representation(using: .png, properties: [:]),
+              (try? png.write(to: URL(fileURLWithPath: path))) != nil else { return "error\nNo image." }
         return "ok"
     }
 
