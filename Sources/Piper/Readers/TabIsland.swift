@@ -19,7 +19,7 @@ struct TabIsland<Tab: Hashable>: View {
     @Environment(PaperLayout.self) private var layout
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var thumb
-    private var metrics: AppDefaults.TabIsland.Type { AppDefaults.TabIsland.self }
+    private typealias Metrics = TabIslandMetrics
 
     /// A segmented control in a capsule on a material, as on macOS. The
     /// selected segment is a raised capsule that slides to the new segment.
@@ -28,13 +28,13 @@ struct TabIsland<Tab: Hashable>: View {
             ForEach(items, id: \.tab) { item in
                 let active = item.tab == selection
                 Button {
-                    withAnimation(reduceMotion ? nil : .spring(duration: AppDefaults.Papers.spring)) { selection = item.tab }
+                    withAnimation(reduceMotion ? nil : .spring(duration: ReaderPaper.Metrics.spring)) { selection = item.tab }
                 } label: {
                     Text(item.title)
                         .font(PiperTheme.paperUI(.body, weight: active ? .semibold : .medium))
                         .foregroundStyle(active ? PiperTheme.label : PiperTheme.secondaryLabel)
-                        .padding(.horizontal, metrics.segmentPadding)
-                        .frame(height: metrics.segmentHeight)
+                        .padding(.horizontal, Metrics.segmentPadding)
+                        .frame(height: Metrics.segmentHeight)
                         .background {
                             if active {
                                 Capsule()
@@ -51,12 +51,12 @@ struct TabIsland<Tab: Hashable>: View {
                 .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
             }
         }
-        .padding(metrics.inset)
+        .padding(Metrics.inset)
         .background(.regularMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(PiperTheme.barEdge, lineWidth: 0.5))
         .shadow(color: PiperTheme.barContactShadow, radius: 1, y: 0.5)
-        .shadow(color: PiperTheme.barSoftShadow, radius: metrics.shadowRadius * 1.6, y: metrics.shadowOffset + 1)
-        .padding(.bottom, metrics.bottomMargin)
+        .shadow(color: PiperTheme.barSoftShadow, radius: Metrics.shadowRadius * 1.6, y: Metrics.shadowOffset + 1)
+        .padding(.bottom, Metrics.bottomMargin)
         .padding(.trailing, cardPresented ? layout.tabsTrailingInset : 0)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("View")
@@ -84,4 +84,19 @@ extension TabIsland where Tab == Bool {
             Item(tab: true, title: "Source", help: "Show the text of the file")
         ], selection: showsSource, cardPresented: cardPresented)
     }
+}
+
+// MARK: - Metrics
+
+/// The tabs that float over the bottom of a reader paper.
+enum TabIslandMetrics {
+    static let segmentHeight: CGFloat = 30
+    static let segmentPadding: CGFloat = 16
+    /// The space between the capsule and the segments.
+    static let inset: CGFloat = 3
+    static let shadowRadius: CGFloat = 5
+    static let shadowOffset: CGFloat = 2
+    static let bottomMargin: CGFloat = 14
+    /// The space that content leaves free under its last line for the tabs.
+    static let clearance: CGFloat = 64
 }

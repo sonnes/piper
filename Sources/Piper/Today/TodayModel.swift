@@ -71,6 +71,8 @@ final class TodayModel {
 
     // MARK: - Properties
 
+    /// The seconds that Undo shows after Done or Delete.
+    static let undoSeconds: TimeInterval = 5
     let model: AppModel
     /// The selected rows.
     var selection: Set<StreamItem.Ref> = []
@@ -366,7 +368,7 @@ final class TodayModel {
         undoTimer?.invalidate()
         let offer = UndoOffer(message: message)
         undo = offer
-        undoTimer = Timer.scheduledTimer(withTimeInterval: AppDefaults.Today.undoSeconds, repeats: false) { [weak self] _ in
+        undoTimer = Timer.scheduledTimer(withTimeInterval: Self.undoSeconds, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 if self?.undo?.id == offer.id { self?.undo = nil }
             }

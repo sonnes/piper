@@ -48,7 +48,7 @@ final class AppModel {
     /// the window shows no Reader tab.
     func scrollReader(down: Bool, in window: NSWindow) -> Bool {
         guard let page = readerPages.allObjects.first(where: { $0.window === window }) else { return false }
-        let step = AppDefaults.ArticleReader.arrowScrollStep * (down ? 1 : -1)
+        let step = ArticleReader.Metrics.arrowScrollStep * (down ? 1 : -1)
         page.evaluateJavaScript("window.scrollBy(0, \(step))")
         return true
     }

@@ -45,10 +45,10 @@ struct ArticleReader: View {
                         .accessibilityLabel("Close")
                 }
                 .font(PiperTheme.paperUI(.body))
-                .padding(.horizontal, AppDefaults.ArticleReader.horizontalInset)
-                .padding(.vertical, AppDefaults.ArticleReader.resumeVerticalPadding)
-                .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: AppDefaults.Papers.rowRadius, style: .continuous))
-                .padding(.horizontal, AppDefaults.ArticleReader.resumeMargin)
+                .padding(.horizontal, Metrics.horizontalInset)
+                .padding(.vertical, Metrics.resumeVerticalPadding)
+                .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius, style: .continuous))
+                .padding(.horizontal, Metrics.resumeMargin)
             }
             ReaderPageView(state: loader.state, placeholder: ReaderPlaceholder(site: Site(url)?.key ?? url.absoluteString, title: reading.title),
                            notes: payload, scroll: scroll, perform: perform, scrolled: scrolled,
@@ -56,7 +56,7 @@ struct ArticleReader: View {
                 .overlay(alignment: .bottom) {
                     if case .failed = loader.state {
                         Button("Show Web Page", action: showWebPage)
-                            .padding(.bottom, AppDefaults.TabIsland.clearance + AppDefaults.ArticleReader.webPageButtonMargin)
+                            .padding(.bottom, TabIslandMetrics.clearance + Metrics.webPageButtonMargin)
                     }
                 }
         }
@@ -120,7 +120,7 @@ struct ArticleReader: View {
         pendingPosition?.cancel()
         position = (block, progress)
         pendingPosition = Task { @MainActor in
-            try? await Task.sleep(for: AppDefaults.Reading.positionSaveDelay)
+            try? await Task.sleep(for: Metrics.positionSaveDelay)
             guard !Task.isCancelled else { return }
             flushPosition()
         }
@@ -136,7 +136,7 @@ struct ArticleReader: View {
             try model.store.updateReading(note.id) { reading in
                 reading.block = position.block
                 reading.progress = position.progress
-                if position.progress >= AppDefaults.Reading.finishedProgress, reading.finishedAt == nil { reading.finishedAt = Date() }
+                if position.progress >= Metrics.finishedProgress, reading.finishedAt == nil { reading.finishedAt = Date() }
             }
         } catch { model.messages.report(error) }
     }
@@ -160,6 +160,30 @@ struct ArticleReader: View {
             ReaderMarks.perform(message, store: model.store, reader: model.reader, messages: model.messages, article: article,
                                 open: { desk?.open($0) }) { note.id }
         }
+    }
+}
+
+/// The Reader tab of a link capture.
+extension ArticleReader {
+    enum Metrics {
+        /// The distance that Up Arrow or Down Arrow scrolls the Reader tab.
+        static let arrowScrollStep: CGFloat = 40
+        /// Seconds before Piper reads a page that has not finished loading.
+        static let loadTimeout: Double = 20
+        /// The wait after a load, for a page that draws its text with a script.
+        static let settleMilliseconds = 300
+        /// The size of the hidden web view that loads a page.
+        static let loaderSize = NSSize(width: 1024, height: 768)
+        static let horizontalInset: CGFloat = 16
+        /// The line over the article that says where it opened.
+        static let resumeVerticalPadding: CGFloat = 10
+        static let resumeMargin: CGFloat = 40
+        /// The space between the Show Web Page button and the tabs under it.
+        static let webPageButtonMargin: CGFloat = 16
+        /// The wait after the last scroll before Piper saves the position.
+        static let positionSaveDelay = Duration.milliseconds(800)
+        /// The part of the article above the screen that counts as finished.
+        static let finishedProgress = 0.97
     }
 }
 
@@ -367,13 +391,13 @@ final class ArticleLoader: NSObject {
         }
         state = .loading
         extracting = false
-        let view = WKWebView(frame: NSRect(origin: .zero, size: AppDefaults.ArticleReader.loaderSize))
+        let view = WKWebView(frame: NSRect(origin: .zero, size: ArticleReader.Metrics.loaderSize))
         view.navigationDelegate = self
         webView = view
         view.load(URLRequest(url: url))
         timeout?.cancel()
         timeout = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(AppDefaults.ArticleReader.loadTimeout))
+            try? await Task.sleep(for: .seconds(ArticleReader.Metrics.loadTimeout))
             guard !Task.isCancelled, let self, self.state == .loading else { return }
             await self.extract()
         }
@@ -384,7 +408,7 @@ final class ArticleLoader: NSObject {
         extracting = true
         timeout?.cancel()
         // Some pages draw their text with a script after the load ends.
-        try? await Task.sleep(for: .milliseconds(AppDefaults.ArticleReader.settleMilliseconds))
+        try? await Task.sleep(for: .milliseconds(ArticleReader.Metrics.settleMilliseconds))
         do {
             let result = try await view.evaluateJavaScript(Self.script, in: nil, contentWorld: .defaultClient)
             guard let json = result as? String else { throw PiperError("Cannot read this page.") }

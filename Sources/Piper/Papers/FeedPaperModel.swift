@@ -131,7 +131,7 @@ final class FeedPaperModel {
     /// Puts the reader papers back in their cascade. `PaperDesk` sets it.
     @ObservationIgnored var tidy: () -> Void = {}
     /// The height of the paper as it shows, for the rule that shortens the folder tabs.
-    var paperHeight = AppDefaults.Papers.feedSize.height
+    var paperHeight = FeedPaperController.Metrics.feedSize.height
     /// The keys of the list that shows: Up Arrow, Down Arrow, and Return.
     /// A list of captures reads its keys itself and sets none.
     @ObservationIgnored var listKeys: ListKeys?

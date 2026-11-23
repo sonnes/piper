@@ -18,7 +18,9 @@ Before you commit, run `make test`. When you correct a bug, add a test that fail
 
 - Put model code in a module under `Sources/Modules`. Put windows and views in `Sources/Piper`.
 - Before you change the structure, read [docs/internals/architecture.md](docs/internals/architecture.md).
-- Obey [docs/internals/coding-guidelines.md](docs/internals/coding-guidelines.md). Every class is `final`. KVO is banned. Keys, sizes, and colors go in `AppDefaults` and `PiperTheme`.
+- Obey [docs/internals/coding-guidelines.md](docs/internals/coding-guidelines.md). Every class is `final`. KVO is banned.
+- Put preference keys in `AppDefaults.Key`. Put shared colors, fonts, and type sizes in `PiperTheme`.
+- Put the sizes, times, and colors of a feature in a `Metrics` enum next to the views of the feature. A view holds no literal size or color.
 - Indent with four spaces.
 
 ## Docs

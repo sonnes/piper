@@ -10,6 +10,10 @@ import Vault
 /// editor page, and its margin notes.
 @MainActor @Observable
 final class FileEditor {
+    /// Seconds after a Piper session wrote a file during which a change on
+    /// disk names the session as its source.
+    static let sessionWriteWindow: TimeInterval = 600
+
     let library: Library
     var workspace = WikiWorkspace() {
         didSet {
@@ -160,7 +164,7 @@ final class FileEditor {
 
     /// True when a Piper session wrote the file in the last 10 minutes, or is still running.
     func sessionWrote(_ path: String) -> Bool {
-        let recent = Date().addingTimeInterval(-AppDefaults.Editor.sessionWriteWindow)
+        let recent = Date().addingTimeInterval(-Self.sessionWriteWindow)
         return agents.runner.sessions(in: library.vault.root.path).contains { session in
             session.files.contains(path) && (session.isActive || session.updatedAt > recent)
         }

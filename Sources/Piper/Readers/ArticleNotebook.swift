@@ -20,7 +20,6 @@ struct ArticleNotebook: View {
 
     private var children: [Note] { model.store.children(of: note.id) }
     private var reading: Reading { note.reading ?? Reading() }
-    private var metrics: AppDefaults.Notebook.Type { AppDefaults.Notebook.self }
     private var host: String { Site(url)?.key ?? url.absoluteString }
     private var title: String { reading.title ?? host }
 
@@ -42,9 +41,9 @@ struct ArticleNotebook: View {
                     summary = text
                     scheduleSummarySave()
                 }), font: PiperTheme.paperUINS(.row), paper: true)
-                .frame(minHeight: metrics.summaryMinimumHeight)
-                .padding(metrics.fieldPadding)
-                .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: metrics.fieldRadius, style: .continuous))
+                .frame(minHeight: Metrics.summaryMinimumHeight)
+                .padding(Metrics.fieldPadding)
+                .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: Metrics.fieldRadius, style: .continuous))
                 .accessibilityLabel("Summary")
                 HStack(alignment: .firstTextBaseline) {
                     label("Highlights")
@@ -72,9 +71,9 @@ struct ArticleNotebook: View {
                     }
                 }
             }
-            .frame(maxWidth: AppDefaults.Reading.notebookWidth, alignment: .leading)
-            .padding(.horizontal, metrics.horizontalPadding).padding(.top, metrics.topPadding)
-            .padding(.bottom, AppDefaults.TabIsland.clearance)
+            .frame(maxWidth: Metrics.notebookWidth, alignment: .leading)
+            .padding(.horizontal, Metrics.horizontalPadding).padding(.top, Metrics.topPadding)
+            .padding(.bottom, TabIslandMetrics.clearance)
             .frame(maxWidth: .infinity)
         }
         .background(PiperTheme.paper)
@@ -141,7 +140,7 @@ struct ArticleNotebook: View {
         Text(text)
             .font(PiperTheme.paperUI(.body, weight: .medium))
             .foregroundStyle(PiperTheme.paperFaint)
-            .padding(.top, metrics.labelTopPadding).padding(.bottom, metrics.fieldPadding)
+            .padding(.top, Metrics.labelTopPadding).padding(.bottom, Metrics.fieldPadding)
             .accessibilityAddTraits(.isHeader)
     }
 
@@ -164,7 +163,7 @@ struct ArticleNotebook: View {
     private func scheduleSummarySave() {
         pendingSummary?.cancel()
         pendingSummary = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(600))
+            try? await Task.sleep(for: ReaderMetrics.saveDelay)
             guard !Task.isCancelled else { return }
             saveSummary()
         }
@@ -213,6 +212,29 @@ struct ArticleNotebook: View {
 
 // MARK: - Entries
 
+/// The Notes tab of a link capture, and its Save as File popover.
+extension ArticleNotebook {
+    enum Metrics {
+        /// The column of the Notes tab.
+        static let notebookWidth: CGFloat = 600
+        static let horizontalPadding: CGFloat = 56
+        static let topPadding: CGFloat = 8
+        static let summaryMinimumHeight: CGFloat = 70
+        /// The serif of a quote: 17 points, with a line height of 1.55.
+        static let quoteFontSize: CGFloat = 17
+        static let quoteLineSpacing: CGFloat = 5
+        /// The padding and the corner radius of the summary field, a question, and the file preview.
+        static let fieldPadding: CGFloat = 10
+        static let fieldRadius: CGFloat = 12
+        static let labelTopPadding: CGFloat = 22
+        static let colorBarWidth: CGFloat = 2
+        static let formWidth: CGFloat = 360
+        static let formPadding: CGFloat = 14
+        static let previewHeight: CGFloat = 140
+        static let previewFontSize: CGFloat = 11
+    }
+}
+
 private struct HighlightEntry: View {
     let highlight: Note
     let open: () -> Void
@@ -221,12 +243,12 @@ private struct HighlightEntry: View {
         let comment = HighlightText.comment(of: highlight.text, quote: highlight.anchor?.quote)
         Button(action: open) {
             HStack(alignment: .top, spacing: 16) {
-                Rectangle().fill(PiperTheme.quoteBar).frame(width: AppDefaults.Notebook.colorBarWidth)
+                Rectangle().fill(PiperTheme.quoteBar).frame(width: ArticleNotebook.Metrics.colorBarWidth)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(highlight.anchor?.quote ?? highlight.text.components(separatedBy: "\n\n")[0])
-                        .font(PiperTheme.paperSerif(AppDefaults.Notebook.quoteFontSize))
+                        .font(PiperTheme.paperSerif(ArticleNotebook.Metrics.quoteFontSize))
                         .foregroundStyle(PiperTheme.paperMuted)
-                        .lineSpacing(AppDefaults.Notebook.quoteLineSpacing)
+                        .lineSpacing(ArticleNotebook.Metrics.quoteLineSpacing)
                     if !comment.isEmpty {
                         Text(comment).font(PiperTheme.paperUI(.row)).foregroundStyle(PiperTheme.paperInk).lineSpacing(3)
                     }
@@ -272,11 +294,11 @@ private struct QuestionEntry: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: AppDefaults.Notebook.fieldRadius, style: .continuous))
+            .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.bottom, AppDefaults.Notebook.fieldPadding)
+        .padding(.bottom, ArticleNotebook.Metrics.fieldPadding)
     }
 }
 
@@ -337,15 +359,15 @@ private struct SaveArticleForm: View {
             }
             ScrollView {
                 Text(text)
-                    .font(Font(PiperTheme.manuscript(size: AppDefaults.Notebook.previewFontSize)))
+                    .font(Font(PiperTheme.manuscript(size: ArticleNotebook.Metrics.previewFontSize)))
                     .foregroundStyle(PiperTheme.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
-            .frame(height: AppDefaults.Notebook.previewHeight)
-            .padding(AppDefaults.Notebook.fieldPadding)
-            .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: AppDefaults.Notebook.fieldRadius))
-            .overlay(RoundedRectangle(cornerRadius: AppDefaults.Notebook.fieldRadius).strokeBorder(PiperTheme.rule, lineWidth: 1))
+            .frame(height: ArticleNotebook.Metrics.previewHeight)
+            .padding(ArticleNotebook.Metrics.fieldPadding)
+            .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius))
+            .overlay(RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius).strokeBorder(PiperTheme.rule, lineWidth: 1))
             HStack {
                 Spacer()
                 Button("Cancel", action: close).keyboardShortcut(.cancelAction)
@@ -354,8 +376,8 @@ private struct SaveArticleForm: View {
                     .disabled(destination == nil)
             }
         }
-        .padding(AppDefaults.Notebook.formPadding)
-        .frame(width: AppDefaults.Notebook.formWidth)
+        .padding(ArticleNotebook.Metrics.formPadding)
+        .frame(width: ArticleNotebook.Metrics.formWidth)
         .onAppear {
             destination = destinations.first { $0.label == lastFolder } ?? destinations.first
         }

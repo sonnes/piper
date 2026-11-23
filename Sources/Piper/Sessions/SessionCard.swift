@@ -93,7 +93,7 @@ struct SessionCard: View {
 
     @Bindable var model: AppModel
     let detached: Bool
-    @AppStorage(AppDefaults.Key.sessionCardHeight) private var height = Double(AppDefaults.SessionCard.height)
+    @AppStorage(AppDefaults.Key.sessionCardHeight) private var height = Double(Metrics.height)
     @State private var dragStart: Double?
     /// True while the resize cursor is on the cursor stack.
     @State private var showsResizeCursor = false
@@ -138,8 +138,8 @@ struct SessionCard: View {
                 IconButton(title: "Collapse · Escape", icon: "chevron.down") { model.sessionPresentation = .pill }
             }
         }
-        .padding(AppDefaults.SessionCard.headerPadding)
-        .frame(height: AppDefaults.SessionCard.headerHeight)
+        .padding(Metrics.headerPadding)
+        .frame(height: Metrics.headerHeight)
     }
 
     private func sessionMenu(_ session: AgentSession?, folder: String) -> some View {
@@ -147,7 +147,7 @@ struct SessionCard: View {
             Button("New Session") { newSession() }
             let sessions = target.noteID == nil ? runner.sessions(in: folder) : target.noteSessions
             if !sessions.isEmpty { Divider() }
-            ForEach(sessions.prefix(AppDefaults.SessionCard.menuSessionLimit)) { item in
+            ForEach(sessions.prefix(Metrics.menuSessionLimit)) { item in
                 Button {
                     model.selectedSession = item.id
                 } label: {
@@ -172,7 +172,7 @@ struct SessionCard: View {
     /// The top edge of the card. Drag it to change the height.
     private var resizeHandle: some View {
         Color.clear
-            .frame(height: AppDefaults.SessionCard.resizeHandleHeight)
+            .frame(height: Metrics.resizeHandleHeight)
             .contentShape(Rectangle())
             .onHover { setResizeCursor($0) }
             .onDisappear { setResizeCursor(false) }
@@ -180,7 +180,7 @@ struct SessionCard: View {
                 .onChanged { value in
                     let start = dragStart ?? height
                     dragStart = start
-                    height = min(max(start - value.translation.height, AppDefaults.SessionCard.minimumHeight), AppDefaults.SessionCard.maximumHeight)
+                    height = min(max(start - value.translation.height, Metrics.minimumHeight), Metrics.maximumHeight)
                 }
                 .onEnded { _ in dragStart = nil })
             .accessibilityHidden(true)
@@ -192,6 +192,41 @@ struct SessionCard: View {
         guard shown != showsResizeCursor else { return }
         showsResizeCursor = shown
         if shown { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
+    }
+}
+
+/// The session card in the corner of a reader paper, and its detached panel.
+extension SessionCard {
+    enum Metrics {
+        static let width: CGFloat = 400
+        static let height: CGFloat = 560
+        static let minimumHeight: Double = 260
+        static let maximumHeight: Double = 900
+        static let cornerRadius: CGFloat = 16
+        static let margin: CGFloat = 16
+        static let headerHeight: CGFloat = 44
+        static let pillHeight: CGFloat = 34
+        static let pillMaximumWidth: CGFloat = 340
+        /// The part of the reader paper that the card can cover at most.
+        static let paneFraction: CGFloat = 0.85
+        static let panelSize = NSSize(width: 420, height: 640)
+        static let panelMinimumSize = NSSize(width: 340, height: 360)
+        static let tabsMinimumWidth: CGFloat = 220
+        static let headerPadding = EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 8)
+        static let pillPadding = EdgeInsets(top: 0, leading: 11, bottom: 0, trailing: 14)
+        /// The number of sessions that the session menu of the header shows.
+        static let menuSessionLimit = 20
+        /// The height of the strip at the top edge that changes the height of the card.
+        static let resizeHandleHeight: CGFloat = 6
+        static let cardShadowRadius: CGFloat = 22
+        static let cardShadowOffset: CGFloat = 10
+        static let pillShadowRadius: CGFloat = 12
+        static let pillShadowOffset: CGFloat = 4
+        /// The distance of a new detached panel from the top and the right of the screen.
+        static let panelScreenInset: CGFloat = 30
+        /// The shadows of the card and of its pill.
+        static let cardShadow = Color.black.opacity(0.2)
+        static let pillShadow = Color.black.opacity(0.16)
     }
 }
 
@@ -208,12 +243,12 @@ private struct CardShape: ViewModifier {
         } else {
             content
                 .frame(width: layout.cardWidth)
-                .frame(minHeight: AppDefaults.SessionCard.minimumHeight, idealHeight: height, maxHeight: height)
-                .clipShape(RoundedRectangle(cornerRadius: AppDefaults.SessionCard.cornerRadius))
-                .overlay(RoundedRectangle(cornerRadius: AppDefaults.SessionCard.cornerRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
-                .shadow(color: PiperTheme.sessionCardShadow, radius: AppDefaults.SessionCard.cardShadowRadius,
-                        y: AppDefaults.SessionCard.cardShadowOffset)
-                .padding(AppDefaults.SessionCard.margin)
+                .frame(minHeight: SessionCard.Metrics.minimumHeight, idealHeight: height, maxHeight: height)
+                .clipShape(RoundedRectangle(cornerRadius: SessionCard.Metrics.cornerRadius))
+                .overlay(RoundedRectangle(cornerRadius: SessionCard.Metrics.cornerRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
+                .shadow(color: SessionCard.Metrics.cardShadow, radius: SessionCard.Metrics.cardShadowRadius,
+                        y: SessionCard.Metrics.cardShadowOffset)
+                .padding(SessionCard.Metrics.margin)
                 .padding(.bottom, layout.cardBottomInset)
         }
     }
@@ -237,20 +272,20 @@ struct SessionPill: View {
             }
             .font(PiperTheme.paperUI(.body))
             .foregroundStyle(needsYou ? PiperTheme.onAccent : PiperTheme.ink)
-            .padding(AppDefaults.SessionCard.pillPadding)
-            .frame(height: AppDefaults.SessionCard.pillHeight)
-            .frame(maxWidth: AppDefaults.SessionCard.pillMaximumWidth)
+            .padding(SessionCard.Metrics.pillPadding)
+            .frame(height: SessionCard.Metrics.pillHeight)
+            .frame(maxWidth: SessionCard.Metrics.pillMaximumWidth)
             .background {
                 if needsYou { Capsule().fill(PiperTheme.warning) } else { Capsule().fill(.regularMaterial) }
             }
             .overlay(Capsule().strokeBorder(PiperTheme.rule, lineWidth: 0.5))
-            .shadow(color: PiperTheme.sessionPillShadow, radius: AppDefaults.SessionCard.pillShadowRadius,
-                    y: AppDefaults.SessionCard.pillShadowOffset)
+            .shadow(color: SessionCard.Metrics.pillShadow, radius: SessionCard.Metrics.pillShadowRadius,
+                    y: SessionCard.Metrics.pillShadowOffset)
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .fixedSize()
-        .padding(AppDefaults.SessionCard.margin)
+        .padding(SessionCard.Metrics.margin)
         .help("Open the Session Card · Option-Command-C")
         .accessibilityLabel("Session: " + text(session))
     }

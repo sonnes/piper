@@ -19,14 +19,14 @@ final class SessionCardTests: XCTestCase {
         let layout = PaperLayout()
         for width: CGFloat in [384, 500, 640] {
             layout.width = width
-            XCTAssertLessThanOrEqual(layout.cardWidth + 2 * AppDefaults.SessionCard.margin, width)
-            XCTAssertGreaterThanOrEqual(layout.cardBottomInset, AppDefaults.TabIsland.clearance)
+            XCTAssertLessThanOrEqual(layout.cardWidth + 2 * SessionCard.Metrics.margin, width)
+            XCTAssertGreaterThanOrEqual(layout.cardBottomInset, TabIslandMetrics.clearance)
             XCTAssertEqual(layout.tabsTrailingInset, 0)
         }
         layout.width = 900
-        XCTAssertEqual(layout.cardWidth, AppDefaults.SessionCard.width)
+        XCTAssertEqual(layout.cardWidth, SessionCard.Metrics.width)
         XCTAssertEqual(layout.cardBottomInset, 0)
-        XCTAssertGreaterThanOrEqual(layout.width - layout.tabsTrailingInset, AppDefaults.SessionCard.tabsMinimumWidth)
+        XCTAssertGreaterThanOrEqual(layout.width - layout.tabsTrailingInset, SessionCard.Metrics.tabsMinimumWidth)
     }
 
     func testTheAtListShowsTheScreenTheFilesAndTheOpenCaptures() {

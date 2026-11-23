@@ -47,7 +47,7 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
         self.model = model
         self.desk = desk
         viewController = ReaderPaperViewController(tilt: tilt)
-        let window = PaperWindow(paperSize: frame.size, minimumPaperSize: AppDefaults.Papers.readerMinimumSize)
+        let window = PaperWindow(paperSize: frame.size, minimumPaperSize: Metrics.minimumSize)
         window.title = "Paper"
         super.init(window: window)
         window.delegate = self
@@ -84,10 +84,10 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
             if !reduceMotion {
                 let target = window.frame
                 window.alphaValue = 0
-                window.setFrameOrigin(NSPoint(x: target.minX, y: target.minY - AppDefaults.Papers.rise))
+                window.setFrameOrigin(NSPoint(x: target.minX, y: target.minY - Metrics.rise))
                 window.makeKeyAndOrderFront(nil)
                 NSAnimationContext.runAnimationGroup { context in
-                    context.duration = AppDefaults.Papers.fade
+                    context.duration = PaperWindow.Metrics.fade
                     context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                     window.animator().alphaValue = 1
                     window.animator().setFrame(target, display: true)
@@ -175,7 +175,7 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
         guard !closing, !reduceMotion else { return true }
         closing = true
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = AppDefaults.Papers.fade
+            context.duration = PaperWindow.Metrics.fade
             sender.animator().alphaValue = 0
         }, completionHandler: { sender.close() })
         return false
@@ -215,6 +215,14 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
             },
             close: { [weak self] in self?.window?.performClose(nil) }
         ).environment(\.paperDesk, desk))
+    }
+}
+
+extension ReaderPaperController {
+    enum Metrics {
+        static let minimumSize = NSSize(width: 420, height: 320)
+        /// A paper rises by this distance as it fades in.
+        static let rise: CGFloat = 14
     }
 }
 
@@ -263,7 +271,7 @@ final class ReaderPaperViewController: NSViewController {
             overlay.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             overlay.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             overlay.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor),
-            overlay.heightAnchor.constraint(lessThanOrEqualTo: container.heightAnchor, multiplier: AppDefaults.SessionCard.paneFraction)
+            overlay.heightAnchor.constraint(lessThanOrEqualTo: container.heightAnchor, multiplier: SessionCard.Metrics.paneFraction)
         ])
         hostingView = hosting
         overlayView = overlay
@@ -320,7 +328,7 @@ final class PaperContainerView: NSView {
         wantsLayer = true
         card.wantsLayer = true
         sheet.wantsLayer = true
-        sheet.layer?.cornerRadius = AppDefaults.Papers.cornerRadius
+        sheet.layer?.cornerRadius = PaperWindow.Metrics.cornerRadius
         sheet.layer?.cornerCurve = .continuous
         sheet.layer?.masksToBounds = true
         for view in [shadowView, sheet] {
@@ -335,7 +343,7 @@ final class PaperContainerView: NSView {
 
     override func layout() {
         super.layout()
-        let margin = AppDefaults.Papers.shadowMargin
+        let margin = PaperWindow.Metrics.shadowMargin
         card.frameCenterRotation = 0
         card.frame = NSRect(x: margin.left, y: margin.bottom,
                             width: max(0, bounds.width - margin.left - margin.right),
@@ -354,15 +362,15 @@ final class PaperLayout {
     var focused = true
 
     var cardWidth: CGFloat {
-        min(AppDefaults.SessionCard.width, max(0, width - 2 * AppDefaults.SessionCard.margin))
+        min(SessionCard.Metrics.width, max(0, width - 2 * SessionCard.Metrics.margin))
     }
 
     var stacksControls: Bool {
-        width < AppDefaults.SessionCard.width + 2 * AppDefaults.SessionCard.margin + AppDefaults.SessionCard.tabsMinimumWidth
+        width < SessionCard.Metrics.width + 2 * SessionCard.Metrics.margin + SessionCard.Metrics.tabsMinimumWidth
     }
 
-    var cardBottomInset: CGFloat { stacksControls ? AppDefaults.TabIsland.clearance : 0 }
-    var tabsTrailingInset: CGFloat { stacksControls ? 0 : AppDefaults.SessionCard.width + AppDefaults.SessionCard.margin }
+    var cardBottomInset: CGFloat { stacksControls ? TabIslandMetrics.clearance : 0 }
+    var tabsTrailingInset: CGFloat { stacksControls ? 0 : SessionCard.Metrics.width + SessionCard.Metrics.margin }
 }
 
 private extension NSView {

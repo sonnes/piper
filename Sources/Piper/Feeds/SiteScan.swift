@@ -20,6 +20,11 @@ final class SiteScan {
 
     // MARK: - Properties
 
+    /// Sources scans the history again when it opens, if the last scan is older than this.
+    static let scanInterval: TimeInterval = 86_400
+    /// The number of sites that the scan reads at the same time.
+    nonisolated static let parallelScans = 4
+
     private(set) var state = State.idle
     private(set) var sources: [HistorySource] = []
     private(set) var lastScan: Date?
@@ -57,7 +62,7 @@ final class SiteScan {
     /// Scans if the last scan is older than one day. Sources calls it when it opens.
     func scanIfStale(now: Date = Date()) {
         guard let lastScan else { return scan() }
-        if now.timeIntervalSince(lastScan) > AppDefaults.Feeds.siteScanInterval { scan() }
+        if now.timeIntervalSince(lastScan) > Self.scanInterval { scan() }
     }
 
     func scan() {
@@ -113,7 +118,7 @@ final class SiteScan {
                                       visits: site.visits, score: site.score)
                 }
             }
-            for _ in 0..<AppDefaults.Feeds.siteScanParallel { next() }
+            for _ in 0..<Self.parallelScans { next() }
             for await suggestion in group {
                 results.append(suggestion)
                 next()

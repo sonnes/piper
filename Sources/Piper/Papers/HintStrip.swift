@@ -33,11 +33,21 @@ final class HintStrip {
             panel.orderOut(nil)
             return
         }
-        let metrics = AppDefaults.Papers.self
+        let metrics = Metrics.self
         let frame = screen.visibleFrame
         panel.setFrame(NSRect(x: frame.minX, y: frame.minY + metrics.hintBottom,
                               width: frame.width, height: metrics.hintHeight), display: true)
         panel.orderFrontRegardless()
+    }
+}
+
+extension HintStrip {
+    /// The strip of keys at the bottom of the screen.
+    enum Metrics {
+        static let hintBottom: CGFloat = 18
+        static let hintHeight: CGFloat = 40
+        /// The side margin of the foot of a list over the strip.
+        static let footMargin: CGFloat = 20
     }
 }
 

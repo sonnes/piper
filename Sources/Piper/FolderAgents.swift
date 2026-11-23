@@ -34,6 +34,12 @@ final class FolderAgents {
 
     /// The stored value that means "run nothing by default".
     static let noSkill = "-"
+    /// The model a run uses when the reader chose none.
+    static let defaultModel = "sonnet"
+    /// The model of a margin answer when the reader chose none. It is fast and costs little.
+    static let defaultMarginModel = "haiku"
+    /// The number of skills that a completion list shows.
+    static let completionLimit = 6
 
     let runner: SessionRunner
     /// Every folder of the Folders index with skills, including the folders that are off.
@@ -115,19 +121,17 @@ final class FolderAgents {
         claudePath = preferences.string(forKey: AppDefaults.Key.claudePath)
         permissionMode = preferences.string(forKey: AppDefaults.Key.claudePermissionMode)
             .flatMap(PermissionMode.init(rawValue:)) ?? .auto
-        model = preferences.string(forKey: AppDefaults.Key.claudeModel) ?? AppDefaults.Agents.model
+        model = preferences.string(forKey: AppDefaults.Key.claudeModel) ?? Self.defaultModel
         acpAgents = preferences.data(forKey: AppDefaults.Key.acpAgents)
             .flatMap { try? JSONDecoder().decode([AgentDefinition].self, from: $0) } ?? []
         sessionAgentID = preferences.string(forKey: AppDefaults.Key.sessionAgent) ?? AgentDefinition.claudeCodeID
         marginAgentID = preferences.string(forKey: AppDefaults.Key.marginAgent) ?? AgentDefinition.claudeCodeID
-        marginModel = preferences.string(forKey: AppDefaults.Key.marginModel) ?? AppDefaults.Agents.marginModel
+        marginModel = preferences.string(forKey: AppDefaults.Key.marginModel) ?? Self.defaultMarginModel
         runner = SessionRunner(storage: store.database) { [weak messages] error in messages?.report(error) }
         runner.executable = Self.executable(chosen: claudePath)
         runner.permissionMode = permissionMode
         runner.model = model
         runner.agents = acpAgents
-        runner.turnTimeout = AppDefaults.Agents.timeout
-        runner.concurrency = AppDefaults.Agents.concurrency
     }
 
     // MARK: - Agents
@@ -192,7 +196,7 @@ final class FolderAgents {
     func newMarginSession(in folder: String, noteID: UUID) -> AgentSession {
         if !canAnswerInMargin(marginAgentID) {
             marginAgentID = AgentDefinition.claudeCodeID
-            marginModel = AppDefaults.Agents.marginModel
+            marginModel = Self.defaultMarginModel
         }
         let session = runner.newSession(in: folder, noteID: noteID, agentID: marginAgentID, purpose: .margin)
         if !marginModel.isEmpty { runner.setModel(marginModel, for: session) }

@@ -62,7 +62,7 @@ struct FilePicker: View {
             .padding(.top, 10)
         }
         .padding(16)
-        .frame(width: AppDefaults.Today.pickerSize.width, height: AppDefaults.Today.pickerSize.height)
+        .frame(width: FilePicker.Metrics.pickerSize.width, height: FilePicker.Metrics.pickerSize.height)
         .onAppear { focused = true }
         .onChange(of: query) { _, _ in cursor = 0 }
     }
@@ -85,7 +85,7 @@ struct FilePicker: View {
             .font(PiperTheme.paperUI(.body))
             .foregroundStyle(on ? PiperTheme.onAccent : PiperTheme.paperInk)
             .padding(.horizontal, 8)
-            .frame(height: AppDefaults.Today.pickerRowHeight)
+            .frame(height: FilePicker.Metrics.pickerRowHeight)
             .background(on ? PiperTheme.brand : .clear, in: RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
@@ -97,5 +97,12 @@ struct FilePicker: View {
     private func pick(_ targets: [FileTarget]) {
         guard targets.indices.contains(cursor) else { return }
         if today.file(items, to: targets[cursor]) { today.filing = [] }
+    }
+}
+
+extension FilePicker {
+    enum Metrics {
+        static let pickerSize = NSSize(width: 360, height: 380)
+        static let pickerRowHeight: CGFloat = 30
     }
 }

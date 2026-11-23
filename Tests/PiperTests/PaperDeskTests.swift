@@ -160,7 +160,7 @@ final class PaperDeskStateTests: XCTestCase {
     /// does not cover a paper that is still open.
     func testThePaperWindowHoldsTheMarginOfTheShadow() {
         let paper = NSRect(x: 100, y: 200, width: 520, height: 760)
-        let margin = AppDefaults.Papers.shadowMargin
+        let margin = PaperWindow.Metrics.shadowMargin
         let window = PaperWindow.windowFrame(of: paper)
         XCTAssertEqual(window.width, paper.width + margin.left + margin.right)
         XCTAssertEqual(window.height, paper.height + margin.top + margin.bottom)
@@ -187,7 +187,7 @@ final class PaperDeskStateTests: XCTestCase {
         let screen = NSRect(x: 0, y: 0, width: 2000, height: 1200)
         let size = NSSize(width: 600, height: 560)
         let right = PaperDesk.frame(index: 0, size: size, feed: NSRect(x: 1300, y: 200, width: 520, height: 760), screen: screen)
-        XCTAssertEqual(right.maxX, 2000 - AppDefaults.Papers.screenInset)
+        XCTAssertEqual(right.maxX, 2000 - PaperDesk.Metrics.screenInset)
 
         let centered = PaperDesk.frame(index: 0, size: size, feed: nil, screen: screen)
         XCTAssertEqual(centered, NSRect(x: 700, y: 616, width: 600, height: 560))
@@ -232,7 +232,7 @@ final class PaperDeskStateTests: XCTestCase {
         var frames = PaperFrames()
         XCTAssertNil(frames.feedFrame)
         frames.setFeedFrame(NSRect(x: 40, y: 80, width: 560, height: 760))
-        for index in 0...AppDefaults.Papers.savedFrameLimit {
+        for index in 0...PaperFrames.savedFrameLimit {
             frames.set(NSRect(x: 1, y: 2, width: 600, height: 700), of: .article("article-\(index)"), kind: .reader)
         }
         frames.save(to: defaults)
@@ -245,7 +245,7 @@ final class PaperDeskStateTests: XCTestCase {
         let screen = NSRect(x: 0, y: 0, width: 1440, height: 900)
         let size = FeedPaperController.paperSize
         XCTAssertEqual(PaperDesk.feedFrame(saved: nil, screens: [screen], main: screen),
-                       NSRect(x: AppDefaults.Papers.screenInset * 2, y: 450 - size.height / 2, width: size.width, height: size.height))
+                       NSRect(x: PaperDesk.Metrics.screenInset * 2, y: 450 - size.height / 2, width: size.width, height: size.height))
         XCTAssertEqual(PaperDesk.feedFrame(saved: NSRect(x: 40, y: 80, width: 560, height: 760), screens: [screen], main: screen),
                        NSRect(x: 40, y: 80, width: 560, height: 760))
         XCTAssertEqual(PaperDesk.feedFrame(saved: NSRect(x: 3000, y: 80, width: 560, height: 760), screens: [screen], main: screen),
@@ -262,7 +262,7 @@ final class PaperDeskStateTests: XCTestCase {
 
     func testTheStoreOfFramesForgetsTheOldestFrameWhenItIsFull() {
         var frames = PaperFrames()
-        let limit = AppDefaults.Papers.savedFrameLimit
+        let limit = PaperFrames.savedFrameLimit
         for index in 0...limit {
             frames.set(NSRect(x: index, y: 0, width: 500, height: 400), of: .article("article-\(index)"), kind: .reader)
         }
@@ -288,7 +288,7 @@ final class PaperDeskStateTests: XCTestCase {
 
     func testAPaperOffTheScreenMovesOntoTheFirstScreen() {
         let screens = [NSRect(x: 0, y: 0, width: 1440, height: 900), NSRect(x: 1440, y: 0, width: 1920, height: 1080)]
-        let minimum = AppDefaults.Papers.readerMinimumSize
+        let minimum = ReaderPaperController.Metrics.minimumSize
         XCTAssertEqual(PaperPlacement.clamp(NSRect(x: -2000, y: 1500, width: 600, height: 500), to: screens, minimum: minimum),
                        NSRect(x: 0, y: 400, width: 600, height: 500))
         XCTAssertEqual(PaperPlacement.clamp(NSRect(x: 100, y: -300, width: 600, height: 500), to: screens, minimum: minimum),
@@ -298,13 +298,13 @@ final class PaperDeskStateTests: XCTestCase {
     func testAPaperStaysOnTheScreenThatHoldsMostOfIt() {
         let screens = [NSRect(x: 0, y: 0, width: 1440, height: 900), NSRect(x: 1440, y: 0, width: 1920, height: 1080)]
         let frame = NSRect(x: 1300, y: 100, width: 600, height: 500)
-        XCTAssertEqual(PaperPlacement.clamp(frame, to: screens, minimum: AppDefaults.Papers.readerMinimumSize),
+        XCTAssertEqual(PaperPlacement.clamp(frame, to: screens, minimum: ReaderPaperController.Metrics.minimumSize),
                        NSRect(x: 1440, y: 100, width: 600, height: 500))
     }
 
     func testAPaperLargerThanItsScreenShrinksButNotBelowItsMinimum() {
         let screens = [NSRect(x: 0, y: 0, width: 1000, height: 700)]
-        let minimum = AppDefaults.Papers.readerMinimumSize
+        let minimum = ReaderPaperController.Metrics.minimumSize
         XCTAssertEqual(PaperPlacement.clamp(NSRect(x: 100, y: 100, width: 1400, height: 900), to: screens, minimum: minimum),
                        NSRect(x: 0, y: 0, width: 1000, height: 700))
         let tiny = [NSRect(x: 0, y: 0, width: 300, height: 200)]
@@ -314,10 +314,10 @@ final class PaperDeskStateTests: XCTestCase {
     // MARK: - Resize
 
     func testEachPaperHasItsMinimumSize() {
-        let reader = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: AppDefaults.Papers.readerMinimumSize)
+        let reader = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: ReaderPaperController.Metrics.minimumSize)
         XCTAssertEqual(reader.minimumPaperSize, NSSize(width: 420, height: 320))
-        let feedMinimum = NSSize(width: AppDefaults.Papers.feedMinimumSize.width + AppDefaults.Papers.tabVisible,
-                                 height: AppDefaults.Papers.feedMinimumSize.height)
+        let feedMinimum = NSSize(width: FeedPaperController.Metrics.feedMinimumSize.width + PaperTabs.Metrics.tabVisible,
+                                 height: FeedPaperController.Metrics.feedMinimumSize.height)
         let feed = PaperWindow(paperSize: NSSize(width: 600, height: 760), minimumPaperSize: feedMinimum)
         XCTAssertEqual(feed.minimumPaperSize, feedMinimum)
     }
@@ -353,7 +353,7 @@ final class PaperDeskStateTests: XCTestCase {
     /// The band takes a click on each edge of the paper, the top edge under
     /// the hidden title bar too. A click inside the paper reaches the content.
     func testTheResizeBandTakesTheEdgesOfThePaperOnly() throws {
-        let window = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: AppDefaults.Papers.readerMinimumSize)
+        let window = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: ReaderPaperController.Metrics.minimumSize)
         window.contentView = NSView()
         window.setPaperFrame(NSRect(x: 100, y: 100, width: 600, height: 560), display: true)
         let frameView = try XCTUnwrap(window.contentView?.superview)
@@ -375,7 +375,7 @@ final class PaperDeskStateTests: XCTestCase {
     }
 
     func testAZoomFillsTheScreenAndASecondZoomPutsThePaperBack() throws {
-        let window = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: AppDefaults.Papers.readerMinimumSize)
+        let window = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: ReaderPaperController.Metrics.minimumSize)
         let screen = try XCTUnwrap(window.screen ?? NSScreen.main, "The test needs a display.")
         let start = NSRect(x: screen.visibleFrame.minX + 100, y: screen.visibleFrame.minY + 100, width: 600, height: 560)
         window.setPaperFrame(start, display: false)
@@ -388,7 +388,7 @@ final class PaperDeskStateTests: XCTestCase {
     // MARK: - Tab Stubs
 
     func testTheColumnHeightCountsTheOverlapAndTheAddTab() {
-        let metrics = AppDefaults.Papers.self
+        let metrics = PaperTabs.Metrics.self
         let one = 60 + 2 * metrics.tabLabelPadding
         let add = metrics.addTabGap + 50 + 2 * metrics.tabLabelPadding
         XCTAssertEqual(TabColumn.height(of: [60], addLength: 50), one + add)
@@ -399,7 +399,7 @@ final class PaperDeskStateTests: XCTestCase {
     /// The folder tabs show their first letter when the column with full
     /// labels is taller than the paper less its top and its foot room.
     func testFolderTabsBecomeStubsOnAShortPaper() {
-        let metrics = AppDefaults.Papers.self
+        let metrics = PaperTabs.Metrics.self
         let lengths: [CGFloat] = [60, 90, 60, 70, 70, 90, 80, 80, 90, 70]
         let column = TabColumn.height(of: lengths, addLength: 50)
         let fits = column + metrics.tabsTop + metrics.tabRoom
@@ -420,13 +420,13 @@ final class PaperDeskStateTests: XCTestCase {
 
     /// The hairline between two rows starts at the text column, after the mark.
     func testTheRowSeparatorStartsAtTheTextColumn() {
-        let metrics = AppDefaults.Papers.self
+        let metrics = PaperRowMetrics.self
         XCTAssertEqual(metrics.separatorInset, metrics.listRowPadding.leading + metrics.markColumn + metrics.rowSpacing)
     }
 
     func testATabCountStopsAtItsLimit() {
         XCTAssertEqual(TabColumn.countText(4), "4")
-        XCTAssertEqual(TabColumn.countText(AppDefaults.Papers.countLimit + 1), "\(AppDefaults.Papers.countLimit)+")
+        XCTAssertEqual(TabColumn.countText(PaperTabs.Metrics.countLimit + 1), "\(PaperTabs.Metrics.countLimit)+")
     }
 
     // MARK: - Folder Tree

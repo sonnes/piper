@@ -30,7 +30,7 @@ struct FeedPaperIndex: View {
                 case .folder: EmptyView()
                 }
             }
-            .padding(AppDefaults.Papers.indexPadding)
+            .padding(FeedPaperIndex.Metrics.indexPadding)
         }
         .sheet(isPresented: $namingSection) {
             NewSectionSheet(sections: store.sections) { name in
@@ -138,7 +138,7 @@ struct IndexHeader: View {
         Text(title)
             .font(PiperTheme.paperUI(.body, weight: .semibold))
             .foregroundStyle(PiperTheme.secondaryLabel)
-            .padding(AppDefaults.Papers.indexHeaderPadding)
+            .padding(FeedPaperIndex.Metrics.indexHeaderPadding)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -151,7 +151,7 @@ struct IndexAction: View {
     var body: some View {
         Button(action: action) {
             Text(title).font(PiperTheme.paperUI(.body, weight: .medium)).foregroundStyle(PiperTheme.brand)
-                .padding(.horizontal, AppDefaults.Papers.rowPadding).padding(.vertical, 10)
+                .padding(.horizontal, PaperRowMetrics.rowPadding).padding(.vertical, 10)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -172,7 +172,7 @@ struct IndexRow: View {
     @Environment(DeskMarks.self) private var marks: DeskMarks?
     @State private var hovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private typealias Metrics = AppDefaults.Papers
+    private typealias Metrics = FeedPaperIndex.Metrics
 
     var body: some View {
         HStack(spacing: 10) {
@@ -186,18 +186,18 @@ struct IndexRow: View {
         }
         .font(PiperTheme.paperUI(.row, weight: .medium))
         .foregroundStyle(PiperTheme.label)
-        .padding(.horizontal, Metrics.rowPadding)
+        .padding(.horizontal, PaperRowMetrics.rowPadding)
         .frame(minHeight: Metrics.rowHeight)
-        .background(background, in: RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
+        .background(background, in: RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius, style: .continuous))
         .overlay {
             // The keyboard cursor is a focus ring, as in the Apple apps.
             if keyed {
-                RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius, style: .continuous)
                     .strokeBorder(PiperTheme.brand, lineWidth: Metrics.cursorRing)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
-        .animation(reduceMotion ? nil : .easeOut(duration: Metrics.hoverFade), value: hovered)
+        .clipShape(RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius, style: .continuous))
+        .animation(reduceMotion ? nil : .easeOut(duration: PaperRowMetrics.hoverFade), value: hovered)
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .onHover { hovered = $0 }
@@ -224,17 +224,32 @@ struct FolderMark: View {
     var color = PiperTheme.paperFaint
 
     var body: some View {
-        let metrics = AppDefaults.Papers.self
+        let metrics = FeedPaperIndex.Metrics.self
         RoundedRectangle(cornerRadius: 2)
-            .strokeBorder(color, lineWidth: metrics.markLine)
+            .strokeBorder(color, lineWidth: PaperRowMetrics.markLine)
             .frame(width: metrics.folderMark.width, height: metrics.folderMark.height)
             .overlay(alignment: .topLeading) {
                 UnevenRoundedRectangle(topLeadingRadius: 2, topTrailingRadius: 2)
-                    .stroke(color, lineWidth: metrics.markLine)
+                    .stroke(color, lineWidth: PaperRowMetrics.markLine)
                     .frame(width: 7, height: 3)
                     .offset(x: 0, y: -3)
             }
             .padding(.top, 3)
             .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Metrics
+
+extension FeedPaperIndex {
+    enum Metrics {
+        static let indexPadding = EdgeInsets(top: 16, leading: 20, bottom: 20, trailing: 20)
+        /// A group header of an index, such as Sections.
+        static let indexHeaderPadding = EdgeInsets(top: 12, leading: 12, bottom: 4, trailing: 12)
+        /// The folder outline of a row of an index and of the folder tree.
+        static let folderMark = CGSize(width: 16, height: 12)
+        static let rowHeight: CGFloat = 48
+        /// The ring of the keyboard cursor on a row of an index.
+        static let cursorRing: CGFloat = 2
     }
 }

@@ -22,7 +22,7 @@ struct CaptureEditor: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let metrics = AppDefaults.Composer.self
+        let metrics = Metrics.self
         let lineHeight = paper ? metrics.paperLineHeight : metrics.lineHeight
         let font = paper ? PiperTheme.paperUINS(.row) : PiperTheme.uiNS(metrics.fontSize)
         let textInset = paper ? metrics.paperTextInset : metrics.textInset
@@ -169,10 +169,39 @@ struct CaptureEditor: NSViewRepresentable {
     }
 }
 
+/// The height of the card follows from the line height. A whole number of
+/// lines is therefore visible, and no line is cut at the bottom edge.
+extension CaptureEditor {
+    enum Metrics {
+        /// The font of the session composer.
+        static let fontSize = PiperTheme.TextSize.reading
+        /// The line and the insets of the capture field of the feed paper, 48 points high with one line.
+        static let paperLineHeight: CGFloat = 22
+        static let paperTextInset = NSSize(width: 0, height: 13)
+        static let lineHeight: CGFloat = 23
+        static let visibleLines = 2
+        /// The space between the edge of the text region and the first line.
+        static let textInset = NSSize(width: 10, height: 7)
+        /// The space between the edge of the card and the text region.
+        static let regionInset: CGFloat = 5
+        /// The space that holds the overlay scroller off the text.
+        static let scrollerInset: CGFloat = 6
+
+        /// The height of the text region that scrolls.
+        static let textHeight = textInset.height * 2 + lineHeight * CGFloat(visibleLines)
+        /// The height of the whole card.
+        static let height = textHeight + regionInset * 2
+        /// The width of the card before its first layout.
+        static let width: CGFloat = 572
+        /// The width available to the text.
+        static let textWidth = width - textInset.width * 2
+    }
+}
+
 private final class CaptureScrollView: NSScrollView {
     override func tile() {
         super.tile()
-        contentView.frame = bounds.insetBy(dx: 0, dy: AppDefaults.Composer.regionInset)
+        contentView.frame = bounds.insetBy(dx: 0, dy: CaptureEditor.Metrics.regionInset)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -216,6 +245,6 @@ private final class CaptureTextView: NSTextView {
         var attributes = typingAttributes
         attributes[.foregroundColor] = placeholderColor
         NSAttributedString(string: placeholder, attributes: attributes).draw(in: NSRect(origin: textContainerOrigin,
-            size: NSSize(width: container.size.width, height: AppDefaults.Composer.lineHeight)))
+            size: NSSize(width: container.size.width, height: CaptureEditor.Metrics.lineHeight)))
     }
 }

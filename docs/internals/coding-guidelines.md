@@ -101,7 +101,14 @@ An `NSWindowController` owns each window. It gives keyboard handling and respond
 
 Papers never call each other. A reader paper reports upward through `ReaderPaperControllerDelegate`, and `PaperDesk` decides what happens next.
 
-Put sizes, colors, and other parameters in `AppDefaults` and `PiperTheme`. Do not write a literal color in a view.
+Each value has one home:
+
+- A preference key goes in `AppDefaults.Key`.
+- A color, a font, or a type size that several features share goes in `PiperTheme`.
+- The sizes, times, and colors of one feature go in a `Metrics` enum next to its views, for example `extension FeedPaperView { enum Metrics { ... } }`.
+- A behavior value, such as a timeout or a limit, goes on the type that uses it, for example `SiteScan.scanInterval`.
+
+A Swift generic type cannot hold a static stored property. For a generic view, the enum stands beside it, for example `PaperRowMetrics` and `TabIslandMetrics`. Do not write a literal size or color in a view.
 
 Give each text outside a web page a size from `PiperTheme.TextSize`:
 

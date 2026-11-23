@@ -318,7 +318,7 @@ final class FolderAgentsTests: XCTestCase {
         let margin = agents.newMarginSession(in: wiki.path, noteID: UUID())
         XCTAssertEqual(margin.agentID, AgentDefinition.claudeCodeID)
         XCTAssertEqual(agents.marginAgentID, AgentDefinition.claudeCodeID)
-        XCTAssertEqual(margin.model, AppDefaults.Agents.marginModel)
+        XCTAssertEqual(margin.model, FolderAgents.defaultMarginModel)
     }
 
     func testFindsClaudeInTheUsualPlaces() {

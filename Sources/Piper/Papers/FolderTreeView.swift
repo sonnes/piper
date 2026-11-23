@@ -11,8 +11,6 @@ struct FolderTreeView: View {
     @Bindable var paper: FeedPaperModel
     let library: Library
 
-    private typealias Metrics = AppDefaults.Papers
-
     var body: some View {
         let rows = paper.treeRows
         let cursor = paper.treeCursor(in: rows)
@@ -70,7 +68,7 @@ struct FolderTreeView: View {
                     .textSelection(.enabled).padding(.top, 5)
             }
             .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.warning)
-            .padding(.horizontal, Metrics.rowPadding).padding(.top, 12)
+            .padding(.horizontal, PaperRowMetrics.rowPadding).padding(.top, 12)
         }
     }
 }
@@ -88,7 +86,7 @@ private struct TreeRow: View {
     @Environment(DeskMarks.self) private var marks: DeskMarks?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hovered = false
-    private typealias Metrics = AppDefaults.Papers
+    private typealias Metrics = FolderTreeView.Metrics
 
     private var onDesk: Bool { !row.isFolder && marks?.isOpenFile(row.path) == true }
 
@@ -110,9 +108,9 @@ private struct TreeRow: View {
         .frame(maxWidth: .infinity, minHeight: Metrics.treeRowHeight, alignment: .leading)
         .background(alignment: .leading) { guide }
         .background(PiperTheme.rowFill(selected: selected, focused: marks?.feedFocused == true, hovered: hovered),
-                    in: RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
+                    in: RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius, style: .continuous))
         .onHover { hovered = $0 }
-        .animation(reduceMotion ? nil : .easeOut(duration: Metrics.hoverFade), value: hovered)
+        .animation(reduceMotion ? nil : .easeOut(duration: PaperRowMetrics.hoverFade), value: hovered)
         .overlay { slot }
         .contentShape(Rectangle())
         .onTapGesture(perform: click)
@@ -179,9 +177,9 @@ private struct TreeRow: View {
 
     @ViewBuilder private var slot: some View {
         if onDesk {
-            RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous)
-                .strokeBorder(PiperTheme.paperSlot, style: StrokeStyle(lineWidth: Metrics.markLine, dash: Metrics.slotDash))
-                .padding(Metrics.markLine)
+            RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius, style: .continuous)
+                .strokeBorder(PiperTheme.paperSlot, style: StrokeStyle(lineWidth: PaperRowMetrics.markLine, dash: PaperRowMetrics.slotDash))
+                .padding(PaperRowMetrics.markLine)
         }
     }
 
@@ -202,12 +200,12 @@ private struct Swatch: View {
     let selected: Bool
     let action: () -> Void
 
-    private typealias Metrics = AppDefaults.Papers
+    private typealias Metrics = FolderTreeView.Metrics
 
     var body: some View {
         Button(action: action) {
             Circle()
-                .fill(PiperTheme.tabFill(color))
+                .fill(PaperTabs.Metrics.fill(color))
                 .overlay(Circle().strokeBorder(PiperTheme.paper, lineWidth: Metrics.swatchBorder))
                 .overlay {
                     let line: CGFloat = selected ? 2 : 1
@@ -221,5 +219,26 @@ private struct Swatch: View {
         .accessibilityLabel(color.name)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction(.default, action)
+    }
+}
+
+// MARK: - Metrics
+
+/// The folder tree of a folder tab.
+extension FolderTreeView {
+    enum Metrics {
+        static let treeRowHeight: CGFloat = 40
+        static let treeRowPadding = EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 14)
+        static let treePadding = EdgeInsets(top: 10, leading: 12, bottom: 8, trailing: 12)
+        static let treeIndent: CGFloat = 22
+        static let treeSpacing: CGFloat = 8
+        /// The guide line of a nested row lies at this distance from the left of its row, at level 1.
+        static let treeGuide: CGFloat = 23
+        static let treeChevron: CGFloat = 16
+        static let treeChevronGlyph: CGFloat = 10
+        /// The row of swatches under the title of a folder tab.
+        static let subPadding = EdgeInsets(top: 8, leading: 32, bottom: 0, trailing: 32)
+        static let swatchSize: CGFloat = 22
+        static let swatchBorder: CGFloat = 2
     }
 }

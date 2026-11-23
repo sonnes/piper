@@ -14,18 +14,17 @@ struct FeedPaperView: View {
     @State private var namingSection = false
     @Environment(\.paperDesk) private var desk
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private typealias Metrics = AppDefaults.Papers
 
     var body: some View {
         // The active tab lies over the paper. The other tabs lie under it.
         ZStack(alignment: .topLeading) {
             tabs(.under)
             sheet
-                .padding(.leading, Metrics.tabVisible)
+                .padding(.leading, PaperTabs.Metrics.tabVisible)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { paper.paperHeight = $0 }
             tabs(.over)
         }
-        .padding(Metrics.shadowInsets)
+        .padding(PaperWindow.Metrics.shadowInsets)
         // The title bar is hidden, so the paper starts at the top margin of the window.
         .ignoresSafeArea(.container, edges: .top)
         .environment(paper.marks)
@@ -55,7 +54,7 @@ struct FeedPaperView: View {
                          stubs: TabColumn.usesStubs(lengths: lengths, addLength: addLength, paperHeight: paper.paperHeight),
                          choose: paper.choose, addFolder: paper.addFolder,
                          removeFolder: removeFolder)
-            .padding(.top, Metrics.tabsTop)
+            .padding(.top, PaperTabs.Metrics.tabsTop)
     }
 
     private var sheet: some View {
@@ -69,10 +68,10 @@ struct FeedPaperView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(reduceMotion ? nil : .easeInOut(duration: Metrics.fade), value: paper.showsIndex)
+            .animation(reduceMotion ? nil : .easeInOut(duration: PaperWindow.Metrics.fade), value: paper.showsIndex)
         }
         .background(PiperTheme.paper)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: PaperWindow.Metrics.cornerRadius, style: .continuous))
         .paperShadow(focused: paper.marks.feedFocused)
         .foregroundStyle(PiperTheme.paperInk)
     }
@@ -180,6 +179,14 @@ struct FeedPaperView: View {
             }
         case .folder(let path): return paper.fileCount(of: path)
         }
+    }
+}
+
+extension FeedPaperView {
+    enum Metrics {
+        /// The smallest scale of the title of the feed paper before it truncates.
+        static let titleMinimumScale: CGFloat = 0.7
+        static let headerPadding = EdgeInsets(top: 28, leading: 32, bottom: 0, trailing: 24)
     }
 }
 

@@ -52,7 +52,7 @@ struct FeedArticleDetail: View {
             .overlay(alignment: .bottom) {
                 if case .failed = loader.state {
                     Button("Show Web Page") { tab = .web }
-                        .padding(.bottom, AppDefaults.TabIsland.clearance + AppDefaults.ArticleReader.webPageButtonMargin)
+                        .padding(.bottom, TabIslandMetrics.clearance + ArticleReader.Metrics.webPageButtonMargin)
                 }
             }
             .background(PiperTheme.paper)

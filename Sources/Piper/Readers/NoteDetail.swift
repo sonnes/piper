@@ -79,13 +79,13 @@ struct NoteDetail: View {
                     session.text = text
                     scheduleSave()
                 }), font: CaptureText.looksLikeCode(note.text)
-                    ? PiperTheme.manuscript(size: AppDefaults.Reader.codeFontSize)
+                    ? PiperTheme.manuscript(size: Metrics.codeFontSize)
                     : PiperTheme.paperUINS(.reading), paper: true)
                 .padding(.horizontal, -5)
                 .accessibilityLabel("Note text")
             }
         }
-        .padding(AppDefaults.Papers.noteBodyPadding)
+        .padding(Metrics.bodyPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
@@ -95,7 +95,7 @@ struct NoteDetail: View {
     private func scheduleSave() {
         pendingSave?.cancel()
         pendingSave = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(600))
+            try? await Task.sleep(for: ReaderMetrics.saveDelay)
             guard !Task.isCancelled, let session else { return }
             model.saveCaptureEdit(session)
         }
@@ -108,6 +108,15 @@ struct NoteDetail: View {
             model.saveCaptureEdit(session)
         }
         model.captureEdits.removeValue(forKey: session.id)
+    }
+}
+
+extension NoteDetail {
+    enum Metrics {
+        static let bodyPadding = EdgeInsets(top: 4, leading: 28, bottom: 24, trailing: 28)
+        /// The extra space between the lines of a note, for a line height of 1.6 at 18 points.
+        static let lineSpacing: CGFloat = 4.5
+        static let codeFontSize: CGFloat = 13
     }
 }
 
@@ -146,7 +155,7 @@ struct NoteTextEditor: NSViewRepresentable {
                                          .foregroundColor: ink]
         editor.defaultParagraphStyle = {
             let style = NSMutableParagraphStyle()
-            style.lineSpacing = paper ? AppDefaults.Papers.noteLineSpacing : 3
+            style.lineSpacing = paper ? NoteDetail.Metrics.lineSpacing : 3
             return style
         }()
         editor.typingAttributes[.paragraphStyle] = editor.defaultParagraphStyle

@@ -32,7 +32,7 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var flashing = false
     @State private var hovered = false
-    private typealias Metrics = AppDefaults.Papers
+    private typealias Metrics = PaperRowMetrics
 
     private var lifted: Bool { item.map { marks?.isOpen($0) == true } ?? false }
     private var showsActions: Bool { (hovered || (actionsOnSelection && selected)) && Actions.self != EmptyView.self }
@@ -159,7 +159,7 @@ struct RowAction: View {
     let action: () -> Void
 
     @State private var hovered = false
-    private typealias Metrics = AppDefaults.Papers
+    private typealias Metrics = PaperRowMetrics
 
     var body: some View {
         Button(action: action) {
@@ -185,7 +185,7 @@ struct PaperRowTitle: View {
     var lines = 2
 
     @Environment(\.rowLifted) private var lifted
-    private typealias Metrics = AppDefaults.Papers
+    private typealias Metrics = PaperRowMetrics
 
     var body: some View {
         let heavy = bold && !lifted
@@ -222,7 +222,7 @@ struct TickMark: View {
     @State private var hovered = false
 
     var body: some View {
-        let metrics = AppDefaults.Papers.self
+        let metrics = PaperRowMetrics.self
         ZStack {
             if done {
                 Circle().fill(PiperTheme.indigo)
@@ -239,7 +239,7 @@ struct TickMark: View {
 /// The dot of an unread article, as in Mail.
 struct UnreadDot: View {
     var body: some View {
-        let metrics = AppDefaults.Papers.self
+        let metrics = PaperRowMetrics.self
         Circle()
             .fill(PiperTheme.brand)
             .frame(width: metrics.dotSize, height: metrics.dotSize)
@@ -250,7 +250,7 @@ struct UnreadDot: View {
 /// The sheet of a file: a page with a folded corner.
 struct SheetMark: View {
     var body: some View {
-        let metrics = AppDefaults.Papers.self
+        let metrics = PaperRowMetrics.self
         UnevenRoundedRectangle(topLeadingRadius: 2, bottomLeadingRadius: 2, bottomTrailingRadius: 2, topTrailingRadius: 5)
             .strokeBorder(PiperTheme.paperFaint, lineWidth: metrics.markLine)
             .frame(width: metrics.sheetMark.width, height: metrics.sheetMark.height)
@@ -266,7 +266,7 @@ struct RowNotes: View {
     let notes: [Note]
     let open: (Note) -> Void
 
-    private typealias Metrics = AppDefaults.Papers
+    private typealias Metrics = PaperRowMetrics
 
     var body: some View {
         let shown = notes.suffix(Metrics.rowNoteLimit)
@@ -326,7 +326,7 @@ struct PaperGroupHeader: View {
             }
         }
         .font(PiperTheme.paperUI(.body, weight: .semibold))
-        .padding(AppDefaults.Papers.groupHeaderPadding)
+        .padding(PaperRowMetrics.groupHeaderPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(PiperTheme.paper.opacity(0.94))
         .accessibilityAddTraits(.isHeader)
@@ -352,7 +352,7 @@ struct PaperDoneToday: View {
             }
             .font(PiperTheme.paperUI(.body, weight: .medium))
             .foregroundStyle(PiperTheme.paperFaint)
-            .padding(AppDefaults.Papers.groupHeaderPadding)
+            .padding(PaperRowMetrics.groupHeaderPadding)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -369,7 +369,7 @@ struct PaperEmpty: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: symbol)
-                .font(.system(size: AppDefaults.Papers.emptySymbol, weight: .light))
+                .font(.system(size: PaperRowMetrics.emptySymbol, weight: .light))
                 .foregroundStyle(PiperTheme.tertiaryLabel)
                 .padding(.bottom, 6)
                 .accessibilityHidden(true)
@@ -383,4 +383,46 @@ struct PaperEmpty: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
     }
+}
+
+// MARK: - Metrics
+
+/// A row of a list on the feed paper: a column for the mark, then the text
+/// and the time. Today, the index, the folder tree, and the article list use
+/// these values too.
+enum PaperRowMetrics {
+    static let rowRadius: CGFloat = 12
+    static let rowPadding: CGFloat = 12
+    static let listRowPadding = EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 20)
+    static let listPadding = EdgeInsets(top: 4, leading: 12, bottom: 8, trailing: 12)
+    static let markColumn: CGFloat = 24
+    static let rowLineHeight: CGFloat = 26
+    /// The space between the lines of a title, for a line height of 26.
+    static let rowLineSpacing: CGFloat = 4
+    static let rowSpacing: CGFloat = 10
+    /// The quote of a note under a row.
+    static let quoteSize: CGFloat = 15.5
+    static let tickSize: CGFloat = 18
+    static let dotSize: CGFloat = 9
+    static let markLine: CGFloat = 1.5
+    static let sheetMark = NSSize(width: 12, height: 15)
+    static let slotDash: [CGFloat] = [4, 3]
+    /// A group header, such as Today. It sticks to the top of the list while the list scrolls.
+    static let groupHeaderPadding = EdgeInsets(top: 16, leading: 14, bottom: 6, trailing: 20)
+    /// The hairline between two rows starts at the text column, as in Mail.
+    static let separatorInset = listRowPadding.leading + markColumn + rowSpacing
+    static let separatorHeight: CGFloat = 0.5
+    /// The fade of a row fill under the pointer.
+    static let hoverFade: Double = 0.12
+    /// The time of the flash of a row when its paper goes back.
+    static let flash: Double = 1.4
+    /// The trailing actions of a row under the pointer, in place of its time.
+    static let rowActionSize: CGFloat = 28
+    static let rowActionGlyph: CGFloat = 14
+    /// An empty list: a symbol over one line.
+    static let emptySymbol: CGFloat = 34
+    /// The notes under a row: the last two, then a count of the others.
+    static let rowNoteLimit = 2
+    static let rowNotesPadding = EdgeInsets(top: 8, leading: 12, bottom: 2, trailing: 0)
+    static let quoteBarWidth: CGFloat = 2
 }

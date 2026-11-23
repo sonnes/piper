@@ -18,13 +18,11 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     /// Called with the frame of the paper after the reader moves or resizes it.
     var moved: (NSRect) -> Void = { _ in }
 
-    /// The width of the column of tabs beside the paper.
-    static let tabColumn = AppDefaults.Papers.tabVisible
     /// The size of a new paper, with its column of tabs.
-    nonisolated static let paperSize = NSSize(width: AppDefaults.Papers.feedSize.width + AppDefaults.Papers.tabVisible,
-                                              height: AppDefaults.Papers.feedSize.height)
-    nonisolated static let minimumPaperSize = NSSize(width: AppDefaults.Papers.feedMinimumSize.width + AppDefaults.Papers.tabVisible,
-                                                     height: AppDefaults.Papers.feedMinimumSize.height)
+    nonisolated static let paperSize = NSSize(width: Metrics.feedSize.width + PaperTabs.Metrics.tabVisible,
+                                              height: Metrics.feedSize.height)
+    nonisolated static let minimumPaperSize = NSSize(width: Metrics.feedMinimumSize.width + PaperTabs.Metrics.tabVisible,
+                                                     height: Metrics.feedMinimumSize.height)
 
     // MARK: - Initialization
 
@@ -151,5 +149,13 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     private func frameChanged() {
         guard let frame = (window as? PaperWindow)?.paperFrame else { return }
         moved(frame)
+    }
+}
+
+extension FeedPaperController {
+    /// The size of the feed paper, without its column of tabs.
+    enum Metrics {
+        static let feedSize = NSSize(width: 520, height: 760)
+        static let feedMinimumSize = NSSize(width: 420, height: 560)
     }
 }

@@ -33,13 +33,38 @@ struct TranscriptBlockView: View {
     }
 }
 
+extension TranscriptBlockView {
+    /// The blocks of a session transcript.
+    enum Metrics {
+        /// The space between blocks of a transcript, and the inset of the transcript.
+        static let blockSpacing: CGFloat = 10
+        static let transcriptInset = EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14)
+        /// A message of the reader is a bubble. Its corner at the bottom right is small, like a tail.
+        static let bubbleRadius: CGFloat = 14
+        static let bubbleTailRadius: CGFloat = 4
+        static let bubblePadding = EdgeInsets(top: 7, leading: 11, bottom: 7, trailing: 11)
+        /// The bubble leaves at least this much of the transcript width empty on its left.
+        static let bubbleLeadingSpace: CGFloat = 64
+        /// A tool row, a diff, and the fold.
+        static let chipRadius: CGFloat = 8
+        static let chipPadding = EdgeInsets(top: 5, leading: 9, bottom: 5, trailing: 9)
+        /// The number of diff lines that an Edit row shows.
+        static let diffLineLimit = 12
+        /// The lines that an edit adds and removes.
+        static let diffAdded = Color(nsColor: PiperTheme.hex(0x22C55E)).opacity(0.14)
+        static let diffRemoved = Color(nsColor: PiperTheme.hex(0xEF4444)).opacity(0.12)
+        /// The mark of a finished tool call. Green 600.
+        static let toolDone = Color(nsColor: PiperTheme.color(light: 0x16A34A, dark: 0x4ADE80))
+    }
+}
+
 /// A message from the reader, as a bubble on the right, with the items it
 /// named as context under it.
 struct UserTurnView: View {
     let text: String
     let context: [ContextItem]
 
-    private typealias Metrics = AppDefaults.Sessions
+    private typealias Metrics = TranscriptBlockView.Metrics
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
@@ -93,7 +118,7 @@ struct ToolCallRow: View {
     let open: (String) -> Void
     @State private var expanded = false
 
-    private typealias Metrics = AppDefaults.Sessions
+    private typealias Metrics = TranscriptBlockView.Metrics
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -138,7 +163,7 @@ struct ToolCallRow: View {
         if call.isError {
             Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(PiperTheme.danger)
         } else if call.isFinished {
-            Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(PiperTheme.toolDone)
+            Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(TranscriptBlockView.Metrics.toolDone)
         } else if isLive {
             ProgressView().controlSize(.mini)
         } else {
@@ -152,7 +177,7 @@ struct DiffView<Header: View>: View {
     let diff: ToolCall.Diff
     @ViewBuilder let header: Header
 
-    private typealias Metrics = AppDefaults.Sessions
+    private typealias Metrics = TranscriptBlockView.Metrics
     private var lines: [DiffText.Line] { DiffText.lines(old: diff.old, new: diff.new) }
 
     var body: some View {
@@ -187,8 +212,8 @@ struct DiffView<Header: View>: View {
         let (mark, text, fill): (String, String, Color) = {
             switch line {
             case .context(let text): return (" ", text, .clear)
-            case .removed(let text): return ("-", text, PiperTheme.diffRemoved)
-            case .added(let text): return ("+", text, PiperTheme.diffAdded)
+            case .removed(let text): return ("-", text, TranscriptBlockView.Metrics.diffRemoved)
+            case .added(let text): return ("+", text, TranscriptBlockView.Metrics.diffAdded)
             }
         }()
         return Text(mark + " " + text)

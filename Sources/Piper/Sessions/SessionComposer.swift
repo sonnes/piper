@@ -52,7 +52,7 @@ struct SessionComposer: View {
         let names = session?.slashCommands ?? owner.skills.map(\.name)
         return Array(Set(names)).sorted()
             .filter { $0.lowercased().hasPrefix(partial.lowercased()) }
-            .prefix(AppDefaults.Agents.completionLimit)
+            .prefix(FolderAgents.completionLimit)
             .map { name in
                 let skill = owner.skills.first { $0.name == name } ?? FolderSkill(name: name)
                 return FolderAgents.Action(folder: owner, skill: skill)
@@ -78,8 +78,8 @@ struct SessionComposer: View {
     }
 
     private var height: CGFloat {
-        let metrics = AppDefaults.Composer.self
-        return metrics.textInset.height * 2 + metrics.lineHeight * CGFloat(AppDefaults.Sessions.composerLines)
+        let metrics = CaptureEditor.Metrics.self
+        return metrics.textInset.height * 2 + metrics.lineHeight * CGFloat(Metrics.composerLines)
             + metrics.regionInset * 2
     }
 
@@ -235,5 +235,12 @@ struct SessionComposer: View {
         guard selector == #selector(NSResponder.insertNewline(_:)), !shift else { return false }
         submit()
         return true
+    }
+}
+
+extension SessionComposer {
+    enum Metrics {
+        /// The lines that the composer of a session shows.
+        static let composerLines = 3
     }
 }

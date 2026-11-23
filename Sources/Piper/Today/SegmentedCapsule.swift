@@ -20,7 +20,7 @@ struct SegmentedCapsule<Value: Hashable>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let metrics = AppDefaults.Today.self
+        let metrics = CapsuleMetrics.self
         HStack(spacing: 0) {
             ForEach(values, id: \.self) { value in
                 let on = selection == value
@@ -50,4 +50,11 @@ struct SegmentedCapsule<Value: Hashable>: View {
         .fixedSize(horizontal: !fills, vertical: false)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: selection)
     }
+}
+
+private enum CapsuleMetrics {
+    static let lensHeight: CGFloat = 30
+    static let lensInset: CGFloat = 3
+    /// The side padding of a segment that fits its title.
+    static let segmentPadding: CGFloat = 10
 }

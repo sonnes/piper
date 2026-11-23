@@ -32,7 +32,7 @@ final class CommandPaletteController {
             close()
             return
         }
-        let panel = PalettePanel(contentRect: NSRect(origin: .zero, size: AppDefaults.Palette.size),
+        let panel = PalettePanel(contentRect: NSRect(origin: .zero, size: CommandPaletteController.Metrics.size),
                                  styleMask: [.borderless, .fullSizeContentView], backing: .buffered, defer: false)
         panel.isFloatingPanel = true
         panel.backgroundColor = .clear
@@ -50,8 +50,8 @@ final class CommandPaletteController {
         }, close: { [weak self] in self?.close() })
         panel.contentView = NSHostingView(rootView: view)
         let frame = window.frame
-        panel.setFrameOrigin(NSPoint(x: frame.midX - AppDefaults.Palette.size.width / 2,
-                                     y: frame.maxY - AppDefaults.Palette.topInset - AppDefaults.Palette.size.height))
+        panel.setFrameOrigin(NSPoint(x: frame.midX - CommandPaletteController.Metrics.size.width / 2,
+                                     y: frame.maxY - CommandPaletteController.Metrics.topInset - CommandPaletteController.Metrics.size.height))
         window.addChildWindow(panel, ordered: .above)
         panel.makeKey()
         self.panel = panel
@@ -63,6 +63,22 @@ final class CommandPaletteController {
         panel.onResign = nil
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
+    }
+}
+
+extension CommandPaletteController {
+    /// The command palette over a paper.
+    enum Metrics {
+        static let size = NSSize(width: 560, height: 380)
+        /// The space between the top of the paper and the palette.
+        static let topInset: CGFloat = 90
+        static let cornerRadius: CGFloat = 12
+        static let queryFontSize = PiperTheme.TextSize.title
+        static let fileLimit = 20
+        /// The most files that the line search lists.
+        static let contentFileLimit = 50
+        static let commandLimit = 4
+        static let recentLimit = 8
     }
 }
 
@@ -85,7 +101,7 @@ enum PaletteRecents {
     static func add(_ title: String, _ defaults: UserDefaults = .standard) {
         var titles = titles(defaults).filter { $0 != title }
         titles.insert(title, at: 0)
-        defaults.set(Array(titles.prefix(AppDefaults.Palette.recentLimit)), forKey: AppDefaults.Key.paletteRecents)
+        defaults.set(Array(titles.prefix(CommandPaletteController.Metrics.recentLimit)), forKey: AppDefaults.Key.paletteRecents)
     }
 }
 
@@ -122,7 +138,7 @@ struct PaletteResults {
         }
         if trimmed.isEmpty {
             let byID = Dictionary(files.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            results.files = recent.compactMap { byID[$0] }.prefix(AppDefaults.Palette.fileLimit).map(Row.file)
+            results.files = recent.compactMap { byID[$0] }.prefix(CommandPaletteController.Metrics.fileLimit).map(Row.file)
             return results
         }
         var scored: [(file: VaultFile, score: Double)] = []
@@ -134,10 +150,10 @@ struct PaletteResults {
             if first.score != second.score { return first.score > second.score }
             return first.file.id.localizedStandardCompare(second.file.id) == .orderedAscending
         }
-        results.files = scored.prefix(AppDefaults.Palette.fileLimit).map { Row.file($0.file) }
+        results.files = scored.prefix(CommandPaletteController.Metrics.fileLimit).map { Row.file($0.file) }
         results.commands = rankCommands(trimmed, commands, recent: recentCommands)
             .filter { PaletteSearch.score(trimmed, $0.title) >= 0.75 }
-            .prefix(AppDefaults.Palette.commandLimit)
+            .prefix(CommandPaletteController.Metrics.commandLimit)
             .map(Row.command)
         return results
     }
@@ -147,7 +163,7 @@ struct PaletteResults {
         var rows: [Row] = []
         var fileCount = 0
         for file in files where file.isText {
-            guard fileCount < AppDefaults.Palette.contentFileLimit else { break }
+            guard fileCount < CommandPaletteController.Metrics.contentFileLimit else { break }
             let excerpts = PaletteSearch.excerpts(of: query, in: file.body)
             if excerpts.isEmpty { continue }
             fileCount += 1
@@ -197,7 +213,7 @@ private struct CommandPaletteView: View {
         VStack(spacing: 0) {
             TextField("Go to file, or type / for commands", text: $query)
                 .textFieldStyle(.plain)
-                .font(PiperTheme.ui(AppDefaults.Palette.queryFontSize))
+                .font(PiperTheme.ui(CommandPaletteController.Metrics.queryFontSize))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .focused($focused)
@@ -225,9 +241,9 @@ private struct CommandPaletteView: View {
                 }
             }
         }
-        .frame(width: AppDefaults.Palette.size.width, height: AppDefaults.Palette.size.height)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppDefaults.Palette.cornerRadius))
-        .overlay(RoundedRectangle(cornerRadius: AppDefaults.Palette.cornerRadius).strokeBorder(.separator))
+        .frame(width: CommandPaletteController.Metrics.size.width, height: CommandPaletteController.Metrics.size.height)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: CommandPaletteController.Metrics.cornerRadius))
+        .overlay(RoundedRectangle(cornerRadius: CommandPaletteController.Metrics.cornerRadius).strokeBorder(.separator))
         .onAppear { focused = true }
         .onChange(of: query) { _, _ in selection = 0 }
         .task(id: query) {

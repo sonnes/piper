@@ -141,9 +141,9 @@ private struct ToastHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark")
-                .font(.system(size: AppDefaults.ReadingToast.checkFontSize, weight: .bold))
+                .font(.system(size: ReadingToast.Metrics.checkFontSize, weight: .bold))
                 .foregroundStyle(PiperTheme.onAccent)
-                .frame(width: AppDefaults.ReadingToast.checkSize, height: AppDefaults.ReadingToast.checkSize)
+                .frame(width: ReadingToast.Metrics.checkSize, height: ReadingToast.Metrics.checkSize)
                 .background(PiperTheme.accent, in: Circle())
                 .accessibilityHidden(true)
             Text(title).font(PiperTheme.ui(.body, weight: .semibold))
@@ -173,7 +173,7 @@ private struct ToastArticle: View {
     var body: some View {
         let host = article.articleURL.flatMap(Site.init)?.key ?? ""
         HStack(spacing: 10) {
-            ArticleBadge(host: host, size: AppDefaults.ReadingToast.badgeSize)
+            ArticleBadge(host: host, size: ReadingToast.Metrics.badgeSize)
             VStack(alignment: .leading, spacing: 1) {
                 Text(article.reading?.title ?? host).font(PiperTheme.ui(.body, weight: .semibold)).lineLimit(2)
                 Text([host, detail].compactMap { $0 }.joined(separator: " · "))
@@ -228,10 +228,26 @@ struct ArticleBadge: View {
 
     var body: some View {
         Text(host.first.map { String($0).uppercased() } ?? "?")
-            .font(.system(size: size * AppDefaults.ArticleBadge.fontFraction, weight: .bold))
+            .font(.system(size: size * Metrics.fontFraction, weight: .bold))
             .foregroundStyle(PiperTheme.onAccent)
             .frame(width: size, height: size)
-            .background(Color(nsColor: SiteIcon.tagColor(for: host)), in: RoundedRectangle(cornerRadius: size * AppDefaults.ArticleBadge.cornerFraction))
+            .background(Color(nsColor: SiteIcon.tagColor(for: host)), in: RoundedRectangle(cornerRadius: size * Metrics.cornerFraction))
             .accessibilityHidden(true)
+    }
+}
+
+extension ReadingToast {
+    /// The cards of a web page capture in the toast.
+    enum Metrics {
+        static let checkSize: CGFloat = 16
+        static let checkFontSize: CGFloat = 9
+        static let badgeSize: CGFloat = 22
+    }
+}
+
+extension ArticleBadge {
+    enum Metrics {
+        static let fontFraction: CGFloat = 0.5
+        static let cornerFraction: CGFloat = 0.24
     }
 }

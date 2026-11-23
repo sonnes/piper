@@ -37,7 +37,7 @@ extension ContextItem {
             return path.count > 1 ? host + path : host
         case .note(let text):
             let line = CaptureText.firstLine(text)
-            let limit = AppDefaults.Sessions.contextLabelLimit
+            let limit = ContextMetrics.contextLabelLimit
             return line.count > limit ? String(line.prefix(limit)) + "…" : line
         }
     }
@@ -106,7 +106,7 @@ struct MentionOption: Identifiable, Equatable {
             options.append(MentionOption(item: item, title: (path as NSString).lastPathComponent,
                                          detail: (path as NSString).deletingLastPathComponent,
                                          group: .files(folderName), token: path))
-            if options.count(where: { $0.group == .files(folderName) }) == AppDefaults.Sessions.fileCompletionLimit { break }
+            if options.count(where: { $0.group == .files(folderName) }) == ContextMetrics.fileCompletionLimit { break }
         }
         var captures = 0
         for note in notes where note.parent == nil && !note.isDone {
@@ -125,14 +125,14 @@ struct MentionOption: Identifiable, Equatable {
             guard matches(title, detail), !options.contains(where: { $0.item == item }) else { continue }
             options.append(MentionOption(item: item, title: title, detail: detail, group: .captures, token: token(title)))
             captures += 1
-            if captures == AppDefaults.Sessions.captureCompletionLimit { break }
+            if captures == ContextMetrics.captureCompletionLimit { break }
         }
         return options
     }
 
     /// The title, cut to a short mention.
     private static func token(_ title: String) -> String {
-        let limit = AppDefaults.Sessions.contextLabelLimit
+        let limit = ContextMetrics.contextLabelLimit
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.count > limit ? String(trimmed.prefix(limit)).trimmingCharacters(in: .whitespaces) + "…" : trimmed
     }
@@ -151,7 +151,7 @@ enum FolderFileList {
             guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
             let path = url.standardizedFileURL.path
             if path.hasPrefix(prefix) { paths.append(String(path.dropFirst(prefix.count))) }
-            if paths.count == AppDefaults.Sessions.folderFileLimit { break }
+            if paths.count == ContextMetrics.folderFileLimit { break }
         }
         return paths.sorted()
     }
@@ -244,4 +244,14 @@ struct ContextChip: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(pending ? [] : .isButton)
     }
+}
+
+private enum ContextMetrics {
+    /// The number of files that the `@` list shows.
+    static let fileCompletionLimit = 8
+    static let captureCompletionLimit = 4
+    /// The files that Piper reads for the `@` list of a folder that is not on the Folders index.
+    static let folderFileLimit = 5000
+    /// The characters of a note or a title in a context chip or a mention.
+    static let contextLabelLimit = 40
 }

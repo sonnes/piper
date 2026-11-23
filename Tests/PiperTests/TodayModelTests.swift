@@ -103,7 +103,7 @@ final class TodayModelTests: XCTestCase {
     }
 
     func testTheUndoOfferLeavesAfterFiveSeconds() async throws {
-        XCTAssertEqual(AppDefaults.Today.undoSeconds, 5)
+        XCTAssertEqual(TodayModel.undoSeconds, 5)
         today.done([try note("Short-lived")])
         XCTAssertNotNil(today.undo)
     }

@@ -121,15 +121,15 @@ final class QAScripts: NSObject {
         return "ok"
     }
 
-    /// Draws the feed paper window, on zinc 100 in the light or zinc 900 in the dark.
+    /// Draws the feed paper window on the color of the desk.
     private func shot(_ path: String) -> String {
         guard let view = desk.feedWindow?.contentView,
               let image = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return "error\nNo feed paper." }
-        let dark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         view.wantsLayer = true
         let background = view.layer?.backgroundColor
-        view.layer?.backgroundColor = NSColor(srgbRed: dark ? 0x18 / 255 : 0xF4 / 255, green: dark ? 0x18 / 255 : 0xF4 / 255,
-                                              blue: dark ? 0x1B / 255 : 0xF5 / 255, alpha: 1).cgColor
+        view.effectiveAppearance.performAsCurrentDrawingAppearance {
+            view.layer?.backgroundColor = PiperTheme.deskNS.cgColor
+        }
         view.cacheDisplay(in: view.bounds, to: image)
         view.layer?.backgroundColor = background
         guard let png = image.representation(using: .png, properties: [:]),

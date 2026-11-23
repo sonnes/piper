@@ -87,7 +87,7 @@ private struct SessionTranscript: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: AppDefaults.Sessions.blockSpacing) {
+                LazyVStack(alignment: .leading, spacing: TranscriptBlockView.Metrics.blockSpacing) {
                     ForEach(TranscriptRow.rows(of: session.blocks)) { row in
                         switch row {
                         case .block(let block):
@@ -111,7 +111,7 @@ private struct SessionTranscript: View {
                     }
                     Color.clear.frame(height: 1).id(Self.end)
                 }
-                .padding(AppDefaults.Sessions.transcriptInset)
+                .padding(TranscriptBlockView.Metrics.transcriptInset)
             }
             .defaultScrollAnchor(.bottom)
             .onAppear { model.agents.runner.markRead(session) }
@@ -228,7 +228,7 @@ private struct TurnFold<Content: View>: View {
     @Binding var isOpen: Bool
     @ViewBuilder let content: Content
 
-    private typealias Metrics = AppDefaults.Sessions
+    private typealias Metrics = TranscriptBlockView.Metrics
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.blockSpacing) {

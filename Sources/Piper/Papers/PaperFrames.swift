@@ -13,11 +13,13 @@ enum PaperKind: String {
 /// The saved frame of the feed paper and of each reader paper, by its item,
 /// so that a paper that opens again comes back to its last size and place.
 ///
-/// The store keeps the newest `AppDefaults.Papers.savedFrameLimit` frames of
+/// The store keeps the newest `savedFrameLimit` frames of
 /// reader papers, and the frame of the feed paper apart from them.
 /// A paper without a saved frame takes its place in the cascade, at the last
 /// size of a paper of its kind.
 struct PaperFrames: Codable, Equatable {
+    /// The number of reader paper frames that Piper keeps.
+    static let savedFrameLimit = 200
 
     struct Entry: Codable, Equatable {
         let key: String
@@ -60,8 +62,8 @@ struct PaperFrames: Codable, Equatable {
         let key = Self.key(of: item)
         entries.removeAll { $0.key == key }
         entries.append(Entry(key: key, frame: NSStringFromRect(frame)))
-        if entries.count > AppDefaults.Papers.savedFrameLimit {
-            entries.removeFirst(entries.count - AppDefaults.Papers.savedFrameLimit)
+        if entries.count > Self.savedFrameLimit {
+            entries.removeFirst(entries.count - Self.savedFrameLimit)
         }
     }
 
@@ -109,7 +111,7 @@ enum PaperPlacement {
     /// The frame of a zoomed paper: the visible frame of its screen, less the
     /// inset that the papers keep from the edges of the screen.
     nonisolated static func zoomed(in screen: NSRect) -> NSRect {
-        screen.insetBy(dx: AppDefaults.Papers.screenInset, dy: AppDefaults.Papers.screenInset)
+        screen.insetBy(dx: PaperDesk.Metrics.screenInset, dy: PaperDesk.Metrics.screenInset)
     }
 
     private nonisolated static func overlap(_ a: NSRect, _ b: NSRect) -> CGFloat {

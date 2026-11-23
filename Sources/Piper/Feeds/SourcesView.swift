@@ -24,7 +24,6 @@ struct SourcesView: View {
     @State private var search: Task<Void, Never>?
     @FocusState private var addressFocused: Bool
 
-    private typealias Metrics = AppDefaults.Feeds
     private var feeds: FeedStore { model.feeds }
     private var scan: SiteScan { model.siteScan }
 
@@ -55,7 +54,7 @@ struct SourcesView: View {
                 }
                 sites
             }
-            .padding(.horizontal, AppDefaults.Papers.rowPadding)
+            .padding(.horizontal, PaperRowMetrics.rowPadding)
             .padding(.bottom, 16)
         }
         .onAppear {
@@ -107,7 +106,7 @@ struct SourcesView: View {
             }
         }
         .padding(.horizontal, 10)
-        .frame(height: AppDefaults.Today.lensHeight)
+        .frame(height: Metrics.fieldHeight)
         .background(PiperTheme.paperTint, in: Capsule())
     }
 
@@ -194,7 +193,7 @@ struct SourcesView: View {
 
     /// The sites of history with a feed that the reader did not add or
     /// ignore, most visited first.
-    static func sites(_ suggestions: [Suggestion], feeds: [Feed], limit: Int = AppDefaults.Feeds.siteLimit) -> [Suggestion] {
+    static func sites(_ suggestions: [Suggestion], feeds: [Feed], limit: Int = Metrics.siteLimit) -> [Suggestion] {
         let subscribed = Set(feeds.map(\.id))
         let hosts = Set(feeds.map(\.host))
         return suggestions
@@ -265,6 +264,17 @@ struct SourcesView: View {
     }
 }
 
+extension SourcesView {
+    enum Metrics {
+        /// The height of the address field.
+        static let fieldHeight: CGFloat = 30
+        /// The number of sites that Sites You Read Often shows.
+        static let siteLimit = 8
+        static let sourceIcon: CGFloat = 22
+        static let sourceRowPadding: CGFloat = 10
+    }
+}
+
 /// One feed on Sources: its icon, its title, its rate, and its mode.
 private struct SourceRow: View {
     let feed: Feed
@@ -288,7 +298,7 @@ private struct SourceRow: View {
                 }
             }
         }
-        .padding(.vertical, AppDefaults.Feeds.sourceRowPadding)
+        .padding(.vertical, SourcesView.Metrics.sourceRowPadding)
         .overlay(alignment: .bottom) { Rule() }
         .contextMenu {
             Button("Show Posts", action: open)
@@ -302,7 +312,7 @@ private struct SourceRow: View {
     }
 
     private var icon: some View {
-        SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title, side: AppDefaults.Feeds.sourceIcon)
+        SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title, side: SourcesView.Metrics.sourceIcon)
     }
 
     private var title: some View {

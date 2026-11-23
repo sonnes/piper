@@ -6,7 +6,7 @@ import SwiftUI
 /// The window has a title bar for Close Window, but the bar is clear and its
 /// buttons are hidden. The window draws the shadow of its paper itself, the
 /// card shadow of the September Write paper, so the window is larger than its
-/// paper by `AppDefaults.Papers.shadowMargin`. `paperFrame` is the frame of
+/// paper by `PaperWindow.Metrics.shadowMargin`. `paperFrame` is the frame of
 /// the paper. A band on each edge and corner of the paper resizes it, with
 /// the resize pointers of macOS. Escape calls `escape`.
 final class PaperWindow: NSWindow {
@@ -29,7 +29,7 @@ final class PaperWindow: NSWindow {
     // MARK: - Initialization
 
     init(paperSize: NSSize, minimumPaperSize: NSSize) {
-        let margin = AppDefaults.Papers.shadowMargin
+        let margin = PaperWindow.Metrics.shadowMargin
         super.init(contentRect: NSRect(origin: .zero, size: Self.windowSize(paperSize)),
                    styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                    backing: .buffered, defer: false)
@@ -83,7 +83,7 @@ final class PaperWindow: NSWindow {
 
     /// The frame of a window around a paper.
     nonisolated static func windowFrame(of paper: NSRect) -> NSRect {
-        let margin = AppDefaults.Papers.shadowMargin
+        let margin = PaperWindow.Metrics.shadowMargin
         return NSRect(x: paper.minX - margin.left, y: paper.minY - margin.bottom,
                       width: paper.width + margin.left + margin.right,
                       height: paper.height + margin.top + margin.bottom)
@@ -91,7 +91,7 @@ final class PaperWindow: NSWindow {
 
     /// The frame of the paper in a window.
     nonisolated static func paperFrame(of window: NSRect) -> NSRect {
-        let margin = AppDefaults.Papers.shadowMargin
+        let margin = PaperWindow.Metrics.shadowMargin
         return NSRect(x: window.minX + margin.left, y: window.minY + margin.bottom,
                       width: window.width - margin.left - margin.right,
                       height: window.height - margin.top - margin.bottom)
@@ -176,9 +176,9 @@ enum PaperResize {
     /// The edges under a point, or an empty set. The band of an edge lies
     /// `outside` points outside the paper and `inside` points inside it. A
     /// corner takes `corner` points along each of its edges.
-    nonisolated static func edges(at point: NSPoint, paper: NSRect, outside: CGFloat = AppDefaults.Papers.resizeOutside,
-                                  inside: CGFloat = AppDefaults.Papers.resizeInside,
-                                  corner: CGFloat = AppDefaults.Papers.resizeCorner) -> PaperEdges {
+    nonisolated static func edges(at point: NSPoint, paper: NSRect, outside: CGFloat = PaperWindow.Metrics.resizeOutside,
+                                  inside: CGFloat = PaperWindow.Metrics.resizeInside,
+                                  corner: CGFloat = PaperWindow.Metrics.resizeCorner) -> PaperEdges {
         let outer = paper.insetBy(dx: -outside, dy: -outside)
         guard outer.contains(point), !paper.insetBy(dx: inside, dy: inside).contains(point) else { return [] }
         var edges: PaperEdges = []
@@ -217,7 +217,7 @@ final class PaperResizeView: NSView {
 
     /// The frame of the paper in the view.
     private var paper: NSRect {
-        let margin = AppDefaults.Papers.shadowMargin
+        let margin = PaperWindow.Metrics.shadowMargin
         return NSRect(x: margin.left, y: margin.bottom,
                       width: bounds.width - margin.left - margin.right,
                       height: bounds.height - margin.top - margin.bottom)
@@ -226,7 +226,7 @@ final class PaperResizeView: NSView {
     /// Fills the band outside the paper with a color that the eye cannot see.
     /// The window server sends no click to a pixel that is fully clear.
     override func draw(_ dirtyRect: NSRect) {
-        let outside = AppDefaults.Papers.resizeOutside
+        let outside = PaperWindow.Metrics.resizeOutside
         let band = NSBezierPath(rect: paper.insetBy(dx: -outside, dy: -outside))
         band.append(NSBezierPath(rect: paper))
         band.windingRule = .evenOdd
@@ -242,8 +242,8 @@ final class PaperResizeView: NSView {
 
     override func resetCursorRects() {
         let paper = paper
-        let outside = AppDefaults.Papers.resizeOutside, inside = AppDefaults.Papers.resizeInside
-        let corner = AppDefaults.Papers.resizeCorner, band = outside + inside
+        let outside = PaperWindow.Metrics.resizeOutside, inside = PaperWindow.Metrics.resizeInside
+        let corner = PaperWindow.Metrics.resizeCorner, band = outside + inside
         let rects: [(NSRect, PaperEdges)] = [
             (NSRect(x: paper.minX - outside, y: paper.minY + corner, width: band, height: paper.height - 2 * corner), .left),
             (NSRect(x: paper.maxX - inside, y: paper.minY + corner, width: band, height: paper.height - 2 * corner), .right),
@@ -333,7 +333,7 @@ final class PaperShadowView: NSView {
 
     override func updateLayer() {
         guard let layer else { return }
-        let metrics = AppDefaults.Papers.self
+        let metrics = PaperWindow.Metrics.self
         let path = CGPath(roundedRect: bounds, cornerWidth: metrics.cornerRadius, cornerHeight: metrics.cornerRadius, transform: nil)
         effectiveAppearance.performAsCurrentDrawingAppearance {
             let shadow = focused ? metrics.focusShadow : metrics.restShadow
@@ -355,7 +355,7 @@ final class PaperShadowView: NSView {
 extension View {
     /// The shadow of a paper sheet in SwiftUI, with the values of `PaperShadowView`.
     func paperShadow(focused: Bool) -> some View {
-        let metrics = AppDefaults.Papers.self
+        let metrics = PaperWindow.Metrics.self
         let shadow = focused ? metrics.focusShadow : metrics.restShadow
         return self
             .shadow(color: focused ? PiperTheme.paperEdgeShadow : .clear, radius: 0, y: metrics.edgeShadowY)
@@ -380,5 +380,30 @@ struct WindowDragArea: NSViewRepresentable {
             }
             window?.performDrag(with: event)
         }
+    }
+}
+
+// MARK: - Metrics
+
+extension PaperWindow {
+    enum Metrics {
+        /// The band around the edge of a paper that resizes it: its width
+        /// outside the paper and inside it, and the length of a corner.
+        static let resizeOutside: CGFloat = 6
+        static let resizeInside: CGFloat = 3
+        static let resizeCorner: CGFloat = 16
+        static let cornerRadius: CGFloat = 20
+        /// The space around a paper in its window, for the shadow of the paper.
+        static let shadowMargin = NSEdgeInsets(top: 16, left: 24, bottom: 36, right: 24)
+        static let shadowInsets = EdgeInsets(top: shadowMargin.top, leading: shadowMargin.left,
+                                             bottom: shadowMargin.bottom, trailing: shadowMargin.right)
+        /// The card shadow of the paper with the keyboard focus: `0 8px 24px` in the mock.
+        static let focusShadow = (radius: CGFloat(12), y: CGFloat(8))
+        /// The shadow of another paper: `0 3px 12px` in the mock.
+        static let restShadow = (radius: CGFloat(6), y: CGFloat(3))
+        /// The thin line under the focused paper: `0 1px 0` in the mock.
+        static let edgeShadowY: CGFloat = 1
+        /// The fade of a paper, and the cross-fade between the index and the list.
+        static let fade: Double = 0.22
     }
 }

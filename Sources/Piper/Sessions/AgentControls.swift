@@ -34,8 +34,6 @@ struct AgentControls: View {
     @Binding var choice: SessionChoice
     let openSettings: () -> Void
 
-    private typealias Metrics = AppDefaults.Sessions
-
     private var runner: SessionRunner { agents.runner }
     private var agentID: String { session?.agentID ?? choice.agentID }
     /// Nil for an agent that the reader removed.
@@ -147,6 +145,14 @@ struct AgentControls: View {
     }
 }
 
+extension AgentControls {
+    /// The agent, model, and mode menus in the composer footer.
+    enum Metrics {
+        static let footerMenuSpacing: CGFloat = 2
+        static let footerAgentSpacing: CGFloat = 3
+    }
+}
+
 /// A small borderless menu in the footer of the composer.
 private struct FooterMenu: ViewModifier {
     func body(content: Content) -> some View {
@@ -164,8 +170,6 @@ struct ApprovalDrawer: View {
     let session: AgentSession
     let runner: SessionRunner
 
-    private typealias Metrics = AppDefaults.Sessions
-
     var body: some View {
         let waiting = session.pendingRequests
         if let request = waiting.first {
@@ -178,8 +182,8 @@ struct ApprovalDrawer: View {
             }
             .padding(Metrics.requestPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(PiperTheme.requestFill, in: RoundedRectangle(cornerRadius: Metrics.requestRadius))
-            .overlay(RoundedRectangle(cornerRadius: Metrics.requestRadius).strokeBorder(PiperTheme.requestRing, lineWidth: 1))
+            .background(Metrics.requestFill, in: RoundedRectangle(cornerRadius: Metrics.requestRadius))
+            .overlay(RoundedRectangle(cornerRadius: Metrics.requestRadius).strokeBorder(Metrics.requestRing, lineWidth: 1))
             .padding(Metrics.requestMargin)
         }
     }
@@ -257,5 +261,24 @@ struct ApprovalDrawer: View {
         case .switchMode: return "change the mode"
         case .think, .other: return "use \(request.toolName)"
         }
+    }
+}
+
+extension ApprovalDrawer {
+    /// The card of a request that waits.
+    enum Metrics {
+        static let requestRadius: CGFloat = 10
+        static let requestPadding = EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12)
+        /// The space around the card of a request, inside the session pane.
+        static let requestMargin = EdgeInsets(top: 6, leading: 12, bottom: 0, trailing: 12)
+        static let requestSpacing: CGFloat = 3
+        /// The space over the diffs and the buttons of a request.
+        static let requestSectionSpacing: CGFloat = 5
+        static let requestButtonSpacing: CGFloat = 6
+        static let requestDetailFontSize: CGFloat = 11.5
+        static let requestDetailLineLimit = 6
+        /// The fill and the ring of a request that waits.
+        static let requestFill = Color(nsColor: PiperTheme.color(light: 0xF97316, dark: 0xFB923C)).opacity(0.12)
+        static let requestRing = Color(nsColor: PiperTheme.hex(0xF97316)).opacity(0.35)
     }
 }

@@ -10,7 +10,7 @@ import SwiftUI
 /// paper restores at launch name the file that shows.
 ///
 /// A new reader paper opens to the right of the feed paper. Each next paper
-/// moves down and to the right by `AppDefaults.Papers.cascade`. An item that
+/// moves down and to the right by `Metrics.cascade`. An item that
 /// opens again brings its paper to the front. Only one file paper exists,
 /// because the editor page is shared, so a second file replaces the first.
 ///
@@ -111,7 +111,7 @@ final class PaperDesk {
             Self.frame(size: size, feed: feedPaperFrame,
                        screen: screen?.visibleFrame ?? NSRect(origin: .zero, size: size),
                        open: readers.compactMap(\.paperFrame))
-        let tilts = AppDefaults.Papers.tilts
+        let tilts = Metrics.tilts
         let reader = ReaderPaperController(item: item, model: model, desk: self, frame: frame, tilt: tilts[opened % tilts.count])
         opened += 1
         reader.delegate = self
@@ -219,7 +219,7 @@ final class PaperDesk {
         let size = FeedPaperController.paperSize
         if let saved { return PaperPlacement.clamp(saved, to: screens, minimum: FeedPaperController.minimumPaperSize) }
         guard let main else { return NSRect(origin: .zero, size: size) }
-        return NSRect(x: main.minX + AppDefaults.Papers.screenInset * 2, y: main.midY - size.height / 2,
+        return NSRect(x: main.minX + Metrics.screenInset * 2, y: main.midY - size.height / 2,
                       width: size.width, height: size.height)
     }
 
@@ -231,11 +231,11 @@ final class PaperDesk {
     /// papers, the cascade starts again. The paper stays `screenInset` inside the screen,
     /// and it shrinks to fit a small screen.
     nonisolated static func frame(index: Int, size: NSSize, feed: NSRect?, screen: NSRect) -> NSRect {
-        let inset = AppDefaults.Papers.screenInset
-        let step = CGFloat(index % AppDefaults.Papers.cascadeSteps) * AppDefaults.Papers.cascade
+        let inset = Metrics.screenInset
+        let step = CGFloat(index % Metrics.cascadeSteps) * Metrics.cascade
         let width = min(size.width, screen.width - 2 * inset)
         let height = min(size.height, screen.height - 2 * inset)
-        let left = feed.map { $0.maxX + AppDefaults.Papers.gap } ?? screen.midX - width / 2
+        let left = feed.map { $0.maxX + Metrics.gap } ?? screen.midX - width / 2
         let top = feed?.maxY ?? screen.maxY - inset
         var x = min(left + step, screen.maxX - inset - width)
         x = max(x, screen.minX + inset)
@@ -249,7 +249,7 @@ final class PaperDesk {
     /// A place is free when no open paper has its top left corner there. When
     /// every place is taken, the paper takes the place after the open papers.
     nonisolated static func frame(size: NSSize, feed: NSRect?, screen: NSRect, open: [NSRect]) -> NSRect {
-        for index in 0..<AppDefaults.Papers.cascadeSteps {
+        for index in 0..<Metrics.cascadeSteps {
             let frame = frame(index: index, size: size, feed: feed, screen: screen)
             if !open.contains(where: { $0.minX == frame.minX && $0.maxY == frame.maxY }) { return frame }
         }
@@ -260,7 +260,7 @@ final class PaperDesk {
     /// when the paper has no saved frame. A paper without one takes a place in the cascade.
     nonisolated static func frame(of item: PaperItem, saved: PaperFrames, screens: [NSRect]) -> NSRect? {
         guard let frame = saved.frame(of: item) else { return nil }
-        return PaperPlacement.clamp(frame, to: screens, minimum: AppDefaults.Papers.readerMinimumSize)
+        return PaperPlacement.clamp(frame, to: screens, minimum: ReaderPaperController.Metrics.minimumSize)
     }
 
     /// The kind of a new paper for an item, which sets its size. An article and
@@ -276,9 +276,9 @@ final class PaperDesk {
     /// The size of a new paper of a kind, before the reader resizes one.
     nonisolated static func size(of kind: PaperKind) -> NSSize {
         switch kind {
-        case .reader: return AppDefaults.Papers.readerSize
-        case .note: return AppDefaults.Papers.noteSize
-        case .session: return AppDefaults.Papers.sessionSize
+        case .reader: return Metrics.readerSize
+        case .note: return Metrics.noteSize
+        case .session: return Metrics.sessionSize
         }
     }
 
@@ -302,8 +302,8 @@ final class PaperDesk {
     private var feedPaperFrame: NSRect? {
         guard let window = feed?.window as? PaperWindow, window.isVisible else { return nil }
         var frame = window.paperFrame
-        frame.origin.x += FeedPaperController.tabColumn
-        frame.size.width -= FeedPaperController.tabColumn
+        frame.origin.x += PaperTabs.Metrics.tabVisible
+        frame.size.width -= PaperTabs.Metrics.tabVisible
         return frame
     }
 
@@ -323,6 +323,24 @@ final class PaperDesk {
 }
 
 // MARK: - ReaderPaperControllerDelegate
+
+extension PaperDesk {
+    enum Metrics {
+        static let readerSize = NSSize(width: 712, height: 860)
+        static let noteSize = NSSize(width: 440, height: 420)
+        static let sessionSize = NSSize(width: 480, height: 680)
+        /// The tilts of the reader papers without the keyboard focus, in degrees, in the order the papers open.
+        static let tilts: [CGFloat] = [-0.5, 0.45, -0.3, 0.6]
+        /// The space between the feed paper and the first reader paper.
+        static let gap: CGFloat = 24
+        /// The offset of each next reader paper, to the right and down.
+        static let cascade: CGFloat = 24
+        /// The number of places in the cascade before it starts again.
+        static let cascadeSteps = 6
+        /// The space that a paper keeps from the edges of the screen.
+        static let screenInset: CGFloat = 24
+    }
+}
 
 extension PaperDesk: ReaderPaperControllerDelegate {
 

@@ -2,7 +2,8 @@ import AppKit
 import CoreText
 import SwiftUI
 
-/// The colors, fonts, and shapes of the application.
+/// The shared colors, fonts, and type sizes of the application. A feature
+/// keeps its own colors in its `Metrics`.
 ///
 /// Text and surfaces use the system colors, so they follow the dark appearance
 /// and the contrast settings of the reader. The accent is the one saturated
@@ -45,15 +46,6 @@ enum PiperTheme {
     static let claudeNS = color(light: 0xF97316, dark: 0xFB923C)
     /// Teal 600 and 400. The mark of an agent that speaks ACP.
     static let acpAgentNS = color(light: 0x0D9488, dark: 0x2DD4BF)
-    /// The colors of the letter tiles of sites, in the order of the rows:
-    /// violet, emerald, orange, sky, rose, lime, fuchsia, and amber. Rows next
-    /// to each other get hues that are far apart.
-    static let tagsNS: [NSColor] = [
-        color(light: 0x8B5CF6, dark: 0xA78BFA), color(light: 0x10B981, dark: 0x34D399),
-        color(light: 0xF97316, dark: 0xFB923C), color(light: 0x0EA5E9, dark: 0x38BDF8),
-        color(light: 0xF43F5E, dark: 0xFB7185), color(light: 0x84CC16, dark: 0xA3E635),
-        color(light: 0xD946EF, dark: 0xE879F9), color(light: 0xF59E0B, dark: 0xFBBF24)
-    ]
 
     /// Yellow 400. The bar beside a highlight.
     static let markYellow = Color(nsColor: hex(0xFACC15))
@@ -75,14 +67,6 @@ enum PiperTheme {
     static let claude = Color(nsColor: claudeNS)
     static let star = Color(nsColor: starNS)
     static let acpAgent = Color(nsColor: acpAgentNS)
-    /// The fill and the ring of a request that waits in a session.
-    static let requestFill = Color(nsColor: color(light: 0xF97316, dark: 0xFB923C)).opacity(0.12)
-    static let requestRing = Color(nsColor: hex(0xF97316)).opacity(0.35)
-    /// The lines that an edit adds and removes.
-    static let diffAdded = Color(nsColor: hex(0x22C55E)).opacity(0.14)
-    static let diffRemoved = Color(nsColor: hex(0xEF4444)).opacity(0.12)
-    /// The mark of a finished tool call. Green 600.
-    static let toolDone = Color(nsColor: color(light: 0x16A34A, dark: 0x4ADE80))
     /// A row under the pointer.
     static let hover = Color.primary.opacity(0.045)
     /// The ring around a focused field.
@@ -91,9 +75,6 @@ enum PiperTheme {
     static let onAccent = Color.white
     /// Faint text on an accent or warning fill, such as the shortcut in the Needs You pill.
     static let onAccentSecondary = onAccent.opacity(0.8)
-    /// The shadows of the session card and of its pill.
-    static let sessionCardShadow = Color.black.opacity(0.2)
-    static let sessionPillShadow = Color.black.opacity(0.16)
 
     // MARK: Papers
 
@@ -102,6 +83,8 @@ enum PiperTheme {
 
     /// White, and zinc 800.
     static let paperNS = color(light: 0xFFFFFF, dark: 0x27272A)
+    /// Zinc 100 and 900. The desk behind the papers.
+    static let deskNS = color(light: 0xF4F4F5, dark: 0x18181B)
     /// Zinc 900, and white.
     static let paperInkNS = color(light: 0x18181B, dark: 0xFFFFFF)
     /// Zinc 600 and 300.
@@ -167,14 +150,14 @@ enum PiperTheme {
     static let resizeBand = NSColor(white: 0, alpha: 1 / 255)
     /// The fill of a row under the pointer: zinc 900 at 4 percent, and white at 6 percent.
     static let rowHoverNS = NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        isDark(appearance)
             ? NSColor.white.withAlphaComponent(0.06) : NSColor(srgbRed: 0x18 / 255, green: 0x18 / 255, blue: 0x1B / 255, alpha: 0.04)
     }
     static let rowHover = Color(nsColor: rowHoverNS)
     /// The fill of the selected row while its paper has the focus: indigo at
     /// 14 percent, and indigo 400 at 24 percent in the dark.
     static let rowSelectionNS = NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        isDark(appearance)
             ? NSColor(srgbRed: 0x81 / 255, green: 0x8C / 255, blue: 0xF8 / 255, alpha: 0.24)
             : NSColor(srgbRed: 0x4F / 255, green: 0x46 / 255, blue: 0xE5 / 255, alpha: 0.12)
     }
@@ -189,13 +172,13 @@ enum PiperTheme {
 
     /// The soft shadow under the chosen lens and under a floating bar of Today.
     static let lensShadow = Color(nsColor: NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        isDark(appearance)
             ? NSColor.black.withAlphaComponent(0.4) : NSColor.black.withAlphaComponent(0.12)
     })
 
     /// The thin line around a floating bar, such as the toolbar of a reader paper.
     static let barEdgeNS = NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        isDark(appearance)
             ? NSColor.white.withAlphaComponent(0.12) : NSColor.black.withAlphaComponent(0.08)
     }
     static let barEdge = Color(nsColor: barEdgeNS)
@@ -204,69 +187,6 @@ enum PiperTheme {
     static let barSoftShadow = Color.black.opacity(0.12)
     static let paperRestShadow = Color(nsColor: paperRestShadowNS)
     static let paperEdgeShadow = Color(nsColor: paperEdgeShadowNS)
-
-    // MARK: Folder Tabs
-
-    // The tabs on the edge of the feed paper are pastel file-folder tabs, as
-    // in variant C of `mocks/vertical-tabs.html`. In the light, a fill is the
-    // 100 shade of its color. In the dark, a fill is its 600 shade at 42
-    // percent on the zinc 900 desk, and the label is white.
-
-    /// The fill of a tab that is not active.
-    static func tabFill(_ color: TabColor) -> Color {
-        let (light, dark) = tabFills[color] ?? (0xE4E4E7, 0x525257)
-        return Color(nsColor: Self.color(light: light, dark: dark))
-    }
-
-    /// The line on the outer edge of the active tab: the 600 or 700 shade in
-    /// the light, and the 400 shade in the dark.
-    static func tabEdge(_ color: TabColor) -> Color {
-        let (light, dark) = tabEdges[color] ?? (0x52525B, 0xD4D4D8)
-        return Color(nsColor: Self.color(light: light, dark: dark))
-    }
-
-    /// Zinc 900, and white. The label of a tab that is not active.
-    static let tabInk = Color(nsColor: color(light: 0x18181B, dark: 0xFFFFFF))
-    /// Zinc 600, and white at 78 percent. The count of a tab that is not active.
-    static let tabCount = Color(nsColor: NSColor(name: nil) { appearance in
-        isDark(appearance) ? NSColor.white.withAlphaComponent(0.78) : hex(0x52525B)
-    })
-    /// The hairline at the outline of a tab: black at 10 percent, and white at 14 percent in the dark.
-    static let tabHairline = Color(nsColor: NSColor(name: nil) { appearance in
-        isDark(appearance) ? NSColor.white.withAlphaComponent(0.14) : NSColor.black.withAlphaComponent(0.10)
-    })
-    /// The focus ring of a tab: indigo 600 at 70 percent, and indigo 400 at 80 percent in the dark.
-    static let tabFocus = Color(nsColor: NSColor(name: nil) { appearance in
-        isDark(appearance) ? hex(0x818CF8).withAlphaComponent(0.8) : hex(0x4F46E5).withAlphaComponent(0.7)
-    })
-    /// The darker fill of a pressed tab: black at 6 percent, and 10 percent in the dark.
-    static let tabPressed = Color(nsColor: shade(light: 0.06, dark: 0.10))
-    /// Zinc 400. The dashed outline of the tab that pins a folder.
-    static let tabDash = Color(nsColor: hex(0xA1A1AA))
-
-    /// The tight contact shadow of a tab. Black at 12 percent, 14 percent
-    /// under the pointer, 10 percent for the active tab, and 40 percent in the dark.
-    static func tabContactShadow(hovered: Bool, active: Bool) -> Color {
-        Color(nsColor: shade(light: active ? 0.10 : hovered ? 0.14 : 0.12, dark: 0.40))
-    }
-
-    /// The wide soft shadow of a tab. Black at 6 percent, 10 percent under the
-    /// pointer and for the active tab, and 30 or 40 percent in the dark.
-    static func tabDiffuseShadow(hovered: Bool, active: Bool) -> Color {
-        Color(nsColor: shade(light: active || hovered ? 0.10 : 0.06, dark: active ? 0.40 : 0.30))
-    }
-
-    private static let tabFills: [TabColor: (UInt32, UInt32)] = [
-        .indigo: (0xE0E7FF, 0x2F2B70), .zinc: (0xE4E4E7, 0x525257), .sky: (0xE0F2FE, 0x0F4563),
-        .emerald: (0xD1FAE5, 0x104D3C), .plum: (0xFAE8FF, 0x5F1E68), .teal: (0xCCFBF1, 0x134C49),
-        .rose: (0xFFE4E6, 0x6C1A2E), .clay: (0xFFEDD5, 0x703315)
-    ]
-
-    private static let tabEdges: [TabColor: (UInt32, UInt32)] = [
-        .indigo: (0x4F46E5, 0x818CF8), .zinc: (0x52525B, 0xD4D4D8), .sky: (0x0369A1, 0x38BDF8),
-        .emerald: (0x047857, 0x34D399), .plum: (0x86198F, 0xE879F9), .teal: (0x0F766E, 0x2DD4BF),
-        .rose: (0xBE123C, 0xFB7185), .clay: (0xC2410C, 0xFB923C)
-    ]
 
     // MARK: Shapes
 
@@ -384,75 +304,25 @@ enum PiperTheme {
         .system(size: size.rawValue, weight: weight)
     }
 
-    private static func isDark(_ appearance: NSAppearance) -> Bool {
+    static func isDark(_ appearance: NSAppearance) -> Bool {
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     }
 
-    private static func color(light: UInt32, dark: UInt32) -> NSColor {
+    static func color(light: UInt32, dark: UInt32) -> NSColor {
         NSColor(name: nil) { appearance in
-            hex(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light)
+            hex(isDark(appearance) ? dark : light)
         }
     }
 
-    private static func shade(light: CGFloat, dark: CGFloat) -> NSColor {
+    static func shade(light: CGFloat, dark: CGFloat) -> NSColor {
         NSColor(name: nil) { appearance in
-            NSColor.black.withAlphaComponent(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light)
+            NSColor.black.withAlphaComponent(isDark(appearance) ? dark : light)
         }
     }
 
-    private static func hex(_ value: UInt32) -> NSColor {
+    static func hex(_ value: UInt32) -> NSColor {
         NSColor(srgbRed: CGFloat((value >> 16) & 255) / 255,
                 green: CGFloat((value >> 8) & 255) / 255,
                 blue: CGFloat(value & 255) / 255, alpha: 1)
-    }
-}
-
-/// A 28 by 24 point icon button with an optional active state.
-struct IconButton: View {
-    let title: String
-    let icon: String
-    var active = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .regular))
-                .frame(width: 28, height: 24)
-                .foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary)
-                .background(active ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(title)
-        .accessibilityLabel(title)
-    }
-}
-
-/// A one-point rule in the separator color.
-struct Rule: View {
-    var vertical = false
-    var body: some View {
-        Rectangle().fill(PiperTheme.rule)
-            .frame(width: vertical ? 1 : nil, height: vertical ? nil : 1)
-    }
-}
-
-/// A title and a line under it, centered in a pane that has nothing to show.
-struct EmptyPane: View {
-    let title: String
-    var detail: String?
-
-    var body: some View {
-        VStack(spacing: 3) {
-            Text(title).font(PiperTheme.ui(.reading, weight: .semibold)).foregroundStyle(PiperTheme.secondary)
-            if let detail {
-                Text(detail).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.faint)
-            }
-        }
-        .multilineTextAlignment(.center)
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .allowsHitTesting(false)
     }
 }

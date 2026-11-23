@@ -44,7 +44,7 @@ struct FeedArticleList: View {
                                 .contextMenu { menu(for: article) }
                             }
                         }
-                        .padding(AppDefaults.Papers.listPadding)
+                        .padding(PaperRowMetrics.listPadding)
                     }
                     .onChange(of: scrollTarget) { _, id in
                         guard let id else { return }
@@ -75,7 +75,7 @@ struct FeedArticleList: View {
             if feeds.fetching.isEmpty {
                 RowAction(symbol: "arrow.clockwise", title: "Refresh All Feeds") { feeds.refreshAll() }
             } else {
-                ProgressView().controlSize(.small).frame(width: AppDefaults.Papers.rowActionSize)
+                ProgressView().controlSize(.small).frame(width: PaperRowMetrics.rowActionSize)
             }
             RowAction(symbol: "envelope.open", title: "Mark All as Read · Command-K",
                       tint: articles.contains { !$0.read } ? PiperTheme.brand : PiperTheme.tertiaryLabel) { feeds.markAllRead(.feed(feedID)) }
@@ -83,7 +83,7 @@ struct FeedArticleList: View {
                 .keyboardShortcut("k", modifiers: .command)
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
-        .padding(.horizontal, AppDefaults.Papers.footMargin)
+        .padding(.horizontal, HintStrip.Metrics.footMargin)
         .padding(.top, 8)
     }
 

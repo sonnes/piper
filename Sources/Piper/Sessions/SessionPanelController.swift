@@ -25,7 +25,7 @@ final class SessionPanelController: NSWindowController {
     init(model: AppModel) {
         self.model = model
         let panel = SessionPanel(
-            contentRect: NSRect(origin: .zero, size: AppDefaults.SessionCard.panelSize),
+            contentRect: NSRect(origin: .zero, size: SessionCard.Metrics.panelSize),
             styleMask: [.titled, .closable, .resizable, .utilityWindow, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -36,18 +36,18 @@ final class SessionPanelController: NSWindowController {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.minSize = AppDefaults.SessionCard.panelMinimumSize
+        panel.minSize = SessionCard.Metrics.panelMinimumSize
         panel.contentView = NSHostingView(rootView: SessionCard(model: model, detached: true).environment(PaperLayout()))
         super.init(window: panel)
         panel.delegate = self
-        if !panel.setFrameUsingName(NSWindow.FrameAutosaveName(AppDefaults.WindowName.sessionPanel)) {
+        if !panel.setFrameUsingName(NSWindow.FrameAutosaveName(AppDefaults.Key.sessionPanelFrame)) {
             if let screen = NSScreen.main {
                 let frame = screen.visibleFrame
-                let inset = AppDefaults.SessionCard.panelScreenInset
+                let inset = SessionCard.Metrics.panelScreenInset
                 panel.setFrameOrigin(NSPoint(x: frame.maxX - panel.frame.width - inset, y: frame.maxY - panel.frame.height - inset))
             }
         }
-        panel.setFrameAutosaveName(NSWindow.FrameAutosaveName(AppDefaults.WindowName.sessionPanel))
+        panel.setFrameAutosaveName(NSWindow.FrameAutosaveName(AppDefaults.Key.sessionPanelFrame))
     }
 
     @available(*, unavailable)

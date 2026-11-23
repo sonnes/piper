@@ -16,7 +16,6 @@ struct ReaderPaper: View {
     let close: () -> Void
 
     @Environment(PaperLayout.self) private var layout
-    private typealias Metrics = AppDefaults.Papers
 
     var body: some View {
         VStack(spacing: 0) {
@@ -63,7 +62,7 @@ struct ReaderPaper: View {
         .padding(Metrics.noteFootPadding)
         .background(WindowDragArea())
         .overlay(alignment: .top) {
-            PiperTheme.separator.frame(height: Metrics.separatorHeight)
+            PiperTheme.separator.frame(height: PaperRowMetrics.separatorHeight)
                 .padding(.horizontal, Metrics.noteFootPadding.leading)
         }
     }
@@ -204,7 +203,7 @@ struct ReaderPaper: View {
 struct PaperToolbar<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
-    private typealias Metrics = AppDefaults.Papers
+    private typealias Metrics = ReaderPaper.Metrics
 
     var body: some View {
         HStack(spacing: 0) { content() }
@@ -237,7 +236,7 @@ struct PaperButton: View {
 
     @State private var hovered = false
     @Environment(\.isEnabled) private var enabled
-    private typealias Metrics = AppDefaults.Papers
+    private typealias Metrics = ReaderPaper.Metrics
 
     var body: some View {
         Button(action: action) {
@@ -271,7 +270,7 @@ struct PressStyle: ButtonStyle {
         configuration.label
             .opacity(configuration.isPressed ? 0.7 : 1)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
-            .animation(reduceMotion ? nil : .spring(duration: AppDefaults.Papers.spring), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .spring(duration: ReaderPaper.Metrics.spring), value: configuration.isPressed)
     }
 }
 
@@ -282,10 +281,7 @@ struct FilePaperContent: View {
     /// True while the session card shows over the paper.
     let cardPresented: Bool
 
-    @AppStorage(AppDefaults.Key.readerSize) private var readerSize = AppDefaults.Reader.defaultSize
-    @AppStorage(AppDefaults.Key.readerTheme) private var readerTheme = WikiReadingTheme.paper
-    @AppStorage(AppDefaults.Key.readerFont) private var readerFont = AppDefaults.Reader.defaultFont
-    @AppStorage(AppDefaults.Key.readerAppearance) private var readerAppearance = WikiReadingAppearance.system
+    private var reading = ReadingSettings()
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -317,11 +313,35 @@ struct FilePaperContent: View {
     }
 
     private var theme: EditorTheme {
-        EditorTheme(theme: readerTheme.rawValue, font: readerFont.rawValue, size: readerSize,
-                    appearance: readerAppearance.rawValue)
+        EditorTheme(theme: reading.theme.rawValue, font: reading.font.rawValue, size: reading.size,
+                    appearance: reading.appearance.rawValue)
     }
 
     private var paper: Color {
-        Color(nsColor: readerTheme.background(dark: (readerAppearance.colorScheme ?? colorScheme) == .dark))
+        Color(nsColor: reading.theme.background(dark: (reading.appearance.colorScheme ?? colorScheme) == .dark))
+    }
+}
+
+// MARK: - Metrics
+
+/// The sizes of a reader paper come from the Write paper of September: a text
+/// column of 600 points with 56-point margins at the sides.
+extension ReaderPaper {
+    enum Metrics {
+        /// The opacity of the content of a reader paper without the keyboard focus.
+        static let restOpacity = 0.72
+        /// The spring of a pressed button and of the tabs.
+        static let spring: Double = 0.25
+        static let readerHeaderHeight: CGFloat = 48
+        /// The grip of a reader paper. Its text starts at the side margin of the article.
+        static let readerHeaderPadding = EdgeInsets(top: 14, leading: 56, bottom: 0, trailing: 16)
+        /// The grip of a note paper, which has narrower margins.
+        static let noteHeaderPadding = EdgeInsets(top: 14, leading: 28, bottom: 0, trailing: 16)
+        static let noteFootPadding = EdgeInsets(top: 10, leading: 28, bottom: 14, trailing: 20)
+        /// The floating toolbar of a reader paper.
+        static let toolbarHeight: CGFloat = 34
+        static let toolbarButton: CGFloat = 30
+        static let toolbarGlyph: CGFloat = 14
+        static let toolbarInset: CGFloat = 2
     }
 }

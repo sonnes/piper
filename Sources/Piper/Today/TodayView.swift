@@ -81,7 +81,7 @@ struct TodayView: View {
     /// The skills that match the command in the composer.
     private var completions: [FolderAgents.Action] {
         guard composing, let partial = SlashCommand.partialName(model.composerDraft) else { return [] }
-        return Array(agents.completions(for: partial).prefix(AppDefaults.Agents.completionLimit))
+        return Array(agents.completions(for: partial).prefix(FolderAgents.completionLimit))
     }
 
     /// The folder and skill that Return runs, when the composer holds a command.
@@ -153,10 +153,10 @@ struct TodayView: View {
             }
         }
         .padding(.horizontal, 14)
-        .frame(height: AppDefaults.Papers.composerHeight)
-        .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: AppDefaults.Papers.rowRadius))
-        .padding(.horizontal, AppDefaults.Papers.composerPadding.leading)
-        .padding(.top, AppDefaults.Papers.composerPadding.top)
+        .frame(height: Metrics.composerHeight)
+        .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius))
+        .padding(.horizontal, Metrics.composerPadding.leading)
+        .padding(.top, Metrics.composerPadding.top)
     }
 
     // MARK: - Composer
@@ -165,17 +165,17 @@ struct TodayView: View {
     /// section of the list. A web link saves to read later. The address of a
     /// feed or a site opens the Sources paper to subscribe.
     private var composer: some View {
-        let metrics = AppDefaults.Composer.self
-        let papers = AppDefaults.Papers.self
+        let metrics = CaptureEditor.Metrics.self
+        let field = Metrics.self
         let inset = metrics.paperTextInset.height * 2
-        let height = min(max(composerTextHeight, papers.composerHeight),
-                         metrics.paperLineHeight * CGFloat(metrics.maxLines) + inset)
+        let height = min(max(composerTextHeight, field.composerHeight),
+                         metrics.paperLineHeight * CGFloat(field.maxLines) + inset)
         let hint = composerHint
         return HStack(alignment: .top, spacing: 0) {
             Text("+")
                 .font(PiperTheme.paperUI(.reading))
                 .foregroundStyle(PiperTheme.paperFaint)
-                .frame(width: papers.composerTextInset, height: papers.composerHeight)
+                .frame(width: field.composerTextInset, height: field.composerHeight)
                 .accessibilityHidden(true)
             CaptureEditor(text: $model.composerDraft, focused: $composing,
                           placeholder: "Write a note, or paste a link to read later", paper: true,
@@ -186,17 +186,17 @@ struct TodayView: View {
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                     .lineLimit(1).help(hint)
                     .padding(.trailing, 14)
-                    .frame(height: papers.composerHeight)
+                    .frame(height: field.composerHeight)
                     .allowsHitTesting(false)
             }
         }
-        .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: papers.rowRadius, style: .continuous))
+        .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius, style: .continuous))
         .background {
-            RoundedRectangle(cornerRadius: papers.rowRadius + papers.focusRingWidth, style: .continuous)
+            RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius + field.focusRingWidth, style: .continuous)
                 .fill(composing ? PiperTheme.brand : .clear)
-                .padding(-papers.focusRingWidth)
+                .padding(-field.focusRingWidth)
         }
-        .padding(papers.composerPadding)
+        .padding(field.composerPadding)
     }
 
     private var composerHint: String? {
@@ -216,7 +216,7 @@ struct TodayView: View {
             SkillCompletions(actions: completions, selected: min(completionIndex, completions.count - 1)) {
                 complete($0, run: false)
             }
-            .padding(.horizontal, AppDefaults.Composer.margin)
+            .padding(.horizontal, Metrics.completionMargin)
             .padding(.bottom, 4)
         }
     }
@@ -228,7 +228,7 @@ struct TodayView: View {
         let lenses = UnifiedStream.Lens.allCases
         return SegmentedCapsule(values: lenses, selection: paper.state.lens, title: \.title, count: { counts[$0] },
                                 help: { "\($0.title) · \((lenses.firstIndex(of: $0) ?? 0) + 1)" }, pick: setLens)
-            .padding(AppDefaults.Today.lensPadding)
+            .padding(Metrics.lensPadding)
     }
 
     private func setLens(_ lens: UnifiedStream.Lens) {
@@ -265,8 +265,8 @@ struct TodayView: View {
                         }
                     }
                 }
-                .padding(AppDefaults.Papers.listPadding)
-                .padding(.bottom, today.multiple ? AppDefaults.Today.barHeight + AppDefaults.Today.barBottom : 0)
+                .padding(PaperRowMetrics.listPadding)
+                .padding(.bottom, today.multiple ? Metrics.barHeight + Metrics.barBottom : 0)
             }
             .overlay { if groups.isEmpty && doneToday.isEmpty { empty } }
             .onChange(of: today.anchor) { _, ref in
@@ -302,13 +302,13 @@ struct TodayView: View {
 
     /// The clipboard texts at the foot of the paper, the newest first.
     private func trayView(_ tray: [StreamItem], items: [StreamItem.Ref: StreamItem], order: [StreamItem.Ref]) -> some View {
-        let limit = showsWholeTray ? tray.count : min(tray.count, AppDefaults.Today.trayLimit)
+        let limit = showsWholeTray ? tray.count : min(tray.count, Metrics.trayLimit)
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Clipboard").font(PiperTheme.paperUI(.body, weight: .semibold)).foregroundStyle(PiperTheme.secondaryLabel)
                 Text("\(tray.count)").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint).monospacedDigit()
                 Spacer()
-                if tray.count > AppDefaults.Today.trayLimit {
+                if tray.count > Metrics.trayLimit {
                     Button(showsWholeTray ? "Show Less" : "Show All") { withAnimation(motion) { showsWholeTray.toggle() } }
                         .buttonStyle(.plain).foregroundStyle(PiperTheme.brand)
                 }
@@ -321,19 +321,19 @@ struct TodayView: View {
                 .accessibilityLabel("Clipboard options")
             }
             .font(PiperTheme.paperUI(.body))
-            .padding(.horizontal, AppDefaults.Papers.listRowPadding.leading)
+            .padding(.horizontal, PaperRowMetrics.listRowPadding.leading)
             .padding(.top, 8)
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(tray.prefix(limit)) { item in row(item, order: order) }
                 }
             }
-            .frame(maxHeight: showsWholeTray ? AppDefaults.Papers.feedSize.height / 3 : nil)
+            .frame(maxHeight: showsWholeTray ? FeedPaperController.Metrics.feedSize.height / 3 : nil)
             .fixedSize(horizontal: false, vertical: !showsWholeTray)
         }
-        .padding(.horizontal, AppDefaults.Papers.listPadding.leading)
+        .padding(.horizontal, PaperRowMetrics.listPadding.leading)
         .padding(.bottom, 6)
-        .overlay(alignment: .top) { Rectangle().fill(PiperTheme.paperRule).frame(height: 1).padding(.horizontal, AppDefaults.Papers.footMargin) }
+        .overlay(alignment: .top) { Rectangle().fill(PiperTheme.paperRule).frame(height: 1).padding(.horizontal, HintStrip.Metrics.footMargin) }
     }
 
     // MARK: - Floating Bar And Undo
@@ -351,7 +351,7 @@ struct TodayView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .padding(.bottom, AppDefaults.Today.barBottom)
+        .padding(.bottom, Metrics.barBottom)
         .animation(motion, value: today.undo?.id)
         .animation(motion, value: today.multiple)
     }
@@ -633,6 +633,27 @@ struct TodayView: View {
 
 // MARK: - Floating Parts
 
+extension TodayView {
+    enum Metrics {
+        /// The capture field on the first line of the feed paper.
+        static let composerHeight: CGFloat = 48
+        static let composerPadding = EdgeInsets(top: 16, leading: 20, bottom: 4, trailing: 20)
+        static let composerTextInset: CGFloat = 40
+        static let focusRingWidth: CGFloat = 3
+        /// The most lines that the capture field shows before it scrolls.
+        static let maxLines = 5
+        /// The space between the edge of the list and the skill list.
+        static let completionMargin: CGFloat = 14
+        static let lensPadding = EdgeInsets(top: 4, leading: 20, bottom: 8, trailing: 20)
+        /// The clipboard texts that the tray at the foot shows at most.
+        static let trayLimit = 3
+        /// The floating bar of a selection of several rows.
+        static let barHeight: CGFloat = 44
+        static let barBottom: CGFloat = 16
+        static let barSpacing: CGFloat = 4
+    }
+}
+
 /// The Undo button after Done or Delete. It leaves after a few seconds.
 struct UndoToast: View {
     let offer: UndoOffer
@@ -647,7 +668,7 @@ struct UndoToast: View {
         }
         .font(PiperTheme.paperUI(.body))
         .padding(.horizontal, 16)
-        .frame(height: AppDefaults.Today.barHeight)
+        .frame(height: TodayView.Metrics.barHeight)
         .background(.regularMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 1))
         .shadow(color: PiperTheme.lensShadow, radius: 8, y: 2)
@@ -672,14 +693,14 @@ struct SelectionBar: View {
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
         .padding(.horizontal, 8)
-        .frame(height: AppDefaults.Today.barHeight)
+        .frame(height: TodayView.Metrics.barHeight)
         .background(.regularMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 1))
         .shadow(color: PiperTheme.lensShadow, radius: 8, y: 2)
     }
 
     private func items(keys: Bool) -> some View {
-        HStack(spacing: AppDefaults.Today.barSpacing) {
+        HStack(spacing: TodayView.Metrics.barSpacing) {
             Text("\(count) selected").foregroundStyle(PiperTheme.paperMuted).padding(.horizontal, 8).fixedSize()
             bar("Keep", key: "K", keys: keys, action: verbs.keep)
             bar("Done", key: "E", keys: keys, action: verbs.done)
@@ -709,7 +730,7 @@ struct SelectionBar: View {
         }
         .fixedSize()
         .padding(.horizontal, keys ? 8 : 6)
-        .frame(height: AppDefaults.Today.verbButton)
+        .frame(height: TodayRow.Metrics.verbButton)
         .contentShape(Capsule())
     }
 }

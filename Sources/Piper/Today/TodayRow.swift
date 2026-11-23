@@ -41,7 +41,6 @@ struct TodayRow: View {
     var section: String?
     let click: () -> Void
 
-    private typealias Metrics = AppDefaults.Papers
 
     var body: some View {
         PaperRow(item: paperItem, notes: item.children.count, selected: selected, actionsOnSelection: true,
@@ -111,10 +110,10 @@ struct TodayRow: View {
         switch item.kind {
         case .note where CaptureText.looksLikeCode(item.title), .clip where CaptureText.looksLikeCode(item.title):
             Text(CaptureText.firstLine(item.title))
-                .font(Font(PiperTheme.manuscript(size: AppDefaults.Today.codeFontSize)))
+                .font(Font(PiperTheme.manuscript(size: Metrics.codeFontSize)))
                 .foregroundStyle(done ? PiperTheme.paperFaint : PiperTheme.paperInk)
                 .lineLimit(1)
-                .frame(minHeight: Metrics.rowLineHeight, alignment: .leading)
+                .frame(minHeight: PaperRowMetrics.rowLineHeight, alignment: .leading)
         case .note:
             PaperRowTitle(text: Text((try? AttributedString(markdown: item.title, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
                                      ?? AttributedString(item.title)), done: done)
@@ -176,7 +175,7 @@ struct TodayRow: View {
 
     /// The first titles of a digest, then a count of the others.
     private var digestTitles: some View {
-        let limit = AppDefaults.Today.digestTitles
+        let limit = Metrics.digestTitles
         let titles = item.articles.prefix(limit).map { CaptureText.firstLine($0.title) }.joined(separator: " · ")
         let rest = item.articles.count - min(limit, item.articles.count)
         return Text(titles + (rest > 0 ? " and \(rest) more" : ""))
@@ -194,6 +193,19 @@ struct TodayRow: View {
 
 // MARK: - Verbs
 
+extension TodayRow {
+    enum Metrics {
+        /// The round button of a verb on the selected row and on the row under the pointer.
+        static let verbButton: CGFloat = 30
+        static let verbGlyph: CGFloat = 14
+        static let verbSpacing: CGFloat = 2
+        /// The font size of a capture that is code, on its row.
+        static let codeFontSize: CGFloat = 14
+        /// The titles of a digest row: the first titles, then a count of the others.
+        static let digestTitles = 2
+    }
+}
+
 /// The four verbs of a row as round buttons, then the More menu.
 struct VerbButtons: View {
     let item: StreamItem
@@ -201,7 +213,7 @@ struct VerbButtons: View {
     let verbs: RowVerbs
 
     var body: some View {
-        HStack(spacing: AppDefaults.Today.verbSpacing) {
+        HStack(spacing: TodayRow.Metrics.verbSpacing) {
             let kept = item.note?.isKept == true
             VerbButton(symbol: kept ? "star.fill" : "star", title: kept ? "Kept · K removes the mark" : "Keep · K",
                        tint: kept ? PiperTheme.brand : PiperTheme.secondaryLabel, action: verbs.keep)
@@ -249,7 +261,7 @@ struct VerbGlyph: View {
     @State private var hovered = false
 
     var body: some View {
-        let metrics = AppDefaults.Today.self
+        let metrics = TodayRow.Metrics.self
         Image(systemName: symbol)
             .font(.system(size: metrics.verbGlyph, weight: .medium))
             .foregroundStyle(tint)

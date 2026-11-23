@@ -27,7 +27,7 @@ struct SessionList: View {
                     PaperRow(item: .session(session.id), selected: current == .session(session.id),
                              time: RowTime.text(session.updatedAt), action: { pick(.session(session.id)) }) {
                         Circle().fill(Color(nsColor: Self.color(session)))
-                            .frame(width: AppDefaults.Papers.dotSize, height: AppDefaults.Papers.dotSize)
+                            .frame(width: PaperRowMetrics.dotSize, height: PaperRowMetrics.dotSize)
                     } content: {
                         VStack(alignment: .leading, spacing: 0) {
                             PaperRowTitle(text: Text(session.title), bold: session.unread)
@@ -42,7 +42,7 @@ struct SessionList: View {
                     }
                 }
             }
-            .padding(AppDefaults.Papers.listPadding)
+            .padding(PaperRowMetrics.listPadding)
         }
         .onAppear { setKeys(keys(items)) }
         .onChange(of: items) { _, items in setKeys(keys(items)) }

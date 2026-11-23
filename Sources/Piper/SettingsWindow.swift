@@ -15,18 +15,18 @@ final class SettingsWindowController: NSWindowController {
     init(model: AppModel) {
         let tabs = SettingsTabViewController()
         tabs.tabStyle = .toolbar
-        tabs.addTab("General", symbol: "gearshape", size: NSSize(width: 560, height: 330),
+        tabs.addTab("General", symbol: "gearshape", size: Metrics.generalSize,
                     content: GeneralSettings(model: model))
-        tabs.addTab("Capture", symbol: "text.cursor", size: AppDefaults.Window.captureSettingsSize,
+        tabs.addTab("Capture", symbol: "text.cursor", size: Metrics.captureSize,
                     content: CaptureSettings(model: model))
-        tabs.addTab("Reading", symbol: "book", size: NSSize(width: 560, height: 300),
-                    content: ReadingSettings())
-        tabs.addTab("AI", symbol: "sparkles", size: NSSize(width: 600, height: 640),
+        tabs.addTab("Reading", symbol: "book", size: Metrics.readingSize,
+                    content: ReadingPane())
+        tabs.addTab("AI", symbol: "sparkles", size: Metrics.aiSize,
                     content: AISettings(model: model))
-        tabs.addTab("Feeds", symbol: "dot.radiowaves.up.forward", size: AppDefaults.Feeds.settingsSize,
+        tabs.addTab("Feeds", symbol: "dot.radiowaves.up.forward", size: Metrics.feedsSize,
                     content: FeedsSettings(scan: model.siteScan))
 
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: 560, height: 330)),
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: Metrics.generalSize),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.toolbarStyle = .preference
@@ -43,6 +43,17 @@ final class SettingsWindowController: NSWindowController {
     func show() {
         window?.makeKeyAndOrderFront(nil)
         QA.activate()
+    }
+}
+
+extension SettingsWindowController {
+    /// The size of each tab of the window.
+    enum Metrics {
+        static let generalSize = NSSize(width: 560, height: 330)
+        static let captureSize = NSSize(width: 560, height: 380)
+        static let readingSize = NSSize(width: 560, height: 300)
+        static let aiSize = NSSize(width: 600, height: 640)
+        static let feedsSize = NSSize(width: 600, height: 560)
     }
 }
 
@@ -210,7 +221,7 @@ private struct AISettings: View {
                 }
                 Picker(selection: Binding(get: { agents.marginAgentID }, set: { id in
                     agents.marginAgentID = id
-                    agents.marginModel = id == AgentDefinition.claudeCodeID ? AppDefaults.Agents.marginModel : ""
+                    agents.marginModel = id == AgentDefinition.claudeCodeID ? FolderAgents.defaultMarginModel : ""
                 })) {
                     ForEach(agents.marginAgents) { Text($0.name).tag($0.id) }
                 } label: {
@@ -416,16 +427,13 @@ private struct FolderAgentRow: View {
 }
 
 /// Font, size, paper, and appearance for Markdown files.
-private struct ReadingSettings: View {
-    @AppStorage(AppDefaults.Key.readerSize) private var fontSize = AppDefaults.Reader.defaultSize
-    @AppStorage(AppDefaults.Key.readerTheme) private var theme = WikiReadingTheme.paper
-    @AppStorage(AppDefaults.Key.readerFont) private var font = AppDefaults.Reader.defaultFont
-    @AppStorage(AppDefaults.Key.readerAppearance) private var appearance = WikiReadingAppearance.system
+private struct ReadingPane: View {
+    private var reading = ReadingSettings()
 
     var body: some View {
         Form {
             Section {
-                Picker("Font", selection: $font) {
+                Picker("Font", selection: reading.$font) {
                     Text("Mono").tag(WikiReadingFont.mono)
                     Text("Serif").tag(WikiReadingFont.serif)
                     Text("Sans").tag(WikiReadingFont.sans)
@@ -433,15 +441,15 @@ private struct ReadingSettings: View {
                 .pickerStyle(.segmented)
                 LabeledContent("Size") {
                     HStack(spacing: 6) {
-                        Text("\(Int(fontSize)) pt").monospacedDigit()
-                        Stepper("Size", value: $fontSize, in: 13...24, step: 1).labelsHidden()
+                        Text("\(Int(reading.size)) pt").monospacedDigit()
+                        Stepper("Size", value: reading.$size, in: 13...24, step: 1).labelsHidden()
                     }
                 }
-                Picker("Paper", selection: $theme) {
+                Picker("Paper", selection: reading.$theme) {
                     ForEach(WikiReadingTheme.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
-                Picker("Appearance", selection: $appearance) {
+                Picker("Appearance", selection: reading.$appearance) {
                     ForEach(WikiReadingAppearance.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -452,7 +460,7 @@ private struct ReadingSettings: View {
                     Text("These settings change how Piper shows a file. The file does not change.")
                         .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
                     Spacer()
-                    Button("Reset to Defaults") { theme = .paper; font = AppDefaults.Reader.defaultFont; fontSize = AppDefaults.Reader.defaultSize; appearance = .system }
+                    Button("Reset to Defaults") { reading.reset() }
                 }
             }
         }
