@@ -63,8 +63,8 @@ Do not do these checks with `press`, `--headed`, or the clipboard. List them for
 - A menu does not open in QA mode, because PiperQA is not the active app. This includes a SwiftUI `Menu` and an `NSMenuToolbarItem`. `click` and `expand` on the menu button fail. Put each menu item on the list of checks for the user.
 - A WebKit page, such as the Reader tab or the Web tab, can show blank in `qa.sh shot` while the page is loaded. To check the text, run `agent-desktop find --app PiperQA --role webarea`, then find a heading or a text inside it.
 - `agent-desktop select` needs a value argument. To select a row in a list, use `click` on the ref of the row.
-- To test feeds with no real data, serve fictional files with `python3 -I -m http.server` on `127.0.0.1`. Add Feed accepts a local address. Discover drops private hosts, so give the fake history public hosts.
-- PiperQA reads browser history from `$QA/home/Library`, because `CFFIXED_USER_HOME` changes the home folder. For Discover, write a fake Chrome `History` database to `$QA/home/Library/Application Support/Google/Chrome/Default/History`, with the `urls` and `visits` tables.
+- To test feeds with no real data, serve fictional files with `python3 -I -m http.server` on `127.0.0.1`. Sources accepts a local address. Sites You Read Often drops private hosts, so give the fake history public hosts.
+- PiperQA reads browser history from `$QA/home/Library`, because `CFFIXED_USER_HOME` changes the home folder. For Sites You Read Often, write a fake Chrome `History` database to `$QA/home/Library/Application Support/Google/Chrome/Default/History`, with the `urls` and `visits` tables.
 
 - On `main`, the editor is a native text view. The file changes on disk only after Command-S or Save.
 - The web editor (a `WKWebView`) saves automatically. Headless `agent-desktop type` does not change it: use `qa.sh type`.
@@ -72,6 +72,8 @@ Do not do these checks with `press`, `--headed`, or the clipboard. List them for
 - `NSLog` lines from PiperQA do not show in `log show`. To trace the app, write to a file in `/tmp`.
 - `agent-desktop click` takes only a ref. With `--app`, it stops with `INVALID_ARGS`.
 - To add notes before a test, start and stop PiperQA once. Then write a `SavedState` JSON blob to the `state` table of `$QA/home/Library/Application Support/Piper/notes.sqlite`, with version 2. Dates are seconds from 2001-01-01. A later `qa.sh start` keeps this database.
+- Write the `SavedState` JSON as a BLOB (bytes), not as TEXT. The save compares the stored blob with a BLOB, so a TEXT row makes every later save fail with "Notes changed in another Piper instance".
+- agent-desktop can lose a PiperQA window with "exists but is not exposed through accessibility" or "window inventory did not stabilize". If a relaunch does not help, render the view from a temporary test in an `NSHostingView`, in light and dark. Set `siteScanDate` to now in the test defaults first, or Sources reads the real browser history of the user.
 - PiperQA records the system clipboard of the user in the `clipboard` table of its `notes.sqlite`. Before you render a view from a copy of that database, delete the `clipboard` rows and add fake rows. The `copied_at` column holds seconds from 1970.
 - To check the Inbox list without key focus, post the `shot <path>` QA command. PiperQA draws the feed paper window into a PNG file. This command also works while the screen is locked.
 - `qa.sh type` inserts the whole string at once, so Tiptap input rules do not run. To test an input rule, call `handleTextInput` for each character in `qa.sh js`. Place the caret with `editor.commands.setTextSelection`.
