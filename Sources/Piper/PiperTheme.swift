@@ -176,6 +176,18 @@ enum PiperTheme {
     /// Indigo 800. The text of a pinned folder tab.
     static let pinTabInkNS = hex(0x3730A3)
 
+    /// Zinc 300 and 600. The dashed slot of a row whose item is open as a paper.
+    static let paperSlotNS = color(light: 0xD4D4D8, dark: 0x52525B)
+    /// Zinc 400 and 500. The selection bar of a row while the paper has no focus, and the ring of a read article.
+    static let paperBarNS = color(light: 0xA1A1AA, dark: 0x71717A)
+    /// Indigo 300. The bar beside the notes under a row, and beside a quote.
+    static let quoteBarNS = hex(0xA5B4FC)
+    /// Zinc 900. The selection bar of a reader page, and the hint key caps on it.
+    static let selectionBarNS = hex(0x18181B)
+
+    static let paperSlot = Color(nsColor: paperSlotNS)
+    static let paperBar = Color(nsColor: paperBarNS)
+    static let quoteBar = Color(nsColor: quoteBarNS)
     static let paper = Color(nsColor: paperNS)
     static let paperInk = Color(nsColor: paperInkNS)
     static let paperMuted = Color(nsColor: paperMutedNS)
@@ -258,6 +270,22 @@ enum PiperTheme {
 
     static func paperUI(_ size: PaperSize, weight: NSFont.Weight = .regular) -> Font {
         Font(paperUINS(size, weight: weight) as CTFont)
+    }
+
+    /// Iowan Old Style, the serif of text that the reader reads: the title of
+    /// an article or a file in a list, a quote, and the body of an article.
+    static func paperSerifNS(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        let descriptor = NSFontDescriptor(fontAttributes: [
+            .family: "Iowan Old Style",
+            .traits: [NSFontDescriptor.TraitKey.weight: weight]
+        ])
+        if let font = NSFont(descriptor: descriptor, size: size), font.familyName == "Iowan Old Style" { return font }
+        let system = NSFont.systemFont(ofSize: size, weight: weight)
+        return system.fontDescriptor.withDesign(.serif).flatMap { NSFont(descriptor: $0, size: size) } ?? system
+    }
+
+    static func paperSerif(_ size: CGFloat, weight: NSFont.Weight = .regular) -> Font {
+        Font(paperSerifNS(size, weight: weight) as CTFont)
     }
 
     /// Fraunces at weight 600, the titles of the papers.

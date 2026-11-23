@@ -132,15 +132,47 @@ final class AppDefaults {
 
         /// The smallest scale of the title of the feed paper before it truncates.
         static let titleMinimumScale: CGFloat = 0.7
-        static let headerPadding = EdgeInsets(top: 26, leading: 32, bottom: 12, trailing: 24)
-        static let indexPadding = EdgeInsets(top: 8, leading: 20, bottom: 20, trailing: 20)
-        static let rowHeight: CGFloat = 44
+        static let headerPadding = EdgeInsets(top: 28, leading: 32, bottom: 0, trailing: 24)
+        static let indexPadding = EdgeInsets(top: 16, leading: 20, bottom: 20, trailing: 20)
+        static let rowHeight: CGFloat = 48
         static let rowRadius: CGFloat = 12
         static let rowPadding: CGFloat = 12
         static let indent: CGFloat = 18
         static let iconSize: CGFloat = 18
         static let readerHeaderHeight: CGFloat = 48
         static let readerHeaderPadding = EdgeInsets(top: 8, leading: 20, bottom: 0, trailing: 12)
+        /// A row of a list: a column for the mark, then the text and the time.
+        static let listRowPadding = EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 20)
+        static let listPadding = EdgeInsets(top: 4, leading: 12, bottom: 8, trailing: 12)
+        static let markColumn: CGFloat = 24
+        static let rowLineHeight: CGFloat = 26
+        /// The space between the lines of a title, for a line height of 26.
+        static let rowLineSpacing: CGFloat = 4
+        static let rowSpacing: CGFloat = 10
+        /// The serif title of an article or a file in a list.
+        static let serifRowSize: CGFloat = 17.5
+        /// The quote of a note under a row.
+        static let quoteSize: CGFloat = 15.5
+        static let tickSize: CGFloat = 18
+        static let dotSize: CGFloat = 9
+        static let markLine: CGFloat = 1.5
+        static let sheetMark = NSSize(width: 12, height: 15)
+        static let selectionBarWidth: CGFloat = 3
+        static let selectionBarInset: CGFloat = 8
+        static let slotDash: [CGFloat] = [4, 3]
+        static let groupHeaderPadding = EdgeInsets(top: 14, leading: 20, bottom: 2, trailing: 20)
+        /// The notes under a row: the last two, then a count of the others.
+        static let rowNoteLimit = 2
+        static let rowNotesPadding = EdgeInsets(top: 8, leading: 12, bottom: 2, trailing: 0)
+        static let quoteBarWidth: CGFloat = 2
+        /// The capture field on the first line of the feed paper.
+        static let composerHeight: CGFloat = 48
+        static let composerPadding = EdgeInsets(top: 16, leading: 20, bottom: 4, trailing: 20)
+        static let composerTextInset: CGFloat = 40
+        static let focusRingWidth: CGFloat = 3
+        /// The line under the list with the latest copy of the clipboard.
+        static let footPadding = EdgeInsets(top: 12, leading: 12, bottom: 10, trailing: 12)
+        static let footMargin: CGFloat = 20
         /// The most a count on a tab shows. A larger count shows as this number and a plus sign.
         static let countLimit = 999
     }
@@ -330,16 +362,6 @@ final class AppDefaults {
         static let previewFontSize: CGFloat = 11
     }
 
-    /// A chip over the Inbox stream, such as Reading.
-    enum FilterChip {
-        static let fontSize = PiperTheme.TextSize.secondary
-        static let countFontSize = PiperTheme.TextSize.caption
-        static let countOpacity = 0.6
-        static let spacing: CGFloat = 5
-        static let horizontalPadding: CGFloat = 10
-        static let height: CGFloat = 24
-    }
-
     /// The ring of a link that fills with the reading progress.
     enum ProgressRing {
         static let lineWidth: CGFloat = 1.25
@@ -431,6 +453,9 @@ final class AppDefaults {
         /// The most lines that the add field shows before it scrolls.
         static let maxLines = 5
         static let inboxLineHeight: CGFloat = 18
+        /// The line and the insets of the capture field of the feed paper, 48 points high with one line.
+        static let paperLineHeight: CGFloat = 22
+        static let paperTextInset = NSSize(width: 0, height: 13)
         static let lineHeight: CGFloat = 23
         static let visibleLines = 2
         /// The space between the edge of the text region and the first line.

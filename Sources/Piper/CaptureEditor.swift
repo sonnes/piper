@@ -9,6 +9,8 @@ struct CaptureEditor: NSViewRepresentable {
     var label = "New note text"
     var help = "Return saves the note. Shift-Return inserts a new line."
     var compact = false
+    /// The capture field of the feed paper: Noto Sans at 16 points, in a field 48 points high.
+    var paper = false
     /// The texts that show in the accent color, such as `@` mentions.
     var highlights: [String] = []
     /// Handles a key command such as `insertNewline:` or `moveUp:`. Returns
@@ -23,7 +25,9 @@ struct CaptureEditor: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let metrics = AppDefaults.Composer.self
         let fontSize = compact ? metrics.inboxFontSize : metrics.fontSize
-        let lineHeight = compact ? metrics.inboxLineHeight : metrics.lineHeight
+        let lineHeight = paper ? metrics.paperLineHeight : compact ? metrics.inboxLineHeight : metrics.lineHeight
+        let font = paper ? PiperTheme.paperUINS(.row) : PiperTheme.uiNS(fontSize)
+        let textInset = paper ? metrics.paperTextInset : metrics.textInset
         let scroll = CaptureScrollView(frame: NSRect(x: 0, y: 0, width: metrics.width, height: metrics.height))
         scroll.borderType = .noBorder
         scroll.drawsBackground = false
@@ -32,8 +36,8 @@ struct CaptureEditor: NSViewRepresentable {
         scroll.autohidesScrollers = true
         scroll.scrollerStyle = .overlay
         scroll.verticalScroller?.controlSize = .small
-        scroll.scrollerInsets = NSEdgeInsets(top: metrics.textInset.height, left: 0,
-                                             bottom: metrics.textInset.height, right: metrics.scrollerInset)
+        scroll.scrollerInsets = NSEdgeInsets(top: textInset.height, left: 0,
+                                             bottom: textInset.height, right: metrics.scrollerInset)
         scroll.horizontalScrollElasticity = .none
         scroll.automaticallyAdjustsContentInsets = false
 
@@ -41,11 +45,11 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isRichText = false
         editor.importsGraphics = false
         editor.drawsBackground = false
-        editor.font = PiperTheme.uiNS(fontSize)
-        editor.textColor = PiperTheme.inkNS
-        editor.insertionPointColor = PiperTheme.accentNS
+        editor.font = font
+        editor.textColor = paper ? PiperTheme.paperInkNS : PiperTheme.inkNS
+        editor.insertionPointColor = paper ? PiperTheme.brandNS : PiperTheme.accentNS
         editor.selectedTextAttributes = [.backgroundColor: PiperTheme.selectionNS, .foregroundColor: PiperTheme.inkNS]
-        editor.textContainerInset = metrics.textInset
+        editor.textContainerInset = textInset
         editor.textContainer?.lineFragmentPadding = 0
         editor.textContainer?.widthTracksTextView = true
         editor.textContainer?.containerSize = NSSize(width: metrics.textWidth, height: CGFloat.greatestFiniteMagnitude)
@@ -65,13 +69,14 @@ struct CaptureEditor: NSViewRepresentable {
         paragraph.maximumLineHeight = lineHeight
         editor.defaultParagraphStyle = paragraph
         editor.typingAttributes = [
-            .font: PiperTheme.uiNS(fontSize),
-            .foregroundColor: PiperTheme.inkNS,
+            .font: font,
+            .foregroundColor: paper ? PiperTheme.paperInkNS : PiperTheme.inkNS,
             .paragraphStyle: paragraph
         ]
         editor.string = text
         editor.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
         editor.placeholder = placeholder
+        if paper { editor.placeholderColor = PiperTheme.paperFaintNS }
         editor.delegate = context.coordinator
         editor.setAccessibilityLabel(label)
         editor.setAccessibilityHelp(help)
@@ -180,6 +185,7 @@ private final class CaptureScrollView: NSScrollView {
 private final class CaptureTextView: NSTextView {
     var onFocusChange: ((Bool) -> Void)?
     var placeholder = ""
+    var placeholderColor = PiperTheme.faintNS
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
@@ -206,7 +212,7 @@ private final class CaptureTextView: NSTextView {
         super.draw(dirtyRect)
         guard string.isEmpty, let container = textContainer else { return }
         var attributes = typingAttributes
-        attributes[.foregroundColor] = PiperTheme.faintNS
+        attributes[.foregroundColor] = placeholderColor
         NSAttributedString(string: placeholder, attributes: attributes).draw(in: NSRect(origin: textContainerOrigin,
             size: NSSize(width: container.size.width, height: AppDefaults.Composer.lineHeight)))
     }

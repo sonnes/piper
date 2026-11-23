@@ -159,9 +159,15 @@ struct CaptureView: View {
         let stream = isStream ? self.stream : nil
         let matching = matchingNotes(in: stream)
         VStack(spacing: 0) {
-            if embedded { paneHeader(stream, matches: matching.count) } else { panelHeader(matches: matching.count) }
+            if embedded {
+                if searchMode { paneHeader(matches: matching.count) }
+            } else {
+                panelHeader(matches: matching.count)
+            }
             if !embedded && !model.accessibilityEnabled && !tipDismissed { accessibilityTip }
-            if showsComposer { composer }
+            if showsComposer {
+                if embedded { paperComposer } else { composer }
+            }
             switch content {
             case .sections:
                 sectionList.overlay(alignment: .bottom) { skillList }
@@ -183,8 +189,8 @@ struct CaptureView: View {
             }
         }
         .foregroundStyle(PiperTheme.ink)
-        .tint(PiperTheme.accent)
-        .accentColor(PiperTheme.accent)
+        .tint(embedded ? PiperTheme.brand : PiperTheme.accent)
+        .accentColor(embedded ? PiperTheme.brand : PiperTheme.accent)
         .sheet(item: $sheet) { item in
             switch item {
             case .sections(let moving):
@@ -339,24 +345,12 @@ struct CaptureView: View {
         .help("More Actions").accessibilityLabel("More Actions")
     }
 
-    /// The search field over the Inbox list on the feed paper. The paper
-    /// title names the list.
-    private func paneHeader(_ stream: InboxStream?, matches: Int) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let stream { filterChips(stream.counts) }
-            searchField(matches: matches)
-        }
-        .padding(.horizontal, AppDefaults.ListSearch.horizontalInset)
-        .padding(.vertical, AppDefaults.ListSearch.verticalInset)
-    }
-
-    /// All, Notes, and Reading, with the number of captures in each.
-    private func filterChips(_ counts: [InboxStream.Filter: Int]) -> some View {
-        HStack(spacing: 6) {
-            ForEach(InboxStream.Filter.allCases, id: \.self) { item in
-                FilterChip(title: item.title, count: counts[item] ?? 0, active: item == filter) { setFilter(item) }
-            }
-        }
+    /// The search field over a list of the feed paper, after Command-F. The
+    /// paper title names the list.
+    private func paneHeader(matches: Int) -> some View {
+        searchField(matches: matches)
+            .padding(.horizontal, AppDefaults.Papers.composerPadding.leading)
+            .padding(.top, AppDefaults.Papers.composerPadding.top)
     }
 
     private func searchField(matches: Int) -> some View {
@@ -364,7 +358,7 @@ struct CaptureView: View {
             Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(PiperTheme.faint)
             TextField("Search", text: $store.query)
                 .textFieldStyle(.plain).focused($searching)
-                .font(PiperTheme.ui(.body))
+                .font(embedded ? PiperTheme.paperUI(.row) : PiperTheme.ui(.body))
                 .accessibilityLabel(content == .clipboard ? "Search the clipboard" : "Search notes")
                 .onAppear {
                     if showingSearch { DispatchQueue.main.async { searching = true } }
@@ -372,19 +366,21 @@ struct CaptureView: View {
             if searchMode {
                 let matches = content == .clipboard ? clipboardEntries.count : matches + recentClipboard.count
                 Text(count(matches, "match", "matches"))
-                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint).lineLimit(1).fixedSize()
+                    .font(embedded ? PiperTheme.paperUI(.body) : PiperTheme.ui(.caption))
+                    .foregroundStyle(PiperTheme.faint).lineLimit(1).fixedSize()
             }
             if embedded && !store.query.isEmpty {
                 Button { store.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(PiperTheme.faint) }
                     .buttonStyle(.plain).accessibilityLabel("Clear search")
             }
         }
-        .padding(.horizontal, 7)
-        .frame(height: embedded ? 22 : 26)
-        .background(PiperTheme.ink.opacity(0.05), in: RoundedRectangle(cornerRadius: embedded ? PiperTheme.radius : 8))
+        .padding(.horizontal, embedded ? 14 : 7)
+        .frame(height: embedded ? AppDefaults.Papers.composerHeight : 26)
+        .background(embedded ? PiperTheme.paperTint : PiperTheme.ink.opacity(0.05),
+                    in: RoundedRectangle(cornerRadius: embedded ? AppDefaults.Papers.rowRadius : 8))
         .overlay {
-            RoundedRectangle(cornerRadius: embedded ? PiperTheme.radius : 8)
-                .strokeBorder(searching ? PiperTheme.focusRing : .clear, lineWidth: 3)
+            RoundedRectangle(cornerRadius: embedded ? AppDefaults.Papers.rowRadius + 2 : 8)
+                .strokeBorder(searching ? (embedded ? PiperTheme.brand : PiperTheme.focusRing) : .clear, lineWidth: 3)
                 .padding(-2)
         }
         .frame(maxWidth: .infinity)
@@ -532,19 +528,14 @@ struct CaptureView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(stream.groups, id: \.title) { group in
-                        StreamHeader(title: group.title,
-                                     action: group.kind == .started && filter == .all ? ("See All", { setFilter(.reading) }) : nil)
+                        PaperGroupHeader(title: group.title,
+                                         action: group.kind == .started && filter == .all ? ("See All", { setFilter(.reading) }) : nil)
                         ForEach(Array(group.notes.enumerated()), id: \.element.id) { index, note in
                             inboxRow(note, style: rowStyle(note, in: group, at: index)).id(note.id)
-                            if showsChildren(note.id, byDefault: false) {
-                                ForEach(store.children(of: note.id)) { child in
-                                    childRow(child, of: note)
-                                }
-                            }
                         }
                     }
                     if !doneToday.isEmpty {
-                        DoneTodayHeader(count: doneToday.count, shown: showsDoneToday) { showsDoneToday.toggle() }
+                        PaperDoneToday(count: doneToday.count, shown: showsDoneToday) { showsDoneToday.toggle() }
                         if showsDoneToday {
                             ForEach(doneToday) { note in
                                 inboxRow(note, style: note.isArticle ? .compact : .note).id(note.id)
@@ -552,17 +543,16 @@ struct CaptureView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 12)
+                .padding(AppDefaults.Papers.listPadding)
             }
             .overlay {
                 if stream.groups.isEmpty && doneToday.isEmpty {
                     if !store.query.isEmpty {
-                        EmptyPane(title: "No Results", detail: "Try another word.")
+                        PaperEmpty(title: "No Results", detail: "Try another word.")
                     } else if filter == .reading {
-                        EmptyPane(title: "Nothing to Read", detail: "On a web page, press Shift twice to save it here.")
+                        PaperEmpty(title: "Nothing to Read", detail: "On a web page, press Shift twice to save it here.")
                     } else {
-                        EmptyPane(title: "No Notes", detail: "Type a note above, or press Shift twice in another app.")
+                        PaperEmpty(title: "No Notes", detail: "Type a note above, or press Shift twice in another app.")
                     }
                 }
             }
@@ -582,7 +572,7 @@ struct CaptureView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(groups, id: \.title) { group in
                         if embedded {
-                            StreamHeader(title: group.title, action: nil)
+                            PaperGroupHeader(title: group.title)
                             ForEach(group.notes) { note in
                                 inboxRow(note, style: note.isArticle ? .compact : .note).id(note.id)
                             }
@@ -592,15 +582,15 @@ struct CaptureView: View {
                         }
                     }
                 }
-                .padding(.horizontal, embedded ? 8 : AppDefaults.CaptureItem.listInset)
-                .padding(.bottom, 12)
+                .padding(embedded ? AppDefaults.Papers.listPadding
+                         : EdgeInsets(top: 0, leading: AppDefaults.CaptureItem.listInset, bottom: 12, trailing: AppDefaults.CaptureItem.listInset))
             }
             .overlay {
                 if groups.isEmpty {
                     if store.query.isEmpty {
-                        EmptyPane(title: "No Done Notes", detail: "Notes that you mark as done show here.")
+                        PaperEmpty(title: "No Done Notes", detail: "Notes that you mark as done show here.")
                     } else {
-                        EmptyPane(title: "No Results", detail: "Try another word.")
+                        PaperEmpty(title: "No Results", detail: "Try another word.")
                     }
                 }
             }
@@ -630,15 +620,16 @@ struct CaptureView: View {
         let finished = note.reading?.finishedAt != nil
         return InboxRow(
             note: note, style: style, selected: store.selection.contains(note.id),
-            section: streamSection == nil && note.section != RowIcon.inboxSection
-                ? (note.section, sectionColor(note.section)) : nil,
+            section: streamSection == nil ? note.section : nil,
             children: store.children(of: note.id),
-            showsChildren: showsChildren(note.id, byDefault: false),
-            toggleChildren: { toggleChildren(note.id) },
             session: session,
             select: { openNote(note.id) },
             complete: { note.isDone || style == .note ? store.toggleDone(note.id) : toggleRead(note) },
             openRun: { openRun(for: note) },
+            openChild: { child in
+                model.showHighlight(child.id, in: note.id)
+                openNote(note.id)
+            },
             menu: NoteContextMenu(
                 note: note,
                 completeTitle: note.isDone ? "Reopen" : style == .note ? "Mark as Done" : finished ? "Read Again" : "Mark as Read",
@@ -672,11 +663,6 @@ struct CaptureView: View {
         }
     }
 
-    /// The dot color of a section, as the Inbox index shows it.
-    private func sectionColor(_ section: String) -> Color {
-        Color(nsColor: RowIcon.sectionColor(section, in: store.sections))
-    }
-
     /// Marks an article as read, or opens it again. A read article stays in
     /// Finished This Week, then goes to Done.
     private func toggleRead(_ note: Note) {
@@ -692,7 +678,45 @@ struct CaptureView: View {
         clearSelection()
     }
 
-    private var clipboardHistory: some View {
+    @ViewBuilder private var clipboardHistory: some View {
+        if embedded { paperClipboardHistory } else { panelClipboardHistory }
+    }
+
+    /// The clipboard history on the feed paper: one row for each copy, under its day.
+    private var paperClipboardHistory: some View {
+        let days = Dictionary(grouping: clipboardEntries) { Calendar.current.startOfDay(for: $0.copiedAt) }
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(days.keys.sorted(by: >), id: \.self) { day in
+                    PaperGroupHeader(title: Self.dayTitle(day))
+                    ForEach(days[day] ?? []) { entry in
+                        PaperClipboardRow(entry: entry, keep: { keep(entry) }, copy: { paste(entry) },
+                                          agents: agents, send: { send(entry, $0) })
+                    }
+                }
+                if !clipboardEntries.isEmpty && store.query.isEmpty {
+                    Button("Clear History") { withAnimation(motion) { model.clipboard.clear() } }
+                        .buttonStyle(.plain)
+                        .font(PiperTheme.paperUI(.body, weight: .medium)).foregroundStyle(PiperTheme.brand)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 14)
+                }
+            }
+            .padding(AppDefaults.Papers.listPadding)
+        }
+        .overlay {
+            if clipboardEntries.isEmpty {
+                if store.query.isEmpty {
+                    PaperEmpty(title: "No Copies", detail: "Text you copy appears here for 7 days.")
+                } else {
+                    PaperEmpty(title: "No Results", detail: "Try another word.")
+                }
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    private var panelClipboardHistory: some View {
         let days = Dictionary(grouping: clipboardEntries) { Calendar.current.startOfDay(for: $0.copiedAt) }
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
@@ -779,9 +803,14 @@ struct CaptureView: View {
     private var selectionBar: some View {
         VStack(alignment: .leading, spacing: AppDefaults.CaptureItem.actionSpacing) {
             HStack {
-                Text("\(store.selection.count) selected").font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
+                Text("\(store.selection.count) selected")
+                    .font(embedded ? PiperTheme.paperUI(.body) : PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
                 Spacer()
-                if embedded { Button("Cancel") { clearSelection() }.buttonStyle(.text).help("Clear the selection · Escape") }
+                if embedded {
+                    Button("Cancel") { clearSelection() }
+                        .buttonStyle(.plain).font(PiperTheme.paperUI(.body, weight: .medium)).foregroundStyle(PiperTheme.brand)
+                        .help("Clear the selection · Escape")
+                }
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: AppDefaults.CaptureItem.actionMinimumWidth),
                                          spacing: AppDefaults.CaptureItem.actionSpacing)],
@@ -801,9 +830,46 @@ struct CaptureView: View {
             }
         }
         .controlSize(.regular)
-        .padding(.horizontal, embedded ? AppDefaults.ListSearch.horizontalInset : AppDefaults.CaptureItem.listInset + 2)
+        .font(embedded ? PiperTheme.paperUI(.body) : nil)
+        .padding(.horizontal, embedded ? AppDefaults.Papers.footMargin : AppDefaults.CaptureItem.listInset + 2)
         .padding(.vertical, AppDefaults.CaptureItem.actionSpacing)
         .overlay(alignment: .top) { if embedded { Rule() } }
+    }
+
+    /// The capture field of the feed paper, on the first line of the paper.
+    /// It grows with its text, up to `Composer.maxLines`.
+    private var paperComposer: some View {
+        let metrics = AppDefaults.Composer.self
+        let papers = AppDefaults.Papers.self
+        let inset = metrics.paperTextInset.height * 2
+        let height = min(max(composerTextHeight, papers.composerHeight),
+                         metrics.paperLineHeight * CGFloat(metrics.maxLines) + inset)
+        return HStack(alignment: .top, spacing: 0) {
+            Text("+")
+                .font(PiperTheme.paperUI(.reading))
+                .foregroundStyle(PiperTheme.paperFaint)
+                .frame(width: papers.composerTextInset, height: papers.composerHeight)
+                .accessibilityHidden(true)
+            CaptureEditor(text: $model.composerDraft, focused: $composing,
+                          placeholder: "Add to \(store.activeSection)", compact: true, paper: true,
+                          contentHeight: { composerTextHeight = $0 })
+                .frame(height: height)
+            if composing, composedAction != nil || !completions.isEmpty {
+                Text(inboxHint)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
+                    .lineLimit(1).help(inboxHint)
+                    .padding(.trailing, 14)
+                    .frame(height: papers.composerHeight)
+                    .allowsHitTesting(false)
+            }
+        }
+        .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: papers.rowRadius, style: .continuous))
+        .background {
+            RoundedRectangle(cornerRadius: papers.rowRadius + papers.focusRingWidth, style: .continuous)
+                .fill(composing ? PiperTheme.brand : .clear)
+                .padding(-papers.focusRingWidth)
+        }
+        .padding(papers.composerPadding)
     }
 
     /// The add field: one line that grows with its text, up to `Composer.maxLines`.
@@ -1135,32 +1201,6 @@ struct CaptureView: View {
     }
 }
 
-/// One chip over the Inbox stream.
-private struct FilterChip: View {
-    let title: String
-    let count: Int
-    let active: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: AppDefaults.FilterChip.spacing) {
-                Text(title).fontWeight(active ? .medium : .regular)
-                Text("\(count)").font(PiperTheme.ui(AppDefaults.FilterChip.countFontSize))
-                    .opacity(AppDefaults.FilterChip.countOpacity).monospacedDigit()
-            }
-            .font(PiperTheme.ui(AppDefaults.FilterChip.fontSize))
-            .foregroundStyle(active ? PiperTheme.page : PiperTheme.secondary)
-            .padding(.horizontal, AppDefaults.FilterChip.horizontalPadding)
-            .frame(height: AppDefaults.FilterChip.height)
-            .background(active ? PiperTheme.ink : PiperTheme.hover, in: Capsule())
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
-    }
-}
-
 /// The fold over the captures done today, at the end of a list.
 private struct DoneTodayHeader: View {
     let count: Int
@@ -1186,19 +1226,3 @@ private struct DoneTodayHeader: View {
     }
 }
 
-/// The header of one group of the Inbox stream, such as Today.
-private struct StreamHeader: View {
-    let title: String
-    let action: (String, () -> Void)?
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title).font(PiperTheme.ui(.caption, weight: .semibold)).foregroundStyle(PiperTheme.faint)
-            Spacer(minLength: 4)
-            if let action { Button(action.0, action: action.1).buttonStyle(.text).font(PiperTheme.ui(.caption)) }
-        }
-        .padding(.horizontal, 10)
-        .padding(.top, 12).padding(.bottom, 4)
-        .accessibilityAddTraits(.isHeader)
-    }
-}
