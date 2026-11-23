@@ -365,3 +365,23 @@ extension View {
             .shadow(color: focused ? PiperTheme.paperShadow : PiperTheme.paperRestShadow, radius: shadow.radius, y: shadow.y)
     }
 }
+
+/// Moves the window when a drag starts on an empty part of a paper.
+///
+/// SwiftUI takes the mouse-down before `isMovableByWindowBackground` can
+/// move the window, so this view starts the drag itself. A double click
+/// does what a double click on a title bar does.
+struct WindowDragArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class DragView: NSView {
+        override func mouseDown(with event: NSEvent) {
+            if event.clickCount == 2, let paper = window as? PaperWindow {
+                paper.titleBarDoubleClick()
+                return
+            }
+            window?.performDrag(with: event)
+        }
+    }
+}

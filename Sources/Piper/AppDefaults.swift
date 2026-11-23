@@ -18,12 +18,8 @@ final class AppDefaults {
         static let paletteRecents = "paletteRecents"
         static let wikiPaths = "wikiPaths"
         static let captureShortcut = "captureShortcut"
-        static let captureFloating = "captureFloating"
         static let composerDraft = "composerDraft"
         static let migratedLocalPreferences = "migratedLocalPreferences"
-        static let accessibilityTipDismissed = "accessibilityTipDismissed"
-        /// True when the reader folded the clipboard strip of the capture panel.
-        static let clipboardStripFolded = "clipboardStripFolded"
         static let showsFileSource = "showsFileSource"
         /// Turns on the QA hooks of a debug build. See `QA`.
         static let qaMode = "PiperQA"
@@ -63,14 +59,12 @@ final class AppDefaults {
 
         /// Keys carried over when the bundle identifier changed to `com.piper`.
         static let migrated = [
-            vaultPath, captureShortcut, composerDraft, readerSize,
-            "NSWindow Frame " + WindowName.capturePanel
+            vaultPath, captureShortcut, composerDraft, readerSize
         ]
     }
 
     /// Frame autosave names. A window controller reads its own name from here.
     enum WindowName {
-        static let capturePanel = "PiperCapturePanel"
         static let sessionPanel = "PiperSessionPanel"
     }
 
@@ -289,9 +283,6 @@ final class AppDefaults {
 
     enum Window {
         static let captureSettingsSize = NSSize(width: 560, height: 380)
-        static let capturePanelSize = NSSize(width: 600, height: 960)
-        static let capturePanelMinimumSize = NSSize(width: 340, height: 480)
-        static let captureCornerRadius: CGFloat = 22
     }
 
     /// The command palette over a paper.
@@ -477,41 +468,10 @@ final class AppDefaults {
         static let swatchSize: CGFloat = 7
     }
 
-    /// Capture list metrics, shared by the panel and the Inbox pane.
+    /// The selection bar of the Inbox list.
     enum CaptureItem {
-        static let cornerRadius: CGFloat = PiperTheme.cardRadius
-        static let fontSize = PiperTheme.TextSize.body
-        static let clipboardFontSize = PiperTheme.TextSize.body
-        static let clipboardCodeFontSize: CGFloat = 12
-        static let lineSpacing: CGFloat = 2
-        static let circleSize: CGFloat = 18
-        static let buttonHitSize: CGFloat = 30
-        static let tabHeight: CGFloat = 26
-        static let panelHeaderHeight: CGFloat = 54
-        static let rowSpacing: CGFloat = 6
-        static let cardInset: CGFloat = 4
         static let actionSpacing: CGFloat = 8
         static let actionMinimumWidth: CGFloat = 72
-        static let sectionMenuWidth: CGFloat = 280
-        static let sectionMenuHeight: CGFloat = 320
-        static let horizontalPadding: CGFloat = 12
-        static let verticalPadding: CGFloat = 7
-        static let minimumHeight: CGFloat = 32
-        /// The height of a row in the clipboard strip of the panel.
-        static let stripRowHeight: CGFloat = 26
-        /// The height of a count chip, such as "2 notes".
-        static let chipHeight: CGFloat = 18
-        static let clipboardHeight: CGFloat = 42
-        /// The space from the edge of a card to the text after the circle.
-        static let textInset: CGFloat = horizontalPadding + buttonHitSize + 10
-        /// The inset of the list from the edge of the pane.
-        static let listInset: CGFloat = 14
-        /// Lifts the panel hint line clear of the rounded bottom corners.
-        static let hintBottomPadding: CGFloat = 6
-        /// The number of clipboard items in the strip under the panel list.
-        static let recentClipboardCount = 3
-        /// The number of sections that show as tabs in the panel. The menu tab holds the others.
-        static let sectionTabCount = 3
     }
 
     /// Composer metrics.
@@ -519,13 +479,10 @@ final class AppDefaults {
     /// The height of the card follows from the line height. A whole number of
     /// lines is therefore visible, and no line is cut at the bottom edge.
     enum Composer {
-        /// The font of the add field.
-        static let inboxFontSize = PiperTheme.TextSize.body
         /// The font of the session composer.
         static let fontSize = PiperTheme.TextSize.reading
         /// The most lines that the add field shows before it scrolls.
         static let maxLines = 5
-        static let inboxLineHeight: CGFloat = 18
         /// The line and the insets of the capture field of the feed paper, 48 points high with one line.
         static let paperLineHeight: CGFloat = 22
         static let paperTextInset = NSSize(width: 0, height: 13)
@@ -535,7 +492,7 @@ final class AppDefaults {
         static let textInset = NSSize(width: 10, height: 7)
         /// The space between the edge of the card and the text region.
         static let regionInset: CGFloat = 5
-        /// The space between the edge of the panel and the card.
+        /// The space between the edge of the list and the skill list.
         static let margin: CGFloat = 14
         /// The space that holds the overlay scroller off the text.
         static let scrollerInset: CGFloat = 6
@@ -544,8 +501,8 @@ final class AppDefaults {
         static let textHeight = textInset.height * 2 + lineHeight * CGFloat(visibleLines)
         /// The height of the whole card.
         static let height = textHeight + regionInset * 2
-        /// The width the panel gives the card.
-        static let width = Window.capturePanelSize.width - margin * 2
+        /// The width of the card before its first layout.
+        static let width: CGFloat = 572
         /// The width available to the text.
         static let textWidth = width - textInset.width * 2
     }

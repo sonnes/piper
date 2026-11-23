@@ -7,6 +7,12 @@ import SwiftUI
 /// The panel does not activate Piper, so the app under it stays in front.
 /// Its close button collapses the card to the pill in the reader paper, and
 /// Dock in the card returns the card to the reader paper.
+/// A panel that takes the keyboard focus without activating Piper.
+private final class SessionPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
 @MainActor
 final class SessionPanelController: NSWindowController {
 
@@ -18,7 +24,7 @@ final class SessionPanelController: NSWindowController {
 
     init(model: AppModel) {
         self.model = model
-        let panel = CapturePanel(
+        let panel = SessionPanel(
             contentRect: NSRect(origin: .zero, size: AppDefaults.SessionCard.panelSize),
             styleMask: [.titled, .closable, .resizable, .utilityWindow, .nonactivatingPanel],
             backing: .buffered,

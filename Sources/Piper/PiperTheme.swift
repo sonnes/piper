@@ -20,9 +20,9 @@ enum PiperTheme {
 
     /// The background of a list and of a reader paper.
     static let pageNS = paperNS
-    /// The background of the capture panel, the reader bar, and the link card.
+    /// The background of the reader bar and the link card.
     static let panelNS = color(light: 0xF3F3F4, dark: 0x232324)
-    /// The background of a grouped card on the panel.
+    /// The background of a grouped card.
     static let cardNS = color(light: 0xFFFFFF, dark: 0x2C2C2E)
     static let inkNS = NSColor.labelColor
     static let secondaryNS = NSColor.secondaryLabelColor
@@ -125,9 +125,6 @@ enum PiperTheme {
     static let toolDone = Color(nsColor: color(light: 0x16A34A, dark: 0x4ADE80))
     /// A row under the pointer.
     static let hover = Color.primary.opacity(0.045)
-    /// The track behind the tabs of the capture panel, and the shadow of the active tab.
-    static let tabTrack = Color.primary.opacity(0.06)
-    static let tabShadow = Color.black.opacity(0.12)
     /// The ring around a focused field.
     static let focusRing = accent.opacity(0.45)
     /// Text and symbols on an accent fill, such as a check or a toast button.

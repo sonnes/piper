@@ -501,6 +501,35 @@ final class PaperDeskTests: XCTestCase {
         XCTAssertEqual(desk.paper.state.selectedFile, "notes/journal.md")
     }
 
+    /// New Capture, Window > Inbox, and the menu bar item show the feed paper
+    /// on the Inbox list with an empty search and a request for the add field.
+    func testNewCaptureShowsTheInboxListWithTheAddField() async throws {
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
+        let suite = "piper-paper-desk-capture-tests"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let desk = PaperDesk(model: model, defaults: defaults)
+        defer { desk.hide() }
+        XCTAssertTrue(model.store.add("Fictional note"))
+        desk.paper.choose(.clipboard)
+        model.store.query = "fictional"
+        model.store.selection = Set(model.store.notes.map(\.id))
+        XCTAssertNil(desk.paper.composerRequest)
+
+        desk.newCapture()
+        XCTAssertTrue(desk.isVisible)
+        XCTAssertEqual(desk.paper.state.tab, .inbox)
+        XCTAssertEqual(desk.paper.state.scope, .inbox(section: nil))
+        XCTAssertFalse(desk.paper.showsIndex)
+        XCTAssertEqual(model.store.query, "")
+        XCTAssertTrue(model.store.selection.isEmpty)
+        let first = try XCTUnwrap(desk.paper.composerRequest)
+
+        desk.newCapture()
+        XCTAssertNotEqual(desk.paper.composerRequest, first, "Each request focuses the add field again.")
+    }
+
     /// The tree keys of the feed paper: Right Arrow opens and steps in, Left
     /// Arrow closes, and Return opens a file.
     func testTheTreeKeysOpenAndCloseFolders() async throws {

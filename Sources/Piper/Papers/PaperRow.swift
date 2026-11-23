@@ -385,11 +385,13 @@ struct PaperEmpty: View {
 }
 
 /// One copy in the clipboard list of the feed paper. Under the pointer, the
-/// row shows Keep and Copy in place of its time.
+/// row shows Keep, Read for a web link, and Copy in place of its time.
 struct PaperClipboardRow: View {
     let entry: ClipboardEntry
     let keep: () -> Void
     let copy: () -> Void
+    /// Saves a copied web link to Reading and opens it. Nil for other text.
+    let read: (() -> Void)?
     let agents: FolderAgents
     let send: (FolderAgents.Action?) -> Void
 
@@ -407,11 +409,13 @@ struct PaperClipboardRow: View {
             }
         } actions: {
             RowAction(symbol: "tray.and.arrow.down", title: "Keep in Inbox", tint: PiperTheme.brand, action: keep)
+            if let read { RowAction(symbol: "book", title: "Add to Reading", action: read) }
             RowAction(symbol: "doc.on.doc", title: "Copy", action: copy)
         }
         .contextMenu {
             Button("Copy", action: copy)
             Button("Keep in Inbox", action: keep)
+            if let read { Button("Add to Reading", action: read) }
             if !agents.folders.isEmpty {
                 Divider()
                 Menu("Send To") { SendMenuItems(agents: agents, send: send) }

@@ -62,7 +62,7 @@ struct NoteDetail: View {
         }
         .onDisappear(perform: finish)
         .onChange(of: note.text) { _, text in
-            // A change from the panel or a merge replaces the text under the editor.
+            // A change from the Inbox list or a merge replaces the text under the editor.
             guard let session, !session.hasChanges, session.note.text != text else { return }
             session.note = note
             session.text = text

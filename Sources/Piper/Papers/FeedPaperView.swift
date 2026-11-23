@@ -186,7 +186,7 @@ struct FeedPaperView: View {
 
     private func captureView(_ content: CaptureListContent) -> CaptureView {
         CaptureView(
-            model: model, embedded: true, content: content,
+            model: model, content: content,
             composerRequest: paper.composerRequest,
             acceptsKeyboard: { [paper] window in
                 window.windowController is FeedPaperController && !paper.showsIndex

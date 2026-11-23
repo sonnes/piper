@@ -20,7 +20,7 @@ enum PaperItem: Hashable {
 ///
 /// A row of an item that is open as a reader paper shows a dashed slot. A
 /// row flashes when its paper goes back. The views of the feed paper find
-/// this object in their environment. The capture panel has none.
+/// this object in their environment.
 @MainActor @Observable
 final class DeskMarks {
     /// One flash of a row.

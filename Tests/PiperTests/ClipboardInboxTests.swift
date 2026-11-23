@@ -126,13 +126,11 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertNotNil(failed.errorMessage)
     }
 
-    /// Only the clipboard write is under test here. A full paste posts a real
-    /// Command-V into whichever application is in front of the test runner.
-    func testPasteWritesTheExactTextToTheClipboard() {
+    func testCopyWritesTheExactTextToTheClipboard() {
         let text = "  line one\n\tline two\n"
         pasteboard.clearContents()
         pasteboard.setString("earlier", forType: .string)
-        XCTAssertTrue(ClipboardPaster.write(text, to: pasteboard))
+        XCTAssertTrue(CaptureView.copy(text, to: pasteboard))
         XCTAssertEqual(pasteboard.string(forType: .string), text)
     }
 

@@ -135,21 +135,12 @@ final class AppModel {
     }
     var accessibilityEnabled = AXIsProcessTrusted()
     var openNoteEditor: ((Note) -> Void)?
-    var openPanel: (() -> Void)?
-    var openLibrary: (() -> Void)?
     var openSettings: (() -> Void)?
     /// True while the file paper shows the text of a file in place of its preview.
     var showsFileSource = UserDefaults.standard.bool(forKey: AppDefaults.Key.showsFileSource) {
         didSet { UserDefaults.standard.set(showsFileSource, forKey: AppDefaults.Key.showsFileSource) }
     }
     var captureShortcutChanged: (() -> Void)?
-    var captureFloatingChanged: ((Bool) -> Void)?
-    var captureFloating: Bool {
-        didSet {
-            preferences.set(captureFloating, forKey: AppDefaults.Key.captureFloating)
-            captureFloatingChanged?(captureFloating)
-        }
-    }
     private(set) var wikiPaths: [String] {
         didSet {
             preferences.set(wikiPaths, forKey: AppDefaults.Key.wikiPaths)
@@ -199,10 +190,9 @@ final class AppModel {
     init(store: CaptureStore? = nil, wikiPath: String? = nil, preferences: UserDefaults = .standard, feeds: FeedStore? = nil) {
         self.preferences = preferences
         let defaults = preferences
-        captureFloating = defaults.object(forKey: AppDefaults.Key.captureFloating) as? Bool ?? true
         if Bundle.main.bundleIdentifier == "com.piper", !defaults.bool(forKey: "migratedLocalPreferences") {
             let previous = defaults.persistentDomain(forName: "local.piper") ?? [:]
-            for key in ["wikiPath", "captureShortcut", "composerDraft", "wikiReaderSize", "NSWindow Frame PiperCapturePanel", "NSWindow Frame PiperLibrary"] {
+            for key in ["wikiPath", "captureShortcut", "composerDraft", "wikiReaderSize", "NSWindow Frame PiperLibrary"] {
                 if defaults.object(forKey: key) == nil, let value = previous[key] { defaults.set(value, forKey: key) }
             }
             defaults.set(true, forKey: "migratedLocalPreferences")

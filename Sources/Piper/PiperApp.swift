@@ -22,7 +22,6 @@ struct PiperApp {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
-    private var panelController: CapturePanelController?
     private lazy var desk = PaperDesk(model: model)
     private var settingsWindowController: SettingsWindowController?
     private var editors: [UUID: NSWindow] = [:]
@@ -48,17 +47,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         NSApp.setActivationPolicy(.regular)
         installMenus()
         model.openNoteEditor = { [weak self] note in self?.showEditor(note) }
-        model.openPanel = { [weak self] in self?.showPanel() }
-        model.openLibrary = { [weak self] in self?.showLibrary() }
         model.openSettings = { [weak self] in self?.settings() }
-        model.showFile = { [weak self] path in
-            self?.panelController?.hide()
-            self?.desk.openFile(path)
-        }
-        model.showNote = { [weak self] id in
-            self?.panelController?.hide()
-            self?.desk.openNote(id)
-        }
+        model.showFile = { [weak self] path in self?.desk.openFile(path) }
+        model.showNote = { [weak self] id in self?.desk.openNote(id) }
         model.sessionPresentationChanged = { [weak self] presentation in self?.updateSessionPanel(presentation) }
         if model.sessionPresentation == .detached { DispatchQueue.main.async { [weak self] in self?.showSessionPanel() } }
         model.showSession = { [weak self] id in
@@ -67,13 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
                 model.selectedSession = id
                 return showSessionPanel()
             }
-            panelController?.hide()
             desk.openSession(id)
         }
-        model.showArticle = { [weak self] id in
-            self?.panelController?.hide()
-            self?.desk.openNote(id, asArticle: true)
-        }
+        model.showArticle = { [weak self] id in self?.desk.openNote(id, asArticle: true) }
         let readingToast = ReadingToast(store: model.store)
         readingToast.open = { [weak self] id in self?.model.showArticle?(id) }
         self.readingToast = readingToast
@@ -102,12 +89,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             }
         }
         #if DEBUG
-        if QA.isOn {
-            qaScripts = QAScripts(model: model, desk: desk)
-            return showLibrary()
-        }
+        if QA.isOn { qaScripts = QAScripts(model: model, desk: desk) }
         #endif
-        showPanel()
+        showLibrary()
     }
 
     private func installMenus() {
@@ -153,7 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         main.addItem(goItem)
 
         let windowMenu = NSMenu(title: "Window")
-        windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
+        windowMenu.addItem(withTitle: "Inbox", action: #selector(newCapture), keyEquivalent: "1").target = self
         windowMenu.addItem(withTitle: "Feed Paper", action: #selector(showLibrary), keyEquivalent: "2").target = self
         windowMenu.addItem(withTitle: "Next Paper", action: #selector(nextPaper), keyEquivalent: "`").target = self
         let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
@@ -171,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             status.button?.setAccessibilityLabel("Piper")
         }
         let menu = NSMenu()
-        menu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "New Capture", action: #selector(newCapture), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Feed Paper", action: #selector(showLibrary), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Capture Clipboard", action: #selector(clipboard), keyEquivalent: "").target = self
         let send = menu.addItem(withTitle: "Send Clipboard", action: #selector(sendClipboard), keyEquivalent: "w")
@@ -202,24 +186,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         editors[note.id] = window
     }
 
-    /// Shows the capture panel and takes the papers off the screen.
-    ///
-    /// The panel and the papers are exclusive. Only one is in front at a time.
-    @objc func showPanel() {
-        if panelController == nil { panelController = CapturePanelController(model: model) }
-        desk.hide()
-        panelController?.show()
-    }
-
-    /// Shows the feed paper and the open reader papers, and takes the capture panel off the screen.
+    /// Shows the feed paper and the open reader papers.
     @objc func showLibrary() {
-        panelController?.hide()
         desk.show()
     }
 
-    /// Puts the cursor in the add field of the Inbox list of the feed paper.
+    /// Shows the feed paper on Inbox, with the cursor in its add field.
     @objc private func newCapture() {
-        panelController?.hide()
         desk.newCapture()
     }
 
@@ -265,9 +238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     /// Opens the command palette over the paper with the keyboard focus, or over the feed paper.
     @objc private func showPalette() {
         let key = NSApp.keyWindow
-        if key?.windowController is FeedPaperController || key?.windowController is ReaderPaperController {
-            panelController?.hide()
-        } else {
+        if !(key?.windowController is FeedPaperController || key?.windowController is ReaderPaperController) {
             showLibrary()
         }
         guard let window = NSApp.keyWindow ?? desk.feedWindow else { return }
@@ -287,7 +258,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             PaletteCommand(title: "Back", shortcut: "⌘[") { [weak self] in self?.goBack() },
             PaletteCommand(title: "Forward", shortcut: "⌘]") { [weak self] in self?.goForward() },
             PaletteCommand(title: "Refresh", shortcut: "⌘R") { [weak self] in self?.refreshVault() },
-            PaletteCommand(title: "Capture Panel", shortcut: "⌘1") { [weak self] in self?.showPanel() },
             PaletteCommand(title: "Settings", shortcut: "⌘,") { [weak self] in self?.settings() },
         ]
     }
@@ -380,7 +350,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     /// Brings the open windows forward on a Dock click. With no window open,
-    /// the click opens the feed paper. The capture panel has its own shortcut.
+    /// the click opens the feed paper.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { showLibrary() }
         return true
@@ -466,7 +436,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     /// Closes a sheet on any window, so that a modal alert can appear.
     private func dismissAttachedSheet() {
         desk.dismissAttachedSheet()
-        panelController?.dismissAttachedSheet()
         model.route = "wiki"
     }
 

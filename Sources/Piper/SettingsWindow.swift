@@ -114,19 +114,13 @@ private struct GeneralSettings: View {
     }
 }
 
-/// The capture panel, shortcut, Accessibility access, and clipboard fallback.
+/// The selection shortcut, Accessibility access, and clipboard fallback.
 private struct CaptureSettings: View {
     @Bindable var model: AppModel
     private let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     var body: some View {
         Form {
-            Section("Capture Window") {
-                Toggle(isOn: $model.captureFloating) {
-                    Text("Float Above Other Windows")
-                    Text("Keeps the capture panel above other apps.")
-                }
-            }
             Section("Selection Capture") {
                 Picker(selection: $model.captureShortcut) {
                     Text("⇧ ⇧ (Shift twice)").tag("Shift, Shift")

@@ -8,7 +8,6 @@ struct CaptureEditor: NSViewRepresentable {
     let placeholder: String
     var label = "New note text"
     var help = "Return saves the note. Shift-Return inserts a new line."
-    var compact = false
     /// The capture field of the feed paper: Noto Sans at 16 points, in a field 48 points high.
     var paper = false
     /// The texts that show in the accent color, such as `@` mentions.
@@ -24,9 +23,8 @@ struct CaptureEditor: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let metrics = AppDefaults.Composer.self
-        let fontSize = compact ? metrics.inboxFontSize : metrics.fontSize
-        let lineHeight = paper ? metrics.paperLineHeight : compact ? metrics.inboxLineHeight : metrics.lineHeight
-        let font = paper ? PiperTheme.paperUINS(.row) : PiperTheme.uiNS(fontSize)
+        let lineHeight = paper ? metrics.paperLineHeight : metrics.lineHeight
+        let font = paper ? PiperTheme.paperUINS(.row) : PiperTheme.uiNS(metrics.fontSize)
         let textInset = paper ? metrics.paperTextInset : metrics.textInset
         let scroll = CaptureScrollView(frame: NSRect(x: 0, y: 0, width: metrics.width, height: metrics.height))
         scroll.borderType = .noBorder
@@ -56,7 +54,7 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isVerticallyResizable = true
         editor.isHorizontallyResizable = false
         editor.autoresizingMask = [.width]
-        editor.minSize = NSSize(width: 0, height: compact ? lineHeight : metrics.textHeight)
+        editor.minSize = NSSize(width: 0, height: paper ? lineHeight : metrics.textHeight)
         editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         editor.allowsUndo = true
         editor.isAutomaticQuoteSubstitutionEnabled = false
