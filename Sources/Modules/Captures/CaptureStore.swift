@@ -14,7 +14,7 @@ public final class CaptureStore {
     // MARK: - Properties
 
     public private(set) var state = SavedState() {
-        didSet { childIndex = Self.childIndex(of: state.notes) }
+        didSet { childIndex = Note.childrenByParent(state.notes) }
     }
     /// The child notes of each parent, oldest first. Each change of the state rebuilds it.
     private var childIndex: [UUID: [Note]] = [:]
@@ -42,10 +42,10 @@ public final class CaptureStore {
 
     public init(url: URL? = nil) {
         do {
-            let location = url ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Piper/notes.sqlite")
+            let location = url ?? DataFolder.url.appendingPathComponent("notes.sqlite")
             let db = try Database(url: location)
             state = try Self.decode(db.load())
-            childIndex = Self.childIndex(of: state.notes)
+            childIndex = Note.childrenByParent(state.notes)
             database = db
             prunePages()
         } catch { report(error) }
@@ -90,7 +90,7 @@ public final class CaptureStore {
         guard sections.contains(destination) else { report(PiperError("This section no longer exists. Choose another section.")); return false }
         let url = CaptureLinks(text).standaloneURL
         let urls = Set([url, sourceURL.flatMap(URL.init(string:))].compactMap { value -> String? in
-            guard let value, CaptureLinks.isWebURL(value) else { return nil }
+            guard let value, value.isWeb else { return nil }
             return value.absoluteString
         }).sorted()
         let saved = change { $0.notes.append(Note(text: text, section: destination, sources: source.map { [$0] } ?? [], sourceURLs: urls, tags: tags)) }
@@ -145,7 +145,7 @@ public final class CaptureStore {
 
     @discardableResult public func renameSection(_ section: String, to name: String) -> Bool {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard section != "Inbox", sections.contains(section) else { return false }
+        guard section != Note.inbox, sections.contains(section) else { return false }
         guard !name.isEmpty, !name.contains(where: \.isNewline), name.count <= 80 else {
             report(PiperError("Use a section name with 1 to 80 characters on one line."))
             return false
@@ -166,14 +166,14 @@ public final class CaptureStore {
     }
 
     @discardableResult public func deleteSection(_ section: String) -> Bool {
-        guard section != "Inbox", sections.contains(section), sections.contains("Inbox") else { return false }
+        guard section != Note.inbox, sections.contains(section), sections.contains(Note.inbox) else { return false }
         let saved = change { state in
             state.sections.removeAll { $0 == section }
             for index in state.notes.indices where state.notes[index].section == section {
-                state.notes[index].section = "Inbox"
+                state.notes[index].section = Note.inbox
                 state.notes[index].modifiedAt = Date()
             }
-            if state.activeSection == section { state.activeSection = "Inbox" }
+            if state.activeSection == section { state.activeSection = Note.inbox }
         }
         if saved { status = "Section deleted · Notes moved to Inbox · Undo available" }
         return saved
@@ -217,7 +217,7 @@ public final class CaptureStore {
     @discardableResult public func setKept(_ kept: Bool, _ ids: Set<UUID>) -> Bool {
         change { state in
             for i in state.notes.indices where ids.contains(state.notes[i].id) && state.notes[i].isKept != kept {
-                if kept { state.notes[i].tags.append(Note.keptTag) } else { state.notes[i].tags.removeAll { $0 == Note.keptTag } }
+                if kept { state.notes[i].tags.append(NoteTag.kept.rawValue) } else { state.notes[i].tags.removeAll { $0 == NoteTag.kept.rawValue } }
             }
         }
     }
@@ -233,17 +233,17 @@ public final class CaptureStore {
         let destination = section.flatMap { sections.contains($0) ? $0 : nil } ?? activeSection
         var seen: Set<String> = []
         let fresh = links.filter { link in
-            CaptureLinks.isWebURL(link.url) && article(for: link.url) == nil && seen.insert(CaptureLinks.canonical(link.url)).inserted
+            link.url.isWeb && article(for: link.url) == nil && seen.insert(CaptureLinks.canonical(link.url)).inserted
         }
         let existing = Set(links.compactMap { article(for: $0.url)?.id })
         let added = fresh.map { link in
             Note(text: link.url.absoluteString, section: destination, sources: link.source.map { [$0] } ?? [],
-                 sourceURLs: [link.url.absoluteString], tags: [Note.keptTag], reading: Reading(title: link.title))
+                 sourceURLs: [link.url.absoluteString], tags: [NoteTag.kept.rawValue], reading: Reading(title: link.title))
         }
         guard change(recordUndo: recordUndo, { state in
             state.notes += added
             for i in state.notes.indices where existing.contains(state.notes[i].id) && !state.notes[i].isKept {
-                state.notes[i].tags.append(Note.keptTag)
+                state.notes[i].tags.append(NoteTag.kept.rawValue)
             }
         }) else { return [] }
         // Undo restores a whole state. An older state has no copy, so it goes.
@@ -309,7 +309,7 @@ public final class CaptureStore {
     /// fills a capture that has none.
     @discardableResult
     public func saveArticle(_ url: URL, title: String? = nil, source: String? = nil, to section: String? = nil) -> Note? {
-        guard CaptureLinks.isWebURL(url) else { report(PiperError("Piper can save only web pages.")); return nil }
+        guard url.isWeb else { report(PiperError("Piper can save only web pages.")); return nil }
         let title = title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         if let existing = article(for: url) {
             let saved = change(recordUndo: false) { state in
@@ -368,8 +368,9 @@ public final class CaptureStore {
         }
     }
 
-    /// Marks as done each article that the reader finished before the date.
-    public func archiveFinishedReading(before date: Date) {
+    /// Marks as done each article that left Finished of the reading list.
+    public func archiveFinishedReading(now: Date = Date()) {
+        let date = ReadingList.finishedCutoff(now: now)
         _ = change(recordUndo: false) { state in
             for i in state.notes.indices {
                 guard !state.notes[i].isDone, let finished = state.notes[i].reading?.finishedAt, finished < date else { continue }
@@ -415,7 +416,7 @@ public final class CaptureStore {
 
     @discardableResult public func captureClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
         guard let text = pasteboard.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { status = "The clipboard has no text"; return false }
-        return add(text, source: "Clipboard", interpretSection: false)
+        return add(text, source: Note.clipboardSource, interpretSection: false)
     }
 }
 
@@ -440,10 +441,6 @@ private extension String {
 
 private extension CaptureStore {
 
-    static func childIndex(of notes: [Note]) -> [UUID: [Note]] {
-        Dictionary(grouping: notes.filter { $0.parent != nil }, by: { $0.parent! })
-    }
-
     /// Removes the notes and every note under them, then the page text that only they used.
     func remove(_ selected: Set<UUID>) -> Bool {
         guard !selected.isEmpty else { return false }
@@ -461,11 +458,8 @@ private extension CaptureStore {
         return removed
     }
 
-    /// Writes text to the clipboard. The marker keeps the copy out of the clipboard history.
     func write(_ text: String, to pasteboard: NSPasteboard = .general) {
-        pasteboard.clearContents()
-        if pasteboard.setString(text, forType: .string) {
-            pasteboard.setData(Data(), forType: ClipboardInbox.copiedNoteType)
+        if Clipboard.copy(text, to: pasteboard) {
             status = "Copied"
         } else {
             report(PiperError("Cannot write to the clipboard."))

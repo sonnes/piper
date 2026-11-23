@@ -1,6 +1,8 @@
 import AppKit
+import Captures
 import Feeds
 import History
+import PiperCore
 import Stream
 import SwiftUI
 import UniformTypeIdentifiers
@@ -46,8 +48,8 @@ struct SourcesView: View {
                         .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                         .padding(.vertical, Metrics.sourceRowPadding)
                 }
-                ForEach(Array(feeds.feeds.enumerated()), id: \.element.id) { index, feed in
-                    SourceRow(feed: feed, index: index, stats: stats[feed.id], model: model) {
+                ForEach(feeds.feeds) { feed in
+                    SourceRow(feed: feed, stats: stats[feed.id], model: model) {
                         paper.pick(.feed(feed.id))
                     }
                 }
@@ -149,9 +151,9 @@ struct SourcesView: View {
             Text(scan.state == .scanning ? "Reading the history of this Mac…" : "No other sites of your history have a feed.")
                 .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
         }
-        ForEach(Array(shown.enumerated()), id: \.element.id) { index, site in
+        ForEach(shown) { site in
             HStack(spacing: 10) {
-                SiteIcon(favicons: model.favicons, host: site.host, title: site.title ?? site.host, index: index,
+                SiteIcon(favicons: model.favicons, host: site.host, title: site.title ?? site.host,
                          side: Metrics.sourceIcon)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(site.title ?? site.host).font(PiperTheme.paperUI(.body, weight: .semibold)).lineLimit(1)
@@ -191,7 +193,7 @@ struct SourcesView: View {
         let subscribed = Set(feeds.map(\.id))
         let hosts = Set(feeds.map(\.host))
         return suggestions
-            .filter { !$0.ignored && $0.feedURL.map { !subscribed.contains($0) } == true && !hosts.contains(FeedStats.bare($0.host)) }
+            .filter { !$0.ignored && $0.feedURL.map { !subscribed.contains($0) } == true && !hosts.contains(Site(host: $0.host).key) }
             .sorted { $0.score > $1.score }
             .prefix(limit)
             .map { $0 }
@@ -261,7 +263,6 @@ struct SourcesView: View {
 /// One feed on Sources: its icon, its title, its rate, and its mode.
 private struct SourceRow: View {
     let feed: Feed
-    let index: Int
     let stats: FeedStats?
     let model: AppModel
     let open: () -> Void
@@ -289,14 +290,14 @@ private struct SourceRow: View {
             if let home = feed.home.flatMap(URL.init(string:)) {
                 Button("Open Site in Browser") { NSWorkspace.shared.open(home) }
             }
-            Button("Copy Feed Address") { TodayModel.copy(feed.id) }
+            Button("Copy Feed Address") { Clipboard.copy(feed.id) }
             Divider()
             Button("Remove Source", role: .destructive) { model.feeds.unsubscribe(feed.id) }
         }
     }
 
     private var icon: some View {
-        SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title, index: index, side: AppDefaults.Feeds.sourceIcon)
+        SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title, side: AppDefaults.Feeds.sourceIcon)
     }
 
     private var title: some View {

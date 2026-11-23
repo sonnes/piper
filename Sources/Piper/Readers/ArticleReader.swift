@@ -49,7 +49,7 @@ struct ArticleReader: View {
                 .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: AppDefaults.Papers.rowRadius, style: .continuous))
                 .padding(.horizontal, AppDefaults.ArticleReader.resumeMargin)
             }
-            ReaderPageView(state: loader.state, placeholder: ReaderPlaceholder(site: ArticleBadge.host(url), title: reading.title),
+            ReaderPageView(state: loader.state, placeholder: ReaderPlaceholder(site: Site(url)?.key ?? url.absoluteString, title: reading.title),
                            notes: payload, scroll: scroll, perform: perform, scrolled: scrolled,
                            attach: { model.readerPages.add($0) })
                 .overlay(alignment: .bottom) {
@@ -78,8 +78,7 @@ struct ArticleReader: View {
     /// highlight, the place where the reader stopped, or the newest highlight
     /// from a browser.
     private func opened(_ article: ReaderArticle) {
-        let words = article.blocks.reduce(0) { $0 + $1.text.split(whereSeparator: \.isWhitespace).count }
-        let minutes = max(1, Int((Double(words) / AppDefaults.ArticleReader.wordsPerMinute).rounded()))
+        let minutes = ReadingTime.minutes(words: article.words)
         let start = reading
         model.store.updateReading(note.id) { reading in
             reading.title = article.title.isEmpty ? reading.title : article.title
@@ -162,8 +161,8 @@ enum ReaderMarks {
         let children = model.store.children(of: parent)
         let found = places.places(in: article, for: children)
         return children.compactMap { child -> ReaderPageNote? in
-            let isQuestion = child.tags.contains(ReadingList.questionTag)
-            guard isQuestion || child.tags.contains(ReadingList.highlightTag) else { return nil }
+            let isQuestion = child.has(.question)
+            guard isQuestion || child.has(.highlight) else { return nil }
             let place = found[child.id]
             let quote = child.anchor?.quote ?? ""
             let thread = NoteThread(child.text)
@@ -219,7 +218,7 @@ enum ReaderMarks {
             model.reader.continueInSession(id, article: article)
         case "capture":
             guard let text = message["text"] as? String else { return }
-            model.store.add(text, source: article.title, sourceURL: article.url.absoluteString, to: "Inbox", interpretSection: false)
+            model.store.add(text, source: article.title, sourceURL: article.url.absoluteString, to: Note.inbox, interpretSection: false)
         case "open":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
             model.showNote?(id)
@@ -227,7 +226,7 @@ enum ReaderMarks {
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
             model.store.copy(id)
         case "link":
-            guard let url = (message["url"] as? String).flatMap(URL.init(string:)), CaptureLinks.isWebURL(url) else { return }
+            guard let url = (message["url"] as? String).flatMap(URL.init(string:)), url.isWeb else { return }
             NSWorkspace.shared.open(url)
         default:
             break
@@ -340,7 +339,7 @@ final class ArticleLoader: NSObject {
             state = .loaded(article)
             return
         }
-        guard CaptureLinks.isWebURL(url) else {
+        guard url.isWeb else {
             state = .failed("Piper can read only web pages.")
             return
         }

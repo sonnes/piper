@@ -105,7 +105,7 @@ final class ReaderAssistantTests: XCTestCase {
     func testMarginSessionLookupSkipsAnOrdinarySessionOfTheSameNote() throws {
         let (assistant, agents) = makeAssistant(executable: nil)
         let parent = try capture()
-        let question = try XCTUnwrap(store.addChild("Explain: x", to: parent, tags: [ReadingList.questionTag]))
+        let question = try XCTUnwrap(store.addChild("Explain: x", to: parent, tags: [NoteTag.question.rawValue]))
         XCTAssertNil(assistant.session(for: parent))
 
         let margin = agents.newMarginSession(in: root.path, noteID: question.id)

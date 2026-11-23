@@ -16,7 +16,7 @@ enum CaptureDraft: Equatable {
     init(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.contains(where: \.isWhitespace), let url = CaptureLinks(trimmed).standaloneURL,
-              CaptureLinks.isWebURL(url) else {
+              url.isWeb else {
             self = .note
             return
         }
@@ -57,9 +57,6 @@ struct TodayView: View {
     @State private var showsWholeTray = false
     @State private var editing: CaptureEditSession?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// The section that a capture goes to when no section is picked.
-    private static let inboxSection = "Inbox"
 
     private var store: CaptureStore { model.store }
     private var agents: FolderAgents { model.agents }
@@ -288,7 +285,7 @@ struct TodayView: View {
     private func row(_ item: StreamItem, order: [StreamItem.Ref]) -> some View {
         TodayRow(item: item, selected: today.selection.contains(item.id), model: model,
                  verbs: verbs(for: item, order: order),
-                 section: section == nil && item.note?.section != Self.inboxSection ? item.note?.section : nil) {
+                 section: section == nil && item.note?.section != Note.inbox ? item.note?.section : nil) {
             click(item, order: order)
         }
     }
@@ -452,7 +449,7 @@ struct TodayView: View {
             paper.open(.article(id))
         case .digest(let feed, _): paper.pick(.feed(feed))
         case .clip:
-            if let text = item.clip?.text, TodayModel.copy(text) { store.status = "Copied" }
+            if let text = item.clip?.text, Clipboard.copy(text) { store.status = "Copied" }
         }
     }
 
@@ -476,7 +473,7 @@ struct TodayView: View {
             if agents.run(command, action: action) != nil { clearComposer() }
             return
         }
-        let target = section ?? (store.sections.contains(Self.inboxSection) ? Self.inboxSection : store.activeSection)
+        let target = section ?? (store.sections.contains(Note.inbox) ? Note.inbox : store.activeSection)
         switch CaptureDraft(model.composerDraft) {
         case .source(let url) where !readLater:
             paper.showSources(address: url.absoluteString)

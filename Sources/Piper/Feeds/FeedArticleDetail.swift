@@ -1,5 +1,6 @@
 import Captures
 import Feeds
+import PiperCore
 import SwiftUI
 
 /// A feed article in a reader paper, in the same reader as a link capture.
@@ -28,7 +29,7 @@ struct FeedArticleDetail: View {
                 case .web:
                     NoteWebReader(url: url) { text, title, url in
                         model.store.add(text, source: title, sourceURL: url.absoluteString,
-                                        to: "Inbox", interpretSection: false)
+                                        to: Note.inbox, interpretSection: false)
                     }
                 case .reader, .notes:
                     reader(url)
@@ -45,7 +46,7 @@ struct FeedArticleDetail: View {
 
     private func reader(_ url: URL) -> some View {
         ReaderPageView(state: loader.state,
-                       placeholder: ReaderPlaceholder(site: ArticleBadge.host(url), title: article.title),
+                       placeholder: ReaderPlaceholder(site: Site(url)?.key ?? url.absoluteString, title: article.title),
                        notes: [], scroll: nil, perform: perform, scrolled: { _ in },
                        attach: { model.readerPages.add($0) })
             .overlay(alignment: .bottom) {

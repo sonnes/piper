@@ -37,7 +37,7 @@ struct NoteDetail: View {
                 case .web:
                     NoteWebReader(url: articleURL) { text, title, url in
                         model.store.add(text, source: title, sourceURL: url.absoluteString,
-                                        to: "Inbox", interpretSection: false)
+                                        to: Note.inbox, interpretSection: false)
                     }
                 case .notes:
                     ArticleNotebook(model: model, note: note, url: articleURL)

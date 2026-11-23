@@ -14,12 +14,6 @@ final class WikiEditingTests: XCTestCase {
     }
     override func tearDownWithError() throws { try FileManager.default.removeItem(at: root) }
 
-    func testReadingTimeRoundsToWholeMinutes() {
-        XCTAssertNil(ReadingTime.text(of: " \n "))
-        XCTAssertEqual(ReadingTime.text(of: "One word."), "1 min read")
-        XCTAssertEqual(ReadingTime.text(of: Array(repeating: "word", count: 1_400).joined(separator: " ")), "6 min read")
-    }
-
     // MARK: Saving
 
     @MainActor private func makeModel(_ files: [(String, String)]) throws -> AppModel {

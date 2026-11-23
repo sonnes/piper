@@ -1,6 +1,7 @@
 import AppKit
 import Captures
 import Observation
+import PiperCore
 import SwiftUI
 
 /// The toast of a web page capture: a new highlight, a page saved to Reading,
@@ -145,7 +146,7 @@ private extension ReadingToast {
         case .comment(let highlightID):
             guard let highlight = store.notes.first(where: { $0.id == highlightID }) else { return nil }
             draft.text = ""
-            let host = highlight.parent.flatMap { id in store.notes.first { $0.id == id } }?.articleURL.map(ArticleBadge.host) ?? ""
+            let host = highlight.parent.flatMap { id in store.notes.first { $0.id == id } }?.articleURL.flatMap(Site.init)?.key ?? ""
             return AnyView(ToastCard {
                 ToastHeader(title: "Note on this highlight", detail: host)
                 CommentField(quote: highlight.anchor?.quote ?? highlight.text, draft: draft,
@@ -232,7 +233,7 @@ private struct ToastArticle: View {
     let detail: String?
 
     var body: some View {
-        let host = article.articleURL.map(ArticleBadge.host) ?? ""
+        let host = article.articleURL.flatMap(Site.init)?.key ?? ""
         HStack(spacing: 10) {
             ArticleBadge(host: host, size: AppDefaults.ReadingToast.badgeSize)
             VStack(alignment: .leading, spacing: 1) {
@@ -302,19 +303,11 @@ struct ArticleBadge: View {
     let size: CGFloat
 
     var body: some View {
-        let colors = PiperTheme.tagsNS
-        let index = host.unicodeScalars.reduce(0) { ($0 + Int($1.value)) % 997 } % colors.count
         Text(host.first.map { String($0).uppercased() } ?? "?")
             .font(.system(size: size * AppDefaults.ArticleBadge.fontFraction, weight: .bold))
             .foregroundStyle(PiperTheme.onAccent)
             .frame(width: size, height: size)
-            .background(Color(nsColor: colors[index]), in: RoundedRectangle(cornerRadius: size * AppDefaults.ArticleBadge.cornerFraction))
+            .background(Color(nsColor: SiteIcon.tagColor(for: host)), in: RoundedRectangle(cornerRadius: size * AppDefaults.ArticleBadge.cornerFraction))
             .accessibilityHidden(true)
-    }
-
-    /// The host of a link without `www.`.
-    static func host(_ url: URL) -> String {
-        let host = url.host() ?? url.absoluteString
-        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 }

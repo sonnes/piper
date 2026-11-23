@@ -323,7 +323,6 @@ enum AppDefaults {
         static let loadTimeout: Double = 20
         /// The wait after a load, for a page that draws its text with a script.
         static let settleMilliseconds = 300
-        static let wordsPerMinute: Double = 230
         static let horizontalInset: CGFloat = 16
         /// The line over the article that says where it opened.
         static let resumeVerticalPadding: CGFloat = 10

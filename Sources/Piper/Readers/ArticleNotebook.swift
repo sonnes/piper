@@ -21,7 +21,7 @@ struct ArticleNotebook: View {
     private var children: [Note] { model.store.children(of: note.id) }
     private var reading: Reading { note.reading ?? Reading() }
     private var metrics: AppDefaults.Notebook.Type { AppDefaults.Notebook.self }
-    private var host: String { ArticleBadge.host(url) }
+    private var host: String { Site(url)?.key ?? url.absoluteString }
     private var title: String { reading.title ?? host }
 
     /// The highlights that changed after Save as File wrote the file.
@@ -177,7 +177,7 @@ struct ArticleNotebook: View {
                 model.store.update(existing.id, text: summary)
             }
         } else if !text.isEmpty {
-            model.store.addChild(summary, to: note.id, tags: [ReadingList.summaryTag])
+            model.store.addChild(summary, to: note.id, tags: [NoteTag.summary.rawValue])
         }
     }
 

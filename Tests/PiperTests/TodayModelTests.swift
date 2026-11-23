@@ -205,11 +205,26 @@ final class TodayModelTests: XCTestCase {
         let second = try note("Crane 3 is down until the 28th")
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("com.piper.test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
-        XCTAssertTrue(TodayModel.copy("x", to: pasteboard))
+        today.copy([first, second], asList: true, to: pasteboard)
+        XCTAssertEqual(pasteboard.string(forType: .string),
+                       "1. Lift order: north dock first on Tuesdays\n\n2. Crane 3 is down until the 28th")
         today.merge([first, second])
         XCTAssertEqual(model.store.notes.filter { $0.parent == nil }.count, 1)
         XCTAssertEqual(model.store.notes.first?.text, "Lift order: north dock first on Tuesdays\n\nCrane 3 is down until the 28th")
         XCTAssertEqual(today.selection, [.note(try XCTUnwrap(first.note?.id))])
+    }
+
+    func testACopyFromTodayStaysOutOfTheClipboardTray() throws {
+        let item = try note("Gate 4 closes at six")
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("com.piper.test." + UUID().uuidString))
+        defer { pasteboard.releaseGlobally() }
+        let tray = ClipboardInbox(store: model.store, pasteboard: pasteboard)
+        tray.poll()
+        XCTAssertTrue(model.store.delete(try XCTUnwrap(item.note?.id)))
+        today.copy([item], to: pasteboard)
+        tray.poll()
+        XCTAssertEqual(pasteboard.string(forType: .string), "Gate 4 closes at six")
+        XCTAssertTrue(tray.entries.isEmpty)
     }
 
     // MARK: - Capture Field

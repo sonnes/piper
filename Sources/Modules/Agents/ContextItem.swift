@@ -1,4 +1,5 @@
 import Foundation
+import PiperCore
 
 /// One item that a message names as context: a file, a web link, or the text
 /// of a note.
@@ -18,7 +19,7 @@ public enum ContextItem: Hashable, Sendable, Codable, ExpressibleByStringLiteral
     public init(_ stored: String) {
         if stored.hasPrefix(Self.notePrefix) {
             self = .note(String(stored.dropFirst(Self.notePrefix.count)))
-        } else if let url = URL(string: stored), ["http", "https"].contains(url.scheme?.lowercased()) {
+        } else if let url = URL(string: stored), url.isWeb {
             self = .link(url)
         } else {
             self = .file(stored)

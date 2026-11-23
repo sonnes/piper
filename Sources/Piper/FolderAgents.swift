@@ -304,7 +304,7 @@ final class FolderAgents {
             }
             return send(note)
         }
-        guard store.add(text, source: "Clipboard", to: "Inbox", interpretSection: false),
+        guard store.add(text, source: Note.clipboardSource, to: Note.inbox, interpretSection: false),
               let note = store.notes.last else { return nil }
         return send(note)
     }

@@ -6,6 +6,14 @@ public enum CaptureText {
     private static let codeEndings: Set<Character> = ["{", "}", "(", "[", ";", "\\"]
     private static let codeStarts: Set<Character> = ["}", ")", "]"]
 
+    /// The day of a date in file text, as `yyyy-MM-dd` in the local time zone.
+    public static func day(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
     /// Returns true when the text is probably source code.
     ///
     /// The check looks only at the text, so a saved note gives the same

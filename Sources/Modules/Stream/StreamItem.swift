@@ -1,6 +1,7 @@
 import Captures
 import Feeds
 import Foundation
+import PiperCore
 
 /// One row of Today: a note, a link, a feed article, a digest of one feed,
 /// or a clipboard text.
@@ -71,7 +72,7 @@ public struct StreamItem: Identifiable, Equatable {
     public static func capture(_ note: Note, children: [Note]) -> StreamItem {
         StreamItem(id: .note(note.id), kind: note.isArticle ? .link : .note, state: state(of: note, children: children),
                    title: note.isArticle ? (note.reading?.title ?? note.text) : note.text,
-                   source: note.isArticle ? note.articleURL?.host.map(Self.site) : note.sources.first,
+                   source: note.isArticle ? note.articleURL.flatMap(Site.init)?.key : note.sources.first,
                    url: note.isArticle ? note.articleURL : nil, date: note.createdAt, note: note, children: children,
                    articles: [], clip: nil, score: 0)
     }
@@ -109,11 +110,5 @@ public struct StreamItem: Identifiable, Equatable {
     /// The state of a feed article that no capture holds.
     public static func state(of article: Article) -> State {
         article.read ? .reading : .new
-    }
-
-    // MARK: - Private
-
-    private static func site(_ host: String) -> String {
-        host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 }

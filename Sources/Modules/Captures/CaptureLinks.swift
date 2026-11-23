@@ -1,4 +1,5 @@
 import Foundation
+import PiperCore
 
 /// Web links in captured text. The attributed text preserves the original characters.
 public struct CaptureLinks {
@@ -23,7 +24,7 @@ public struct CaptureLinks {
 
         for match in matches {
             guard let sourceRange = Range(match.range, in: source), let detectedURL = match.url,
-                  Self.isWebURL(detectedURL) else { continue }
+                  detectedURL.isWeb else { continue }
             var label = source[sourceRange]
 
             // Data detection can include a closing Markdown delimiter in the URL.
@@ -51,11 +52,7 @@ public struct CaptureLinks {
         self.standaloneURL = standaloneURL
     }
 
-    // MARK: - URL Validation
-
-    public static func isWebURL(_ url: URL) -> Bool {
-        ["http", "https"].contains(url.scheme?.lowercased() ?? "") && url.host?.isEmpty == false
-    }
+    // MARK: - Canonical Form
 
     /// The form of a web link that Piper compares. Two links to one article
     /// have the same form.
@@ -66,10 +63,7 @@ public struct CaptureLinks {
         guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url.absoluteString }
         parts.fragment = nil
         parts.scheme = "https"
-        parts.host = parts.host.map { host in
-            let host = host.lowercased()
-            return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
-        }
+        parts.host = parts.host.map { Site(host: $0).key }
         if parts.port == 80 || parts.port == 443 { parts.port = nil }
         let items = parts.queryItems?.filter { item in
             let name = item.name.lowercased()

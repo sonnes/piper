@@ -31,17 +31,17 @@ flowchart LR
 | Module | Responsibility | Depends on |
 | --- | --- | --- |
 | `CSQLite` | System SQLite, through `pkg-config` | nothing |
-| `PiperCore` | `PiperError`, the frontmatter parser, and `PaletteSearch` | Yams |
+| `PiperCore` | `PiperError`, the frontmatter parser, `PaletteSearch`, `Site`, `URL.isWeb`, and `DataFolder` | Yams |
 | `CapturesDatabase` | One versioned blob in SQLite, with compare-and-swap | `CSQLite` |
-| `Captures` | `Note`, `CaptureStore`, `ClipboardInbox`, `CaptureLinks`, and edit sessions | `PiperCore`, `CapturesDatabase` |
+| `Captures` | `Note`, `NoteTag`, `CaptureStore`, `ClipboardInbox`, `Clipboard`, `CaptureLinks`, `ReadingTime`, and edit sessions | `PiperCore`, `CapturesDatabase` |
 | `Vault` | One folder: scan, read, write, and watch | `PiperCore`, Yams |
 | `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, and `PermissionRule` | `PiperCore`, `CapturesDatabase` |
 | `History` | `BrowserCatalog`, `HistoryReader`, `DatabaseCopy`, `HistoryDigest`, `Decay`, and `BlockedSites` | `PiperCore`, `CSQLite` |
-| `Feeds` | The RSParser port of NetNewsWire, `FeedStore`, `FeedDatabase`, `FeedFetch`, `FeedDiscovery`, `FeedMode`, and `OPMLImport` | `CSQLite` |
-| `Stream` | `UnifiedStream`, `StreamItem`, `FeedRows`, `Relevance`, `FeedStats`, and `StarMigration` | `Captures`, `Feeds` |
+| `Feeds` | The RSParser port of NetNewsWire, `FeedStore`, `FeedDatabase`, `FeedFetch`, `FeedDiscovery`, `FeedMode`, and `OPMLImport` | `PiperCore`, `CSQLite` |
+| `Stream` | `UnifiedStream`, `StreamItem`, `FeedRows`, `Relevance`, `FeedStats`, and `StarMigration` | `PiperCore`, `Captures`, `Feeds` |
 | `Piper` | Windows, views, and app state | All modules and Yams |
 
-`PiperCore` and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser.
+`PiperCore` and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the rules that several modules share: the site of a link (`Site.key` is the host in lowercase without `www.`), the web link test, and the data folder. Each text that Piper copies goes through `Clipboard.copy`, which marks the copy so that the clipboard tray ignores it.
 
 Each module has a test target with the same name and a `Tests` suffix. `PiperTests` tests the application target.
 

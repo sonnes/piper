@@ -1,6 +1,7 @@
 import Captures
 import Feeds
 import Foundation
+import PiperCore
 
 /// Copies each starred feed article of an older version of Piper to a kept
 /// link capture, one time.
@@ -12,12 +13,12 @@ public enum StarMigration {
 
     /// Returns the count of new link captures.
     @MainActor @discardableResult
-    public static func run(feeds: FeedStore, captures: CaptureStore, section: String = "Inbox") -> Int {
+    public static func run(feeds: FeedStore, captures: CaptureStore, section: String = Note.inbox) -> Int {
         let starred = feeds.starredArticles()
         guard !starred.isEmpty else { return 0 }
         let titles = Dictionary(feeds.feeds.map { ($0.id, $0.title) }, uniquingKeysWith: { first, _ in first })
         let links = starred.compactMap { article -> KeptLink? in
-            guard let url = URL(string: article.url), CaptureLinks.isWebURL(url), captures.article(for: url) == nil else { return nil }
+            guard let url = URL(string: article.url), url.isWeb, captures.article(for: url) == nil else { return nil }
             return KeptLink(url: url, title: article.title, source: titles[article.feedID])
         }
         let before = captures.notes.count

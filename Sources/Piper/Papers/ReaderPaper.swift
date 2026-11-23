@@ -2,6 +2,7 @@ import Agents
 import AppKit
 import Captures
 import Feeds
+import PiperCore
 import SwiftUI
 import Vault
 
@@ -92,7 +93,7 @@ struct ReaderPaper: View {
 
     @ViewBuilder private func noteHeader(_ note: Note?) -> some View {
         if let note, note.isArticle {
-            let host = note.articleURL.map(ArticleBadge.host) ?? note.section
+            let host = note.articleURL.flatMap(Site.init)?.key ?? note.section
             label(([host] + (note.reading?.minutes.map { ["\($0) min"] } ?? [])).joined(separator: " · "))
             PaperToolbar {
                 PaperButton(title: note.isDone ? "Open Again" : "Mark as Done",
@@ -114,8 +115,7 @@ struct ReaderPaper: View {
             let feed = model.feeds.feed(article.feedID)
             let kept = model.isKept(article)
             if let feed {
-                SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title,
-                         index: model.feeds.feeds.firstIndex { $0.id == feed.id } ?? 0)
+                SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title)
             }
             label([feed?.title, RowTime.text(article.date)].compactMap { $0 }.joined(separator: " · "))
             PaperToolbar {

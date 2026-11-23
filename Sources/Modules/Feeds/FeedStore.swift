@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import PiperCore
 
 /// The subscriptions, for Today, the Sources paper, and the list of a feed.
 /// It owns the database and the refresh of each feed.
@@ -31,8 +32,7 @@ public final class FeedStore {
     // MARK: - Initialization
 
     public init(url: URL? = nil, session: URLSession = .shared) {
-        let location = url ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Piper/Feeds.sqlite")
+        let location = url ?? DataFolder.url.appendingPathComponent("Feeds.sqlite")
         self.session = session
         do {
             database = try FeedDatabase(url: location)

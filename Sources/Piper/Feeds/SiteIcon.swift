@@ -1,5 +1,6 @@
 import AppKit
 import Feeds
+import PiperCore
 import SwiftUI
 
 /// The icon of a site, or a tile with the first letter of its title while the
@@ -8,8 +9,6 @@ struct SiteIcon: View {
     let favicons: FaviconStore
     let host: String
     let title: String
-    /// The place of the site in its list, for the color of the letter tile.
-    let index: Int
     var side: CGFloat = AppDefaults.SiteIcon.size
 
     private var radius: CGFloat { side * AppDefaults.SiteIcon.tileCornerFraction }
@@ -27,17 +26,17 @@ struct SiteIcon: View {
                 .font(.system(size: side * 0.6, weight: .bold))
                 .foregroundStyle(PiperTheme.onAccent)
                 .frame(width: side, height: side)
-                .background(Color(nsColor: Self.tagColor(at: index)), in: RoundedRectangle(cornerRadius: radius))
+                .background(Color(nsColor: Self.tagColor(for: host)), in: RoundedRectangle(cornerRadius: radius))
                 .accessibilityHidden(true)
         }
     }
 }
 
 extension SiteIcon {
-    /// The color of the letter tile at a position in its list.
-    /// Neighbors get different colors, and the colors repeat after the last one.
-    static func tagColor(at index: Int) -> NSColor {
-        PiperTheme.tagsNS[max(index, 0) % PiperTheme.tagsNS.count]
+    /// The color of the letter tile of a site. One site has one color in every list.
+    static func tagColor(for host: String) -> NSColor {
+        let colors = PiperTheme.tagsNS
+        return colors[Site(host: host).key.unicodeScalars.reduce(0) { ($0 + Int($1.value)) % 997 } % colors.count]
     }
 
     /// The letter on a tile: the first letter or digit of the name, in capitals.

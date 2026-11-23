@@ -240,12 +240,12 @@ final class TodayModel {
                 feeds.setRead(true, articles)
             }
             for clip in items.compactMap(\.clip) {
-                store.add(clip.text, source: "Clipboard", to: section, interpretSection: false)
+                store.add(clip.text, source: Note.clipboardSource, to: section, interpretSection: false)
             }
             store.status = "Filed in \(section)"
         case .folder(let root, let folder):
             let vault = Vault(root: URL(fileURLWithPath: (root as NSString).expandingTildeInPath).standardizedFileURL)
-            let title = items.count == 1 ? Self.fileTitle(items[0]) : "Notes \(Self.day(now))"
+            let title = items.count == 1 ? Self.fileTitle(items[0]) : "Notes \(CaptureText.day(now))"
             let text = items.count == 1 ? fileText(items[0], now: now) : items.map { appendText($0) }.joined(separator: "\n")
             let path = Self.freePath(folder: folder, name: ArticleMarkdown.fileName(for: title), in: vault.root)
             do { try vault.write(text, to: path) } catch { store.report(error); return false }
@@ -310,12 +310,12 @@ final class TodayModel {
 
     /// Copies the text of each item: the text of a note, the link of a link
     /// or an article, and the links of a digest.
-    func copy(_ items: [StreamItem], asList: Bool = false) {
+    func copy(_ items: [StreamItem], asList: Bool = false, to pasteboard: NSPasteboard = .general) {
         let texts = items.map(Self.copyText)
         let text = asList
             ? texts.enumerated().map { "\($0.offset + 1). " + $0.element.replacingOccurrences(of: "\n", with: "\n   ") }.joined(separator: "\n\n")
             : texts.joined(separator: "\n\n")
-        if Self.copy(text) { store.status = "Copied" }
+        if Clipboard.copy(text, to: pasteboard) { store.status = "Copied" }
     }
 
     /// Deletes the captures, with Undo. An article becomes read, and a
@@ -338,13 +338,6 @@ final class TodayModel {
             feeds.setRead(false, articles.map { var article = $0; article.read = true; return article })
             clips.forEach(model.clipboard.restore)
         }
-    }
-
-    /// Puts the text on the clipboard as plain text.
-    @discardableResult
-    static func copy(_ text: String, to pasteboard: NSPasteboard = .general) -> Bool {
-        pasteboard.clearContents()
-        return pasteboard.setString(text, forType: .string)
     }
 
     // MARK: - Undo
@@ -453,10 +446,6 @@ final class TodayModel {
             number += 1
         }
         return path
-    }
-
-    private static func day(_ date: Date) -> String {
-        date.formatted(.iso8601.year().month().day())
     }
 
     static func count(_ value: Int) -> String {

@@ -84,7 +84,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     /// An article that the reader finished a week ago leaves Reading when the
     /// reader comes back to the paper.
     func windowDidBecomeKey(_ notification: Notification) {
-        model.archiveFinishedReading()
+        model.store.archiveFinishedReading()
     }
 
     // MARK: - Keyboard

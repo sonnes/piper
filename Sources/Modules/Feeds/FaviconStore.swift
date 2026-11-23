@@ -1,6 +1,7 @@
 import Foundation
 import ImageIO
 import Observation
+import PiperCore
 
 /// Finds and keeps the icon of each site, as NetNewsWire does.
 ///
@@ -20,15 +21,14 @@ public final class FaviconStore {
     @ObservationIgnored private var asked: Set<String> = []
 
     public init(folder: URL? = nil, session: URLSession = .shared) {
-        self.folder = folder ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Piper/Favicons")
+        self.folder = folder ?? DataFolder.url.appendingPathComponent("Favicons")
         self.session = session
     }
 
     /// The icon of the host. If the store has no icon, it starts to look for one,
     /// and `icons` changes when it finds one.
     public func icon(for host: String) -> Data? {
-        let host = Self.normalized(host)
+        let host = Site(host: host).key
         if let data = icons[host] { return data }
         guard !host.isEmpty, !asked.contains(host) else { return nil }
         asked.insert(host)
@@ -78,11 +78,6 @@ public final class FaviconStore {
     nonisolated static func isImage(_ data: Data) -> Bool {
         guard !data.isEmpty, let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
         return CGImageSourceGetCount(source) > 0
-    }
-
-    nonisolated static func normalized(_ host: String) -> String {
-        let host = host.lowercased()
-        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     private nonisolated static func get(_ url: URL, session: URLSession) async throws -> Data {

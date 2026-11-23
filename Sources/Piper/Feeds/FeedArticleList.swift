@@ -93,10 +93,7 @@ struct FeedArticleList: View {
         Divider()
         Button("Keep") { model.keep([article]) }.disabled(model.isKept(article))
         Button("Open in Browser") { model.openInBrowser(article) }
-        Button("Copy Link") {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(article.url, forType: .string)
-        }
+        Button("Copy Link") { Clipboard.copy(article.url) }
     }
 
     // MARK: - Actions
@@ -154,7 +151,7 @@ private struct FeedArticleRow: View {
     var body: some View {
         PaperRow(item: .article(article.id), selected: selected, time: RowTime.text(article.date), action: action) {
             ZStack(alignment: .topTrailing) {
-                SiteIcon(favicons: favicons, host: feed?.host ?? "", title: feed?.title ?? "", index: 0)
+                SiteIcon(favicons: favicons, host: feed?.host ?? "", title: feed?.title ?? "")
                 if !article.read { UnreadDot().offset(x: 3, y: -3) }
             }
         } content: {

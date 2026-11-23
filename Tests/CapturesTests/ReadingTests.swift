@@ -120,7 +120,7 @@ final class ReadingTests: XCTestCase {
         XCTAssertEqual(list.finished.map(\.id), [done.id])
         XCTAssertEqual(list.count, 4)
 
-        store.archiveFinishedReading(before: now.addingTimeInterval(-7 * 86_400))
+        store.archiveFinishedReading(now: now)
         XCTAssertEqual(store.notes.first { $0.id == old.id }?.isDone, true)
         XCTAssertEqual(store.notes.first { $0.id == done.id }?.isDone, false)
     }
@@ -174,7 +174,7 @@ final class ReadingTests: XCTestCase {
         let unread = try XCTUnwrap(store.saveArticle(URL(string: "https://a.dev/unread")!))
         store.updateReading(unread.id) { $0.openedAt = now.addingTimeInterval(-30 * 86_400) }
 
-        store.archiveFinishedReading(before: now.addingTimeInterval(-7 * 86_400))
+        store.archiveFinishedReading(now: now)
         let reopened = self.store()
         XCTAssertEqual(reopened.notes.first { $0.id == old.id }?.isDone, true)
         XCTAssertEqual(reopened.notes.first { $0.id == recent.id }?.isDone, false)
@@ -210,5 +210,11 @@ final class ReadingTests: XCTestCase {
                        "one-two-three-four-five-six-seven-eight.md")
         XCTAssertEqual(ArticleMarkdown.fileName(for: "  SQLite: WAL & Café  "), "sqlite-wal-café.md")
         XCTAssertEqual(ArticleMarkdown.fileName(for: ""), "article.md")
+    }
+
+    func testReadingTimeRoundsToWholeMinutes() {
+        XCTAssertEqual(ReadingTime.words(in: " \n "), 0)
+        XCTAssertEqual(ReadingTime.minutes(words: ReadingTime.words(in: "One word.")), 1)
+        XCTAssertEqual(ReadingTime.minutes(words: ReadingTime.words(in: Array(repeating: "word", count: 1_400).joined(separator: " "))), 6)
     }
 }

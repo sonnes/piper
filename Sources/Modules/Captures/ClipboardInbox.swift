@@ -141,8 +141,8 @@ public final class ClipboardInbox {
     /// Keeps a text as a kept capture in Inbox.
     @discardableResult public func save(_ id: UUID) -> Bool {
         guard let entry = entries.first(where: { $0.id == id }),
-              store.add(entry.text, source: "Clipboard", to: "Inbox", interpretSection: false,
-                        tags: [Note.keptTag]) else { return false }
+              store.add(entry.text, source: Note.clipboardSource, to: Note.inbox, interpretSection: false,
+                        tags: [NoteTag.kept.rawValue]) else { return false }
         return true
     }
 

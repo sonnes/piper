@@ -32,7 +32,7 @@ struct ReaderArticle: Codable, Equatable {
     let blocks: [Block]
 
     var texts: [String] { blocks.map(\.text) }
-    var words: Int { blocks.reduce(0) { $0 + $1.text.split(whereSeparator: \.isWhitespace).count } }
+    var words: Int { blocks.reduce(0) { $0 + ReadingTime.words(in: $1.text) } }
 
     init(url: URL, site: String, title: String, byline: [String], blocks: [Block]) {
         self.url = url
@@ -44,8 +44,7 @@ struct ReaderArticle: Codable, Equatable {
 
     /// An article with the reading time in its byline.
     init(url: URL, site: String, title: String, author: String, blocks: [Block]) {
-        let words = blocks.reduce(0) { $0 + $1.text.split(whereSeparator: \.isWhitespace).count }
-        let minutes = max(1, Int((Double(words) / AppDefaults.ArticleReader.wordsPerMinute).rounded()))
+        let minutes = ReadingTime.minutes(words: blocks.reduce(0) { $0 + ReadingTime.words(in: $1.text) })
         self.init(url: url, site: site, title: title, byline: [author, "\(minutes) min read"].filter { !$0.isEmpty }, blocks: blocks)
     }
 
@@ -58,9 +57,8 @@ struct ReaderArticle: Codable, Equatable {
             .filter { $0.count >= Self.shortestParagraph && $0 != title }
             .map { Block(kind: "paragraph", text: $0) }
         guard !blocks.isEmpty else { return nil }
-        let host = url.host() ?? url.absoluteString
-        self.init(url: url, site: host.hasPrefix("www.") ? String(host.dropFirst(4)) : host,
-                  title: title ?? host, author: "", blocks: blocks)
+        let site = Site(url)?.key ?? url.absoluteString
+        self.init(url: url, site: site, title: title ?? site, author: "", blocks: blocks)
     }
 
     private static let shortestParagraph = 40
@@ -138,7 +136,7 @@ final class ReaderAssistant {
     func highlight(_ anchor: NoteAnchor, color: String, in parent: UUID, comment: String = "") -> Note? {
         let color = Self.colors.contains(color) ? color : Self.colors[0]
         return store.addChild(HighlightText.adding(comment, to: anchor.quote), to: parent,
-                              tags: [ReadingList.highlightTag, color], anchor: anchor, source: Self.source)
+                              tags: [NoteTag.highlight.rawValue, color], anchor: anchor, source: Self.source)
     }
 
     /// Asks the margin agent to review every highlight and note of the capture.
@@ -150,7 +148,7 @@ final class ReaderAssistant {
             store.report(PiperError("Add a folder on the Folders index. An agent works in a folder."))
             return nil
         }
-        guard let note = store.addChild(Self.reviewTitle, to: parent, tags: [ReadingList.questionTag]) else { return nil }
+        guard let note = store.addChild(Self.reviewTitle, to: parent, tags: [NoteTag.question.rawValue]) else { return nil }
         let session = session(for: parent) ?? agents.newMarginSession(in: folder, noteID: note.id)
         let list = highlights.map { highlight -> String in
             let comment = HighlightText.comment(of: highlight.text, quote: highlight.anchor?.quote)
@@ -181,7 +179,7 @@ final class ReaderAssistant {
         }
         var text = request.label + ": " + Self.line(anchor.quote)
         if case .ask(let question) = request { text += "\n\n" + NoteThread.question(question) }
-        guard let note = store.addChild(text, to: parent, tags: [ReadingList.questionTag], anchor: anchor) else { return nil }
+        guard let note = store.addChild(text, to: parent, tags: [NoteTag.question.rawValue], anchor: anchor) else { return nil }
         let session = session(for: parent) ?? agents.newMarginSession(in: folder, noteID: note.id)
         var message = Self.prompt(request, quote: anchor.quote)
         if session.blocks.isEmpty { message += "\n\n" + Self.context(article) }
@@ -239,7 +237,7 @@ final class ReaderAssistant {
     /// The margin session that answers the questions about a capture. A
     /// session whose agent cannot answer in the margin does not count.
     func session(for parent: UUID) -> AgentSession? {
-        let questions = Set(store.children(of: parent).filter { $0.tags.contains(ReadingList.questionTag) }.map(\.id))
+        let questions = Set(store.children(of: parent).filter { $0.has(.question) }.map(\.id))
         return agents.runner.sessions.first {
             $0.purpose == .margin && $0.noteID.map(questions.contains) == true && agents.canAnswerInMargin($0.agentID)
         }

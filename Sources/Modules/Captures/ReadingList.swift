@@ -5,11 +5,13 @@ public struct ReadingList: Equatable {
 
     // MARK: - Properties
 
-    public static let highlightTag = "highlight"
-    public static let questionTag = "question"
-    public static let summaryTag = "summary"
     /// How long a finished article stays in Finished before it goes to Archived.
     public static let finishedDays = 7
+
+    /// An article finished before this date leaves Finished.
+    public static func finishedCutoff(now: Date) -> Date {
+        now.addingTimeInterval(-Double(finishedDays) * 86_400)
+    }
 
     /// The articles that the reader started, the newest activity first.
     public let inProgress: [Note]
@@ -24,9 +26,9 @@ public struct ReadingList: Equatable {
     // MARK: - Initialization
 
     public init(notes: [Note], now: Date = Date()) {
-        let children = Dictionary(grouping: notes.filter { $0.parent != nil }, by: { $0.parent! })
+        let children = Note.childrenByParent(notes)
         let articles = notes.filter { !$0.isDone && $0.isArticle }
-        let since = now.addingTimeInterval(-Double(Self.finishedDays) * 86_400)
+        let since = Self.finishedCutoff(now: now)
         var inProgress: [(Note, Date)] = []
         var upNext: [Note] = []
         var finished: [Note] = []
@@ -50,7 +52,7 @@ public struct ReadingList: Equatable {
 
     /// The highlights of an article, oldest first.
     public static func highlights(in children: [Note]) -> [Note] {
-        children.filter { $0.tags.contains(highlightTag) }
+        children.filter { $0.has(.highlight) }
     }
 
     /// The highlights with a note of the reader.
@@ -59,11 +61,11 @@ public struct ReadingList: Equatable {
     }
 
     public static func questions(in children: [Note]) -> [Note] {
-        children.filter { $0.tags.contains(questionTag) }
+        children.filter { $0.has(.question) }
     }
 
     public static func summary(in children: [Note]) -> Note? {
-        children.first { $0.tags.contains(summaryTag) }
+        children.first { $0.has(.summary) }
     }
 
     /// "2 highlights · 1 note · 1 question", without the parts that are zero.
@@ -101,7 +103,7 @@ public enum ArticleMarkdown {
         let line = title.split(whereSeparator: \.isNewline).joined(separator: " ")
         let quoted = line.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         let heading = line.replacingOccurrences(of: "\\", with: "\\\\")
-        var text = "---\nsource: \(url.absoluteString)\ntitle: \"\(quoted)\"\nread: \(day(date))\n---\n\n# \(heading)\n"
+        var text = "---\nsource: \(url.absoluteString)\ntitle: \"\(quoted)\"\nread: \(CaptureText.day(date))\n---\n\n# \(heading)\n"
         if parts.summary, let summary = ReadingList.summary(in: children)?.text.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
             text += "\n" + summary + "\n"
         }
@@ -129,7 +131,7 @@ public enum ArticleMarkdown {
     public static func update(children: [Note], after saved: Date, date: Date) -> String? {
         let fresh = ReadingList.highlights(in: children).filter { $0.modifiedAt > saved }
         guard !fresh.isEmpty else { return nil }
-        return "\n## Added \(day(date))\n" + fresh.map(block).joined()
+        return "\n## Added \(CaptureText.day(date))\n" + fresh.map(block).joined()
     }
 
     /// A file name from the title, such as `how-the-log-works.md`.
@@ -145,12 +147,5 @@ public enum ArticleMarkdown {
         var text = "\n" + quote.split(separator: "\n", omittingEmptySubsequences: false).map { "> " + $0 }.joined(separator: "\n") + "\n"
         if !comment.isEmpty { text += "\n" + comment + "\n" }
         return text
-    }
-
-    private static func day(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
     }
 }

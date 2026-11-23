@@ -1,4 +1,5 @@
 import Foundation
+import PiperCore
 
 /// The sites that the history scan of Sources never reads.
 public enum BlockedSites {
@@ -24,8 +25,7 @@ public enum BlockedSites {
 
     /// True for an http or https URL whose host the list does not block.
     public static func allows(_ url: String, list: [String]) -> Bool {
-        guard let parsed = URL(string: url), ["http", "https"].contains(parsed.scheme?.lowercased() ?? ""),
-              let host = parsed.host else { return false }
+        guard let parsed = URL(string: url), parsed.isWeb, let host = parsed.host else { return false }
         return !isBlocked(host, list: list)
     }
 
@@ -56,8 +56,7 @@ public enum BlockedSites {
     /// The lowercase host of a URL or a bare host, without `www.` or a last dot.
     static func host(of value: String) -> String? {
         let text = value.contains("://") ? value : "https://" + value
-        guard var host = URL(string: text)?.host?.lowercased(), !host.isEmpty else { return nil }
-        if host.hasPrefix("www.") { host.removeFirst(4) }
+        guard var host = URL(string: text).flatMap(Site.init)?.key else { return nil }
         if host.hasSuffix(".") { host.removeLast() }
         return host
     }

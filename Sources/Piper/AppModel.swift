@@ -26,7 +26,7 @@ final class AppModel {
     /// The tab that each open link capture shows, by the id of the capture:
     /// the article, the web page, or the notes. Each reader paper has its own tab.
     private(set) var articleTabs: [UUID: ArticleTab] = [:]
-    /// The tab, Reader or Web, that the reader last chose for each site, by `siteKey`.
+    /// The tab, Reader or Web, that the reader last chose for each site, by `Site.key`.
     /// Preferences keep it.
     private(set) var siteTabs: [String: ArticleTab] = [:]
     /// The child note that the Reader tab scrolls to.
@@ -56,7 +56,7 @@ final class AppModel {
     /// the reader last chose for its site. A new site opens in the Web tab.
     func openingTab(for note: Note) -> ArticleTab {
         if let scroll = readerScroll, scroll.article == note.id, scroll.note != nil { return .reader }
-        return note.articleURL.flatMap(Self.siteKey).flatMap { siteTabs[$0] } ?? .web
+        return note.articleURL.flatMap(Site.init).flatMap { siteTabs[$0.key] } ?? .web
     }
 
     /// The tab that a link capture shows: the tab that the reader chose for
@@ -75,15 +75,9 @@ final class AppModel {
     /// or Web becomes the opening tab of the site of the link.
     func chooseArticleTab(_ tab: ArticleTab, for note: Note) {
         articleTabs[note.id] = tab
-        guard tab != .notes, let url = note.articleURL, let site = Self.siteKey(url), siteTabs[site] != tab else { return }
+        guard tab != .notes, let url = note.articleURL, let site = Site(url)?.key, siteTabs[site] != tab else { return }
         siteTabs[site] = tab
         preferences.set(siteTabs.mapValues(\.rawValue), forKey: AppDefaults.Key.siteTabs)
-    }
-
-    /// The site of a link: its host in lowercase, without a leading `www.`.
-    nonisolated static func siteKey(_ url: URL) -> String? {
-        guard let host = url.host()?.lowercased(), !host.isEmpty else { return nil }
-        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     /// Shows a highlight or a question of a link capture in the Reader tab.
@@ -216,18 +210,12 @@ final class AppModel {
         captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
         reader = ReaderAssistant(store: store, agents: agents)
         siteScan = SiteScan(feeds: self.feeds, preferences: preferences)
-        archiveFinishedReading()
+        store.archiveFinishedReading()
         StarMigration.run(feeds: self.feeds, captures: store)
         agents.refresh(paths: wikiPaths)
         agents.showDraft = { [weak self] id in self?.showSession?(id) }
         // A question goes to the folder of the Send buttons, or else to the open folder.
         reader.folder = { [weak self] in self.map { $0.agents.defaultFolder?.path ?? $0.vault.root.path } }
-    }
-
-    /// Moves the articles that the reader finished more than a week ago to
-    /// Done. Launch runs it, and so does each return to the feed paper.
-    func archiveFinishedReading(now: Date = Date()) {
-        store.archiveFinishedReading(before: now.addingTimeInterval(-Double(ReadingList.finishedDays) * 86_400))
     }
 
     func requestAccessibility() {

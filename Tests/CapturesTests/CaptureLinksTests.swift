@@ -1,5 +1,6 @@
 import Captures
 import Foundation
+import PiperCore
 import XCTest
 
 final class CaptureLinksTests: XCTestCase {
@@ -25,7 +26,7 @@ final class CaptureLinksTests: XCTestCase {
         // macOS picks the scheme of a bare domain. Newer versions pick https.
         let bare = CaptureLinks("www.swift.org").standaloneURL
         XCTAssertEqual(bare?.host, "www.swift.org")
-        XCTAssertTrue(bare.map(CaptureLinks.isWebURL) ?? false)
+        XCTAssertTrue(bare?.isWeb ?? false)
     }
 
     func testMarkdownAndSurroundingParenthesesKeepTheDestination() {
@@ -49,9 +50,5 @@ final class CaptureLinksTests: XCTestCase {
         XCTAssertTrue(links.text.runs.allSatisfy { $0.link == nil })
         XCTAssertNil(links.standaloneURL)
         XCTAssertEqual(String(links.text.characters), text)
-        for value in ["https:path", "http:///", "file:///tmp/file", "javascript:alert(1)"] {
-            XCTAssertFalse(CaptureLinks.isWebURL(URL(string: value)!))
-        }
-        XCTAssertTrue(CaptureLinks.isWebURL(URL(string: "HTTPS://example.com")!))
     }
 }

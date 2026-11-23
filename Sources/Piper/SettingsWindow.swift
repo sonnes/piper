@@ -2,6 +2,7 @@ import AppKit
 import Agents
 import ApplicationServices
 import Combine
+import PiperCore
 import SwiftUI
 
 /// Owns the Settings window.
@@ -102,7 +103,7 @@ private struct GeneralSettings: View {
             Section("Local Data") {
                 LabeledContent {
                     Button("Show in Finder") {
-                        NSWorkspace.shared.open(FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Piper"))
+                        NSWorkspace.shared.open(DataFolder.url)
                     }
                 } label: {
                     Text("Notes database")

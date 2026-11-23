@@ -2,6 +2,7 @@ import AppKit
 import Agents
 import Captures
 import Feeds
+import PiperCore
 import Stream
 import SwiftUI
 
@@ -87,7 +88,7 @@ struct TodayRow: View {
                 .accessibilityLabel(item.state == .done ? "Reopen" : "Mark as Done")
         case .link, .article, .digest:
             ZStack(alignment: .topTrailing) {
-                SiteIcon(favicons: model.favicons, host: host, title: item.source ?? host, index: 0)
+                SiteIcon(favicons: model.favicons, host: host, title: item.source ?? host)
                 if item.state == .new {
                     UnreadDot().offset(x: 3, y: -3)
                 }
@@ -101,7 +102,7 @@ struct TodayRow: View {
     }
 
     private var host: String {
-        item.url.map(ArticleBadge.host) ?? item.source ?? ""
+        item.url.flatMap(Site.init)?.key ?? item.source ?? ""
     }
 
     @ViewBuilder private var title: some View {
@@ -187,7 +188,7 @@ struct TodayRow: View {
 
     /// The highlights and notes under a link, or the notes under a note.
     private var shownNotes: [Note] {
-        item.kind == .link || item.kind == .note ? item.children.filter { !$0.tags.contains(ReadingList.questionTag) } : []
+        item.kind == .link || item.kind == .note ? item.children.filter { !$0.has(.question) } : []
     }
 }
 
@@ -293,8 +294,8 @@ struct TodayMenu: View {
         if let editInWindow = verbs.editInWindow { Button("Edit in New Window", action: editInWindow) }
         if let merge = verbs.merge { Button("Merge Notes", action: merge) }
         Button("Copy", action: verbs.copy)
-        if let url = item.url ?? item.articles.first.flatMap({ URL(string: $0.url) }), CaptureLinks.isWebURL(url) {
-            Button("Copy Link") { TodayModel.copy(url.absoluteString) }
+        if let url = item.url ?? item.articles.first.flatMap({ URL(string: $0.url) }), url.isWeb {
+            Button("Copy Link") { Clipboard.copy(url.absoluteString) }
             Button("Open in Browser") { NSWorkspace.shared.open(url) }
         }
         if let openFeed = verbs.openFeed {

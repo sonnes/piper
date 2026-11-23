@@ -126,12 +126,15 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertNotNil(failed.errorMessage)
     }
 
-    func testCopyWritesTheExactTextToTheClipboard() {
+    func testCopyWritesTheExactTextAndStaysOutOfTheTray() {
         let text = "  line one\n\tline two\n"
         pasteboard.clearContents()
         pasteboard.setString("earlier", forType: .string)
-        XCTAssertTrue(TodayModel.copy(text, to: pasteboard))
+        inbox.poll()
+        XCTAssertTrue(Clipboard.copy(text, to: pasteboard))
+        inbox.poll()
         XCTAssertEqual(pasteboard.string(forType: .string), text)
+        XCTAssertEqual(inbox.entries.map(\.text), ["earlier"])
     }
 
     func testMultiplePasteboardItemsKeepTheirOrderAndRejectOversizedText() {

@@ -1,6 +1,7 @@
 import Captures
 import Feeds
 import Foundation
+import PiperCore
 
 /// How often the reader keeps the posts of a feed, and how often the feed posts.
 public struct FeedStats: Equatable, Sendable {
@@ -30,8 +31,8 @@ public struct FeedStats: Equatable, Sendable {
     public static func compute(feeds: [Feed], counts: [String: Int], notes: [Note]) -> [String: FeedStats] {
         var keptByHost: [String: Int] = [:]
         for note in notes where note.parent == nil && note.isArticle {
-            guard let host = note.articleURL?.host else { continue }
-            keptByHost[bare(host), default: 0] += 1
+            guard let site = note.articleURL.flatMap(Site.init) else { continue }
+            keptByHost[site.key, default: 0] += 1
         }
         var stats: [String: FeedStats] = [:]
         for feed in feeds {
@@ -41,11 +42,6 @@ public struct FeedStats: Equatable, Sendable {
                                        keepRate: min(1, Double(kept) / Double(max(posts, 3))), kept: kept)
         }
         return stats
-    }
-
-    public static func bare(_ host: String) -> String {
-        let host = host.lowercased()
-        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 }
 
@@ -85,7 +81,7 @@ public struct Relevance: Equatable, Sendable {
     public init(stats: [String: FeedStats], history: [String: Double], fileNames: [String]) {
         let top = history.values.max() ?? 0
         self.init(keepRates: stats.mapValues(\.keepRate),
-                  sites: top > 0 ? Dictionary(uniqueKeysWithValues: history.map { (FeedStats.bare($0.key), $0.value / top) }) : [:],
+                  sites: top > 0 ? Dictionary(uniqueKeysWithValues: history.map { (Site(host: $0.key).key, $0.value / top) }) : [:],
                   terms: fileNames.reduce(into: Set<String>()) { $0.formUnion(Self.words(in: Self.stem($1))) })
     }
 
@@ -93,7 +89,7 @@ public struct Relevance: Equatable, Sendable {
 
     public func score(_ article: Article) -> Double {
         let keep = keepRates[article.feedID] ?? 0
-        let site = URL(string: article.url)?.host.map { sites[FeedStats.bare($0)] ?? 0 } ?? 0
+        let site = URL(string: article.url).flatMap(Site.init).map { sites[$0.key] ?? 0 } ?? 0
         let shared = Self.words(in: article.title).intersection(terms).count
         let topic = min(1, Double(shared) / Self.topicWords)
         return (Self.keepWeight * keep + Self.siteWeight * site + Self.topicWeight * topic)

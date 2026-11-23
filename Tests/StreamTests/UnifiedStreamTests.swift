@@ -46,7 +46,7 @@ final class UnifiedStreamTests: XCTestCase {
     }
 
     func testAKeptArticleAndItsLinkCaptureShowAsOneRow() {
-        let capture = note("https://www.f.example/one?utm_source=rss", hoursAgo: 3, tags: [Note.keptTag])
+        let capture = note("https://www.f.example/one?utm_source=rss", hoursAgo: 3, tags: [NoteTag.kept.rawValue])
         let input = UnifiedStream.Input(notes: [capture], articles: [article("one"), article("two")], feeds: [feed()])
         let stream = UnifiedStream(input, lens: .all, now: now, calendar: calendar)
         XCTAssertEqual(stream.items.map(\.id), [.article("two"), .note(capture.id)])
@@ -62,11 +62,11 @@ final class UnifiedStreamTests: XCTestCase {
 
     func testLenses() {
         let link = note("https://a.example/up-next", hoursAgo: 4)
-        let kept = note("Kept note", hoursAgo: 3, tags: [Note.keptTag])
+        let kept = note("Kept note", hoursAgo: 3, tags: [NoteTag.kept.rawValue])
         let highlighted = note("https://a.example/marked", hoursAgo: 5)
         let input = UnifiedStream.Input(notes: [
             link, kept, highlighted, note("Plain note", hoursAgo: 2),
-            note("A quote", hoursAgo: 1, parent: highlighted.id, tags: [ReadingList.highlightTag]),
+            note("A quote", hoursAgo: 1, parent: highlighted.id, tags: [NoteTag.highlight.rawValue]),
             note("Done note", hoursAgo: 1, done: true)
         ], articles: [article("one")], feeds: [feed()])
         let notes = UnifiedStream(input, lens: .notes, now: now, calendar: calendar)
@@ -93,8 +93,8 @@ final class UnifiedStreamTests: XCTestCase {
         let opened = note("https://a.example/x", hoursAgo: 1, reading: Reading(openedAt: now))
         XCTAssertEqual(StreamItem.state(of: opened, children: []), .reading)
         XCTAssertEqual(StreamItem.state(of: opened, children: [note("quote", hoursAgo: 0)]), .kept)
-        XCTAssertEqual(StreamItem.state(of: note("Kept", hoursAgo: 1, tags: [Note.keptTag]), children: []), .kept)
-        XCTAssertEqual(StreamItem.state(of: note("Done", hoursAgo: 1, tags: [Note.keptTag], done: true), children: []), .done)
+        XCTAssertEqual(StreamItem.state(of: note("Kept", hoursAgo: 1, tags: [NoteTag.kept.rawValue]), children: []), .kept)
+        XCTAssertEqual(StreamItem.state(of: note("Done", hoursAgo: 1, tags: [NoteTag.kept.rawValue], done: true), children: []), .done)
         let finished = note("https://a.example/y", hoursAgo: 1, reading: Reading(finishedAt: now))
         XCTAssertEqual(StreamItem.state(of: finished, children: []), .done)
     }
@@ -197,5 +197,13 @@ final class UnifiedStreamTests: XCTestCase {
         XCTAssertEqual(stats["f"], FeedStats(postsPerWeek: 2, keepRate: 0.25, kept: 2))
         XCTAssertEqual(stats["q"]?.keepRate, 0)
         XCTAssertEqual(stats["q"]?.postsPerWeek ?? 0, 0.25, accuracy: 0.0001)
+    }
+
+    func testFeedStatsMatchAFeedHostInCapitals() {
+        let feed = Feed(id: "https://WWW.Tide.example/feed", title: "Tide", home: "https://WWW.Tide.example")
+        let stats = FeedStats.compute(feeds: [feed], counts: [feed.id: 4],
+                                      notes: [note("https://tide.example/a", hoursAgo: 1)])
+        XCTAssertEqual(feed.host, "tide.example")
+        XCTAssertEqual(stats[feed.id]?.kept, 1)
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import Captures
 import SwiftUI
 import UniformTypeIdentifiers
 import Vault
@@ -314,7 +315,8 @@ struct EditorPane: NSViewRepresentable {
     static func request(for session: EditorSession, model: AppModel, source: Bool) -> EditorOpenRequest {
         let document = session.document
         var byline = [document.modifiedAt.formatted(date: .long, time: .shortened)]
-        if let time = ReadingTime.text(of: document.body) { byline.append(time) }
+        let words = ReadingTime.words(in: document.body)
+        if words > 0 { byline.append("\(ReadingTime.minutes(words: words)) min read") }
         switch session.status {
         case .saved: byline.append("Saved")
         case .conflict, .failed: byline.append("Not saved")
@@ -372,15 +374,5 @@ struct EditorBanner: View {
         .padding(.vertical, 8)
         .background(PiperTheme.warningFill)
         .overlay(alignment: .bottom) { Divider() }
-    }
-}
-
-/// The reading time of a text, such as "6 min read".
-enum ReadingTime {
-    /// Nil for a text without words.
-    static func text(of body: String) -> String? {
-        let words = body.split(whereSeparator: \.isWhitespace).count
-        guard words > 0 else { return nil }
-        return "\(max(1, Int((Double(words) / AppDefaults.ArticleReader.wordsPerMinute).rounded()))) min read"
     }
 }

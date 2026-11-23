@@ -1,4 +1,5 @@
 import Foundation
+import PiperCore
 
 /// One subscription.
 public struct Feed: Equatable, Hashable, Identifiable, Sendable {
@@ -32,8 +33,7 @@ public struct Feed: Equatable, Hashable, Identifiable, Sendable {
 
     /// The host of the site, or of the feed if the feed names no site.
     public var host: String {
-        let value = URL(string: home ?? id)?.host ?? id
-        return value.hasPrefix("www.") ? String(value.dropFirst(4)) : value
+        URL(string: home ?? id).flatMap(Site.init)?.key ?? id
     }
 }
 

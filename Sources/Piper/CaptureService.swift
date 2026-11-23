@@ -175,7 +175,7 @@ final class CaptureService {
             return .article(article.id, isNew: isNew)
         }
         guard let saved = store.saveHighlight(selection.text, in: url, title: selection.title, source: source, to: section,
-                                              tags: [ReadingList.highlightTag, ReaderAssistant.colors[0]]) else {
+                                              tags: [NoteTag.highlight.rawValue, ReaderAssistant.colors[0]]) else {
             return .note(store.status, nil)
         }
         if let minutes = selection.minutes { store.updateReading(saved.article.id) { if $0.minutes == nil { $0.minutes = minutes } } }
@@ -211,7 +211,7 @@ final class CaptureService {
                          window.flatMap { attribute(kAXDocumentAttribute, on: $0) }]
             .compactMap { value -> String? in
                 let url = (value as? URL) ?? (value as? String).flatMap(URL.init(string:))
-                guard let url, ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
+                guard let url, url.isWeb else { return nil }
                 return url.absoluteString
             }.first
         guard sourceURL != nil || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -312,9 +312,7 @@ struct CapturedSelection {
 
     /// The reading time of the page text.
     var minutes: Int? {
-        guard let pageText else { return nil }
-        let words = pageText.split(whereSeparator: \.isWhitespace).count
-        return max(1, Int((Double(words) / AppDefaults.ArticleReader.wordsPerMinute).rounded()))
+        pageText.map { ReadingTime.minutes(words: ReadingTime.words(in: $0)) }
     }
 
     static func substring(_ text: String, range: CFRange) -> String? {

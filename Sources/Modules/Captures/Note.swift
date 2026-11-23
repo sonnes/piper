@@ -21,6 +21,11 @@ public struct Note: Identifiable, Equatable, Codable {
     /// The reading state of a link capture.
     public var reading: Reading?
 
+    /// The section that every store has. It cannot be renamed or deleted.
+    public static let inbox = "Inbox"
+    /// The source of a note that came from the clipboard.
+    public static let clipboardSource = "Clipboard"
+
     // MARK: - Initialization
 
     public init(
@@ -79,16 +84,32 @@ public struct Note: Identifiable, Equatable, Codable {
         return CaptureLinks(trimmed).standaloneURL != nil
     }
 
-    /// The tag of a capture that the reader kept with Keep.
-    public static let keptTag = "kept"
-
     /// True when the reader kept the capture with Keep.
-    public var isKept: Bool { tags.contains(Self.keptTag) }
+    public var isKept: Bool { has(.kept) }
+
+    public func has(_ tag: NoteTag) -> Bool { tags.contains(tag.rawValue) }
+
+    /// The child notes of each parent, in the order of the list.
+    public static func childrenByParent(_ notes: [Note]) -> [UUID: [Note]] {
+        Dictionary(grouping: notes.filter { $0.parent != nil }, by: { $0.parent! })
+    }
 
     /// The web link of a link capture.
     public var articleURL: URL? {
         CaptureLinks(text).standaloneURL ?? sourceURLs.first.flatMap(URL.init(string:))
     }
+}
+
+/// The tags that give a note its role. A highlight also has a color tag.
+public enum NoteTag: String, Sendable {
+    /// A capture that the reader kept with Keep.
+    case kept
+    /// A child note that marks a quote in its article.
+    case highlight
+    /// A child note that asks about its article. The margin session answers it.
+    case question
+    /// A child note that sums up its article.
+    case summary
 }
 
 /// How far the reader got in the article of a link capture.
@@ -137,12 +158,12 @@ public struct SavedState: Codable, Equatable {
     // MARK: - Properties
 
     public var notes: [Note] = []
-    public var sections = ["Inbox"]
-    public var activeSection = "Inbox"
+    public var sections = [Note.inbox]
+    public var activeSection = Note.inbox
 
     // MARK: - Initialization
 
-    public init(notes: [Note] = [], sections: [String] = ["Inbox"], activeSection: String = "Inbox") {
+    public init(notes: [Note] = [], sections: [String] = [Note.inbox], activeSection: String = Note.inbox) {
         self.notes = notes
         self.sections = sections
         self.activeSection = activeSection

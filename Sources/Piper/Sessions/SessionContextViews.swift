@@ -1,6 +1,7 @@
 import Agents
 import Captures
 import Foundation
+import PiperCore
 import SwiftUI
 
 /// The item on the screen beside a session: the open file, or the link or the
@@ -31,7 +32,7 @@ extension ContextItem {
         switch self {
         case .file(let path): return URL(fileURLWithPath: path).lastPathComponent
         case .link(let url):
-            let host = AppModel.siteKey(url) ?? url.absoluteString
+            let host = Site(url)?.key ?? url.absoluteString
             let path = url.path()
             return path.count > 1 ? host + path : host
         case .note(let text):
@@ -45,7 +46,7 @@ extension ContextItem {
     var place: String {
         switch self {
         case .file(let path): return URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent
-        case .link(let url): return AppModel.siteKey(url) ?? ""
+        case .link(let url): return Site(url)?.key ?? ""
         case .note: return ""
         }
     }
@@ -115,7 +116,7 @@ struct MentionOption: Identifiable, Equatable {
             if note.isArticle, let url = note.articleURL {
                 item = .link(url)
                 title = note.reading?.title.map(CaptureText.firstLine) ?? item.label
-                detail = AppModel.siteKey(url) ?? ""
+                detail = Site(url)?.key ?? ""
             } else {
                 item = .note(note.text)
                 title = CaptureText.firstLine(note.text)

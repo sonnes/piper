@@ -85,7 +85,7 @@ public struct UnifiedStream: Equatable {
     /// is nil. A section holds no feed articles.
     public init(_ input: Input, lens: Lens, section: String? = nil, query: String = "",
                 now: Date = Date(), calendar: Calendar = .current) {
-        let children = Dictionary(grouping: input.notes.filter { $0.parent != nil }, by: { $0.parent! })
+        let children = Note.childrenByParent(input.notes)
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let captures = input.notes.filter { note in
             guard note.parent == nil, !note.isDone, section.map({ note.section == $0 }) ?? true else { return false }
@@ -133,7 +133,7 @@ public struct UnifiedStream: Equatable {
     /// capture and of its child notes.
     public static func done(notes: [Note], query: String = "", calendar: Calendar = .current) -> [Group] {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let children = Dictionary(grouping: notes.filter { $0.parent != nil }, by: { $0.parent! })
+        let children = Note.childrenByParent(notes)
         let done = notes.filter { $0.parent == nil && $0.isDone && matches($0, children: children[$0.id] ?? [], query: query) }
         let months = Dictionary(grouping: done) { note in
             calendar.dateInterval(of: .month, for: note.modifiedAt)?.start ?? note.modifiedAt

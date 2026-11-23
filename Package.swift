@@ -20,8 +20,8 @@ let package = Package(
         .target(name: "Vault", dependencies: ["PiperCore", "Yams"], path: "Sources/Modules/Vault"),
         .target(name: "Agents", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Agents"),
         .target(name: "History", dependencies: ["PiperCore", "CSQLite"], path: "Sources/Modules/History"),
-        .target(name: "Feeds", dependencies: ["CSQLite"], path: "Sources/Modules/Feeds", exclude: ["RSParser/README.md"]),
-        .target(name: "Stream", dependencies: ["Captures", "Feeds"], path: "Sources/Modules/Stream"),
+        .target(name: "Feeds", dependencies: ["PiperCore", "CSQLite"], path: "Sources/Modules/Feeds", exclude: ["RSParser/README.md"]),
+        .target(name: "Stream", dependencies: ["PiperCore", "Captures", "Feeds"], path: "Sources/Modules/Stream"),
 
         // Application target.
         .executableTarget(name: "Piper", dependencies: [

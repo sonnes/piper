@@ -119,7 +119,7 @@ struct NoteWebReader: View {
             )
             guard let values = result as? [String: Any], let text = values["text"] as? String,
                   let location = values["url"] as? String, let sourceURL = URL(string: location),
-                  CaptureLinks.isWebURL(sourceURL) else {
+                  sourceURL.isWeb else {
                 throw PiperError("Cannot read this page. Reload it and try again.")
             }
             guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -176,7 +176,7 @@ private final class NoteWebPage: NSObject {
 
     func load(_ url: URL, in view: WKWebView) {
         // The requested URL stays separate from redirects and navigation inside the page.
-        guard requestedURL != url, CaptureLinks.isWebURL(url) else { return }
+        guard requestedURL != url, url.isWeb else { return }
         requestedURL = url
         view.load(URLRequest(url: url))
     }
@@ -191,7 +191,7 @@ private final class NoteWebPage: NSObject {
     }
 
     private func updateNavigation(_ view: WKWebView) {
-        if let current = view.url, CaptureLinks.isWebURL(current) { url = current }
+        if let current = view.url, current.isWeb { url = current }
         canGoBack = view.canGoBack
         canGoForward = view.canGoForward
     }
@@ -211,7 +211,7 @@ extension NoteWebPage: WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
-        guard let destination = navigationAction.request.url, CaptureLinks.isWebURL(destination) else {
+        guard let destination = navigationAction.request.url, destination.isWeb else {
             isLoading = false
             errorMessage = "This link cannot open here. Use Open in Browser."
             decisionHandler(.cancel)
@@ -267,7 +267,7 @@ extension NoteWebPage: WKNavigationDelegate {
 extension NoteWebPage: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if navigationAction.targetFrame == nil, let url = navigationAction.request.url, CaptureLinks.isWebURL(url) {
+        if navigationAction.targetFrame == nil, let url = navigationAction.request.url, url.isWeb {
             webView.load(navigationAction.request)
         }
         return nil
