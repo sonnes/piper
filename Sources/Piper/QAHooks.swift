@@ -30,16 +30,121 @@ enum QA {
 /// to the file that `-PiperQAResult` names. The first line of the file is `ok`
 /// or `error`. macOS sends keys only to the active app, so a test inserts text
 /// with this hook, for example with `document.execCommand("insertText")`.
+///
+/// The notification `com.piper.qa.do` runs one command on the papers, for a
+/// test that cannot send keys or clicks:
+///
+/// - `key <name>`: a key on the paper with the focus, such as `key down`,
+///   `key enter`, `key esc`, `key left`, `key 3`, `key ]`, or `key t`.
+/// - `focus feed` or `focus <n>`: gives the focus to the feed paper or to
+///   reader paper `n`, from 0.
+/// - `open note <text>`, `open article <title>`, `open file <path>`: opens an
+///   item whose text or title starts with the words.
+/// - `reader <script>`: runs JavaScript in the reader page of the paper with the focus.
 @MainActor
 final class QAScripts: NSObject {
     static let name = Notification.Name("com.piper.qa.eval")
+    static let command = Notification.Name("com.piper.qa.do")
     private let model: AppModel
+    private let desk: PaperDesk
 
-    init(model: AppModel) {
+    init(model: AppModel, desk: PaperDesk) {
         self.model = model
+        self.desk = desk
         super.init()
         // An inactive app holds distributed notifications unless the observer asks for each one at once.
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(received(_:)), name: Self.name, object: nil, suspensionBehavior: .deliverImmediately)
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(command(_:)), name: Self.command, object: nil, suspensionBehavior: .deliverImmediately)
+    }
+
+    @objc private func command(_ notification: Notification) {
+        guard let line = notification.object as? String else { return }
+        let parts = line.split(separator: " ", maxSplits: 1).map(String.init)
+        guard let verb = parts.first else { return }
+        let rest = parts.count > 1 ? parts[1] : ""
+        var result = "ok"
+        switch verb {
+        case "key": result = key(rest)
+        case "focus": result = focus(rest)
+        case "open": result = open(rest)
+        case "reader":
+            guard let window = PaperKey.focusedWindow,
+                  let page = model.readerPages.allObjects.first(where: { $0.window === window }) else {
+                result = "error\nNo reader page has the focus."
+                break
+            }
+            Task {
+                let value = try? await page.callAsyncJavaScript("return JSON.stringify(await (async () => {\n\(rest)\n})()) ?? \"null\"",
+                                                                contentWorld: .page)
+                write("ok\n\(value as? String ?? "null")")
+            }
+            return
+        default: result = "error\nUnknown command \(verb)."
+        }
+        write(result)
+    }
+
+    private func write(_ result: String) {
+        guard let path = UserDefaults.standard.string(forKey: AppDefaults.Key.qaResultPath) else { return }
+        try? result.write(toFile: path, atomically: true, encoding: .utf8)
+    }
+
+    /// Sends a key down to the paper with the focus. The papers read their
+    /// keys in local monitors, which see each event that the app takes in.
+    private func key(_ name: String) -> String {
+        guard let window = PaperKey.focusedWindow else { return "error\nNo paper has the focus." }
+        if name == "esc" {
+            window.cancelOperation(nil)
+            return "ok"
+        }
+        let codes: [String: (UInt16, String)] = [
+            "up": (126, "\u{F700}"), "down": (125, "\u{F701}"), "left": (123, "\u{F702}"),
+            "right": (124, "\u{F703}"), "enter": (36, "\r"), "space": (49, " ")
+        ]
+        let (code, characters) = codes[name] ?? (0, name)
+        guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                           windowNumber: window.windowNumber, context: nil, characters: characters,
+                                           charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code) else {
+            return "error\nNo event."
+        }
+        NSApp.postEvent(event, atStart: false)
+        return "ok"
+    }
+
+    private func focus(_ target: String) -> String {
+        let papers = NSApp.windows.compactMap { $0 as? PaperWindow }.filter(\.isVisible)
+        if target == "feed" {
+            desk.feedWindow?.makeKeyAndOrderFront(nil)
+            return "ok"
+        }
+        let readers = papers.filter { $0 !== desk.feedWindow }.sorted { $0.windowNumber < $1.windowNumber }
+        guard let index = Int(target), readers.indices.contains(index) else { return "error\nNo paper \(target)." }
+        readers[index].makeKeyAndOrderFront(nil)
+        return "ok"
+    }
+
+    private func open(_ request: String) -> String {
+        let parts = request.split(separator: " ", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return "error\nopen needs a kind and words." }
+        let words = parts[1]
+        switch parts[0] {
+        case "note":
+            guard let note = model.store.notes.first(where: { $0.text.hasPrefix(words) || $0.reading?.title?.hasPrefix(words) == true }) else {
+                return "error\nNo note starts with \(words)."
+            }
+            desk.openNote(note.id)
+        case "article":
+            guard let article = model.feeds.articles(.allUnread).first(where: { $0.title.hasPrefix(words) })
+                ?? model.feeds.articles(.starred).first(where: { $0.title.hasPrefix(words) }) else {
+                return "error\nNo article starts with \(words)."
+            }
+            desk.open(.article(article.id))
+        case "file":
+            desk.openFile(words)
+        default:
+            return "error\nUnknown kind \(parts[0])."
+        }
+        return "ok"
     }
 
     @objc private func received(_ notification: Notification) {

@@ -76,6 +76,8 @@ final class ReaderPageTests: XCTestCase {
     }
 
     func testEscapeOnTheNoteSlipKeepsTheHighlight() async throws {
+        let hidden = try await view.evaluateJavaScript("getComputedStyle(document.querySelector('#noteline')).display") as? String
+        XCTAssertEqual(hidden, "none", "The note slip waits for N.")
         try await select()
         _ = try await view.evaluateJavaScript("window.piperKey('n')")
         let slip = try await view.evaluateJavaScript("getComputedStyle(document.querySelector('#noteline')).display") as? String

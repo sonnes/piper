@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         }
         #if DEBUG
         if QA.isOn {
-            qaScripts = QAScripts(model: model)
+            qaScripts = QAScripts(model: model, desk: desk)
             return showLibrary()
         }
         #endif
