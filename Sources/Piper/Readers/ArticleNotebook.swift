@@ -177,7 +177,7 @@ struct ArticleNotebook: View {
                 model.store.update(existing.id, text: summary)
             }
         } else if !text.isEmpty {
-            model.store.addChild(summary, to: note.id, tags: [ReaderAssistant.summaryTag])
+            model.store.addChild(summary, to: note.id, tags: [ReadingList.summaryTag])
         }
     }
 

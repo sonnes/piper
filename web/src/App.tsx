@@ -35,7 +35,6 @@ export function App() {
 	}, [theme]);
 
 	// The editor of the page changes with each open. The reader layer needs the current one.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: a new open makes a new editor
 	useEffect(() => {
 		const id = window.setTimeout(() => setEditor(getActiveEditor()), 0);
 		return () => window.clearTimeout(id);
@@ -69,13 +68,13 @@ export function App() {
 					initialMarkdown={doc.text}
 					autoFocus={false}
 					onLocalChange={noteLocalChange}
-					onSave={doc.editable ? save : () => {}}
+					onSave={save}
 				/>
 			</div>
 		);
 	}
 
-	const editable = doc.editable && doc.lossy.length === 0;
+	const editable = doc.lossy.length === 0;
 	return (
 		<>
 		<EditorView

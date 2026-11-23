@@ -20,19 +20,6 @@ final class WikiEditingTests: XCTestCase {
         XCTAssertEqual(ReadingTime.text(of: Array(repeating: "word", count: 1_400).joined(separator: " ")), "6 min read")
     }
 
-    func testPageAnchorsUseVisibleTextOffsets() {
-        let text = "# Tea 🍵\r\n\r\n```md\r\n## Repeat\r\n```\r\n## Repeat\r\nA [[short alias]].\r\n## Repeat\r\n[^source]: A source.\r\n"
-        let first = WikiMarkdown.range(ofAnchor: "repeat", in: text)!
-        let second = WikiMarkdown.range(ofAnchor: "repeat-1", in: text)!
-        XCTAssertEqual((text as NSString).substring(with: first), "## Repeat\r")
-        XCTAssertEqual((text as NSString).substring(with: second), "## Repeat\r")
-        XCTAssertGreaterThan(second.location, first.location)
-        XCTAssertEqual(first.location, "# Tea 🍵\r\n\r\n```md\r\n## Repeat\r\n```\r\n".utf16.count)
-        let footnote = WikiMarkdown.range(ofAnchor: "fn-source", in: text)!
-        XCTAssertEqual((text as NSString).substring(with: footnote), "[^source]: A source.\r")
-        XCTAssertNil(WikiMarkdown.range(ofAnchor: "missing", in: text))
-    }
-
     // MARK: Saving
 
     @MainActor private func makeModel(_ files: [(String, String)]) throws -> AppModel {

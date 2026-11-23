@@ -58,6 +58,9 @@ struct TodayView: View {
     @State private var editing: CaptureEditSession?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// The section that a capture goes to when no section is picked.
+    private static let inboxSection = "Inbox"
+
     private var store: CaptureStore { model.store }
     private var agents: FolderAgents { model.agents }
     private var scope: PaperScope { paper.state.scope }
@@ -285,7 +288,7 @@ struct TodayView: View {
     private func row(_ item: StreamItem, order: [StreamItem.Ref]) -> some View {
         TodayRow(item: item, selected: today.selection.contains(item.id), model: model,
                  verbs: verbs(for: item, order: order),
-                 section: section == nil && item.note?.section != RowIcon.inboxSection ? item.note?.section : nil) {
+                 section: section == nil && item.note?.section != Self.inboxSection ? item.note?.section : nil) {
             click(item, order: order)
         }
     }
@@ -372,7 +375,7 @@ struct TodayView: View {
             merge: today.multiple && today.selection.contains(item.id) && today.selection.count > 1
                 ? { today.merge(targets(item)) } : nil,
             openFeed: (item.articles.first?.feedID).map { feed in { paper.pick(.feed(feed)) } },
-            stopSession: item.note.flatMap { agents.latestSession(for: $0) }.flatMap { session in
+            stopSession: item.note.flatMap { agents.runner.latestSession(for: $0.id) }.flatMap { session in
                 session.isActive ? { agents.runner.stop(session) } : nil
             })
     }
@@ -473,7 +476,7 @@ struct TodayView: View {
             if agents.run(command, action: action) != nil { clearComposer() }
             return
         }
-        let target = section ?? (store.sections.contains(RowIcon.inboxSection) ? RowIcon.inboxSection : store.activeSection)
+        let target = section ?? (store.sections.contains(Self.inboxSection) ? Self.inboxSection : store.activeSection)
         switch CaptureDraft(model.composerDraft) {
         case .source(let url) where !readLater:
             paper.showSources(address: url.absoluteString)

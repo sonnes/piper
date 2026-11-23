@@ -21,7 +21,6 @@ The tests use temporary folders and temporary databases. Each module has a test 
 | Target | Covers |
 | --- | --- |
 | `PiperCoreTests` | Frontmatter parsing and line endings |
-| `PiperTreeTests` | Folder trees and counts |
 | `HistoryTests` | Browser sources, history reads, the digest, the decay rank, and blocked sites |
 | `FeedsTests` | The feed parser, the feed database, refresh, feed discovery, OPML import, and suggestions |
 | `CapturesTests` | The capture store, clipboard entries, and capture links |

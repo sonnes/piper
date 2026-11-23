@@ -143,7 +143,7 @@ private struct NoteWebView: NSViewRepresentable {
         view.navigationDelegate = page
         view.uiDelegate = page
         view.allowsBackForwardNavigationGestures = true
-        view.setAccessibilityLabel("Inbox web page")
+        view.setAccessibilityLabel("Web page")
         page.webView = view
         return view
     }

@@ -1,7 +1,7 @@
 import Foundation
 
-/// What the main window shows: the page on the screen, the text of a note, or
-/// the folder alone. The Claude pane takes a page as context.
+/// What the reader paper with the focus shows: a file, the text of a note, or
+/// the folder alone. The session card takes a file as context.
 public enum SkillTarget: Equatable, Sendable {
 
     /// A file in the folder. The argument is its path.
@@ -11,15 +11,6 @@ public enum SkillTarget: Equatable, Sendable {
     case text(String, noteID: UUID?)
     /// Nothing is chosen. Only a skill that takes no argument runs.
     case folder
-
-    /// What Piper puts after the skill name.
-    public var argument: String {
-        switch self {
-        case .page(let path): return path
-        case .text(let text, _): return text
-        case .folder: return ""
-        }
-    }
 
     /// The note that the run belongs to, when the target is one.
     public var noteID: UUID? {

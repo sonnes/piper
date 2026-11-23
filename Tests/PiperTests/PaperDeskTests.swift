@@ -134,13 +134,6 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertEqual(feeds.scope, .feed("a"))
     }
 
-    func testRelativePathsStayInsideTheRoot() {
-        XCTAssertEqual(PaperDeskState.relativePath(of: "/tmp/root", in: "/tmp/root"), "")
-        XCTAssertEqual(PaperDeskState.relativePath(of: "/tmp/root/a/b", in: "/tmp/root/"), "a/b")
-        XCTAssertNil(PaperDeskState.relativePath(of: "/tmp/rooted/a", in: "/tmp/root"))
-        XCTAssertNil(PaperDeskState.relativePath(of: "/tmp/other", in: "/tmp/root"))
-    }
-
     func testEachTabHasItsDefaultScope() {
         let state = PaperDeskState()
         XCTAssertEqual(state.defaultScope(for: .folder("/tmp/a"), root: "/tmp/root", sessionFolders: []), .folder)
@@ -364,10 +357,8 @@ final class PaperDeskStateTests: XCTestCase {
         window.setPaperFrame(start, display: false)
         window.zoom(nil)
         XCTAssertEqual(window.paperFrame, PaperPlacement.zoomed(in: (window.screen ?? screen).visibleFrame))
-        XCTAssertTrue(window.isPaperZoomed)
         window.zoom(nil)
         XCTAssertEqual(window.paperFrame, start)
-        XCTAssertFalse(window.isPaperZoomed)
     }
 
     // MARK: - Tab Stubs
@@ -471,6 +462,13 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertEqual(FolderTree.action(.enter, cursor: "/n/Field Notes", rows: open), .collapse("/n/Field Notes"))
         XCTAssertEqual(FolderTree.action(.enter, cursor: "/n/Work Log", rows: open), .expand("/n/Work Log"))
         XCTAssertEqual(FolderTree.action(.enter, cursor: "/n/index.md", rows: open), .openFile("/n/index.md"))
+    }
+
+    func testFoldersComeBeforeFilesInNaturalOrder() {
+        let rows = FolderTree.rows(paths: ["page10.md", "page2.md", "Zeta/a.md", "alpha/b.md", "docs/docs/deep.md", "docs/top.md"],
+                                   folders: [], root: "/n", expanded: ["/n/docs"])
+        XCTAssertEqual(rows.map(\.path), ["alpha", "docs", "docs/docs", "docs/top.md", "Zeta", "page2.md", "page10.md"])
+        XCTAssertEqual(rows.map(\.count), [1, 2, 1, 1, 1, 1, 1])
     }
 
 }

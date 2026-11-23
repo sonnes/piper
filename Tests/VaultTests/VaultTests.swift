@@ -43,16 +43,14 @@ final class VaultTests: XCTestCase {
         XCTAssertEqual(scan.problems, [])
         let file = try file("loose.md", in: scan)
         XCTAssertNil(file.frontmatterProblem)
-        XCTAssertTrue(file.metadata.isEmpty)
         XCTAssertTrue(file.isText)
         XCTAssertEqual(file.body, "# Loose note\n\nNo metadata here.\n")
     }
 
-    func testFrontmatterExposesMetadataAndBody() throws {
+    func testFrontmatterGivesTheTitleAndBody() throws {
         try write("---\ntitle: Payment retries\nowner: platform\n---\n\n# Retries\n\nBody.\n", to: "notes/retries.md")
         let file = try file("notes/retries.md", in: try vault.scan())
-        XCTAssertEqual(file.metadata["title"] as? String, "Payment retries")
-        XCTAssertEqual(file.metadata["owner"] as? String, "platform")
+        XCTAssertEqual(file.title, "Payment retries")
         XCTAssertEqual(file.body, "\n# Retries\n\nBody.\n")
         XCTAssertEqual(file.folder, "notes")
         XCTAssertEqual(file.name, "retries.md")
@@ -77,8 +75,6 @@ final class VaultTests: XCTestCase {
             XCTAssertFalse(document.isMarkdown)
             XCTAssertEqual(document.title, name)
             XCTAssertEqual(document.body, text)
-            XCTAssertTrue(document.metadata.isEmpty)
-            XCTAssertEqual(document.frontmatterPrefix, "")
         }
         try write(text, to: "Note.MARKDOWN")
         XCTAssertTrue(try vault.read("Note.MARKDOWN").isMarkdown)
@@ -223,19 +219,7 @@ final class VaultTests: XCTestCase {
         XCTAssertEqual(scan.problems, [])
     }
 
-    // MARK: Create, read, and write
-
-    func testCreateMakesAnEmptyFolderAndWritesNoIndex() throws {
-        let folder = root.appendingPathComponent("new", isDirectory: true)
-        try Vault(root: folder).create()
-        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), [])
-        XCTAssertEqual(try Vault(root: folder).scan().files.count, 0)
-    }
-
-    func testCreateRefusesAFolderThatHoldsFiles() throws {
-        try write("existing\n", to: "used/one.md")
-        XCTAssertThrowsError(try Vault(root: root.appendingPathComponent("used", isDirectory: true)).create())
-    }
+    // MARK: Read and write
 
     func testWriteThenReadReturnsTheFile() throws {
         try vault.write("---\ntitle: Written\n---\n\n# Written\n", to: "drafts/new.md")

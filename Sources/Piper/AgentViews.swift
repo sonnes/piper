@@ -80,29 +80,6 @@ struct RunBadge: View {
     }
 }
 
-/// The line under a note that names the folder and what the session did.
-struct RunLine: View {
-    let session: AgentSession
-
-    private var name: String { session.command.map { "/" + $0.name } ?? session.title }
-
-    private var detail: String {
-        switch session.state {
-        case .waiting, .running: return name + (session.lastStep.map { " · " + $0 } ?? "")
-        case .needsYou: return name + " · waits for your answer"
-        case .idle: return session.primaryFile ?? name
-        case .failed: return session.failure?.components(separatedBy: .newlines).first ?? name
-        }
-    }
-
-    var body: some View {
-        Text(session.folderName + " · " + detail)
-            .font(PiperTheme.ui(.secondary))
-            .foregroundStyle(session.state == .failed ? PiperTheme.danger : PiperTheme.secondary)
-            .lineLimit(1).truncationMode(.middle)
-    }
-}
-
 // MARK: Sending
 
 /// The folders and their skills, as menu items. Each item runs one skill.
@@ -127,33 +104,6 @@ struct SendMenuItems: View {
             Text("No folder has Claude skills")
         }
     }
-}
-
-/// A button that opens a draft with the default skill or a skill from its menu.
-struct SendButton: View {
-    let agents: FolderAgents
-    let title: String
-    let sendDefault: () -> Void
-    let send: (FolderAgents.Action) -> Void
-
-    var body: some View {
-        Menu {
-            SendMenuItems(agents: agents, send: send)
-        } label: {
-            Text(title)
-        } primaryAction: {
-            sendDefault()
-        }
-        .menuStyle(.borderedButton)
-        .controlSize(.regular)
-        .fixedSize()
-        .help("Edit a draft with the default skill. Open the menu to choose another skill.")
-    }
-}
-
-extension FolderAgents {
-    /// "Send to Wiki" for the default folder.
-    var sendTitle: String { defaultFolder.map { "Send to " + $0.name } ?? "Send" }
 }
 
 // MARK: Composer

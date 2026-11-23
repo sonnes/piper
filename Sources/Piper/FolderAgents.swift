@@ -274,13 +274,6 @@ final class FolderAgents {
         return session
     }
 
-    /// Prepares every selected note with its default action.
-    @discardableResult
-    func sendSelection(action: Action? = nil) -> Int {
-        let notes = store.selectedNotes
-        return notes.compactMap { send($0, action: action) }.count
-    }
-
     /// Saves clipboard text to Inbox, then opens its draft.
     @discardableResult
     func send(_ entry: ClipboardEntry, from clipboard: ClipboardInbox, action: Action? = nil) -> AgentSession? {
@@ -301,7 +294,7 @@ final class FolderAgents {
             return nil
         }
         if let note = store.notes.last(where: { $0.text == text }) {
-            if let session = latestSession(for: note), session.state != .failed {
+            if let session = runner.latestSession(for: note.id), session.state != .failed {
                 if session.blocks.isEmpty {
                     showDraft?(session.id)
                     return session
@@ -328,8 +321,6 @@ final class FolderAgents {
               let note = store.notes.last else { return nil }
         return start(command, in: action.folder, noteID: note.id)
     }
-
-    func latestSession(for note: Note) -> AgentSession? { runner.latestSession(for: note.id) }
 
     // MARK: - Executable
 

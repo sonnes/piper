@@ -145,7 +145,7 @@ struct PaletteResults {
         var rows: [Row] = []
         var fileCount = 0
         for file in files where file.isText {
-            guard fileCount < PaletteSearch.contentFileLimit else { break }
+            guard fileCount < AppDefaults.Palette.contentFileLimit else { break }
             let excerpts = PaletteSearch.excerpts(of: query, in: file.body)
             if excerpts.isEmpty { continue }
             fileCount += 1

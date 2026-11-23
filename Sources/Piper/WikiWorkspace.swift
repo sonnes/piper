@@ -56,25 +56,4 @@ enum WikiLinks {
         }
         throw PiperError("The note “\(path)” is unavailable in this folder.")
     }
-
-    static func targets(in text: String) -> [(target: String, wikiStyle: Bool)] {
-        let blocks = WikiMarkdown.parse(text).filter { $0.kind != .code }
-        let text = blocks.map(\.text).joined(separator: "\n").replacingOccurrences(of: "`[^`]*`", with: "", options: .regularExpression)
-        let pattern = #"(?<!!)\[\[([^\]|]+)(?:\|[^\]]+)?\]\]|(?<!!)\[[^\]]+\]\(([^\s)]+)(?:\s+\"[^\"]*\")?\)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-        return regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { match in
-            if let range = Range(match.range(at: 1), in: text) { return (String(text[range]), true) }
-            if let range = Range(match.range(at: 2), in: text) { return (String(text[range]), false) }
-            return nil
-        }
-    }
-
-    static func backlinks(to document: VaultFile, in files: [VaultFile], vault: Vault) -> [VaultFile] {
-        files.filter { source in
-            source.isMarkdown && source.id != document.id && targets(in: source.body).contains { link in
-                guard URL(string: link.target)?.scheme == nil else { return false }
-                return (try? resolve(link.target, from: source, files: files, vault: vault, wikiStyle: link.wikiStyle))?.path == document.id
-            }
-        }
-    }
 }

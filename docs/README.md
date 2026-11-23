@@ -22,7 +22,7 @@ Piper captures text into a local database and browses a folder of files.
 ## Understand The Data
 
 - [Local storage](concepts/storage.md): the capture database, the feed database, preferences, and backups.
-- [Wiki files](concepts/files.md): scan rules, links, backlinks, and automatic saves.
+- [Wiki files](concepts/files.md): scan rules, links, and automatic saves.
 
 ## Change The Code
 

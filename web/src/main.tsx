@@ -5,7 +5,7 @@ import { App } from "./App";
 import { scrollToAnchor } from "./anchors";
 import { type OpenRequest, send, type Theme } from "./bridge";
 import { EMBED_CHANGED_EVENT } from "./EmbedNode";
-import { latestText, resetLatest } from "./latest";
+import { latestText, noteLocalChange } from "./latest";
 import { lossyFeatures } from "./lossGuard";
 import type { PageNote } from "./ReaderLayer";
 import { getState, setState } from "./store";
@@ -16,8 +16,8 @@ let seq = 0;
 const piper = {
 	/** Shows a file. A new open starts a new undo history. */
 	open(request: OpenRequest) {
-		const lossy = request.editable ? lossyFeatures(request.text) : [];
-		resetLatest(request.path, request.text);
+		const lossy = lossyFeatures(request.text);
+		noteLocalChange(request.path, request.text);
 		seq += 1;
 		setState({ doc: { ...request, seq, lossy } });
 		window.scrollTo(0, 0);
@@ -28,8 +28,8 @@ const piper = {
 	replace(text: string) {
 		const doc = getState().doc;
 		if (!doc) return;
-		resetLatest(doc.path, text);
-		const lossy = doc.editable ? lossyFeatures(text) : [];
+		noteLocalChange(doc.path, text);
+		const lossy = lossyFeatures(text);
 		const next = { ...doc, text, lossy };
 		// The source editor reads its text only when it mounts.
 		if (doc.mode === "source" || lossy.length !== doc.lossy.length) {
@@ -61,7 +61,6 @@ const piper = {
 		setState({ theme });
 	},
 
-	/** Returns the current text of the open file, or null if no file is open. */
 	flush(): string | null {
 		const doc = getState().doc;
 		return doc ? (latestText(doc.path) ?? doc.text) : null;

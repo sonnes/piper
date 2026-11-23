@@ -172,8 +172,8 @@ public struct UnifiedStream: Equatable {
             .contains { $0.localizedCaseInsensitiveContains(query) }
     }
 
-    /// The rows of the feed articles. An article that a capture holds, an
-    /// article older than `articleDays`, and an expired article have no row.
+    /// The rows of the feed articles. An article that a capture holds and an
+    /// article older than `articleDays` have no row.
     /// A search gives each article that matches its own row.
     private static func feedRows(_ input: Input, query: String, now: Date, calendar: Calendar) -> [StreamItem] {
         let held = Set(input.notes.compactMap { note -> String? in
@@ -181,9 +181,8 @@ public struct UnifiedStream: Equatable {
             return note.articleURL.map(CaptureLinks.canonical)
         })
         let since = now.addingTimeInterval(-Double(articleDays) * 86_400)
-        let expiry = now.addingTimeInterval(-Double(FeedStore.keepDays) * 86_400)
         let articles = input.articles.filter { article in
-            guard article.date >= since, !(article.read && article.arrived < expiry) else { return false }
+            guard article.date >= since else { return false }
             guard let url = URL(string: article.url), !held.contains(CaptureLinks.canonical(url)) else { return false }
             return true
         }

@@ -15,7 +15,6 @@ import SwiftUI
 struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     /// The item that the row opens, for its slot and its flash.
     let item: PaperItem?
-    var openOnDesk = false
     /// The count of the notes under the row. The row flashes when it grows.
     var notes = 0
     let selected: Bool
@@ -35,7 +34,7 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     @State private var hovered = false
     private typealias Metrics = AppDefaults.Papers
 
-    private var lifted: Bool { openOnDesk || (item.map { marks?.isOpen($0) == true } ?? false) }
+    private var lifted: Bool { item.map { marks?.isOpen($0) == true } ?? false }
     private var showsActions: Bool { (hovered || (actionsOnSelection && selected)) && Actions.self != EmptyView.self }
 
     var body: some View {
@@ -145,9 +144,9 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
 
 extension PaperRow where Actions == EmptyView {
     /// A row without actions under the pointer.
-    init(item: PaperItem?, openOnDesk: Bool = false, notes: Int = 0, selected: Bool, time: String,
+    init(item: PaperItem?, notes: Int = 0, selected: Bool, time: String,
          action: @escaping () -> Void, @ViewBuilder mark: @escaping () -> Mark, @ViewBuilder content: @escaping () -> Content) {
-        self.init(item: item, openOnDesk: openOnDesk, notes: notes, selected: selected, time: time, action: action,
+        self.init(item: item, notes: notes, selected: selected, time: time, action: action,
                   mark: mark, content: content, actions: { EmptyView() })
     }
 }
@@ -237,16 +236,14 @@ struct TickMark: View {
     }
 }
 
-/// The dot of an article, as in Mail: an indigo dot while unread, and no dot once read.
+/// The dot of an unread article, as in Mail.
 struct UnreadDot: View {
-    let unread: Bool
-
     var body: some View {
         let metrics = AppDefaults.Papers.self
         Circle()
-            .fill(unread ? PiperTheme.brand : .clear)
+            .fill(PiperTheme.brand)
             .frame(width: metrics.dotSize, height: metrics.dotSize)
-            .accessibilityLabel(unread ? "Unread" : "")
+            .accessibilityLabel("Unread")
     }
 }
 

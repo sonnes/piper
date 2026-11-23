@@ -76,13 +76,6 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         window?.orderOut(nil)
     }
 
-    /// Closes a sheet, so that a modal alert can appear over the paper.
-    func dismissAttachedSheet() {
-        guard let window, let sheet = window.attachedSheet else { return }
-        window.endSheet(sheet)
-        sheet.orderOut(nil)
-    }
-
     // MARK: - NSWindowDelegate
 
     func windowDidMove(_ notification: Notification) { saveFrame() }
@@ -98,7 +91,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     /// Command and a number shows a tab of the column, while the feed paper has the focus.
     func handleTab(_ number: Int, in eventWindow: NSWindow?) -> Bool {
-        guard let window, PaperKey.focusedWindow === window, eventWindow == nil || eventWindow === window else { return false }
+        guard let window, PaperKey.focusedWindow === window, eventWindow === window else { return false }
         paper.numberKey(number)
         return true
     }
@@ -109,7 +102,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     ///
     /// - Returns: True when the paper used the key.
     func handle(_ key: PaperKey, in eventWindow: NSWindow?) -> Bool {
-        guard let window, PaperKey.focusedWindow === window, eventWindow == nil || eventWindow === window,
+        guard let window, PaperKey.focusedWindow === window, eventWindow === window,
               !PaperKey.editsText(window) else { return false }
         if paper.state.tab.isFolder, !paper.showsIndex, handleTree(key) { return true }
         switch key {

@@ -76,7 +76,7 @@ final class HistoryTests: XCTestCase {
         for (url, format) in [(chromium, HistorySourceFormat.chromium), (firefox, .firefox), (safari, .safari)] {
             let source = HistorySource(id: url.path, name: "x", profile: nil, database: url, format: format)
             let visits = try HistoryReader.read(source, since: since)
-            XCTAssertEqual(visits, [Visit(url: "https://a.example/", title: "A", date: Date(timeIntervalSince1970: now))], format.rawValue)
+            XCTAssertEqual(visits, [Visit(url: "https://a.example/", date: Date(timeIntervalSince1970: now))], format.rawValue)
         }
     }
 
@@ -114,38 +114,35 @@ final class HistoryTests: XCTestCase {
 
     func testDigestRanksKeepsSingleVisitsAndDropsBlockedSites() {
         let now = Date(timeIntervalSince1970: 1_000_000)
-        var visits = (0..<10).map { Visit(url: "https://www.top.example/secret/\($0)", title: "T\($0)", date: now) }
-        visits += (0..<2).map { _ in Visit(url: "https://low.example/", title: "L", date: now.addingTimeInterval(-86_400 * 10)) }
-        visits += (0..<20).map { _ in Visit(url: "https://mybank.example/", title: "B", date: now) }
-        visits.append(Visit(url: "https://once.example/", title: "O", date: now))
-        visits.append(Visit(url: "http://192.168.1.1/", title: "R", date: now))
+        var visits = (0..<10).map { Visit(url: "https://www.top.example/secret/\($0)", date: now) }
+        visits += (0..<2).map { _ in Visit(url: "https://low.example/", date: now.addingTimeInterval(-86_400 * 10)) }
+        visits += (0..<20).map { _ in Visit(url: "https://mybank.example/", date: now) }
+        visits.append(Visit(url: "https://once.example/", date: now))
+        visits.append(Visit(url: "http://192.168.1.1/", date: now))
 
         let digest = HistoryDigest(visits: visits, blocked: ["mybank.example"], now: now)
 
         XCTAssertEqual(digest.sites.map(\.host), ["top.example", "once.example", "low.example"])
-        XCTAssertEqual(digest.totalSites, 3)
         XCTAssertEqual(digest.sites[0].visits, 10)
-        XCTAssertEqual(digest.sites[2].pages, 1)
-        XCTAssertGreaterThan(digest.score(of: "once.example"), 0)
+        XCTAssertGreaterThan(digest.sites[1].score, 0)
     }
 
-    func testDigestKeepsThirtySitesAndTheFullCount() {
+    func testDigestKeepsThirtySites() {
         let now = Date()
         let visits = (0..<40).flatMap { index in
-            (0..<2).map { _ in Visit(url: "https://s\(index).example/", title: nil, date: now) }
+            (0..<2).map { _ in Visit(url: "https://s\(index).example/", date: now) }
         }
         let digest = HistoryDigest(visits: visits, blocked: [], now: now)
         XCTAssertEqual(digest.sites.count, 30)
-        XCTAssertEqual(digest.totalSites, 40)
     }
 
     func testDigestPutsMoreVisitsAndNewerVisitsFirst() {
         let now = Date(timeIntervalSince1970: 1_000_000)
         let hour: TimeInterval = 3_600
-        var visits = (0..<5).map { _ in Visit(url: "https://many.example/", title: nil, date: now.addingTimeInterval(-hour)) }
-        visits += (0..<2).map { _ in Visit(url: "https://few.example/", title: nil, date: now.addingTimeInterval(-hour)) }
-        visits += (0..<2).map { _ in Visit(url: "https://new.example/", title: nil, date: now) }
-        visits += (0..<2).map { _ in Visit(url: "https://old.example/", title: nil, date: now.addingTimeInterval(-48 * hour)) }
+        var visits = (0..<5).map { _ in Visit(url: "https://many.example/", date: now.addingTimeInterval(-hour)) }
+        visits += (0..<2).map { _ in Visit(url: "https://few.example/", date: now.addingTimeInterval(-hour)) }
+        visits += (0..<2).map { _ in Visit(url: "https://new.example/", date: now) }
+        visits += (0..<2).map { _ in Visit(url: "https://old.example/", date: now.addingTimeInterval(-48 * hour)) }
 
         let digest = HistoryDigest(visits: visits, blocked: [], now: now)
 

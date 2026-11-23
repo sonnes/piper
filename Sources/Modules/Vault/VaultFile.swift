@@ -31,14 +31,8 @@ public struct VaultFile: Identifiable {
 
     private static let markdownExtensions: Set<String> = ["md", "markdown", "mdown", "mkd", "mkdn"]
 
-    /// The keys of the frontmatter block. Empty when the file has no block.
-    public var metadata: [String: Any] { frontmatter?.metadata ?? [:] }
-
     /// The text after the frontmatter block, or the whole text when no block exists.
     public var body: String { frontmatter?.body ?? text ?? "" }
-
-    /// The frontmatter block itself, including the delimiters.
-    public var frontmatterPrefix: String { frontmatter?.prefix ?? "" }
 
     /// The reason a frontmatter block failed to parse.
     ///

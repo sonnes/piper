@@ -32,46 +32,20 @@ enum PiperTheme {
     /// The selection of a row without keyboard focus.
     static let selectionNS = NSColor.unemphasizedSelectedContentBackgroundColor
     static let ruleNS = NSColor.separatorColor
-    /// Selected text on the reader page and in a Markdown file: the accent at 20 percent, and 30 percent in the dark.
-    static let readerSelectionNS = NSColor(name: nil) { appearance in
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            ? hex(0x5E9EF4).withAlphaComponent(0.3) : hex(0x086AEE).withAlphaComponent(0.2)
-    }
-    /// The fill of code in a Markdown file: the code fill of the reader page
-    /// over its paper. It is opaque, because the editor paints each line of a
-    /// code block, and a clear fill doubles where two lines meet.
-    static let readerCodeNS = color(light: 0xF0EFEC, dark: 0x262627)
-    /// A yellow highlight on the reader page, and `==text==` in a Markdown file.
-    static let readerMarkNS = NSColor(name: nil) { appearance in
-        hex(0xFACC15).withAlphaComponent(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? 0.28 : 0.38)
-    }
     static let warningNS = NSColor.systemOrange
     static let dangerNS = NSColor.systemRed
     static let successNS = NSColor.systemGreen
 
-    // The row icons use the Tailwind CSS palette: shade 500 in the light
+    // These colors use the Tailwind CSS palette: shade 500 in the light
     // appearance and shade 400 in the dark, unless a comment names others.
 
-    /// Amber.
-    /// Blue.
-    static let inboxNS = color(light: 0x3B82F6, dark: 0x60A5FA)
-    /// Violet.
-    static let clipboardNS = color(light: 0x8B5CF6, dark: 0xA78BFA)
-    /// Amber 700 and 600.
-    static let archivedNS = color(light: 0xB45309, dark: 0xD97706)
-    /// Emerald 600 and 400. The rows of the Feeds group.
-    static let feedsNS = color(light: 0x059669, dark: 0x34D399)
-    /// Amber 500 and 400. A starred article.
+    /// Amber 500 and 400. A kept article.
     static let starNS = color(light: 0xF59E0B, dark: 0xFBBF24)
     /// Orange. The tile of a sessions folder, its count of sessions that wait, and the mark of Claude Code.
     static let claudeNS = color(light: 0xF97316, dark: 0xFB923C)
     /// Teal 600 and 400. The mark of an agent that speaks ACP.
     static let acpAgentNS = color(light: 0x0D9488, dark: 0x2DD4BF)
-    /// Zinc 500 and 400.
-    static let folderNS = color(light: 0x71717A, dark: 0xA1A1AA)
-    /// Zinc 400 and 500.
-    static let fileNS = color(light: 0xA1A1AA, dark: 0x71717A)
-    /// The colors of section dots and folder tiles, in the order of the rows:
+    /// The colors of the letter tiles of sites, in the order of the rows:
     /// violet, emerald, orange, sky, rose, lime, fuchsia, and amber. Rows next
     /// to each other get hues that are far apart.
     static let tagsNS: [NSColor] = [
@@ -81,21 +55,8 @@ enum PiperTheme {
         color(light: 0xD946EF, dark: 0xE879F9), color(light: 0xF59E0B, dark: 0xFBBF24)
     ]
 
-    // The tags of child notes and the highlight colors. The reader page uses
-    // the same values. Highlight is amber 700 and yellow 400, question is
-    // orange 700 and 400, and other tags are sky 700 and 400.
-
+    /// Yellow 400. The bar beside a highlight.
     static let markYellow = Color(nsColor: hex(0xFACC15))
-    /// Text on a yellow chip, such as the count of highlights.
-    static let markText = Color(nsColor: color(light: 0xA16207, dark: 0xFDE047))
-    static let markGreen = Color(nsColor: hex(0x4ADE80))
-    static let markPink = Color(nsColor: hex(0xF472B6))
-    static let tagHighlight = Color(nsColor: color(light: 0xA16207, dark: 0xFACC15))
-    static let tagHighlightFill = Color(nsColor: hex(0xEAB308)).opacity(0.16)
-    static let tagQuestion = Color(nsColor: color(light: 0xC2410C, dark: 0xFB923C))
-    static let tagQuestionFill = Color(nsColor: hex(0xF97316)).opacity(0.14)
-    static let tagOther = Color(nsColor: color(light: 0x0369A1, dark: 0x38BDF8))
-    static let tagOtherFill = Color(nsColor: hex(0x0EA5E9)).opacity(0.14)
 
     static let page = Color(nsColor: pageNS)
     static let panel = Color(nsColor: panelNS)
@@ -112,7 +73,6 @@ enum PiperTheme {
     static let danger = Color(nsColor: dangerNS)
     static let success = Color(nsColor: successNS)
     static let claude = Color(nsColor: claudeNS)
-    static let feeds = Color(nsColor: feedsNS)
     static let star = Color(nsColor: starNS)
     static let acpAgent = Color(nsColor: acpAgentNS)
     /// The fill and the ring of a request that waits in a session.
@@ -134,9 +94,6 @@ enum PiperTheme {
     /// The shadows of the session card and of its pill.
     static let sessionCardShadow = Color.black.opacity(0.2)
     static let sessionPillShadow = Color.black.opacity(0.16)
-    /// The shadow of a control that floats over content, such as the tabs of a reader paper.
-    static let floatingShadow = Color.black.opacity(0.14)
-    /// The line over an article that says where it opened.
 
     // MARK: Papers
 
@@ -159,8 +116,6 @@ enum PiperTheme {
     static let brandNS = color(light: 0x4F46E5, dark: 0x818CF8)
     /// Indigo 100 and 900. The current row of an index.
     static let currentRowNS = color(light: 0xE0E7FF, dark: 0x312E81)
-    /// Zinc 900 and white. The text of the current row of an index, and of a highlight.
-    static let markInkNS = color(light: 0x18181B, dark: 0xFFFFFF)
     /// Indigo 500 at 26 percent. Selected text on a paper.
     static let paperSelectionNS = NSColor(srgbRed: 0x63 / 255, green: 0x66 / 255, blue: 0xF1 / 255, alpha: 0.26)
     /// Indigo 600 in both appearances. The check of a done capture, and the fill of a pill.
@@ -172,11 +127,8 @@ enum PiperTheme {
     static let paperBarNS = color(light: 0xA1A1AA, dark: 0x71717A)
     /// Indigo 300. The bar beside the notes under a row, and beside a quote.
     static let quoteBarNS = hex(0xA5B4FC)
-    /// Zinc 900. The selection bar of a reader page, and the hint key caps on it.
-    static let selectionBarNS = hex(0x18181B)
 
     static let paperSlot = Color(nsColor: paperSlotNS)
-    static let paperBar = Color(nsColor: paperBarNS)
     static let quoteBar = Color(nsColor: quoteBarNS)
     static let paper = Color(nsColor: paperNS)
     static let paperInk = Color(nsColor: paperInkNS)
@@ -186,10 +138,7 @@ enum PiperTheme {
     static let paperTint = Color(nsColor: paperTintNS)
     static let brand = Color(nsColor: brandNS)
     static let currentRow = Color(nsColor: currentRowNS)
-    static let markInk = Color(nsColor: markInkNS)
     static let indigo = Color(nsColor: indigoNS)
-    /// The shadow of the tabs of a reader paper: 12 percent black.
-    static let tabShadowColor = Color.black.opacity(0.12)
     /// `Tokens.writeCardShadow` of September: the shadow of the paper with the
     /// keyboard focus. Black at 18 percent, and 55 percent in the dark.
     static let paperShadowNS = shade(light: 0.18, dark: 0.55)
@@ -329,7 +278,7 @@ enum PiperTheme {
     // MARK: Fonts
 
     private static let registeredFonts: Void = {
-        for name in ["Regular", "Medium", "Italic", "Bold", "BoldItalic"] {
+        for name in ["Regular", "Medium", "Bold"] {
             if let url = resources.url(forResource: "IBMPlexMono-\(name)", withExtension: "ttf") {
                 CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
             }
@@ -402,7 +351,7 @@ enum PiperTheme {
     static func paperTitle(_ size: PaperSize) -> Font {
         _ = registeredPaperFonts
         guard let base = NSFont(name: "Fraunces-Regular", size: size.rawValue) else {
-            return Font(serifNS(.title).withSize(size.rawValue) as CTFont).weight(.semibold)
+            return Font.system(size: size.rawValue, weight: .semibold, design: .serif)
         }
         let weightAxis = 0x77676874
         let descriptor = base.fontDescriptor.addingAttributes([.variation: [weightAxis: 600]])
@@ -431,12 +380,6 @@ enum PiperTheme {
         .systemFont(ofSize: size.rawValue, weight: weight)
     }
 
-    /// Serif text that the reader reads, such as the body of a note.
-    static func serifNS(_ size: TextSize) -> NSFont {
-        let font = NSFont.systemFont(ofSize: size.rawValue)
-        return font.fontDescriptor.withDesign(.serif).flatMap { NSFont(descriptor: $0, size: size.rawValue) } ?? font
-    }
-
     static func ui(_ size: TextSize, weight: Font.Weight = .regular) -> Font {
         .system(size: size.rawValue, weight: weight)
     }
@@ -462,23 +405,6 @@ enum PiperTheme {
                 green: CGFloat((value >> 8) & 255) / 255,
                 blue: CGFloat(value & 255) / 255, alpha: 1)
     }
-}
-
-/// A button without a bezel that reads as a link in the accent color.
-struct TextButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var enabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(PiperTheme.ui(.secondary))
-            .foregroundStyle(enabled ? PiperTheme.accent : PiperTheme.faint)
-            .opacity(configuration.isPressed ? 0.6 : 1)
-            .contentShape(Rectangle())
-    }
-}
-
-extension ButtonStyle where Self == TextButtonStyle {
-    static var text: TextButtonStyle { TextButtonStyle() }
 }
 
 /// A 28 by 24 point icon button with an optional active state.

@@ -151,7 +151,7 @@ final class FolderAgentsTests: XCTestCase {
         XCTAssertEqual(session.draft, "")
         try await waitForRuns(agents)
 
-        XCTAssertEqual(agents.latestSession(for: note)?.state, .idle)
+        XCTAssertEqual(agents.runner.latestSession(for: note.id)?.state, .idle)
         XCTAssertEqual(try prompts(), ["/capture https://example.com/page Summarize the examples"])
         XCTAssertEqual(session.command?.arguments, "https://example.com/page Summarize the examples")
         XCTAssertEqual(store.notes.count, 1)
@@ -159,16 +159,15 @@ final class FolderAgentsTests: XCTestCase {
         XCTAssertEqual(FolderAgents(store: store, preferences: preferences).lastFolderPath, notes.standardizedFileURL.path)
     }
 
-    func testSendSelectionPreparesEachNoteWithItsOwnSkill() async throws {
+    func testSendPreparesEachNoteWithItsOwnSkill() async throws {
         let agents = try makeAgents()
         XCTAssertTrue(store.add("https://example.com/a"))
         XCTAssertTrue(store.add("Decision keep runs"))
-        store.selection = Set(store.notes.map(\.id))
 
-        XCTAssertEqual(agents.sendSelection(), 2)
+        XCTAssertEqual(store.notes.compactMap { agents.send($0) }.count, 2)
         try await waitForRuns(agents)
         XCTAssertEqual(try prompts(), [])
-        XCTAssertEqual(store.notes.compactMap { agents.latestSession(for: $0)?.draft }.sorted(),
+        XCTAssertEqual(store.notes.compactMap { agents.runner.latestSession(for: $0.id)?.draft }.sorted(),
                        ["/capture https://example.com/a", "/new Decision keep runs"])
     }
 
@@ -226,7 +225,7 @@ final class FolderAgentsTests: XCTestCase {
 
         XCTAssertEqual(store.notes.map(\.text), ["https://example.com/x", "/stale", "/tidy", "/capture"])
         XCTAssertTrue(store.notes.allSatisfy { $0.section == "Research" })
-        XCTAssertEqual(agents.latestSession(for: store.notes[2])?.folder, notes.standardizedFileURL.path)
+        XCTAssertEqual(agents.runner.latestSession(for: store.notes[2].id)?.folder, notes.standardizedFileURL.path)
         try await waitForRuns(agents)
         XCTAssertEqual(try prompts().sorted(), ["/capture", "/capture https://example.com/x", "/stale", "/tidy"])
     }

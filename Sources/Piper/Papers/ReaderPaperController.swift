@@ -124,12 +124,12 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
 
     /// Reads a key on the paper with the focus. Up Arrow and Down Arrow
     /// scroll an article. H highlights the selected text of an article and N
-    /// adds a note to it. An article of a feed takes R, S, I, and B as its
-    /// row on the list does. T tidies the desk.
+    /// adds a note to it. An article of a feed takes K and B as its row on
+    /// the list does. T tidies the desk.
     ///
     /// - Returns: True when the paper used the key.
     func handle(_ key: PaperKey, in eventWindow: NSWindow?) -> Bool {
-        guard let window, PaperKey.focusedWindow === window, eventWindow == nil || eventWindow === window,
+        guard let window, PaperKey.focusedWindow === window, eventWindow === window,
               !PaperKey.editsText(window) else { return false }
         // A reader page with the focus reads its own keys, and sends back the letters that it does not use.
         if let responder = window.firstResponder as? NSView, responder is WKWebView || responder.enclosingWebView != nil {

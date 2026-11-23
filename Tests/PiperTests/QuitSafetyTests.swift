@@ -31,7 +31,6 @@ final class QuitSafetyTests: XCTestCase {
     /// The real method also shows a window. The decision itself is what must not
     /// change, so the test drives the same two guards in the same order.
     private func shouldTerminate(_ model: AppModel, resolveCapture: (CaptureEditSession) -> Bool) -> Bool {
-        model.route = "wiki"
         for session in Array(model.captureEdits.values) where !resolveCapture(session) { return false }
         return model.settleEditors()
     }
@@ -115,12 +114,5 @@ final class QuitSafetyTests: XCTestCase {
         XCTAssertEqual(model.editor?.text, "An unsaved body.", "The draft stays in the editor")
         XCTAssertEqual(model.editor?.status, .conflict)
         XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "An agent wrote this.", "Quit must not write over the change")
-    }
-
-    func testAnOpenSheetIsClosedSoTheAlertCanAppear() throws {
-        let model = try makeWiki()
-        model.route = "settings"
-        XCTAssertTrue(shouldTerminate(model) { _ in true })
-        XCTAssertEqual(model.route, "wiki", "Quit must close a sheet, or the alert below it never appears")
     }
 }

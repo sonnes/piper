@@ -200,12 +200,6 @@ struct DiffView<Header: View>: View {
     }
 }
 
-extension DiffView where Header == EmptyView {
-    init(diff: ToolCall.Diff) {
-        self.init(diff: diff) { EmptyView() }
-    }
-}
-
 /// A permission request in the transcript, as one line. The request that
 /// waits shows in the approval drawer over the composer.
 struct PermissionCard: View {

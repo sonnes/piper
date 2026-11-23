@@ -41,7 +41,15 @@ struct FeedPaperView: View {
         .onChange(of: model.store.sections) { _, sections in
             if case .today(let section?) = paper.state.scope, !sections.contains(section) { paper.pick(.today(section: nil)) }
         }
-        .routeSheets(model)
+        // The alert goes on the feed paper only, so it cannot open twice.
+        .alert("Piper", isPresented: Binding(
+            get: { model.store.errorMessage != nil },
+            set: { if !$0 { model.store.errorMessage = nil } }
+        )) {
+            Button("OK") { model.store.errorMessage = nil }
+        } message: {
+            Text(model.store.errorMessage ?? "")
+        }
     }
 
     // MARK: - Parts
@@ -138,7 +146,7 @@ struct FeedPaperView: View {
         case .today, .done:
             TodayView(today: paper.today, paper: paper, model: model, window: window)
         case .feed(let feed):
-            FeedArticleList(model: model, filter: .feed(feed), selectedID: paper.selectedArticle,
+            FeedArticleList(model: model, feedID: feed, selectedID: paper.selectedArticle,
                             select: { paper.selectedArticle = $0?.id },
                             openPaper: { paper.open(.article($0.id)) },
                             setKeys: { paper.listKeys = $0 })

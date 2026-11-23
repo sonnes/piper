@@ -106,8 +106,7 @@ public struct StreamItem: Identifiable, Equatable {
         return .new
     }
 
-    /// The state of a feed article that no capture holds. A read article
-    /// that nobody kept expires after `FeedStore.keepDays`.
+    /// The state of a feed article that no capture holds.
     public static func state(of article: Article) -> State {
         article.read ? .reading : .new
     }

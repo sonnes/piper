@@ -156,16 +156,6 @@ struct PaperDeskState: Codable, Equatable {
         selectedFile = nil
     }
 
-    /// The path of a folder from a root, or nil when the folder is outside the root.
-    static func relativePath(of path: String, in root: String) -> String? {
-        let base = URL(fileURLWithPath: root).standardizedFileURL.path
-        let folder = URL(fileURLWithPath: path).standardizedFileURL.path
-        if folder == base { return "" }
-        let prefix = base.hasSuffix("/") ? base : base + "/"
-        guard folder.hasPrefix(prefix) else { return nil }
-        return String(folder.dropFirst(prefix.count))
-    }
-
     // MARK: - Persistence
 
     static func restore(from defaults: UserDefaults = .standard) -> PaperDeskState {

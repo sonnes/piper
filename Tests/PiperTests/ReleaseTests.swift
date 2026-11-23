@@ -95,8 +95,7 @@ final class ReleaseTests: XCTestCase {
         XCTAssertFalse(store.add("orphan", to: "Missing"))
         XCTAssertTrue(store.notes.isEmpty)
         XCTAssertTrue(store.add("saved"))
-        store.selection = [store.notes[0].id]
-        store.move(to: "Missing")
+        XCTAssertFalse(store.move([store.notes[0].id], to: "Missing"))
         XCTAssertEqual(store.notes[0].section, "Research")
         store.activeSection = "Missing"
         XCTAssertEqual(store.activeSection, "Research")
@@ -120,7 +119,6 @@ final class ReleaseTests: XCTestCase {
         XCTAssertTrue(first.add("first writer"))
         XCTAssertFalse(second.add("stale writer"))
         XCTAssertTrue(second.notes.isEmpty)
-        XCTAssertFalse(second.canUndo)
         XCTAssertNotNil(second.errorMessage)
         XCTAssertEqual(CaptureStore(url: databaseURL).notes.map(\.text), ["first writer"])
     }
@@ -145,12 +143,13 @@ final class ReleaseTests: XCTestCase {
         XCTAssertEqual(sqlite3_exec(lock, "BEGIN IMMEDIATE", nil, nil, nil), SQLITE_OK)
         XCTAssertFalse(store.add("retry me"))
         XCTAssertEqual(store.notes.map(\.text), ["saved"])
-        XCTAssertTrue(store.canUndo)
         XCTAssertEqual(sqlite3_exec(lock, "ROLLBACK", nil, nil, nil), SQLITE_OK)
-        XCTAssertTrue(store.add("retry me"))
-        XCTAssertEqual(CaptureStore(url: databaseURL).notes.map(\.text), ["saved", "retry me"])
         store.undo()
-        XCTAssertEqual(store.notes.map(\.text), ["saved"])
+        XCTAssertTrue(store.notes.isEmpty)
+        XCTAssertTrue(store.add("retry me"))
+        XCTAssertEqual(CaptureStore(url: databaseURL).notes.map(\.text), ["retry me"])
+        store.undo()
+        XCTAssertTrue(store.notes.isEmpty)
     }
 
     func testInvalidStoredSectionsBlockWrites() throws {
@@ -184,32 +183,5 @@ final class ReleaseTests: XCTestCase {
         store.deleteSelection()
         XCTAssertFalse(model.saveCaptureEdit(second))
         XCTAssertTrue(model.captureEdits[second.id] === second)
-    }
-
-    func testCreateWikiStartsEmptyAndScansAFileAddedLater() throws {
-        let root = folder.appendingPathComponent("Wiki")
-        let vault = Vault(root: root)
-        try vault.create()
-        // A new vault is an empty folder. Piper writes no starter file, because
-        // it has no opinion about what belongs in the folder.
-        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty)
-        XCTAssertTrue(try vault.scan().files.isEmpty)
-        let text = "A captured thought"
-        try Data(("# First capture\n\n" + text + "\n").utf8).write(to: root.appendingPathComponent("first-capture.md"))
-        let scan = try vault.scan()
-        XCTAssertEqual(scan.files.map(\.id), ["first-capture.md"])
-        XCTAssertTrue(scan.files[0].body.contains(text))
-        XCTAssertTrue(scan.problems.isEmpty)
-
-        // Creating over a folder that now holds a file must refuse.
-        XCTAssertThrowsError(try vault.create())
-    }
-
-    func testCreateWikiRefusesAnExistingFolderWithUserFiles() throws {
-        let existing = folder.appendingPathComponent("personal.md")
-        try Data("keep exactly\n".utf8).write(to: existing)
-        XCTAssertThrowsError(try Vault(root: folder).create())
-        XCTAssertEqual(try String(contentsOf: existing), "keep exactly\n")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("index.md").path))
     }
 }

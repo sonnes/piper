@@ -1,5 +1,4 @@
 import Foundation
-import PiperTree
 
 /// One visible row of the folder tree of a folder tab.
 struct FolderTreeRow: Equatable, Identifiable {
@@ -52,18 +51,17 @@ enum FolderTree {
         let base = URL(fileURLWithPath: (root as NSString).expandingTildeInPath)
         var rows: [FolderTreeRow] = []
 
-        func visit(_ node: Node, depth: Int, parent: String?) {
-            for child in node.children {
-                guard let item = child.representedObject as? PathItem else { continue }
-                let id = base.appendingPathComponent(item.path).path
-                let open = item.isFolder && expanded.contains(id)
-                rows.append(FolderTreeRow(id: id, path: item.path, name: item.name, isFolder: item.isFolder, depth: depth,
-                                          parent: parent, expanded: open, count: item.count))
-                if open { visit(child, depth: depth + 1, parent: id) }
+        func visit(_ nodes: [PathNode], depth: Int, parent: String?) {
+            for node in nodes {
+                let id = base.appendingPathComponent(node.path).path
+                let open = node.isFolder && expanded.contains(id)
+                rows.append(FolderTreeRow(id: id, path: node.path, name: node.name, isFolder: node.isFolder, depth: depth,
+                                          parent: parent, expanded: open, count: node.count))
+                if open { visit(node.children, depth: depth + 1, parent: id) }
             }
         }
 
-        visit(PathTreeBuilder.tree(paths: paths, folders: folders), depth: 0, parent: nil)
+        visit(PathTreeBuilder.nodes(paths: paths, folders: folders, folder: ""), depth: 0, parent: nil)
         return rows
     }
 
@@ -94,5 +92,56 @@ enum FolderTree {
             if row.isFolder { return row.expanded ? .collapse(row.id) : .expand(row.id) }
             return .openFile(row.id)
         }
+    }
+}
+
+// MARK: - Path Tree
+
+/// A folder or a file of the tree, with the nodes below it.
+private struct PathNode {
+    /// The path from the root of the tree.
+    let path: String
+    let name: String
+    let isFolder: Bool
+    /// The number of files under a folder. A file has 1.
+    let count: Int
+    let children: [PathNode]
+}
+
+/// Builds the tree of folders and files from paths such as `engineering/rfcs/a.md`.
+///
+/// Under each folder the child folders come first, then the files. Both
+/// groups are in the order of `localizedStandardCompare`. A path in `folders`
+/// gets a node, so that a folder with no file is in the tree with a count of 0.
+private enum PathTreeBuilder {
+
+    static func nodes(paths: [String], folders: [String], folder: String) -> [PathNode] {
+        let prefix = folder.isEmpty ? "" : folder + "/"
+        let descendants = paths.filter { $0.hasPrefix(prefix) }
+        let folderDescendants = folders.filter { $0.hasPrefix(prefix) }
+        // A file names a folder only when it is below one. A folder path names
+        // itself, so its first component is always a folder at this level.
+        var folderNames = Set(descendants.compactMap { path -> String? in
+            let parts = path.dropFirst(prefix.count).split(separator: "/")
+            return parts.count > 1 ? String(parts[0]) : nil
+        })
+        for path in folderDescendants {
+            guard let first = path.dropFirst(prefix.count).split(separator: "/").first else { continue }
+            folderNames.insert(String(first))
+        }
+        let branches = folderNames.sorted(by: precedes).map { name -> PathNode in
+            let path = prefix + name
+            let count = descendants.filter { $0.hasPrefix(path + "/") }.count
+            return PathNode(path: path, name: name, isFolder: true, count: count,
+                            children: nodes(paths: descendants, folders: folderDescendants, folder: path))
+        }
+        let leaves = descendants.filter { ($0 as NSString).deletingLastPathComponent == folder }
+            .sorted { precedes(($0 as NSString).lastPathComponent, ($1 as NSString).lastPathComponent) }
+            .map { PathNode(path: $0, name: ($0 as NSString).lastPathComponent, isFolder: false, count: 1, children: []) }
+        return branches + leaves
+    }
+
+    private static func precedes(_ lhs: String, _ rhs: String) -> Bool {
+        lhs.localizedStandardCompare(rhs) == .orderedAscending
     }
 }

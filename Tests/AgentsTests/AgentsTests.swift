@@ -77,10 +77,9 @@ final class FolderSkillTests: XCTestCase {
 
 final class SkillTargetTests: XCTestCase {
 
-    func testTargetCarriesItsArgumentAndNote() {
+    func testATextTargetCarriesItsNote() {
         let id = UUID()
-        XCTAssertEqual(SkillTarget.page("/w/a.md").argument, "/w/a.md")
         XCTAssertEqual(SkillTarget.text("note", noteID: id).noteID, id)
-        XCTAssertEqual(SkillTarget.folder.argument, "")
+        XCTAssertNil(SkillTarget.page("/w/a.md").noteID)
     }
 }

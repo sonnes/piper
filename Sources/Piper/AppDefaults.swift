@@ -1,14 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// Every preference key the application reads, in one place.
-///
-/// No view holds a literal key or a literal size. A view that needs a stored
-/// value reads it here.
+/// The preference keys of the application, and the sizes of its views.
 @MainActor
-final class AppDefaults {
-
-    static let shared = AppDefaults()
+enum AppDefaults {
 
     // MARK: Keys
 
@@ -56,11 +51,6 @@ final class AppDefaults {
         static let paperDeskState = "paperDeskState"
         /// The frame of each reader paper, by its item.
         static let readerFrames = "readerFrames"
-
-        /// Keys carried over when the bundle identifier changed to `com.piper`.
-        static let migrated = [
-            vaultPath, captureShortcut, composerDraft, readerSize
-        ]
     }
 
     /// Frame autosave names. A window controller reads its own name from here.
@@ -185,7 +175,6 @@ final class AppDefaults {
         static let rowHeight: CGFloat = 48
         static let rowRadius: CGFloat = 12
         static let rowPadding: CGFloat = 12
-        static let iconSize: CGFloat = 18
         static let readerHeaderHeight: CGFloat = 48
         /// The grip of a reader paper. Its text starts at the side margin of the article.
         static let readerHeaderPadding = EdgeInsets(top: 14, leading: 56, bottom: 0, trailing: 16)
@@ -242,8 +231,6 @@ final class AppDefaults {
         /// The strip of keys at the bottom of the screen.
         static let hintBottom: CGFloat = 18
         static let hintHeight: CGFloat = 40
-        /// The line under the list with the latest copy of the clipboard.
-        static let footPadding = EdgeInsets(top: 12, leading: 12, bottom: 10, trailing: 12)
         static let footMargin: CGFloat = 20
         /// The most a count on a tab shows. A larger count shows as this number and a plus sign.
         static let countLimit = 999
@@ -260,6 +247,8 @@ final class AppDefaults {
         /// The segmented capsule of the lenses.
         static let lensHeight: CGFloat = 30
         static let lensPadding = EdgeInsets(top: 4, leading: 20, bottom: 8, trailing: 20)
+        /// The font size of a capture that is code, on its row.
+        static let codeFontSize: CGFloat = 14
         static let lensInset: CGFloat = 3
         /// The side padding of a segment that fits its title.
         static let segmentPadding: CGFloat = 10
@@ -276,27 +265,15 @@ final class AppDefaults {
         static let pickerRowHeight: CGFloat = 30
     }
 
-    enum ListSearch {
-        static let horizontalInset: CGFloat = 12
-        static let verticalInset: CGFloat = 8
-    }
-
-    /// The icon at the start of a row.
-    enum RowIcon {
+    /// The icon of a site.
+    enum SiteIcon {
         static let size: CGFloat = 18
         /// The corner radius of a tile, as a fraction of its side.
         static let tileCornerFraction: CGFloat = 0.28
-        /// The diameter of a section dot, as a fraction of the icon side.
-        static let dotFraction: CGFloat = 0.55
-        /// The size of the symbol in a tile, as a fraction of its side.
-        static let tileSymbolFraction: CGFloat = 0.62
     }
 
     /// The article list of a feed and Sources.
     enum Feeds {
-        static let headerHeight: CGFloat = 38
-        static let unreadDot: CGFloat = 7
-        static let articleIconSize: CGFloat = 12
         /// Sources scans the history again when it opens, if the last scan is older than this.
         static let siteScanInterval: TimeInterval = 86_400
         static let siteScanParallel = 4
@@ -319,6 +296,8 @@ final class AppDefaults {
         static let cornerRadius: CGFloat = 12
         static let queryFontSize = PiperTheme.TextSize.title
         static let fileLimit = 20
+        /// The most files that the line search lists.
+        static let contentFileLimit = 50
         static let commandLimit = 4
         static let recentLimit = 8
     }
@@ -331,19 +310,8 @@ final class AppDefaults {
     }
 
     enum Reader {
-        static let horizontalInset: CGFloat = 48
-        static let topInset: CGFloat = 20
-        /// The space over the byline at the top of a Markdown file.
-        static let headerTopInset: CGFloat = 36
-        /// The heading sizes of the reader page: 30, 21, and 18 points over a 16.5-point body.
-        static let headingMultipliers: [CGFloat] = [1.8, 1.27, 1.1, 1, 1, 1]
-        /// The extra line height as a part of the font size. The reader page uses a line height of 1.6.
-        static let lineSpacing: CGFloat = 0.4
         static let defaultFont = WikiReadingFont.serif
         static let defaultSize = 18.0
-        static let footnoteBaselineOffset: CGFloat = 6
-
-        static let columnWidth: CGFloat = 640
         static let codeFontSize: CGFloat = 13
     }
 
@@ -458,38 +426,6 @@ final class AppDefaults {
         static let cornerFraction: CGFloat = 0.24
     }
 
-    /// A row of the Inbox stream on the feed paper.
-    enum InboxRow {
-        static let controlSize: CGFloat = 18
-        /// The column that holds the circle or the ring.
-        static let controlColumn: CGFloat = 26
-        static let columnSpacing: CGFloat = 8
-        /// The space from the edge of the row to the text.
-        static let textInset: CGFloat = padding.leading + controlColumn + columnSpacing
-        static let padding = EdgeInsets(top: 9, leading: 8, bottom: 10, trailing: 10)
-        static let cornerRadius: CGFloat = 8
-        static let titleFontSize = PiperTheme.TextSize.body
-        static let metaFontSize = PiperTheme.TextSize.secondary
-        static let codeFontSize: CGFloat = 12
-        static let sectionDot: CGFloat = 7
-    }
-
-    /// A highlight or a question under a link capture in the list.
-    enum ChildNote {
-        static let fontSize = PiperTheme.TextSize.body.rawValue
-        static let lineSpacing: CGFloat = 1.5
-        static let ruleWidth: CGFloat = 2
-        static let tagFontSize = PiperTheme.TextSize.caption
-        static let tagHeight: CGFloat = 16
-        static let swatchSize: CGFloat = 7
-    }
-
-    /// The selection bar of the Inbox list.
-    enum CaptureItem {
-        static let actionSpacing: CGFloat = 8
-        static let actionMinimumWidth: CGFloat = 72
-    }
-
     /// Composer metrics.
     ///
     /// The height of the card follows from the line height. A whole number of
@@ -577,48 +513,5 @@ final class AppDefaults {
         /// The agent, model, and mode menus in the composer footer.
         static let footerMenuSpacing: CGFloat = 2
         static let footerAgentSpacing: CGFloat = 3
-    }
-
-    // MARK: Stored values
-
-    private let defaults = UserDefaults.standard
-
-    var vaultPath: String {
-        get {
-            defaults.string(forKey: Key.vaultPath)
-                ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Wiki").path
-        }
-        set { defaults.set(newValue, forKey: Key.vaultPath) }
-    }
-
-    var vaultURL: URL {
-        URL(fileURLWithPath: (vaultPath as NSString).expandingTildeInPath).standardizedFileURL
-    }
-
-    /// Control-Option-C was an earlier alternative. A stored value that no
-    /// longer matches a preset leaves the capture shortcut dead.
-    var captureShortcut: String {
-        get {
-            let stored = defaults.string(forKey: Key.captureShortcut) ?? "Shift, Shift"
-            return stored == "Control-Option-C" ? "Control-Option-Space" : stored
-        }
-        set { defaults.set(newValue, forKey: Key.captureShortcut) }
-    }
-
-    var readerSize: Double {
-        get { defaults.object(forKey: Key.readerSize) as? Double ?? Reader.defaultSize }
-        set { defaults.set(newValue, forKey: Key.readerSize) }
-    }
-
-    // MARK: Migration
-
-    /// Carries preferences across the bundle identifier change to `com.piper`.
-    func migrateLocalPreferencesIfNeeded(bundleIdentifier: String?) {
-        guard bundleIdentifier == "com.piper", !defaults.bool(forKey: Key.migratedLocalPreferences) else { return }
-        let previous = defaults.persistentDomain(forName: "local.piper") ?? [:]
-        for key in Key.migrated where defaults.object(forKey: key) == nil {
-            if let value = previous[key] { defaults.set(value, forKey: key) }
-        }
-        defaults.set(true, forKey: Key.migratedLocalPreferences)
     }
 }

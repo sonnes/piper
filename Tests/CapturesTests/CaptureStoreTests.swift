@@ -74,36 +74,11 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertFalse(first.isArticle)
     }
 
-    func testArchivedNotesStayOutOfSectionsAndSearch() {
-        let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("active note"))
-        XCTAssertTrue(store.add("archived note"))
-        let archivedID = store.notes[1].id
-        store.toggleDone(archivedID)
-
-        XCTAssertEqual(store.visibleNotes(in: "Inbox").map(\.text), ["active note"])
-        XCTAssertEqual(store.visibleNotes(in: "Inbox", archived: true).map(\.id), [archivedID])
-        store.query = "archived"
-        XCTAssertTrue(store.visibleNotes(in: "Inbox").isEmpty)
-        XCTAssertEqual(store.visibleNotes(in: "Inbox", archived: true).map(\.id), [archivedID])
-        store.query = "missing"
-        XCTAssertTrue(store.visibleNotes(in: "Inbox", archived: true).isEmpty)
-        store.query = ""
-        store.toggleDone(archivedID)
-        XCTAssertEqual(store.visibleNotes(in: "Inbox").count, 2)
-        XCTAssertTrue(store.visibleNotes(in: "Inbox", archived: true).isEmpty)
-    }
-
     func testMultipleSelectionsCopyAndDeleteTogether() {
         let store = CaptureStore(url: url())
         for text in ["first", "second", "third"] { XCTAssertTrue(store.add(text)) }
         let ids = store.notes.map(\.id)
-        store.toggleSelection(ids[0])
-        store.toggleSelection(ids[1])
-        store.toggleSelection(ids[2])
-        store.toggleSelection(ids[1])
-        XCTAssertEqual(store.selection, [ids[0], ids[2]])
-        XCTAssertEqual(store.copyText(asList: false), "first\n\nthird")
+        store.selection = [ids[0], ids[2]]
         store.deleteSelection()
         XCTAssertEqual(store.notes.map(\.text), ["second"])
         XCTAssertTrue(store.selection.isEmpty)
@@ -118,7 +93,6 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertTrue(store.add(text, interpretSection: false))
         XCTAssertTrue(store.add("second", source: "TextEdit"))
         store.selection = Set(store.notes.map(\.id))
-        XCTAssertEqual(store.copyText(asList: true), "1.   αβ\n   \t`code`\n   \n\n2. second")
         store.merge()
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(store.notes[0].text, text + "\n\nsecond")
@@ -172,11 +146,11 @@ final class CaptureStoreTests: XCTestCase {
         store.deleteSelection()
         XCTAssertTrue(store.notes.isEmpty)
         XCTAssertTrue(store.selection.isEmpty)
-        XCTAssertTrue(store.canUndo)
         store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first", "second"])
-        XCTAssertFalse(store.canUndo)
         XCTAssertEqual(store.status, "Last note change undone")
+        store.undo()
+        XCTAssertEqual(store.notes.map(\.text), ["first", "second"])
         XCTAssertEqual(CaptureStore(url: url()).notes.count, 2)
 
         XCTAssertTrue(store.add("third", interpretSection: false))
@@ -192,7 +166,6 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertTrue(store.add("second", interpretSection: false))
         store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first"])
-        XCTAssertFalse(store.canUndo)
         store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first"])
     }
@@ -205,14 +178,15 @@ final class CaptureStoreTests: XCTestCase {
         store.undo()
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
-        XCTAssertFalse(store.canUndo)
 
         XCTAssertTrue(store.chooseSection("Research"))
         store.undo()
-        XCTAssertFalse(store.canUndo)
+        XCTAssertTrue(store.chooseSection("Research"))
         XCTAssertTrue(store.chooseSection("inbox"))
         XCTAssertEqual(store.activeSection, "Inbox")
-        XCTAssertFalse(store.canUndo)
+        store.undo()
+        XCTAssertEqual(store.sections, ["Inbox"])
+        XCTAssertEqual(store.activeSection, "Inbox")
     }
 
     func testTheActiveSectionSurvivesAnUndo() {
@@ -222,7 +196,6 @@ final class CaptureStoreTests: XCTestCase {
         store.selection = Set(store.notes.map(\.id))
         store.deleteSelection()
         store.activeSection = "Inbox"
-        XCTAssertTrue(store.canUndo)
         store.undo()
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(store.activeSection, "Inbox")
@@ -255,7 +228,6 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertFalse(store.add("a note", interpretSection: false))
         XCTAssertFalse(store.chooseSection("Research"))
         XCTAssertTrue(store.notes.isEmpty)
-        XCTAssertFalse(store.canUndo)
         store.undo()
         XCTAssertTrue(store.notes.isEmpty)
     }
@@ -405,41 +377,24 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(stale.state, original)
         XCTAssertFalse(stale.deleteSection("Research"))
         XCTAssertEqual(stale.state, original)
-        XCTAssertFalse(stale.canUndo)
+        stale.undo()
+        XCTAssertEqual(stale.state, original)
         XCTAssertEqual(CaptureStore(url: url()).state, first.state)
     }
 
-    func testSelectionMovesCompletesAndSearches() {
+    func testSelectedNotesFollowTheSectionsAndMovesNeedASection() {
         let store = CaptureStore(url: url())
         XCTAssertTrue(store.chooseSection("Research"))
         XCTAssertTrue(store.add("alpha", to: "Inbox", interpretSection: false))
         XCTAssertTrue(store.add("beta", to: "Inbox", interpretSection: false))
         let ids = store.notes.map(\.id)
-        store.toggleSelection(ids[0])
-        store.toggleSelection(ids[1])
+        store.selection = [ids[1], ids[0]]
         XCTAssertEqual(store.selectedNotes.map(\.text), ["alpha", "beta"])
-        store.toggleSelection(ids[1])
-        XCTAssertEqual(store.selectedNotes.map(\.text), ["alpha"])
-        store.toggleSelection(ids[1])
 
-        store.completeSelection()
-        XCTAssertTrue(store.notes.allSatisfy(\.isDone))
-        store.completeSelection()
-        XCTAssertFalse(store.notes.contains(where: \.isDone))
-        store.toggleDone(ids[0])
-        XCTAssertTrue(store.notes[0].isDone)
-
-        store.move(to: "Research")
+        XCTAssertTrue(store.move(Set(ids), to: "Research"))
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Research"])
-        store.move(to: "Missing")
+        XCTAssertFalse(store.move(Set(ids), to: "Missing"))
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Research"])
-
-        store.query = "alp"
-        XCTAssertTrue(store.visibleNotes(in: "Research").isEmpty)
-        XCTAssertEqual(store.visibleNotes(in: "Research", archived: true).map(\.text), ["alpha"])
-        store.query = ""
-        XCTAssertEqual(store.visibleNotes(in: "Research").map(\.text), ["beta"])
-        XCTAssertEqual(store.copyText(asList: false), "alpha\n\nbeta")
     }
 
     func testMergeNeedsMoreThanOneNote() {
@@ -489,7 +444,6 @@ final class CaptureStoreTests: XCTestCase {
         let anchor = NoteAnchor(quote: "old pages", block: 1, offset: 40)
         let child = store.addChild("old pages", to: parent, tags: ["highlight", "yellow"], anchor: anchor)
         XCTAssertNotNil(child)
-        XCTAssertEqual(store.visibleNotes(in: "Inbox").map(\.id), [parent])
         XCTAssertEqual(store.children(of: parent).map(\.text), ["old pages"])
 
         let reopened = CaptureStore(url: url)
@@ -497,16 +451,6 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(reopened.children(of: parent).first?.tags, ["highlight", "yellow"])
         XCTAssertEqual(reopened.children(of: parent).first?.anchor, anchor)
         XCTAssertEqual(reopened.children(of: parent).first?.sourceURLs, ["https://example.dev/wal"])
-    }
-
-    func testASearchThatMatchesAChildFindsTheParent() {
-        let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("https://example.dev/wal"))
-        XCTAssertTrue(store.add("other"))
-        let parent = store.notes[0].id
-        XCTAssertNotNil(store.addChild("checkpoint starvation", to: parent, tags: ["highlight"]))
-        store.query = "starvation"
-        XCTAssertEqual(store.visibleNotes(in: "Inbox").map(\.id), [parent])
     }
 
     func testDeletingAParentDeletesItsChildren() {
@@ -526,8 +470,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertTrue(store.chooseSection("Reading"))
         let parent = store.notes[0].id
         XCTAssertNotNil(store.addChild("quote", to: parent, tags: ["highlight"]))
-        store.selection = [parent]
-        store.move(to: "Reading")
+        XCTAssertTrue(store.move([parent], to: "Reading"))
         XCTAssertEqual(store.notes.map(\.section), ["Reading", "Reading"])
     }
 
@@ -538,16 +481,12 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertTrue(store.notes.isEmpty)
     }
 
-    func testAppendAndAddTag() {
+    func testAppendAddsAParagraph() {
         let store = CaptureStore(url: url())
         XCTAssertTrue(store.add("Explain: wal-index"))
         let id = store.notes[0].id
         XCTAssertTrue(store.append("  A lookup table.  ", to: id))
         XCTAssertEqual(store.notes[0].text, "Explain: wal-index\n\nA lookup table.")
-        XCTAssertTrue(store.addTag("#SQLite", to: id))
-        XCTAssertTrue(store.addTag("sqlite", to: id))
-        XCTAssertFalse(store.addTag("two words", to: id))
-        XCTAssertEqual(store.notes[0].tags, ["sqlite"])
     }
 
     // MARK: - Database Version
@@ -626,7 +565,6 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.notes.map(\.text), ["https://example.dev/wal", "another"])
         XCTAssertTrue(store.children(of: parent).isEmpty)
         XCTAssertEqual(store.selection, [other])
-        XCTAssertTrue(store.canUndo)
         store.undo()
         XCTAssertEqual(store.children(of: parent).map(\.id), [child.id])
         XCTAssertEqual(store.children(of: child.id).count, 1)

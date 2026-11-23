@@ -70,15 +70,6 @@ final class WikiWorkspaceTests: XCTestCase {
         XCTAssertThrowsError(try WikiLinks.resolve("link/Note", from: docs[0], files: docs, vault: vault, wikiStyle: true))
     }
 
-    func testBacklinksIgnoreCodeAndImagesAndDeduplicateNotes() {
-        let target = document("Topics/Reading.md", title: "Reading rhythm")
-        let linked = document("Home.md", body: "[[Reading rhythm|Read]] and [again](Topics/Reading.md#Measure)")
-        let code = document("Code.md", body: "`[[Reading rhythm]]`\n\n```md\n[[Reading rhythm]]\n```\n\n![image](Topics/Reading.md)")
-        let unrelated = document("Other.md", body: "Reading rhythm is plain text.")
-        let docs = [target, linked, code, unrelated]
-        XCTAssertEqual(WikiLinks.backlinks(to: target, in: docs, vault: Vault(root: root)).map(\.id), ["Home.md"])
-    }
-
     func testMarkdownStructureKeepsCodeAndCreatesStableHeadingAnchors() {
         let text = "# Title\n\n## Same heading\n\nOne\nline.\n\n## Same heading\n\n- [x] Done\n  - Nested\n\n```swift\nlet code = \"[[Not a link]]\"\n# Not a heading\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n[^source]: A source."
         let blocks = WikiMarkdown.parse(text)
@@ -89,16 +80,6 @@ final class WikiWorkspaceTests: XCTestCase {
         XCTAssertEqual(blocks.first { $0.kind == .code }?.text, "let code = \"[[Not a link]]\"\n# Not a heading")
         XCTAssertEqual(blocks.filter { $0.kind == .table }.count, 1)
         XCTAssertEqual(blocks.last?.anchor, "fn-source")
-    }
-
-    func testInlineWikiAliasAndFootnoteProduceNavigableURLs() {
-        let value = WikiMarkdown.inline("Read [[Topics/Reading#Measure|this note]], then [^source]. Keep `[[literal]]`.")
-        XCTAssertEqual(String(value.characters), "Read this note, then source. Keep [[literal]].")
-        let links = value.runs.compactMap { $0.link }
-        XCTAssertEqual(links.count, 2)
-        XCTAssertEqual(URLComponents(url: links[0], resolvingAgainstBaseURL: false)?.queryItems?.first?.value, "Topics/Reading#Measure")
-        XCTAssertEqual(links[1].scheme, "piper-footnote")
-        XCTAssertEqual(String(WikiMarkdown.inline("![alt](https://example.invalid/image.png)").characters), "Image: alt")
     }
 
     /// One scan lists everything. Piper names no file special.

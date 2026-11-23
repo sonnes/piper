@@ -3,7 +3,7 @@ title: "Wiki Files"
 summary: "How Piper scans a folder, resolves links, and saves edits without losing changes"
 read_when:
   - Understanding which files Piper shows
-  - Debugging a link or a backlink
+  - Debugging a link
   - Changing the vault scan or the save path
 ---
 

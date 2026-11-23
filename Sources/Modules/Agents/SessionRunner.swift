@@ -100,7 +100,6 @@ public final class SessionRunner {
     @ObservationIgnored private var relaunches: Set<UUID> = []
 
     public var activeCount: Int { sessions.filter(\.isActive).count }
-    public var attentionCount: Int { sessions.filter { $0.state == .needsYou }.count }
 
     // MARK: - Initialization
 

@@ -81,10 +81,6 @@ final class SiteScan {
         }
     }
 
-    func block(_ host: String) {
-        blockedSites = BlockedSites.normalized(blockedSites + [host])
-    }
-
     // MARK: - Parts
 
     private nonisolated static func digest(_ sources: [HistorySource], blocked: [String]) async -> HistoryDigest {

@@ -23,7 +23,6 @@ export function createImageExtension(filePath: () => string) {
 			return {
 				...this.parent?.(),
 				uploadId: hidden,
-				uploadStatus: hidden,
 				uploadFile: hidden,
 				width: hidden,
 				height: hidden,
@@ -61,12 +60,12 @@ function ImageNodeView({
 		void uploadOnce(uploadId, filePath, uploadFile)
 			.then((src) => {
 				if (!cancelled) {
-					updateAttributes({ src, uploadId: null, uploadStatus: null, uploadFile: null });
+					updateAttributes({ src, uploadId: null, uploadFile: null });
 				}
 			})
 			.catch(() => {
 				if (!cancelled) {
-					updateAttributes({ uploadId: null, uploadStatus: "error", uploadFile: null });
+					updateAttributes({ uploadId: null, uploadFile: null });
 				}
 			});
 		return () => {
@@ -155,7 +154,6 @@ async function insertUploadImage(editor: Editor, file: File, pos?: number) {
 		src: "",
 		alt: "",
 		uploadId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-		uploadStatus: "uploading",
 		uploadFile: file,
 		width: size.width,
 		height: size.height,

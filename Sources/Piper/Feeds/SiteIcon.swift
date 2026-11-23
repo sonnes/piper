@@ -1,3 +1,4 @@
+import AppKit
 import Feeds
 import SwiftUI
 
@@ -9,12 +10,12 @@ struct SiteIcon: View {
     let title: String
     /// The place of the site in its list, for the color of the letter tile.
     let index: Int
-    var side: CGFloat = AppDefaults.RowIcon.size
+    var side: CGFloat = AppDefaults.SiteIcon.size
 
-    private var radius: CGFloat { side * AppDefaults.RowIcon.tileCornerFraction }
+    private var radius: CGFloat { side * AppDefaults.SiteIcon.tileCornerFraction }
 
     var body: some View {
-        if let data = favicons.icon(for: host), let image = RowIcon.favicon(data) {
+        if let data = favicons.icon(for: host), let image = Self.favicon(data) {
             Image(nsImage: image)
                 .resizable()
                 .interpolation(.high)
@@ -22,12 +23,36 @@ struct SiteIcon: View {
                 .clipShape(RoundedRectangle(cornerRadius: radius))
                 .accessibilityHidden(true)
         } else {
-            Text(RowIcon.monogram(title))
+            Text(Self.monogram(title))
                 .font(.system(size: side * 0.6, weight: .bold))
                 .foregroundStyle(PiperTheme.onAccent)
                 .frame(width: side, height: side)
-                .background(Color(nsColor: RowIcon.tagColor(at: index)), in: RoundedRectangle(cornerRadius: radius))
+                .background(Color(nsColor: Self.tagColor(at: index)), in: RoundedRectangle(cornerRadius: radius))
                 .accessibilityHidden(true)
         }
+    }
+}
+
+extension SiteIcon {
+    /// The color of the letter tile at a position in its list.
+    /// Neighbors get different colors, and the colors repeat after the last one.
+    static func tagColor(at index: Int) -> NSColor {
+        PiperTheme.tagsNS[max(index, 0) % PiperTheme.tagsNS.count]
+    }
+
+    /// The letter on a tile: the first letter or digit of the name, in capitals.
+    static func monogram(_ name: String) -> String {
+        name.first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "•"
+    }
+
+    private static var favicons: [Data: NSImage] = [:]
+
+    /// The image of a site icon, decoded once.
+    @MainActor
+    static func favicon(_ data: Data) -> NSImage? {
+        if let image = favicons[data] { return image }
+        guard let image = NSImage(data: data) else { return nil }
+        favicons[data] = image
+        return image
     }
 }

@@ -61,7 +61,7 @@ struct UndoOffer: Identifiable {
     let run: () -> Void
 }
 
-/// The state of Today and the four verbs of its rows: Keep, Done, File, and Send.
+/// The state of Today and the verbs of its rows, such as Keep, Done, File, and Send.
 ///
 /// The selection holds the rows of the stream, of any kind. The verbs act on
 /// the selected rows, or on one row from its buttons and menus.

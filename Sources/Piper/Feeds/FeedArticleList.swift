@@ -2,14 +2,13 @@ import Captures
 import Feeds
 import SwiftUI
 
-/// The articles of a row of the Feeds index, in the list of the feed paper.
+/// The articles of one feed, in the list of the feed paper.
 ///
-/// The keys match NetNewsWire: Space goes to the next unread article, R marks
-/// as read or unread, B opens the article in the browser, and
-/// Command-K marks every article as read. I keeps the article in Inbox.
+/// Space goes to the next unread article, as in NetNewsWire. K keeps the
+/// article, B opens it in the browser, and Command-K marks every article as read.
 struct FeedArticleList: View {
     @Bindable var model: AppModel
-    let filter: FeedFilter
+    let feedID: String
     let selectedID: String?
     let select: (Article?) -> Void
     /// Opens an article as a reader paper, after a click, Return, or Space.
@@ -22,20 +21,21 @@ struct FeedArticleList: View {
     @State private var scrollTarget: String?
 
     private var feeds: FeedStore { model.feeds }
+    private var feed: Feed? { feeds.feed(feedID) }
     private var selected: Article? { articles.first { $0.id == selectedID } }
 
     var body: some View {
         VStack(spacing: 0) {
             header
             if articles.isEmpty {
-                PaperEmpty(symbol: "dot.radiowaves.up.forward", title: emptyTitle, detail: emptyDetail)
+                PaperEmpty(symbol: "dot.radiowaves.up.forward", title: "No Articles", detail: feed?.error)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(articles) { article in
-                                FeedArticleRow(article: article, feed: feeds.feed(article.feedID), favicons: model.favicons,
-                                               showsFeed: !isOneFeed, selected: article.id == selectedID,
+                                FeedArticleRow(article: article, feed: feed, favicons: model.favicons,
+                                               selected: article.id == selectedID,
                                                toggleRead: { feeds.setRead(!article.read, [article]) }) {
                                     open(article)
                                     openPaper(article)
@@ -57,7 +57,7 @@ struct FeedArticleList: View {
             reload(keeping: false)
             setKeys(keys)
         }
-        .onChange(of: filter) { _, _ in reload(keeping: false) }
+        .onChange(of: feedID) { _, _ in reload(keeping: false) }
         .onChange(of: feeds.revision) { _, _ in reload(keeping: true) }
         .onChange(of: articles.map(\.id)) { _, _ in setKeys(keys) }
         .onChange(of: selectedID) { _, _ in setKeys(keys) }
@@ -67,7 +67,7 @@ struct FeedArticleList: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            if let error = oneFeed?.error {
+            if let error = feed?.error {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(PiperTheme.warning)
                     .help(error)
             }
@@ -78,7 +78,7 @@ struct FeedArticleList: View {
                 ProgressView().controlSize(.small).frame(width: AppDefaults.Papers.rowActionSize)
             }
             RowAction(symbol: "envelope.open", title: "Mark All as Read · Command-K",
-                      tint: articles.contains { !$0.read } ? PiperTheme.brand : PiperTheme.tertiaryLabel) { feeds.markAllRead(filter) }
+                      tint: articles.contains { !$0.read } ? PiperTheme.brand : PiperTheme.tertiaryLabel) { feeds.markAllRead(.feed(feedID)) }
                 .disabled(!articles.contains { !$0.read })
                 .keyboardShortcut("k", modifiers: .command)
         }
@@ -92,49 +92,17 @@ struct FeedArticleList: View {
         Button(article.read ? "Mark as Unread" : "Mark as Read") { feeds.setRead(!article.read, [article]) }
         Divider()
         Button("Keep") { model.keep([article]) }.disabled(model.isKept(article))
-        Button("Open in Browser") { openInBrowser(article) }
+        Button("Open in Browser") { model.openInBrowser(article) }
         Button("Copy Link") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(article.url, forType: .string)
         }
     }
 
-    // MARK: - Text
-
-    private var isOneFeed: Bool {
-        if case .feed = filter { return true }
-        return false
-    }
-
-    private var oneFeed: Feed? {
-        if case .feed(let id) = filter { return feeds.feed(id) }
-        return nil
-    }
-
-    private var title: String {
-        switch filter {
-        case .allUnread: return "All Unread"
-        case .feed: return oneFeed?.title ?? "Feed"
-        }
-    }
-
-    private var emptyTitle: String {
-        switch filter {
-        case .feed: return "No Articles"
-        default: return feeds.feeds.isEmpty ? "No Feeds" : "All Read"
-        }
-    }
-
-    private var emptyDetail: String? {
-        if feeds.feeds.isEmpty { return "Choose Sources in the More menu to add a feed." }
-        if let error = oneFeed?.error { return error }
-        return nil
-    }
-
     // MARK: - Actions
 
     private func reload(keeping: Bool) {
-        articles = feeds.articles(filter, keeping: keeping ? Set(articles.map(\.id)) : [])
+        articles = feeds.articles(.feed(feedID), keeping: keeping ? Set(articles.map(\.id)) : [])
         if let selectedID, !articles.contains(where: { $0.id == selectedID }) { select(nil) }
     }
 
@@ -143,9 +111,6 @@ struct FeedArticleList: View {
         select(article)
         if let article, !article.read { feeds.setRead(true, [article]) }
     }
-
-
-    private func openInBrowser(_ article: Article) { model.openInBrowser(article) }
 
     /// The keys of the list: the arrows move the selection, Return opens the
     /// article as a paper, Space opens the next unread article, and the
@@ -177,12 +142,11 @@ struct FeedArticleList: View {
     }
 }
 
-/// One article in the list: the icon of the site with the unread dot, the title, and the feed.
+/// One article in the list: the icon of the site with the unread dot, the title, and the host.
 private struct FeedArticleRow: View {
     let article: Article
     let feed: Feed?
     let favicons: FaviconStore
-    let showsFeed: Bool
     let selected: Bool
     let toggleRead: () -> Void
     let action: () -> Void
@@ -191,13 +155,13 @@ private struct FeedArticleRow: View {
         PaperRow(item: .article(article.id), selected: selected, time: RowTime.text(article.date), action: action) {
             ZStack(alignment: .topTrailing) {
                 SiteIcon(favicons: favicons, host: feed?.host ?? "", title: feed?.title ?? "", index: 0)
-                if !article.read { UnreadDot(unread: true).offset(x: 3, y: -3) }
+                if !article.read { UnreadDot().offset(x: 3, y: -3) }
             }
         } content: {
             VStack(alignment: .leading, spacing: 0) {
                 PaperRowTitle(text: Text(article.title), bold: !article.read)
                 PaperRowMeta {
-                    Text(showsFeed ? feed?.title ?? "" : feed?.host ?? "")
+                    Text(feed?.host ?? "")
                 }
             }
         } actions: {

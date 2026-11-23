@@ -8,17 +8,9 @@ struct WikiBlock: Identifiable, Equatable {
     var level = 0
     var marker = ""
     var anchor = ""
-    var sourceLine = 0
 }
 
 enum WikiMarkdown {
-    static func range(ofAnchor requested: String, in text: String) -> NSRange? {
-        guard let block = parse(text).first(where: { !$0.anchor.isEmpty && ($0.anchor == requested || $0.anchor == anchor(requested)) }) else { return nil }
-        let lines = text.components(separatedBy: "\n")
-        let location = lines.prefix(block.sourceLine).reduce(0) { $0 + $1.utf16.count + 1 }
-        return NSRange(location: location, length: lines[block.sourceLine].utf16.count)
-    }
-
     static func anchor(_ text: String) -> String {
         text.lowercased().replacingOccurrences(of: "[^\\p{L}\\p{N} _-]", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " +", with: "-", options: .regularExpression)
@@ -32,9 +24,8 @@ enum WikiMarkdown {
         var fence = ""
         var language = ""
         var anchors: [String: Int] = [:]
-        var sourceLine = 0
         func add(_ kind: WikiBlock.Kind, _ text: String, level: Int = 0, marker: String = "", anchor: String = "") {
-            result.append(WikiBlock(id: result.count, kind: kind, text: text, level: level, marker: marker, anchor: anchor, sourceLine: sourceLine))
+            result.append(WikiBlock(id: result.count, kind: kind, text: text, level: level, marker: marker, anchor: anchor))
         }
         func flush() {
             guard !paragraph.isEmpty else { return }
@@ -44,8 +35,7 @@ enum WikiMarkdown {
         }
         let list = try! NSRegularExpression(pattern: #"^(\s*)([-+*]|\d+[.)])\s+(.*)$"#)
         let footnote = try! NSRegularExpression(pattern: #"^\[\^([^\]]+)\]:\s*(.*)$"#)
-        for (lineIndex, line) in lines.enumerated() {
-            sourceLine = lineIndex
+        for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if code != nil {
                 if trimmed.hasPrefix(fence), trimmed.dropFirst(fence.count).allSatisfy({ $0 == fence.first || $0.isWhitespace }) {
@@ -94,28 +84,5 @@ enum WikiMarkdown {
         flush()
         if let code { add(.code, code.joined(separator: "\n"), marker: language) }
         return result
-    }
-
-    static func inline(_ text: String) -> AttributedString {
-        let pattern = #"`+[^`]*`+|!\[([^\]]*)\]\([^)]*\)|\[\[([^\]|]+)(?:\|([^\]]+))?\]\]|\[\^([^\]]+)\](?!:)"#
-        let regex = try! NSRegularExpression(pattern: pattern)
-        var rendered = text
-        for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
-            guard let range = Range(match.range, in: rendered) else { continue }
-            func group(_ index: Int) -> String? { Range(match.range(at: index), in: text).map { String(text[$0]) } }
-            if String(rendered[range]).hasPrefix("`") { continue }
-            if let alt = group(1) { rendered.replaceSubrange(range, with: "Image: " + alt); continue }
-            if let target = group(2) {
-                var components = URLComponents()
-                components.scheme = "piper-note"; components.host = "open"
-                components.queryItems = [URLQueryItem(name: "target", value: target)]
-                let label = (group(3) ?? target.components(separatedBy: "#").first ?? target).replacingOccurrences(of: "]", with: "\\]")
-                rendered.replaceSubrange(range, with: "[\(label)](\(components.url!.absoluteString))")
-            } else if let footnote = group(4) {
-                let target = footnote.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? footnote
-                rendered.replaceSubrange(range, with: "[\(footnote)](piper-footnote://source/\(target))")
-            }
-        }
-        return (try? AttributedString(markdown: rendered, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(text)
     }
 }

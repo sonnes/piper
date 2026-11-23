@@ -11,7 +11,6 @@ export type OpenRequest = {
 	path: string;
 	/** The full text of the file, with the frontmatter. */
 	text: string;
-	editable: boolean;
 	mode: Mode;
 	wikiTargets: WikiTarget[];
 	/** The byline: the date, the reading time, and the save state. */
@@ -34,7 +33,6 @@ export type Outgoing =
 	| { action: "link"; kind: "url" | "wiki"; target: string }
 	| { action: "image"; path: string; type: string; data: string }
 	| { action: "lossy"; path: string; reasons: string[] }
-	| { action: "copy"; text: string }
 	// The actions of the selection bar and the margin cards, as in reader.html.
 	| { action: "explain" | "define"; anchor: Anchor }
 	| { action: "ask"; anchor: Anchor; question: string }

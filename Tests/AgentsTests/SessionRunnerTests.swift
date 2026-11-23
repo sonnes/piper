@@ -91,7 +91,6 @@ final class SessionRunnerTests: XCTestCase {
         let message = try XCTUnwrap(object["message"] as? [String: Any])
         let content = try XCTUnwrap(message["content"] as? [[String: Any]])
         XCTAssertEqual(content.first?["text"] as? String, "/compact keep decisions")
-        XCTAssertEqual(session.lastPrompt, "/compact keep decisions")
         XCTAssertEqual(session.resumeToken, "s-1")
         guard case .assistant(_, let output) = session.blocks[session.blocks.count - 2] else {
             return XCTFail("The command output is missing")
@@ -165,7 +164,6 @@ final class SessionRunnerTests: XCTestCase {
         let session = start(runner)
         try await wait { session.state == .needsYou }
         let request = try XCTUnwrap(session.pendingRequest)
-        XCTAssertEqual(runner.attentionCount, 1)
 
         runner.allow(request, in: session)
         XCTAssertEqual(session.state, .running)

@@ -89,7 +89,7 @@ Immutable structs come first. A small amount of extra work to reach one is worth
 
 Piper is layered into modules under `Sources/Modules`, with the application target above them. Each module has one reason to exist.
 
-Dependencies between modules stay as few as possible. `PiperCore`, `PiperTree`, and `CapturesDatabase` add no dependency on another Piper module. They sit at the bottom, which keeps them reusable and keeps the build graph simple.
+Dependencies between modules stay as few as possible. `PiperCore` and `CapturesDatabase` add no dependency on another Piper module. They sit at the bottom, which keeps them reusable and keeps the build graph simple.
 
 Do not fight the system frameworks, and do not hide them behind a wrapper.
 

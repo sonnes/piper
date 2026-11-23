@@ -123,7 +123,6 @@ The application bundles the components below. Their license texts are in [`Licen
 | [Hubble.md](https://github.com/bholmesdev/hubble.md), the Markdown editor | MIT |
 | The packages of the editor page, such as Tiptap, ProseMirror, React, and remark. `Licenses/Editor.txt` lists each one. | MIT, ISC, Apache 2.0, and others |
 | [IBM Plex Mono](https://github.com/IBM/plex) | SIL Open Font License 1.1 |
-| [Lucide](https://lucide.dev) 1.49.0, row icons | ISC |
 | [Fraunces](https://github.com/undercasetype/Fraunces), the paper titles | SIL Open Font License 1.1 |
 | [Noto Sans](https://github.com/notofonts/latin-greek-cyrillic), the paper interface | SIL Open Font License 1.1 |
 

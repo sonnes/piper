@@ -17,8 +17,7 @@ public final class CaptureStore {
         didSet { childIndex = Self.childIndex(of: state.notes) }
     }
     /// The child notes of each parent, oldest first. Each change of the state rebuilds it.
-    public private(set) var childIndex: [UUID: [Note]] = [:]
-    public var query = ""
+    private var childIndex: [UUID: [Note]] = [:]
     public var selection: Set<UUID> = []
     public var status = "Local notes"
     public var errorMessage: String?
@@ -27,7 +26,6 @@ public final class CaptureStore {
     private var undoState: SavedState?
     public var notes: [Note] { state.notes }
     public var sections: [String] { state.sections }
-    public var canUndo: Bool { undoState != nil }
     public var activeSection: String {
         get { state.activeSection }
         set {
@@ -59,24 +57,9 @@ public final class CaptureStore {
 
     // MARK: - Reading
 
-    /// The notes of a section without a parent. A child note shows under its
-    /// parent, and a search that matches a child finds the parent.
-    public func visibleNotes(in section: String, archived: Bool = false) -> [Note] {
-        let ids = Set(notes.map(\.id))
-        return notes.filter { note in
-            guard note.section == section, note.isDone == archived, note.parent.map(ids.contains) != true else { return false }
-            return query.isEmpty || ([note.text, section] + children(of: note.id).map(\.text))
-                .contains { $0.localizedCaseInsensitiveContains(query) }
-        }
-    }
-
     /// The notes whose parent is this note, oldest first.
     public func children(of id: UUID) -> [Note] {
         childIndex[id] ?? []
-    }
-
-    public func toggleSelection(_ id: UUID) {
-        if selection.contains(id) { selection.remove(id) } else { selection.insert(id) }
     }
 
     // MARK: - Undo
@@ -144,20 +127,6 @@ public final class CaptureStore {
         return change(recordUndo: false) { state in
             guard let i = state.notes.firstIndex(where: { $0.id == id }) else { return }
             state.notes[i].text += "\n\n" + paragraph
-            state.notes[i].modifiedAt = Date()
-        }
-    }
-
-    /// Adds a tag. A tag is one word in lowercase, without a leading `#`.
-    @discardableResult public func addTag(_ tag: String, to id: UUID) -> Bool {
-        let tag = tag.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "#"))).lowercased()
-        guard !tag.isEmpty, !tag.contains(where: \.isWhitespace), tag.count <= 40 else {
-            report(PiperError("Use a tag with 1 to 40 characters and no spaces."))
-            return false
-        }
-        return change { state in
-            guard let i = state.notes.firstIndex(where: { $0.id == id }), !state.notes[i].tags.contains(tag) else { return }
-            state.notes[i].tags.append(tag)
             state.notes[i].modifiedAt = Date()
         }
     }
@@ -294,23 +263,6 @@ public final class CaptureStore {
         }
     }
 
-    public func completeSelection() {
-        let done = !selectedNotes.allSatisfy(\.isDone)
-        _ = change { state in
-            for i in state.notes.indices where selection.contains(state.notes[i].id) { state.notes[i].isDone = done; state.notes[i].modifiedAt = Date() }
-        }
-    }
-
-    public func move(to section: String) {
-        guard sections.contains(section), !selection.isEmpty else { return }
-        _ = change { state in
-            for i in state.notes.indices where selection.contains(state.notes[i].id) || state.notes[i].parent.map(selection.contains) == true {
-                state.notes[i].section = section
-                state.notes[i].modifiedAt = Date()
-            }
-        }
-    }
-
     public func merge() {
         let selected = selectedNotes
         guard selected.count > 1, let first = selected.first else { return }
@@ -441,7 +393,7 @@ public final class CaptureStore {
 
     /// Removes the page text that no link capture uses. A capture that Undo
     /// can bring back keeps its page text.
-    public func prunePages() {
+    private func prunePages() {
         guard let database else { return }
         let kept = Set((state.notes + (undoState?.notes ?? [])).compactMap { note -> String? in
             guard note.parent == nil, note.isArticle else { return nil }
@@ -456,18 +408,6 @@ public final class CaptureStore {
 
     // MARK: - Clipboard
 
-    public func copyText(asList: Bool) -> String {
-        selectedNotes.enumerated().map { index, note in
-            asList ? "\(index + 1). \(note.text.replacingOccurrences(of: "\n", with: "\n   "))" : note.text
-        }.joined(separator: "\n\n")
-    }
-
-    public func copy(asList: Bool) {
-        guard !selection.isEmpty else { return }
-        write(copyText(asList: asList))
-    }
-
-    /// Copies the text of one note.
     public func copy(_ id: UUID, to pasteboard: NSPasteboard = .general) {
         guard let note = notes.first(where: { $0.id == id }) else { return }
         write(note.text, to: pasteboard)

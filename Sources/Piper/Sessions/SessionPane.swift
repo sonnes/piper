@@ -162,21 +162,6 @@ private struct SessionFooter: View {
     }
 }
 
-/// The header over a session: its title and its state.
-struct SessionHeader: View {
-    let session: AgentSession?
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text(session?.title ?? "New Session")
-                .font(PiperTheme.paperUI(.body, weight: .semibold))
-                .lineLimit(1).truncationMode(.tail)
-            Spacer(minLength: 4)
-            if let session { SessionStateChip(session: session) }
-        }
-    }
-}
-
 /// One row of a transcript: a block, or the folded tool calls of a finished turn.
 enum TranscriptRow: Identifiable {
     case block(TranscriptBlock)

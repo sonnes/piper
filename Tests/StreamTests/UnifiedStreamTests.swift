@@ -104,11 +104,10 @@ final class UnifiedStreamTests: XCTestCase {
         XCTAssertEqual(StreamItem.state(of: article("a", read: true)), .reading)
     }
 
-    func testOldAndExpiredArticlesHaveNoRow() {
+    func testOldArticlesHaveNoRow() {
         let input = UnifiedStream.Input(notes: [], articles: [
             article("fresh", hoursAgo: 2),
-            article("old", hoursAgo: 24 * 8),
-            article("expired", hoursAgo: 24 * 40, read: true)
+            article("old", hoursAgo: 24 * 8)
         ], feeds: [feed(mode: .every)])
         XCTAssertEqual(UnifiedStream(input, lens: .all, now: now, calendar: calendar).items.map(\.title), ["fresh"])
     }

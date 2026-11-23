@@ -156,13 +156,9 @@ public enum ACP {
     /// A slash command that the agent offers.
     public struct Command: Equatable, Sendable {
         public let name: String
-        public let description: String
-        public let hint: String?
 
-        public init(name: String, description: String = "", hint: String? = nil) {
+        public init(name: String) {
             self.name = name
-            self.description = description
-            self.hint = hint
         }
     }
 
@@ -321,8 +317,7 @@ public enum ACP {
             case "available_commands_update":
                 self = .commands(json["availableCommands"]?.array.compactMap { command in
                     guard let name = command["name"]?.string else { return nil }
-                    return Command(name: name, description: command["description"]?.string ?? "",
-                                   hint: command["input"]?["hint"]?.string)
+                    return Command(name: name)
                 } ?? [])
             case "current_mode_update": self = json["currentModeId"]?.string.map(SessionUpdate.currentMode) ?? .other
             case "config_option_update":

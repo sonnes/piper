@@ -89,7 +89,7 @@ struct TodayRow: View {
             ZStack(alignment: .topTrailing) {
                 SiteIcon(favicons: model.favicons, host: host, title: item.source ?? host, index: 0)
                 if item.state == .new {
-                    UnreadDot(unread: true).offset(x: 3, y: -3)
+                    UnreadDot().offset(x: 3, y: -3)
                 }
             }
         case .clip:
@@ -110,7 +110,7 @@ struct TodayRow: View {
         switch item.kind {
         case .note where CaptureText.looksLikeCode(item.title), .clip where CaptureText.looksLikeCode(item.title):
             Text(CaptureText.firstLine(item.title))
-                .font(Font(PiperTheme.manuscript(size: AppDefaults.InboxRow.codeFontSize + 2)))
+                .font(Font(PiperTheme.manuscript(size: AppDefaults.Today.codeFontSize)))
                 .foregroundStyle(done ? PiperTheme.paperFaint : PiperTheme.paperInk)
                 .lineLimit(1)
                 .frame(minHeight: Metrics.rowLineHeight, alignment: .leading)
@@ -134,7 +134,7 @@ struct TodayRow: View {
 
     /// The source, the reason, and the progress of the row.
     @ViewBuilder private var meta: some View {
-        let session = item.note.flatMap { model.agents.latestSession(for: $0) }
+        let session = item.note.flatMap { model.agents.runner.latestSession(for: $0.id) }
         let parts = metaParts
         if session != nil || !parts.isEmpty || item.state == .kept {
             PaperRowMeta {

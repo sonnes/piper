@@ -175,7 +175,7 @@ final class CaptureService {
             return .article(article.id, isNew: isNew)
         }
         guard let saved = store.saveHighlight(selection.text, in: url, title: selection.title, source: source, to: section,
-                                              tags: [ReaderAssistant.highlightTag, ReaderAssistant.colors[0]]) else {
+                                              tags: [ReadingList.highlightTag, ReaderAssistant.colors[0]]) else {
             return .note(store.status, nil)
         }
         if let minutes = selection.minutes { store.updateReading(saved.article.id) { if $0.minutes == nil { $0.minutes = minutes } } }

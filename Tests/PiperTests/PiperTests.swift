@@ -36,7 +36,6 @@ final class PiperTests: XCTestCase {
         XCTAssertTrue(store.add(text, interpretSection: false))
         XCTAssertTrue(store.add("second", source: "TextEdit"))
         store.selection = Set(store.notes.map(\.id))
-        XCTAssertEqual(store.copyText(asList: true), "1.   αβ\n   \t`code`\n   \n\n2. second")
         store.merge()
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(store.notes[0].text, text + "\n\nsecond")
@@ -67,19 +66,17 @@ final class PiperTests: XCTestCase {
     func testFrontmatterIsReadWhenPresentAndAbsenceIsNotAProblem() {
         let raw = "---\ntype: Custom\ntitle: Test\ncustom: [a, b]\n---\nBody\n"
         let doc = makeFile(raw, path: "topics/test.md")
-        XCTAssertNil(doc.problem)
+        XCTAssertNil(doc.frontmatterProblem)
         XCTAssertEqual(doc.title, "Test")
         XCTAssertEqual(doc.body, "Body\n")
-        XCTAssertNotNil(doc.metadata["custom"])
 
         // The headline change: a plain file is a file, not a problem.
         let plain = makeFile("Just text, no block.\n", path: "notes.md")
-        XCTAssertNil(plain.problem)
-        XCTAssertTrue(plain.metadata.isEmpty)
+        XCTAssertNil(plain.frontmatterProblem)
         XCTAssertEqual(plain.body, "Just text, no block.\n")
         XCTAssertEqual(plain.title, "notes")
 
-        XCTAssertNotNil(makeFile("---\ntitle: [broken\n---\ntext", path: "bad.md").problem)
+        XCTAssertNotNil(makeFile("---\ntitle: [broken\n---\ntext", path: "bad.md").frontmatterProblem)
     }
 
     func testAPathThatLeavesTheVaultThrows() throws {

@@ -40,7 +40,7 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Decide whether the file paper needs find in the open file.
 - [ ] Test the paper keys, the hint strip, and the paper motion with real input. QA posted the key events to PiperQA in a locked session, so the menus, the mouse, a drag, and the animations are not checked.
 - [ ] Take new screenshots of the papers for the README and the guides. `main-window.png` and `feeds.png` show the old main window and the old feed tabs.
-- [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
+- [ ] Decide whether Piper needs an action that creates a new folder.
 - [ ] Import a real NetNewsWire `Subscriptions.opml`, and make sure that each feed refreshes.
 - [ ] Scan Sites You Read Often in the built app with Safari history. While Piper has no Full Disk Access, make sure that Settings > Feeds shows Open Privacy Settings.
 - [ ] Tune the Best mode with real feeds: the busy-day count of 3, the 2 best rows, and the relevance bar of 0.25.

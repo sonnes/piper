@@ -173,7 +173,7 @@ struct ReaderPaper: View {
             if let note = model.store.notes.first(where: { $0.id == id }) {
                 NoteDetail(model: model, note: note).id(note.id)
             } else {
-                EmptyPane(title: "Note Deleted", detail: "This note is no longer in Inbox.")
+                EmptyPane(title: "Note Deleted", detail: "This note was deleted.")
             }
         case .article(let id):
             if let article = model.feeds.article(id) {

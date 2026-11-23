@@ -131,7 +131,7 @@ final class PaperDesk {
         open(.session(id))
     }
 
-    /// Puts the cursor in the add field of the Inbox list.
+    /// Puts the cursor in the capture field of Today.
     func newCapture() {
         show()
         paper.newCapture()
@@ -159,13 +159,6 @@ final class PaperDesk {
         return true
     }
 
-    /// Closes the reader paper with the keyboard focus. Returns false when no reader paper has it.
-    @discardableResult func closeFocused() -> Bool {
-        guard let reader = readers.first(where: { $0.window === PaperKey.focusedWindow }) else { return false }
-        reader.window?.performClose(nil)
-        return true
-    }
-
     /// Gives the keyboard focus to the next paper: the feed paper, then the
     /// reader papers in the order they opened.
     func cycle() {
@@ -176,9 +169,11 @@ final class PaperDesk {
         QA.activate()
     }
 
-    /// Closes a sheet on any paper, so that a modal alert can appear.
+    /// Closes a sheet on the feed paper, so that a modal alert can appear.
     func dismissAttachedSheet() {
-        feed?.dismissAttachedSheet()
+        guard let window = feed?.window, let sheet = window.attachedSheet else { return }
+        window.endSheet(sheet)
+        sheet.orderOut(nil)
     }
 
     // MARK: - Placement
@@ -223,8 +218,8 @@ final class PaperDesk {
         return PaperPlacement.clamp(frame, to: screens, minimum: AppDefaults.Papers.readerMinimumSize)
     }
 
-    /// The size of a new paper for an item. An article and a file take the
-    /// size of the Write paper. A short note and a session take less.
+    /// The kind of a new paper for an item, which sets its size. An article and
+    /// a file take the size of the Write paper. A short note and a session take less.
     static func kind(of item: PaperItem, model: AppModel) -> PaperKind {
         switch item {
         case .note(let id):

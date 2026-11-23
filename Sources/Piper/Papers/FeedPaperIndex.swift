@@ -92,9 +92,8 @@ struct FeedPaperIndex: View {
     }
 
     /// A row that the keyboard can pick. It is current while the list shows its scope.
-    private func row(_ entry: IndexEntry, title: String, leading: AnyView? = nil, count: Int,
-                     current: Bool? = nil) -> IndexRow {
-        IndexRow(title: title, leading: leading, count: count, current: current ?? (paper.currentEntry == entry),
+    private func row(_ entry: IndexEntry, title: String, leading: AnyView? = nil, count: Int) -> IndexRow {
+        IndexRow(title: title, leading: leading, count: count, current: paper.currentEntry == entry,
                  cursor: paper.indexCursor == entry) { paper.pick(entry) }
     }
 
@@ -126,7 +125,7 @@ struct IndexHeader: View {
     }
 }
 
-/// An action at the end of an index or of the folder tree, such as Add Feed.
+/// An action at the end of an index, such as New Section.
 struct IndexAction: View {
     let title: String
     let action: () -> Void
@@ -142,11 +141,10 @@ struct IndexAction: View {
     }
 }
 
-/// One row of an index: an icon, a title, and a count.
+/// One row of an index: a leading mark, a title, and a count.
 struct IndexRow: View {
     let title: String
     var leading: AnyView?
-    var icon: RowIcon?
     let count: Int
     let current: Bool
     /// True for the row that Return picks.
@@ -160,7 +158,7 @@ struct IndexRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            if let leading { leading } else if let icon { RowIconView(icon: icon) }
+            if let leading { leading }
             Text(title).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
             if count > 0 {
@@ -220,22 +218,5 @@ struct FolderMark: View {
             }
             .padding(.top, 3)
             .accessibilityHidden(true)
-    }
-}
-
-/// A `RowIcon` at the size of a row.
-struct RowIconView: View {
-    let icon: RowIcon
-    var side = AppDefaults.RowIcon.size
-
-    var body: some View {
-        if case .glyph(_, let color) = icon, let image = icon.image(side: side) {
-            Image(nsImage: image).renderingMode(.template).resizable().interpolation(.high)
-                .foregroundStyle(Color(nsColor: color))
-                .frame(width: side, height: side)
-                .accessibilityHidden(true)
-        } else if let image = icon.image(side: side) {
-            Image(nsImage: image).frame(width: side, height: side).accessibilityHidden(true)
-        }
     }
 }

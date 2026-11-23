@@ -9,7 +9,6 @@ public final class AgentProcess {
 
     // MARK: - Properties
 
-    public let arguments: [String]
     private let process = Process()
     private let input = Pipe()
     private var isInputOpen = true
@@ -22,7 +21,6 @@ public final class AgentProcess {
 
     /// Makes a process that runs in `folder`. See `setCommand(of:to:arguments:usesLoginShell:)`.
     public init(command: String, arguments: [String], folder: URL, usesLoginShell: Bool) {
-        self.arguments = arguments
         Self.setCommand(of: process, to: command, arguments: arguments, usesLoginShell: usesLoginShell)
         process.currentDirectoryURL = folder
     }

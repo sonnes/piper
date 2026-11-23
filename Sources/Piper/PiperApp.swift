@@ -114,8 +114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
         editItem.submenu = edit
         main.addItem(editItem)
-        // Keys that the Wiki window used to handle through an event monitor.
-        // A menu item puts them on the responder chain instead, which is where
+        // A menu item puts these keys on the responder chain, which is where
         // AppKit expects them and which shows them to the reader.
         let fileMenu = NSMenu(title: "File")
         fileMenu.addItem(withTitle: "New Capture", action: #selector(newCapture), keyEquivalent: "n").target = self
@@ -222,15 +221,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     /// Saves the open file at once. The editor saves by itself 120 ms after an edit.
     @objc private func saveFile() {
         Task { @MainActor in
-            await flushEditor()
+            await model.flushEditor()
             if let session = model.editor { model.saveEditor(session) }
         }
     }
 
-    /// Takes the newest text from the editor page, which can be newer than its last save.
-    private func flushEditor() async {
-        await model.flushEditor()
-    }
     @objc private func refreshVault() { model.reload() }
     @objc private func goBack() { model.navigate(-1) }
     @objc private func goForward() { model.navigate(1) }
@@ -252,7 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         [
             PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.newCapture() },
             PaletteCommand(title: "Sources", shortcut: "") { [weak self] in self?.desk.showSources() },
-            PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.loadedEditorPage?.command("find") },
+            PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.loadedEditorPage?.webView.findInPage(nil) },
             PaletteCommand(title: model.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
                 self?.model.showsFileSource.toggle()
             },
@@ -389,13 +384,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         // The guards below ask through a modal alert, and an attached sheet
         // stops that alert from appearing. Quit then does nothing at all, so
         // close the sheet first.
-        dismissAttachedSheet()
+        desk.dismissAttachedSheet()
         if !confirmStoppingRuns() { return .terminateCancel }
         for session in Array(model.captureEdits.values) {
             if !resolveCaptureEdit(session) { return .terminateCancel }
         }
         Task { @MainActor in
-            await flushEditor()
+            await model.flushEditor()
             let settled = model.settleEditors()
             if !settled {
                 showLibrary()
@@ -432,12 +427,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         alert.addButton(withTitle: "Stop and Quit")
         alert.addButton(withTitle: "Cancel").keyEquivalent = "\u{1b}"
         return alert.runModal() == .alertFirstButtonReturn
-    }
-
-    /// Closes a sheet on any window, so that a modal alert can appear.
-    private func dismissAttachedSheet() {
-        desk.dismissAttachedSheet()
-        model.route = "wiki"
     }
 
     func applicationWillTerminate(_ notification: Notification) {

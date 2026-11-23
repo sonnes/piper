@@ -13,7 +13,6 @@ let package = Package(
 
         // Bottom modules. These add no dependency on another Piper module.
         .target(name: "PiperCore", dependencies: ["Yams"], path: "Sources/Modules/PiperCore"),
-        .target(name: "PiperTree", path: "Sources/Modules/PiperTree"),
         .target(name: "CapturesDatabase", dependencies: ["CSQLite"], path: "Sources/Modules/CapturesDatabase"),
 
         // Middle modules.
@@ -27,11 +26,10 @@ let package = Package(
         // Application target.
         .executableTarget(name: "Piper", dependencies: [
             "CSQLite", "Yams",
-            "PiperCore", "PiperTree", "CapturesDatabase", "Captures", "Vault", "Agents", "History", "Feeds", "Stream"
+            "PiperCore", "CapturesDatabase", "Captures", "Vault", "Agents", "History", "Feeds", "Stream"
         ], resources: [.process("Resources")]),
 
         .testTarget(name: "PiperTests", dependencies: ["Piper"]),
-        .testTarget(name: "PiperTreeTests", dependencies: ["PiperTree"], path: "Tests/PiperTreeTests"),
         .testTarget(name: "CapturesTests", dependencies: ["Captures"], path: "Tests/CapturesTests"),
         .testTarget(name: "AgentsTests", dependencies: ["Agents"], path: "Tests/AgentsTests"),
         .testTarget(name: "HistoryTests", dependencies: ["History", "CSQLite"], path: "Tests/HistoryTests"),

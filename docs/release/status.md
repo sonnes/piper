@@ -59,7 +59,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Reader papers: placement, cascade, focus of an open item, Escape, and Next Paper | Implemented | `PaperDeskStateTests` (placement, free places), `PaperDeskTests` (the open file). Open, focus, Put Back, and placement checked in the app with agent-desktop. Escape and Command-` not checked in the app. |
 | Move, resize, and zoom a paper, and keep its frame | Implemented | `PaperDeskStateTests` (saved frames, the frame limit, the clamp to the screens, the minimum sizes, the resize band and its math, zoom, the double-click setting, the cascade with no saved frame). A real drag of an edge, the pointers, and a change of displays are not checked in the app. |
 | A tab for each folder, with its own color | Implemented | `PaperDeskStateTests` (column, colors, stubs), `PaperDeskTests` (active folder on a tab click) |
-| Folder tree with any folder structure | Implemented | `VaultTests`, `PathTreeBuilderTests`, `TreeControllerTests` |
+| Folder tree with any folder structure | Implemented | `VaultTests`, `PaperDeskTests` |
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |
 | Feed parsing: RSS, Atom, RSS-in-JSON, JSON Feed, and OPML | Implemented | `FeedsTests` (the upstream parser tests of NetNewsWire, with their fixtures) |
 | Feed subscriptions, refresh, read marks, and the mode of each feed | Implemented | `FeedStoreTests` (conditional GET, failure waits, prune, marks, mode on an old database). Not checked on a real build. |
@@ -81,7 +81,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Markdown rendering | Partial | The Hubble.md editor with GFM. Link titles and table alignment open read-only. |
 | Add and remove folders | Implemented | `WikiFoldersTests` |
 | Find in the open file | Implemented | The find bar of the editor. Not checked in the app. |
-| Create a new Wiki from the UI | Not implemented | `Vault.create()` exists and has tests, but no UI calls it |
+| Create a new folder from the UI | Not implemented | None |
 | Concurrent external edits | Partial | A three-way compare before each save. No shared lock. |
 
 ## Today And The Reader

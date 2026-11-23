@@ -12,7 +12,7 @@ import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import { send } from "./bridge";
 
-/** A margin note from Piper. The fields match `ReaderPageNote` in Swift. */
+/** A margin note from Piper. It has the fields of `ReaderPageNote` in Swift that the page uses. */
 export type PageNote = {
 	id: string;
 	kind: "highlight" | "note" | "question";
@@ -33,9 +33,6 @@ type Anchor = { quote: string; block: number; offset: number };
 const CARD_WIDTH = 250;
 const CARD_GAP = 36;
 const COLUMN = 736;
-const COLORS = ["yellow", "green", "pink"] as const;
-
-// ---------- the place of a quote ----------
 
 /** The document range of the first occurrence of a quote, or null. */
 export function findQuote(doc: PMNode, quote: string): { from: number; to: number } | null {
@@ -79,8 +76,6 @@ function selectedAnchor(editor: Editor): Anchor | null {
 	return { quote, block: $from.index(0), offset };
 }
 
-// ---------- the underline of a question ----------
-
 const questionKey = new PluginKey<DecorationSet>("piperQuestions");
 let questions: PageNote[] = [];
 
@@ -114,8 +109,6 @@ function setQuestions(editor: Editor | null, notes: PageNote[]) {
 	questions = notes.filter((note) => note.kind === "question");
 	if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta(questionKey, true));
 }
-
-// ---------- the layer ----------
 
 export function ReaderLayer({
 	editor,
@@ -170,8 +163,6 @@ function useWide(viewport: HTMLDivElement | null, hasCards: boolean) {
 	}, [viewport, hasCards]);
 	return wide;
 }
-
-// ---------- the selection bar ----------
 
 type Line = { kind: "ask" | "note"; anchor: Anchor } | null;
 
@@ -269,7 +260,6 @@ function SelectionBar({ editor, viewport, editable }: { editor: Editor; viewport
 			<div className={`piper-askline ${line.kind}`} style={{ left: place.left, top: place.top }}>
 				<span className="star">{line.kind === "ask" ? "✳" : "✎"}</span>
 				<input
-					// biome-ignore lint/a11y/noAutofocus: the line opens for typing
 					autoFocus
 					value={input}
 					placeholder={line.kind === "ask" ? "Ask about the selected text" : "Add a note to the selected text"}
@@ -291,7 +281,7 @@ function SelectionBar({ editor, viewport, editable }: { editor: Editor; viewport
 			onMouseDown={(event) => event.preventDefault()}
 		>
 			{editable && (
-				<button type="button" onClick={() => highlight(COLORS[0])}>
+				<button type="button" onClick={() => highlight("yellow")}>
 					Highlight
 				</button>
 			)}
@@ -327,8 +317,6 @@ function SelectionBar({ editor, viewport, editable }: { editor: Editor; viewport
 		</div>
 	);
 }
-
-// ---------- the margin cards ----------
 
 function MarginCards({
 	editor,
@@ -371,7 +359,6 @@ function MarginCards({
 	}, [editor, viewport]);
 
 	// Each card sits beside its passage, and never over the card above it.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: version and collapsed change the layout
 	useLayoutEffect(() => {
 		if (!wide) return;
 		const box = viewport.getBoundingClientRect();
@@ -430,7 +417,6 @@ function Paragraphs({ text }: { text: string }) {
 				.split(/\n{2,}/)
 				.filter((part) => part.trim())
 				.map((part, index) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: the paragraphs have no id
 					<p key={index}>{inlineCode(part)}</p>
 				))}
 		</>
@@ -440,7 +426,6 @@ function Paragraphs({ text }: { text: string }) {
 function inlineCode(text: string): ReactNode[] {
 	return text.split(/(`[^`]+`)/).map((part, index) =>
 		part.startsWith("`") && part.endsWith("`") && part.length > 1 ? (
-			// biome-ignore lint/suspicious/noArrayIndexKey: the parts have no id
 			<code key={index}>{part.slice(1, -1)}</code>
 		) : (
 			part
@@ -485,7 +470,6 @@ function QuestionCard({ card, collapsed, toggle }: { card: PageNote; collapsed: 
 			</div>
 			<div className="quote">{card.quote.length > 90 ? `${card.quote.slice(0, 90)}…` : card.quote}</div>
 			{card.turns.map((turn, index) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: the turns have no id
 				<div key={index}>
 					{turn.question ? <div className="q">{turn.question}</div> : null}
 					{turn.answer ? (

@@ -32,7 +32,6 @@ flowchart LR
 | --- | --- | --- |
 | `CSQLite` | System SQLite, through `pkg-config` | nothing |
 | `PiperCore` | `PiperError`, the frontmatter parser, and `PaletteSearch` | Yams |
-| `PiperTree` | `Node`, `TreeController`, and `PathTreeBuilder` | nothing |
 | `CapturesDatabase` | One versioned blob in SQLite, with compare-and-swap | `CSQLite` |
 | `Captures` | `Note`, `CaptureStore`, `ClipboardInbox`, `CaptureLinks`, and edit sessions | `PiperCore`, `CapturesDatabase` |
 | `Vault` | One folder: scan, read, write, and watch | `PiperCore`, Yams |
@@ -42,7 +41,7 @@ flowchart LR
 | `Stream` | `UnifiedStream`, `StreamItem`, `FeedRows`, `Relevance`, `FeedStats`, and `StarMigration` | `Captures`, `Feeds` |
 | `Piper` | Windows, views, and app state | All modules and Yams |
 
-`PiperCore`, `PiperTree`, and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser.
+`PiperCore` and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser.
 
 Each module has a test target with the same name and a `Tests` suffix. `PiperTests` tests the application target.
 
@@ -94,7 +93,7 @@ A row of a list calls `FeedPaperModel.open`, which `PaperDesk.open(_:)` handles.
 
 `AppModel.sessionPresentation` is the pill, the card, or the detached panel, and preferences keep it. `SessionCard` hosts `SessionPane`, and `SessionTarget` picks its folder, its session, and its context page. `SessionPanelController` shows the same card in a non-activating `NSPanel` on every Space. Its close button returns the presentation to the pill. When a reader paper becomes key, the desk sets `AppModel.actionTarget` from its item.
 
-`PaperDesk.cycle()` moves the focus to the next visible paper, for Next Paper (Command-`). `PaperDesk.closeFocused()` closes the reader paper with the focus. `PaperDesk.tidy()` moves each reader paper back to its place of the cascade.
+`PaperDesk.cycle()` moves the focus to the next visible paper, for Next Paper (Command-`). `PaperDesk.tidy()` moves each reader paper back to its place of the cascade.
 
 `PaperFrames` keeps the frame of each reader paper by its `PaperItem`, in `readerFrames`, with the newest 200 frames. `ReaderPaperController` reports each move and each resize to the desk after the paper is in its place. `PaperDesk.frame(of:saved:screens:)` gives the saved frame of a new paper, or nil, and a paper with no saved frame takes the cascade. `PaperPlacement.clamp(_:to:minimum:)` moves a frame onto the screen that holds the most of it, or onto the first screen, and shrinks it to that screen. The feed paper and the saved reader frames pass through it. On `NSApplication.didChangeScreenParametersNotification`, the desk calls `PaperWindow.keepOnScreen()` on each paper.
 
@@ -104,7 +103,7 @@ A row of a list calls `FeedPaperModel.open`, which `PaperDesk.open(_:)` handles.
 
 - The feed paper reads the number keys through `NumberKey.action`, Left Arrow, the brackets, and T. On the index, the arrows move `FeedPaperModel.indexCursor` over `IndexEntry.entries`, and Return picks the row.
 - A list of articles, files, or sessions sets `FeedPaperModel.listKeys` for its arrows, Return, and letters. Today reads its own keys in `TodayView`. `FeedPaperController` reads Command and a number first, for the tabs, so the plain digits stay free for the lenses.
-- A reader paper scrolls the Reader tab with the arrows, sends H and N to the reader page, and gives R, S, I, and B to `AppModel.articleKey`. While the reader page has the focus, the page reads its own keys. It posts each letter that it does not use, and the paper performs it.
+- A reader paper scrolls the Reader tab with the arrows, sends H and N to the reader page, and gives K and B to `AppModel.articleKey`. While the reader page has the focus, the page reads its own keys. It posts each letter that it does not use, and the paper performs it.
 
 `HintStrip` is a non-activating panel at the bottom of the screen. `Hint.hints` gives the keys for the paper with the focus, and the desk updates the strip when the focus changes.
 
@@ -138,7 +137,7 @@ The service then looks for a web page. It reads `AXDocument` from the focused el
 
 `UnifiedStream` in the `Stream` module joins the captures of `CaptureStore`, the texts of `ClipboardInbox`, and the articles of `FeedStore` into one read-only list. It owns no data. Each row is a `StreamItem`. Its `Ref` names the store of the item: a note, an article, a digest of one feed on one day, or a clip. The state of an item is new, reading, kept, or done. A capture is kept when it has the `kept` tag or child notes.
 
-The stream drops an article when a capture holds its link, so a kept article shows as one row. It also drops an article older than 7 days, or a read article older than `FeedStore.keepDays`. A section scope shows no articles. A search gives each matching article its own row. The lens filters the rows: All, Notes, Reading, or Kept. All groups the rows as Continue Reading and the days. Reading groups them as Continue, Up Next, and Finished This Week. `UnifiedStream.done` groups the done captures by the month of `modifiedAt`.
+The stream drops an article when a capture holds its link, so a kept article shows as one row. It also drops an article older than 7 days. A section scope shows no articles. A search gives each matching article its own row. The lens filters the rows: All, Notes, Reading, or Kept. All groups the rows as Continue Reading and the days. Reading groups them as Continue, Up Next, and Finished This Week. `UnifiedStream.done` groups the done captures by the month of `modifiedAt`.
 
 `FeedRows` turns the new articles of each feed and day into rows by the `FeedMode` of the feed. A busy day has more than 3 articles from one feed. On a busy day, Best gives an article row to the 2 best articles at or above `Relevance.bar`. The other articles go into one digest row. `Relevance` scores an article from 0 to 1 with local data only. The score uses the keep rate of the feed from `FeedStats`, and the visits to its site from the history suggestions. It also uses the words that the title shares with the file names of the active folder. It sends no request.
 
@@ -278,7 +277,7 @@ The editor adds an empty paragraph after a last block that is not a paragraph, s
 
 `CommandPaletteController` shows `CommandPaletteView` in a borderless child panel of the paper with the focus, or of the feed paper. `PaletteResults` ranks files with `PaletteSearch.score` and finds lines with `PaletteSearch.excerpts`, off the main thread. The scores copy `fuzzy.ts` of Hubble.md.
 
-`WikiWorkspace` owns the navigation history. `WikiLinks` resolves links and computes backlinks. `WikiMarkdown` parses blocks for the outline, heading anchors, and backlinks.
+`WikiWorkspace` owns the navigation history. `WikiLinks` resolves links. `WikiMarkdown` parses the blocks of a file for the margin agent.
 
 ## Link Reader
 
@@ -328,7 +327,7 @@ After each refresh, `FeedStore` prunes the read articles that arrived more than 
 
 `OPMLImport` reads an OPML file and returns each feed, also the feeds in folders. `OPMLImport.netNewsWireFile` is the OPML file of the On My Mac account of NetNewsWire.
 
-`FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` and `RowIcon.favicon` draw the icon.
+`FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` draws the icon.
 
 `SourcesView` lists the feeds with their `FeedStats` and their `FeedMode`, adds a feed with `FeedDiscovery`, imports OPML, and shows the history suggestions. `FeedArticleList` fills the list of one feed. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `TabIsland` as `ArticleReader`. The header of the article paper has Keep. `AppModel.keep(_:)` keeps articles for Today, the feed list, and the article paper. `FeedStore.revision` changes after each write, so the views read again.
 
@@ -390,9 +389,9 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [CommandPalette.swift](../../Sources/Piper/CommandPalette.swift) | The command palette |
 | [ReadingAppearance.swift](../../Sources/Piper/ReadingAppearance.swift) | Reading themes, fonts, and appearance |
 | [web/](../../web) | The source of the editor page |
-| [WikiWorkspace.swift](../../Sources/Piper/WikiWorkspace.swift) | Navigation history, link resolution, and backlinks |
-| [WikiMarkdown.swift](../../Sources/Piper/WikiMarkdown.swift) | Block parsing, heading anchors, and inline text |
-| [Wiki.swift](../../Sources/Piper/Wiki.swift) | File metadata |
+| [WikiWorkspace.swift](../../Sources/Piper/WikiWorkspace.swift) | Navigation history and link resolution |
+| [WikiMarkdown.swift](../../Sources/Piper/WikiMarkdown.swift) | Block parsing and heading anchors |
+| [Wiki.swift](../../Sources/Piper/Wiki.swift) | The whole text of a file |
 | [SettingsWindow.swift](../../Sources/Piper/SettingsWindow.swift) | The Settings window and its panes |
 | [QAHooks.swift](../../Sources/Piper/QAHooks.swift) | QA mode: no activation, and scripts in the editor page |
 

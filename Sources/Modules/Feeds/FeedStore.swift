@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// The subscriptions and their counts, for Today, the Sources paper, and the list of a feed.
+/// The subscriptions, for Today, the Sources paper, and the list of a feed.
 /// It owns the database and the refresh of each feed.
 ///
 /// The database calls run on the main thread. A fetch and its parse run in a
@@ -11,22 +11,18 @@ public final class FeedStore {
 
     // MARK: - Properties
 
-    public static let refreshInterval: TimeInterval = 30 * 60
     /// Piper removes a read article after this many days. A kept article
     /// lives on as a link capture.
     nonisolated public static let keepDays = 30
     static let parallelFetches = 4
 
     public private(set) var feeds: [Feed] = []
-    public private(set) var unreadCounts: [String: Int] = [:]
     public private(set) var suggestions: [Suggestion] = []
     /// The IDs of the feeds that a fetch holds now.
     public private(set) var fetching: Set<String> = []
     /// Changes on each write, so a list of articles can read the database again.
     public private(set) var revision = 0
     public private(set) var loadError: String?
-
-    public var totalUnread: Int { unreadCounts.values.reduce(0, +) }
 
     @ObservationIgnored private let database: FeedDatabase?
     @ObservationIgnored private let session: URLSession
@@ -89,12 +85,6 @@ public final class FeedStore {
     public func setMode(_ mode: FeedMode, of id: String) {
         guard var feed = feed(id), feed.mode != mode else { return }
         feed.mode = mode
-        write { try $0.save(feed) }
-    }
-
-    public func rename(_ id: String, to title: String) {
-        guard var feed = feed(id), let title = title.nilIfEmptyOrWhitespace else { return }
-        feed.title = title
         write { try $0.save(feed) }
     }
 
@@ -234,7 +224,6 @@ public final class FeedStore {
     private func reload() {
         guard let database else { return }
         feeds = (try? database.feeds()) ?? []
-        unreadCounts = (try? database.unreadCounts()) ?? [:]
         suggestions = (try? database.suggestions()) ?? []
         revision += 1
     }

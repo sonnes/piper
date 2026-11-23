@@ -225,8 +225,6 @@ final class AgentSessionTests: XCTestCase {
         XCTAssertEqual(session.totalCost, 0.03, accuracy: 0.0001)
         XCTAssertEqual(session.totalDuration, 2)
         XCTAssertEqual(session.lastStep, "Edit /w/wiki/sources/a.md")
-        XCTAssertEqual(session.lastPrompt, "Thanks")
-        XCTAssertEqual(session.snippet, "boom")
         XCTAssertNil(session.failure)
         session.state = .failed
         XCTAssertEqual(session.failure, "boom")

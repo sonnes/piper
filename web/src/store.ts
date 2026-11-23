@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from "react";
-import type { Mode, OpenRequest, Theme } from "./bridge";
+import type { OpenRequest, Theme } from "./bridge";
 import type { PageNote } from "./ReaderLayer";
 
 export type DocState = OpenRequest & {
-	/** Increases on each open, so the editor starts a new undo history. */
+	/** Increases on each open, and on each `replace` that must remount the editor. A new value starts a new undo history. */
 	seq: number;
 	/** The syntax that the rich editor would drop. Empty when the file is safe to edit. */
 	lossy: string[];
@@ -31,9 +31,4 @@ export function useStore(): State {
 		},
 		() => state,
 	);
-}
-
-export function setMode(mode: Mode) {
-	if (!state.doc) return;
-	setState({ doc: { ...state.doc, mode } });
 }

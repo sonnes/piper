@@ -162,8 +162,8 @@ enum ReaderMarks {
         let children = model.store.children(of: parent)
         let found = places.places(in: article, for: children)
         return children.compactMap { child -> ReaderPageNote? in
-            let isQuestion = child.tags.contains(ReaderAssistant.questionTag)
-            guard isQuestion || child.tags.contains(ReaderAssistant.highlightTag) else { return nil }
+            let isQuestion = child.tags.contains(ReadingList.questionTag)
+            guard isQuestion || child.tags.contains(ReadingList.highlightTag) else { return nil }
             let place = found[child.id]
             let quote = child.anchor?.quote ?? ""
             let thread = NoteThread(child.text)
@@ -547,7 +547,7 @@ struct ReaderPageView: NSViewRepresentable {
     let perform: ([String: Any]) -> Void
     /// Reports a scroll request that the page ran.
     let scrolled: (ReaderScroll) -> Void
-    /// Receives the web view, so that the arrow keys of the list can scroll it.
+    /// Receives the web view, so that the arrow keys of the reader paper can scroll it.
     let attach: (WKWebView) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }

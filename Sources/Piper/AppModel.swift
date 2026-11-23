@@ -34,8 +34,6 @@ final class AppModel {
     /// The pages of the Reader tabs that show, one for each reader paper.
     @ObservationIgnored let readerPages = NSHashTable<WKWebView>.weakObjects()
 
-    /// Scrolls the Reader tab of a window by one arrow step. Returns false if
-    /// the window shows no Reader tab.
     /// Sends H or N to the reader page of a window: H highlights the selected
     /// text, and N highlights it and opens its note.
     func sendReaderKey(_ key: String, in window: NSWindow) -> Bool {
@@ -44,6 +42,8 @@ final class AppModel {
         return true
     }
 
+    /// Scrolls the Reader tab of a window by one arrow step. Returns false if
+    /// the window shows no Reader tab.
     func scrollReader(down: Bool, in window: NSWindow) -> Bool {
         guard let page = readerPages.allObjects.first(where: { $0.window === window }) else { return false }
         let step = AppDefaults.ArticleReader.arrowScrollStep * (down ? 1 : -1)
@@ -102,7 +102,6 @@ final class AppModel {
     var loading = false
     @ObservationIgnored private var vaultWatcher: VaultWatcher?
     @ObservationIgnored private var reloadPending = false
-    var route = "wiki"
     var workspace = WikiWorkspace()
     /// The editor sessions by path: the open file, and each file with text that is not on disk.
     var editors: [String: EditorSession] = [:]
@@ -149,7 +148,7 @@ final class AppModel {
     var showFile: ((String) -> Void)?
     /// Shows a note in a reader paper.
     var showNote: ((UUID) -> Void)?
-    /// Shows a link capture in Inbox, in the Web tab.
+    /// Shows a link capture in a reader paper.
     var showArticle: ((UUID) -> Void)?
     /// Shows a session in a reader paper.
     var showSession: ((UUID) -> Void)?
@@ -186,12 +185,13 @@ final class AppModel {
     init(store: CaptureStore? = nil, wikiPath: String? = nil, preferences: UserDefaults = .standard, feeds: FeedStore? = nil) {
         self.preferences = preferences
         let defaults = preferences
-        if Bundle.main.bundleIdentifier == "com.piper", !defaults.bool(forKey: "migratedLocalPreferences") {
+        if Bundle.main.bundleIdentifier == "com.piper", !defaults.bool(forKey: AppDefaults.Key.migratedLocalPreferences) {
             let previous = defaults.persistentDomain(forName: "local.piper") ?? [:]
-            for key in ["wikiPath", "captureShortcut", "composerDraft", "wikiReaderSize", "NSWindow Frame PiperLibrary"] {
+            let keys = [AppDefaults.Key.vaultPath, AppDefaults.Key.captureShortcut, AppDefaults.Key.composerDraft, AppDefaults.Key.readerSize]
+            for key in keys {
                 if defaults.object(forKey: key) == nil, let value = previous[key] { defaults.set(value, forKey: key) }
             }
-            defaults.set(true, forKey: "migratedLocalPreferences")
+            defaults.set(true, forKey: AppDefaults.Key.migratedLocalPreferences)
         }
         composerDraft = defaults.string(forKey: AppDefaults.Key.composerDraft) ?? ""
         siteTabs = (defaults.dictionary(forKey: AppDefaults.Key.siteTabs) as? [String: Int] ?? [:])
@@ -371,7 +371,6 @@ final class AppModel {
         initialDocument = nil
         files = []
         folders = []
-        route = "wiki"
         NotificationCenter.default.post(name: .vaultPathDidChange, object: self)
         reload()
     }
@@ -395,40 +394,23 @@ final class AppModel {
         showFile?(path)
     }
 
-    func createWiki() {
-        guard settleEditors() else { return }
-        do { try vault.create(); reload() }
-        catch { store.report(error) }
-    }
-
     func openLink(_ url: URL, from document: VaultFile) {
-        if url.scheme == "piper-footnote" {
-            let id = String(url.path.dropFirst())
-            if WikiMarkdown.parse(document.body).contains(where: { $0.anchor == "fn-" + id }) {
-                openDocument(document.id, anchor: "fn-" + id)
-            } else { store.status = "See the footnote at the end of the document" }
-            return
-        }
         if ["http", "https", "mailto"].contains(url.scheme ?? "") { NSWorkspace.shared.open(url); return }
-        if url.scheme == "piper-note" || url.scheme == "piper-wiki" || url.scheme == nil || url.isFileURL {
-            do {
-                let wikiStyle = url.scheme == "piper-note"
-                let target = wikiStyle ? URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "target" })?.value ?? "" : url.path + (url.fragment.map { "#" + $0 } ?? "")
-                let location = try WikiLinks.resolve(target, from: document, files: files, vault: vault, wikiStyle: wikiStyle)
-                openDocument(location.path, anchor: location.anchor)
-            } catch { store.report(error) }
-        }
+        guard url.scheme == nil || url.isFileURL else { return }
+        do {
+            let target = url.path + (url.fragment.map { "#" + $0 } ?? "")
+            let location = try WikiLinks.resolve(target, from: document, files: files, vault: vault)
+            openDocument(location.path, anchor: location.anchor)
+        } catch { store.report(error) }
     }
 
     func openDocument(_ path: String, anchor: String? = nil) {
         if path == selectedDocument {
-            route = "wiki"
             beginEdit()
             if let anchor { jump(to: anchor) }
             return
         }
         guard files.contains(where: { $0.id == path }) else { return }
-        route = "wiki"
         workspace.open(WikiLocation(path: path, anchor: anchor))
         pruneEditors()
         beginEdit()
@@ -508,13 +490,13 @@ final class AppModel {
         return true
     }
 
-    /// Drops the sessions of the files that are not open and that hold no text off disk.
     /// Takes the newest text from the editor page, which can be newer than its last save.
     func flushEditor() async {
         guard let page = loadedEditorPage, let (path, text) = await page.flush() else { return }
         editorChanged(path: path, text: text)
     }
 
+    /// Drops the sessions of the files that are not open and that hold no text off disk.
     func pruneEditors() {
         let kept = editors.filter { $0.key == selectedDocument || $0.value.hasChanges || $0.value.status == .conflict }
         if kept.count != editors.count { editors = kept }

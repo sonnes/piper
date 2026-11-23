@@ -137,9 +137,6 @@ final class PaperWindow: NSWindow {
         }
     }
 
-    /// True while the paper fills its screen after a zoom.
-    var isPaperZoomed: Bool { unzoomedFrame != nil }
-
     // MARK: - Private
 
     private static func windowSize(_ paper: NSSize) -> NSSize {

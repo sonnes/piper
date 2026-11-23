@@ -45,23 +45,6 @@ public struct Vault {
         self.root = root.standardizedFileURL.resolvingSymlinksInPath()
     }
 
-    // MARK: Folder
-
-    /// Creates the root folder.
-    ///
-    /// The folder must be absent or empty. Piper writes no file into it, because
-    /// an empty folder is a valid vault.
-    public func create() throws {
-        let files = FileManager.default
-        if files.fileExists(atPath: root.path) {
-            let contents = try files.contentsOfDirectory(atPath: root.path).filter { $0 != ".DS_Store" }
-            guard contents.isEmpty else {
-                throw PiperError("Choose an empty folder for a new vault. Existing files remain unchanged.")
-            }
-        }
-        try files.createDirectory(at: root, withIntermediateDirectories: true)
-    }
-
     /// Returns the URL for a path inside the vault.
     ///
     /// A path that starts with a slash is relative to the root. Any other path is

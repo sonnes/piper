@@ -59,8 +59,6 @@ public enum PaletteSearch {
     }
 
     public static let minimumQueryLength = 3
-    /// The most files that the content search lists.
-    public static let contentFileLimit = 50
 
     private static func normalize(_ text: String) -> String {
         String(text.lowercased().filter { !$0.isWhitespace && $0 != "_" && $0 != "-" })

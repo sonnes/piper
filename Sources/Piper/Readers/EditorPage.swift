@@ -22,7 +22,6 @@ struct EditorOpenRequest: Encodable, Equatable {
 
     let path: String
     let text: String
-    let editable: Bool
     /// `rich` for the Preview tab, `source` for the Source tab.
     let mode: String
     let wikiTargets: [WikiTarget]
@@ -133,13 +132,8 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
         call("setNotes", notes)
     }
 
-    /// Reloads the embeds that show an HTML file of the folder.
     func assetChanged(_ path: String) {
         call("assetChanged", path)
-    }
-
-    func command(_ name: String) {
-        call("command", name)
     }
 
     private func call(_ function: String, _ value: some Encodable) {
@@ -182,13 +176,7 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
         case "lossy":
             guard let path = body["path"] as? String else { break }
             model.editors[path]?.lossy = body["reasons"] as? [String] ?? []
-        case "copy" where body["id"] != nil:
-            if let path = shown?.path { model.performFileAction(body, path: path) }
-        case "copy":
-            guard let text = body["text"] as? String else { break }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
-        case "explain", "define", "ask", "note", "capture", "open", "continue", "followup":
+        case "explain", "define", "ask", "note", "capture", "open", "copy", "continue", "followup":
             if let path = shown?.path { model.performFileAction(body, path: path) }
         default:
             break
@@ -221,7 +209,6 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
     }
 }
 
-/// The web view of the editor page.
 final class EditorWebView: WKWebView {
     /// Edit > Paste pastes plain text in the text views of Piper. The editor
     /// reads images and rich text from the pasteboard, so it takes a full paste.
@@ -229,7 +216,7 @@ final class EditorWebView: WKWebView {
         NSApp.sendAction(#selector(NSText.paste(_:)), to: self, from: sender)
     }
 
-    /// Edit > Find, when the editor does not have the keyboard focus.
+    /// Edit > Find, and Find in File of the command palette.
     @objc func findInPage(_ sender: Any?) {
         evaluateJavaScript("window.piper.command(\"find\")")
     }
@@ -337,7 +324,7 @@ struct EditorPane: NSViewRepresentable {
         let targets = model.files.filter(\.isMarkdown).map { file in
             EditorOpenRequest.WikiTarget(path: file.id, target: (file.id as NSString).deletingPathExtension, title: file.title)
         }
-        return EditorOpenRequest(path: session.path, text: session.text, editable: true,
+        return EditorOpenRequest(path: session.path, text: session.text,
                                  mode: source ? "source" : "rich", wikiTargets: targets,
                                  header: byline.joined(separator: " · "), title: hasTitle ? nil : document.title,
                                  anchor: model.requestedAnchor)

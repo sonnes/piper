@@ -1,11 +1,5 @@
 import AppKit
 
-/// The saved frame of each reader paper, by its item, so that a paper that
-/// opens again comes back to its last size and place.
-///
-/// The store keeps the newest `AppDefaults.Papers.savedFrameLimit` frames.
-/// A paper without a saved frame takes its place in the cascade, at the last
-/// size of a paper of its kind.
 /// The kinds of reader paper. Each kind keeps its own last size.
 enum PaperKind: String {
     /// An article, a link capture, or a file.
@@ -16,6 +10,12 @@ enum PaperKind: String {
     case session
 }
 
+/// The saved frame of each reader paper, by its item, so that a paper that
+/// opens again comes back to its last size and place.
+///
+/// The store keeps the newest `AppDefaults.Papers.savedFrameLimit` frames.
+/// A paper without a saved frame takes its place in the cascade, at the last
+/// size of a paper of its kind.
 struct PaperFrames: Codable, Equatable {
 
     struct Entry: Codable, Equatable {

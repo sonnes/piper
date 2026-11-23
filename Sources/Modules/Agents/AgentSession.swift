@@ -92,7 +92,6 @@ public final class AgentSession: Identifiable {
     public internal(set) var blocks: [TranscriptBlock] = []
 
     private static let titleLimit = 60
-    private static let snippetLimit = 160
 
     public var folderName: String { URL(fileURLWithPath: folder).lastPathComponent }
     public var isActive: Bool { state == .waiting || state == .running || state == .needsYou }
@@ -103,22 +102,6 @@ public final class AgentSession: Identifiable {
         let line = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? text
         return line.count > Self.titleLimit ? String(line.prefix(Self.titleLimit - 1)) + "…" : line
     }
-
-    /// The last message of the agent, or the last step while a turn runs.
-    public var snippet: String {
-        for block in blocks.reversed() {
-            switch block {
-            case .assistant(_, let text): return String(text.prefix(Self.snippetLimit))
-            case .toolCall(let call) where isActive: return call.line
-            case .result(_, let result) where result.failure != nil: return result.failure ?? ""
-            default: continue
-            }
-        }
-        return ""
-    }
-
-    /// The last message that the reader sent.
-    public var lastPrompt: String? { userTexts.last }
 
     /// The files that the session wrote, relative to the folder, oldest first.
     public var files: [String] {

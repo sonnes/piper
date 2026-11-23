@@ -106,7 +106,6 @@ private func temporaryDatabase() -> URL {
         try database.insert([Article(id: "1", feedID: "f", url: "u", title: "t", summary: "", published: nil, arrived: Date())])
         try database.delete(feed: "f")
         #expect(try database.articles(.feed("f")).isEmpty)
-        #expect(try database.unreadCounts().isEmpty)
     }
 
     @Test func pruneRemovesOnlyOldReadArticles() throws {
@@ -248,10 +247,9 @@ private func temporaryDatabase() -> URL {
         #expect(feed.title == "Garden Letters")
         #expect(feed.etag == "\"v1\"")
         #expect(feed.home == "https://gardenletters.example/")
-        #expect(store.totalUnread == 2)
+        #expect(store.articles(.allUnread).count == 2)
 
         store.markAllRead(.allUnread)
-        #expect(store.totalUnread == 0)
         #expect(store.articles(.allUnread).isEmpty)
     }
 
