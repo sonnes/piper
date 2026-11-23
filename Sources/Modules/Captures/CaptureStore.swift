@@ -1,4 +1,3 @@
-import AppKit
 import CapturesDatabase
 import Foundation
 import Observation
@@ -7,7 +6,8 @@ import PiperCore
 /// The capture state and every change a reader can make to it.
 ///
 /// Each change writes to the database first. The in-memory state moves only
-/// after that write succeeds, so a failed write leaves the notes untouched.
+/// after that write succeeds, so a failed write leaves the notes untouched and
+/// throws its error to the caller.
 @MainActor @Observable
 public final class CaptureStore {
 
@@ -18,25 +18,14 @@ public final class CaptureStore {
     }
     /// The child notes of each parent, oldest first. Each change of the state rebuilds it.
     private var childIndex: [UUID: [Note]] = [:]
-    public var selection: Set<UUID> = []
-    public var status = "Local notes"
-    public var errorMessage: String?
+    /// The error that stopped the database from opening. Each change then fails.
+    public private(set) var loadError: Error?
     /// The note database. The app also keeps the agent sessions in it.
     public private(set) var database: Database?
     private var undoState: SavedState?
     public var notes: [Note] { state.notes }
     public var sections: [String] { state.sections }
-    public var activeSection: String {
-        get { state.activeSection }
-        set {
-            guard sections.contains(newValue), newValue != activeSection else { return }
-            _ = change(recordUndo: false) { $0.activeSection = newValue }
-        }
-    }
-
-    public var selectedNotes: [Note] {
-        sections.flatMap { section in notes.filter { $0.section == section && selection.contains($0.id) } }
-    }
+    public var activeSection: String { state.activeSection }
 
     // MARK: - Initialization
 
@@ -47,13 +36,9 @@ public final class CaptureStore {
             state = try Self.decode(db.load())
             childIndex = Note.childrenByParent(state.notes)
             database = db
-            prunePages()
-        } catch { report(error) }
+            try prunePages()
+        } catch { loadError = error }
     }
-
-    // MARK: - Errors
-
-    public func report(_ error: Error) { errorMessage = error.localizedDescription; status = error.localizedDescription }
 
     // MARK: - Reading
 
@@ -64,110 +49,100 @@ public final class CaptureStore {
 
     // MARK: - Undo
 
-    public func undo() {
+    public func undo() throws {
         guard var previous = undoState, let database else { return }
         if previous.sections.contains(activeSection) { previous.activeSection = activeSection }
-        do {
-            try database.save(JSONEncoder().encode(previous))
-            state = previous
-            undoState = nil
-            selection = selection.intersection(Set(notes.map(\.id)))
-            status = "Last note change undone"
-        } catch { report(error) }
+        try database.save(JSONEncoder().encode(previous))
+        state = previous
+        undoState = nil
     }
 
     // MARK: - Changing Notes
 
-    @discardableResult public func add(_ text: String, source: String? = nil, sourceURL: String? = nil, to section: String? = nil,
-                                       interpretSection: Bool = true, tags: [String] = []) -> Bool {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        if interpretSection, text.hasPrefix("# "), !text.contains("\n") {
-            let name = String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces)
-            guard !name.isEmpty else { return false }
-            return chooseSection(name)
-        }
-        let destination = section ?? activeSection
-        guard sections.contains(destination) else { report(PiperError("This section no longer exists. Choose another section.")); return false }
+    @discardableResult
+    public func add(_ text: String, section: String, source: String? = nil, sourceURL: String? = nil,
+                    tags: [String] = []) throws -> Note {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw PiperError("The note has no text.") }
+        guard sections.contains(section) else { throw PiperError("This section no longer exists. Choose another section.") }
         let url = CaptureLinks(text).standaloneURL
         let urls = Set([url, sourceURL.flatMap(URL.init(string:))].compactMap { value -> String? in
             guard let value, value.isWeb else { return nil }
             return value.absoluteString
         }).sorted()
-        let saved = change { $0.notes.append(Note(text: text, section: destination, sources: source.map { [$0] } ?? [], sourceURLs: urls, tags: tags)) }
-        if saved { status = "Saved to \(destination)" }
-        return saved
+        let note = Note(text: text, section: section, sources: source.map { [$0] } ?? [], sourceURLs: urls, tags: tags)
+        try change { $0.notes.append(note) }
+        return note
     }
 
     /// Adds a note under a parent, in the section of the parent.
-    @discardableResult public func addChild(_ text: String, to parent: UUID, tags: [String], anchor: NoteAnchor? = nil, source: String? = nil) -> Note? {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+    @discardableResult
+    public func addChild(_ text: String, to parent: UUID, tags: [String], anchor: NoteAnchor? = nil, source: String? = nil) throws -> Note {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw PiperError("The note has no text.") }
         guard let owner = notes.first(where: { $0.id == parent }) else {
-            report(PiperError("This capture was removed. Open it again before you add a note."))
-            return nil
+            throw PiperError("This capture was removed. Open it again before you add a note.")
         }
         let note = Note(text: text, section: owner.section, sources: source.map { [$0] } ?? [], sourceURLs: owner.sourceURLs,
                         parent: parent, tags: tags, anchor: anchor)
-        guard change({ $0.notes.append(note) }) else { return nil }
-        status = "Saved under the capture"
+        try change { $0.notes.append(note) }
         return note
     }
 
     /// Finds the note that holds the highlights of a local page, or adds one.
     /// The link names the page and is not a web link.
-    public func pageNote(for link: String, title: String, source: String) -> Note? {
+    public func pageNote(for link: String, title: String, source: String) throws -> Note {
         if let existing = notes.first(where: { $0.parent == nil && $0.sourceURLs.contains(link) }) { return existing }
         let note = Note(text: title, section: activeSection, sources: [source], sourceURLs: [link])
-        return change({ $0.notes.append(note) }) ? note : nil
+        try change { $0.notes.append(note) }
+        return note
     }
 
     /// Adds a paragraph to the end of a note, such as an answer from Claude.
-    @discardableResult public func append(_ paragraph: String, to id: UUID) -> Bool {
+    public func append(_ paragraph: String, to id: UUID) throws {
         let paragraph = paragraph.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !paragraph.isEmpty, notes.contains(where: { $0.id == id }) else { return false }
-        return change(recordUndo: false) { state in
+        guard !paragraph.isEmpty else { return }
+        guard notes.contains(where: { $0.id == id }) else { throw PiperError("This note was removed.") }
+        try change(recordUndo: false) { state in
             guard let i = state.notes.firstIndex(where: { $0.id == id }) else { return }
             state.notes[i].text += "\n\n" + paragraph
             state.notes[i].modifiedAt = Date()
         }
     }
 
-    @discardableResult public func chooseSection(_ name: String) -> Bool {
+    /// Makes a section active. A name that no section has adds a section.
+    public func chooseSection(_ name: String) throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, !name.contains(where: \.isNewline), name.count <= 80 else {
-            report(PiperError("Use a section name with 1 to 80 characters on one line."))
-            return false
+            throw PiperError("Use a section name with 1 to 80 characters on one line.")
         }
         if let existing = sections.first(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
-            return change(recordUndo: false) { $0.activeSection = existing }
+            guard existing != activeSection else { return }
+            return try change(recordUndo: false) { $0.activeSection = existing }
         }
-        return change { $0.sections.append(name); $0.activeSection = name }
+        try change { $0.sections.append(name); $0.activeSection = name }
     }
 
-    @discardableResult public func renameSection(_ section: String, to name: String) -> Bool {
+    public func renameSection(_ section: String, to name: String) throws {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard section != Note.inbox, sections.contains(section) else { return false }
+        guard section != Note.inbox, sections.contains(section) else { return }
         guard !name.isEmpty, !name.contains(where: \.isNewline), name.count <= 80 else {
-            report(PiperError("Use a section name with 1 to 80 characters on one line."))
-            return false
+            throw PiperError("Use a section name with 1 to 80 characters on one line.")
         }
         guard !sections.contains(where: { $0 != section && $0.caseInsensitiveCompare(name) == .orderedSame }) else {
-            report(PiperError("A section with this name already exists. Choose another name."))
-            return false
+            throw PiperError("A section with this name already exists. Choose another name.")
         }
-        let saved = change { state in
+        try change { state in
             if let index = state.sections.firstIndex(of: section) { state.sections[index] = name }
             for index in state.notes.indices where state.notes[index].section == section {
                 state.notes[index].section = name
             }
             if state.activeSection == section { state.activeSection = name }
         }
-        if saved { status = "Section renamed · Undo available" }
-        return saved
     }
 
-    @discardableResult public func deleteSection(_ section: String) -> Bool {
-        guard section != Note.inbox, sections.contains(section), sections.contains(Note.inbox) else { return false }
-        let saved = change { state in
+    /// Removes a section and moves its notes to Inbox.
+    public func deleteSection(_ section: String) throws {
+        guard section != Note.inbox, sections.contains(section), sections.contains(Note.inbox) else { return }
+        try change { state in
             state.sections.removeAll { $0 == section }
             for index in state.notes.indices where state.notes[index].section == section {
                 state.notes[index].section = Note.inbox
@@ -175,19 +150,22 @@ public final class CaptureStore {
             }
             if state.activeSection == section { state.activeSection = Note.inbox }
         }
-        if saved { status = "Section deleted · Notes moved to Inbox · Undo available" }
-        return saved
     }
 
-    @discardableResult public func update(_ id: UUID, text: String, sourceURL: String? = nil, originalText: String? = nil) -> Bool {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        guard let current = notes.first(where: { $0.id == id }) else { report(PiperError("This note was removed. Copy your changes into a new note.")); return false }
-        if let originalText, originalText != current.text {
-            report(PiperError("This note changed in another editor. Copy your changes before reopening the note."))
-            return false
+    /// Replaces the text of a note.
+    ///
+    /// - Parameter originalText: The text that the editor opened. A note that
+    ///   changed since then is not overwritten.
+    public func update(_ id: UUID, text: String, sourceURL: String? = nil, originalText: String? = nil) throws {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw PiperError("The note has no text.") }
+        guard let current = notes.first(where: { $0.id == id }) else {
+            throw PiperError("This note was removed. Copy your changes into a new note.")
         }
-        if current.text == text, sourceURL == nil { return true }
-        return change { state in
+        if let originalText, originalText != current.text {
+            throw PiperError("This note changed in another editor. Copy your changes before reopening the note.")
+        }
+        if current.text == text, sourceURL == nil { return }
+        try change { state in
             guard let i = state.notes.firstIndex(where: { $0.id == id }) else { return }
             state.notes[i].text = text
             state.notes[i].modifiedAt = Date()
@@ -195,8 +173,8 @@ public final class CaptureStore {
         }
     }
 
-    public func toggleDone(_ id: UUID) {
-        _ = change { state in
+    public func toggleDone(_ id: UUID) throws {
+        try change { state in
             guard let i = state.notes.firstIndex(where: { $0.id == id }) else { return }
             state.notes[i].isDone.toggle()
             state.notes[i].modifiedAt = Date()
@@ -204,8 +182,9 @@ public final class CaptureStore {
     }
 
     /// Marks the captures as done, or as not done, with one undo step.
-    @discardableResult public func setDone(_ done: Bool, _ ids: Set<UUID>) -> Bool {
-        change { state in
+    public func setDone(_ done: Bool, _ ids: Set<UUID>) throws {
+        guard !ids.isEmpty else { return }
+        try change { state in
             for i in state.notes.indices where ids.contains(state.notes[i].id) && state.notes[i].isDone != done {
                 state.notes[i].isDone = done
                 state.notes[i].modifiedAt = Date()
@@ -214,8 +193,9 @@ public final class CaptureStore {
     }
 
     /// Adds or removes the kept tag of the captures, with one undo step.
-    @discardableResult public func setKept(_ kept: Bool, _ ids: Set<UUID>) -> Bool {
-        change { state in
+    public func setKept(_ kept: Bool, _ ids: Set<UUID>) throws {
+        guard !ids.isEmpty else { return }
+        try change { state in
             for i in state.notes.indices where ids.contains(state.notes[i].id) && state.notes[i].isKept != kept {
                 if kept { state.notes[i].tags.append(NoteTag.kept.rawValue) } else { state.notes[i].tags.removeAll { $0 == NoteTag.kept.rawValue } }
             }
@@ -229,7 +209,7 @@ public final class CaptureStore {
     /// - Parameter recordUndo: False for a copy that Undo must not remove, such
     ///   as `StarMigration`. The undo step before the copy goes too.
     @discardableResult
-    public func keep(links: [KeptLink], to section: String? = nil, recordUndo: Bool = true) -> [Note] {
+    public func keep(links: [KeptLink], to section: String? = nil, recordUndo: Bool = true) throws -> [Note] {
         let destination = section.flatMap { sections.contains($0) ? $0 : nil } ?? activeSection
         var seen: Set<String> = []
         let fresh = links.filter { link in
@@ -240,22 +220,22 @@ public final class CaptureStore {
             Note(text: link.url.absoluteString, section: destination, sources: link.source.map { [$0] } ?? [],
                  sourceURLs: [link.url.absoluteString], tags: [NoteTag.kept.rawValue], reading: Reading(title: link.title))
         }
-        guard change(recordUndo: recordUndo, { state in
+        try change(recordUndo: recordUndo) { state in
             state.notes += added
             for i in state.notes.indices where existing.contains(state.notes[i].id) && !state.notes[i].isKept {
                 state.notes[i].tags.append(NoteTag.kept.rawValue)
             }
-        }) else { return [] }
+        }
         // Undo restores a whole state. An older state has no copy, so it goes.
         if !recordUndo { undoState = nil }
-        if !links.isEmpty { status = "Kept" }
         return links.compactMap { article(for: $0.url) }
     }
 
     /// Moves the captures and their child notes to a section, with one undo step.
-    @discardableResult public func move(_ ids: Set<UUID>, to section: String) -> Bool {
-        guard sections.contains(section), !ids.isEmpty else { return false }
-        return change { state in
+    public func move(_ ids: Set<UUID>, to section: String) throws {
+        guard !ids.isEmpty else { return }
+        guard sections.contains(section) else { throw PiperError("This section no longer exists. Choose another section.") }
+        try change { state in
             for i in state.notes.indices where ids.contains(state.notes[i].id) || state.notes[i].parent.map(ids.contains) == true {
                 state.notes[i].section = section
                 state.notes[i].modifiedAt = Date()
@@ -263,33 +243,31 @@ public final class CaptureStore {
         }
     }
 
-    public func merge() {
-        let selected = selectedNotes
-        guard selected.count > 1, let first = selected.first else { return }
-        if change({ state in
+    /// Joins the notes into the first of them, in the order of the sections
+    /// and of the notes. The child notes move to that note.
+    @discardableResult
+    public func merge(_ ids: [UUID]) throws -> Note {
+        let chosen = Set(ids)
+        let selected = sections.flatMap { section in notes.filter { $0.section == section && chosen.contains($0.id) } }
+        guard selected.count > 1, let first = selected.first else { throw PiperError("Choose two or more notes to merge.") }
+        try change { state in
             guard let i = state.notes.firstIndex(where: { $0.id == first.id }) else { return }
             state.notes[i].text = selected.map(\.text).joined(separator: "\n\n")
             state.notes[i].sources = Array(Set(selected.flatMap(\.sources))).sorted()
             state.notes[i].sourceURLs = Array(Set(selected.flatMap(\.sourceURLs))).sorted()
             state.notes[i].isDone = selected.allSatisfy(\.isDone)
             state.notes[i].modifiedAt = Date()
-            state.notes.removeAll { selection.contains($0.id) && $0.id != first.id }
-            for index in state.notes.indices where state.notes[index].parent.map(selection.contains) == true {
+            state.notes.removeAll { chosen.contains($0.id) && $0.id != first.id }
+            for index in state.notes.indices where state.notes[index].parent.map(chosen.contains) == true {
                 state.notes[index].parent = first.id
             }
-        }) { selection = [first.id]; status = "Notes merged · Undo available" }
+        }
+        return notes.first { $0.id == first.id } ?? first
     }
 
-    public func deleteSelection() {
-        if remove(selection) { selection.removeAll() }
-    }
-
-    /// Deletes one note and its child notes, with an undo step. The selection
-    /// keeps the notes that remain.
-    @discardableResult public func delete(_ id: UUID) -> Bool {
-        guard remove([id]) else { return false }
-        selection = selection.intersection(Set(notes.map(\.id)))
-        return true
+    /// Deletes the notes and every note under them, with one undo step.
+    public func delete(_ ids: [UUID]) throws {
+        try remove(Set(ids))
     }
 
     // MARK: - Reading
@@ -308,25 +286,23 @@ public final class CaptureStore {
     /// A done capture opens again, because the reader came back to it. A title
     /// fills a capture that has none.
     @discardableResult
-    public func saveArticle(_ url: URL, title: String? = nil, source: String? = nil, to section: String? = nil) -> Note? {
-        guard url.isWeb else { report(PiperError("Piper can save only web pages.")); return nil }
+    public func saveArticle(_ url: URL, title: String? = nil, source: String? = nil, to section: String? = nil) throws -> Note {
+        guard url.isWeb else { throw PiperError("Piper can save only web pages.") }
         let title = title?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         if let existing = article(for: url) {
-            let saved = change(recordUndo: false) { state in
+            try change(recordUndo: false) { state in
                 guard let i = state.notes.firstIndex(where: { $0.id == existing.id }) else { return }
                 if state.notes[i].isDone { state.notes[i].isDone = false; state.notes[i].modifiedAt = Date() }
                 var reading = state.notes[i].reading ?? Reading()
                 if reading.title == nil { reading.title = title }
                 state.notes[i].reading = reading
             }
-            status = "Already in Reading"
-            return saved ? notes.first { $0.id == existing.id } : nil
+            return notes.first { $0.id == existing.id } ?? existing
         }
         let destination = section.flatMap { sections.contains($0) ? $0 : nil } ?? activeSection
         let note = Note(text: url.absoluteString, section: destination, sources: source.map { [$0] } ?? [],
                         sourceURLs: [url.absoluteString], reading: Reading(title: title))
-        guard change({ $0.notes.append(note) }) else { return nil }
-        status = "Saved to Reading"
+        try change { $0.notes.append(note) }
         return note
     }
 
@@ -337,20 +313,20 @@ public final class CaptureStore {
     /// has, so the highlight finds its place in the article.
     @discardableResult
     public func saveHighlight(_ selection: String, in url: URL, title: String? = nil, source: String? = nil,
-                              to section: String? = nil, tags: [String]) -> (article: Note, highlight: Note)? {
+                              to section: String? = nil, tags: [String]) throws -> (article: Note, highlight: Note) {
         let quote = NoteAnchor.normalized(selection)
-        guard !quote.isEmpty, let article = saveArticle(url, title: title, source: source, to: section),
-              let highlight = addChild(quote, to: article.id, tags: tags,
-                                       anchor: NoteAnchor(quote: quote, block: -1, offset: 0), source: source) else { return nil }
-        status = "Highlighted"
+        guard !quote.isEmpty else { throw PiperError("The selection has no text.") }
+        let article = try saveArticle(url, title: title, source: source, to: section)
+        let highlight = try addChild(quote, to: article.id, tags: tags,
+                                     anchor: NoteAnchor(quote: quote, block: -1, offset: 0), source: source)
         return (article, highlight)
     }
 
     /// Adds the note of the reader after the quote of a highlight.
-    @discardableResult public func comment(_ comment: String, on id: UUID) -> Bool {
+    public func comment(_ comment: String, on id: UUID) throws {
         let comment = comment.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !comment.isEmpty else { return true }
-        return change { state in
+        guard !comment.isEmpty else { return }
+        try change { state in
             guard let i = state.notes.firstIndex(where: { $0.id == id }) else { return }
             state.notes[i].text = HighlightText.adding(comment, to: state.notes[i].text)
             state.notes[i].modifiedAt = Date()
@@ -359,8 +335,8 @@ public final class CaptureStore {
 
     /// Changes the reading state of a link capture. The change has no undo
     /// step, because scrolling is not an edit.
-    @discardableResult public func updateReading(_ id: UUID, _ update: (inout Reading) -> Void) -> Bool {
-        change(recordUndo: false) { state in
+    public func updateReading(_ id: UUID, _ update: (inout Reading) -> Void) throws {
+        try change(recordUndo: false) { state in
             guard let i = state.notes.firstIndex(where: { $0.id == id }) else { return }
             var reading = state.notes[i].reading ?? Reading()
             update(&reading)
@@ -369,9 +345,9 @@ public final class CaptureStore {
     }
 
     /// Marks as done each article that left Finished of the reading list.
-    public func archiveFinishedReading(now: Date = Date()) {
+    public func archiveFinishedReading(now: Date = Date()) throws {
         let date = ReadingList.finishedCutoff(now: now)
-        _ = change(recordUndo: false) { state in
+        try change(recordUndo: false) { state in
             for i in state.notes.indices {
                 guard !state.notes[i].isDone, let finished = state.notes[i].reading?.finishedAt, finished < date else { continue }
                 state.notes[i].isDone = true
@@ -382,41 +358,27 @@ public final class CaptureStore {
 
     /// Keeps the text of a page that a browser showed, for a page that Piper
     /// cannot load itself, such as a page behind a login.
-    public func savePageText(_ text: String, for url: URL) {
-        guard let database, !text.isEmpty else { return }
-        do { try database.savePage(url: CaptureLinks.canonical(url), text: text) } catch { report(error) }
+    public func savePageText(_ text: String, for url: URL) throws {
+        guard !text.isEmpty else { return }
+        try openDatabase().savePage(url: CaptureLinks.canonical(url), text: text)
     }
 
-    /// The text of a page that a browser showed, if Piper kept it.
-    public func pageText(for url: URL) -> String? {
-        try? database?.loadPage(url: CaptureLinks.canonical(url))
+    /// The text of a page that a browser showed. Nil when Piper kept none.
+    public func pageText(for url: URL) throws -> String? {
+        try openDatabase().loadPage(url: CaptureLinks.canonical(url))
     }
 
     /// Removes the page text that no link capture uses. A capture that Undo
     /// can bring back keeps its page text.
-    private func prunePages() {
-        guard let database else { return }
+    private func prunePages() throws {
+        let database = try openDatabase()
         let kept = Set((state.notes + (undoState?.notes ?? [])).compactMap { note -> String? in
             guard note.parent == nil, note.isArticle else { return nil }
             return note.articleURL.map(CaptureLinks.canonical)
         })
-        do {
-            for url in try database.pageURLs() where !kept.contains(url) {
-                try database.deletePage(url: url)
-            }
-        } catch { report(error) }
-    }
-
-    // MARK: - Clipboard
-
-    public func copy(_ id: UUID, to pasteboard: NSPasteboard = .general) {
-        guard let note = notes.first(where: { $0.id == id }) else { return }
-        write(note.text, to: pasteboard)
-    }
-
-    @discardableResult public func captureClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
-        guard let text = pasteboard.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { status = "The clipboard has no text"; return false }
-        return add(text, source: Note.clipboardSource, interpretSection: false)
+        for url in try database.pageURLs() where !kept.contains(url) {
+            try database.deletePage(url: url)
+        }
     }
 }
 
@@ -442,8 +404,8 @@ private extension String {
 private extension CaptureStore {
 
     /// Removes the notes and every note under them, then the page text that only they used.
-    func remove(_ selected: Set<UUID>) -> Bool {
-        guard !selected.isEmpty else { return false }
+    func remove(_ selected: Set<UUID>) throws {
+        guard !selected.isEmpty else { return }
         var ids = selected
         var level = selected
         while !level.isEmpty {
@@ -451,19 +413,10 @@ private extension CaptureStore {
             ids.formUnion(level)
         }
         let removesArticle = notes.contains { ids.contains($0.id) && $0.parent == nil && $0.isArticle }
-        let removed = change { state in
+        try change { state in
             state.notes.removeAll { ids.contains($0.id) }
         }
-        if removed, removesArticle { prunePages() }
-        return removed
-    }
-
-    func write(_ text: String, to pasteboard: NSPasteboard = .general) {
-        if Clipboard.copy(text, to: pasteboard) {
-            status = "Copied"
-        } else {
-            report(PiperError("Cannot write to the clipboard."))
-        }
+        if removesArticle { try prunePages() }
     }
 
     /// Reads the stored blob. An empty database starts a new state.
@@ -478,16 +431,20 @@ private extension CaptureStore {
         return state
     }
 
-    @discardableResult func change(recordUndo: Bool = true, _ update: (inout SavedState) -> Void) -> Bool {
-        guard let database else { report(PiperError("The note database is unavailable. Restart Piper after resolving the database error.")); return false }
+    func openDatabase() throws -> Database {
+        guard let database else {
+            throw PiperError("The note database is unavailable. Restart Piper after resolving the database error.")
+        }
+        return database
+    }
+
+    func change(recordUndo: Bool = true, _ update: (inout SavedState) -> Void) throws {
+        let database = try openDatabase()
         var candidate = state
         update(&candidate)
-        guard candidate != state else { return true }
-        do {
-            try database.save(JSONEncoder().encode(candidate))
-            if recordUndo { undoState = state }
-            state = candidate
-            return true
-        } catch { report(error); return false }
+        guard candidate != state else { return }
+        try database.save(JSONEncoder().encode(candidate))
+        if recordUndo { undoState = state }
+        state = candidate
     }
 }

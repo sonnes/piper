@@ -81,7 +81,12 @@ struct ArticleNotebook: View {
         .foregroundStyle(PiperTheme.paperInk)
         .onAppear {
             summary = ReadingList.summary(in: children)?.text ?? ""
-            loader.load(url, title: reading.title, pageText: model.store.pageText(for: url))
+            do {
+                loader.load(url, title: reading.title, pageText: try model.store.pageText(for: url))
+            } catch {
+                model.messages.report(error)
+                loader.load(url, title: reading.title, pageText: nil)
+            }
         }
         .onDisappear { saveSummary() }
     }
@@ -153,7 +158,7 @@ struct ArticleNotebook: View {
 
     private func review() {
         guard case .loaded(let article) = loader.state else { return }
-        model.reader.reviewHighlights(in: note.id, article: article)
+        do { try model.reader.reviewHighlights(in: note.id, article: article) } catch { model.messages.report(error) }
     }
 
     private func scheduleSummarySave() {
@@ -170,14 +175,18 @@ struct ArticleNotebook: View {
     private func saveSummary() {
         pendingSummary?.cancel()
         let text = summary.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let existing = ReadingList.summary(in: children) {
-            if text.isEmpty {
-                model.store.delete(existing.id)
-            } else if existing.text != summary {
-                model.store.update(existing.id, text: summary)
+        do {
+            if let existing = ReadingList.summary(in: children) {
+                if text.isEmpty {
+                    try model.store.delete([existing.id])
+                } else if existing.text != summary {
+                    try model.store.update(existing.id, text: summary)
+                }
+            } else if !text.isEmpty {
+                try model.store.addChild(summary, to: note.id, tags: [NoteTag.summary.rawValue])
             }
-        } else if !text.isEmpty {
-            model.store.addChild(summary, to: note.id, tags: [NoteTag.summary.rawValue])
+        } catch {
+            model.messages.report(error)
         }
     }
 
@@ -187,7 +196,7 @@ struct ArticleNotebook: View {
               let addition = ArticleMarkdown.update(children: children, after: saved, date: Date()) else { return }
         do {
             guard FileManager.default.fileExists(atPath: file) else {
-                model.store.updateReading(note.id) { $0.savedFile = nil; $0.savedAt = nil }
+                try model.store.updateReading(note.id) { $0.savedFile = nil; $0.savedAt = nil }
                 throw PiperError("The saved file is gone. Choose Save as File again.")
             }
             let vault = Vault(path: (file as NSString).deletingLastPathComponent)
@@ -196,9 +205,9 @@ struct ArticleNotebook: View {
                 throw PiperError("The saved file is not UTF-8 text.")
             }
             try vault.write((text.hasSuffix("\n") ? text : text + "\n").appending(addition), to: name)
-            model.store.updateReading(note.id) { $0.savedAt = Date() }
+            try model.store.updateReading(note.id) { $0.savedAt = Date() }
             model.library.reload()
-        } catch { model.store.report(error) }
+        } catch { model.messages.report(error) }
     }
 }
 
@@ -369,11 +378,11 @@ private struct SaveArticleForm: View {
         do {
             try vault.write(text, to: path)
             let file = vault.root.appendingPathComponent(path).path
-            model.store.updateReading(note.id) { $0.savedFile = file; $0.savedAt = Date() }
-            model.store.status = "Saved to " + destination.label
+            try model.store.updateReading(note.id) { $0.savedFile = file; $0.savedAt = Date() }
+            model.messages.show("Saved to " + destination.label)
             lastFolder = destination.label
             model.library.reload()
             close()
-        } catch { model.store.report(error) }
+        } catch { model.messages.report(error) }
     }
 }

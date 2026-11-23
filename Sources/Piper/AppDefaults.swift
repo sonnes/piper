@@ -376,18 +376,11 @@ enum AppDefaults {
         static let clearance: CGFloat = 64
     }
 
-    /// The toast of a web page capture.
+    /// The cards of a web page capture in the toast.
     enum ReadingToast {
-        static let width: CGFloat = 360
-        /// The space between the toast and the corner of the screen.
-        static let margin: CGFloat = 30
-        static let cornerRadius: CGFloat = 12
-        static let padding = EdgeInsets(top: 11, leading: 14, bottom: 11, trailing: 12)
         static let checkSize: CGFloat = 16
         static let checkFontSize: CGFloat = 9
         static let badgeSize: CGFloat = 22
-        static let buttonHeight: CGFloat = 24
-        static let buttonPadding: CGFloat = 10
     }
 
     /// The Reading list and the Notes tab of a link capture.
@@ -470,8 +463,6 @@ enum AppDefaults {
         static let model = "sonnet"
         /// The model of a margin answer when the reader chose none. It is fast and costs little.
         static let marginModel = "haiku"
-        /// How long a toast with a button stays.
-        static let actionToastDuration: TimeInterval = 6
     }
 
     /// The session transcript.

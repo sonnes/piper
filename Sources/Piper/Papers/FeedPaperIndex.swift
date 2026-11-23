@@ -34,7 +34,7 @@ struct FeedPaperIndex: View {
         }
         .sheet(isPresented: $namingSection) {
             NewSectionSheet(sections: store.sections) { name in
-                guard store.chooseSection(name) else { return }
+                do { try store.chooseSection(name) } catch { return model.messages.report(error) }
                 namingSection = false
                 paper.pick(.today(section: store.activeSection))
             }
@@ -46,7 +46,7 @@ struct FeedPaperIndex: View {
             TextField("Name", text: $sectionName)
             Button("Cancel", role: .cancel) {}
             Button("Save") {
-                guard store.renameSection(section, to: sectionName) else { return }
+                do { try store.renameSection(section, to: sectionName) } catch { return model.messages.report(error) }
                 if scope == .today(section: section) {
                     paper.state.scope = .today(section: sectionName.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
@@ -59,7 +59,7 @@ struct FeedPaperIndex: View {
         ), presenting: deletingSection) { section in
             Button("Cancel", role: .cancel) {}
             Button("Delete Section", role: .destructive) {
-                guard store.deleteSection(section) else { return }
+                do { try store.deleteSection(section) } catch { return model.messages.report(error) }
                 if scope == .today(section: section) { paper.state.scope = .today(section: nil) }
             }
         } message: { section in

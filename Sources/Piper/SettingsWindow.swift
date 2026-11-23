@@ -139,7 +139,7 @@ private struct CaptureSettings: View {
             }
             Section("Clipboard") {
                 LabeledContent {
-                    Button("Capture Now") { model.store.captureClipboard() }
+                    Button("Capture Now") { model.captureClipboard() }
                 } label: {
                     Text("Capture Clipboard")
                     Text("Use it when an app does not expose its selection.")

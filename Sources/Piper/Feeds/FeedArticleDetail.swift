@@ -29,8 +29,7 @@ struct FeedArticleDetail: View {
                 switch tab {
                 case .web:
                     NoteWebReader(url: url) { text, title, url in
-                        model.store.add(text, source: title, sourceURL: url.absoluteString,
-                                        to: Note.inbox, interpretSection: false)
+                        try model.store.add(text, section: Note.inbox, source: title, sourceURL: url.absoluteString)
                     }
                 case .reader, .notes:
                     reader(url)
@@ -64,9 +63,9 @@ struct FeedArticleDetail: View {
     /// article in Inbox first. The pane then shows the capture.
     private func perform(_ message: [String: Any]) {
         guard case .loaded(let page) = loader.state, let url else { return }
-        ReaderMarks.perform(message, store: model.store, reader: model.reader, article: page,
+        ReaderMarks.perform(message, store: model.store, reader: model.reader, messages: model.messages, article: page,
                             open: { desk?.open($0) }) {
-            model.store.saveArticle(url, title: article.title, source: model.feeds.feed(article.feedID)?.title)?.id
+            try model.store.saveArticle(url, title: article.title, source: model.feeds.feed(article.feedID)?.title).id
         }
     }
 }

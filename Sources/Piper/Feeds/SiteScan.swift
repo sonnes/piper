@@ -32,12 +32,14 @@ final class SiteScan {
     }
 
     @ObservationIgnored private let feeds: FeedStore
+    @ObservationIgnored private let messages: Messages
     @ObservationIgnored private let preferences: UserDefaults
 
     // MARK: - Initialization
 
-    init(feeds: FeedStore, preferences: UserDefaults) {
+    init(feeds: FeedStore, messages: Messages, preferences: UserDefaults) {
         self.feeds = feeds
+        self.messages = messages
         self.preferences = preferences
         blockedSites = preferences.stringArray(forKey: AppDefaults.Key.blockedSites) ?? BlockedSites.defaults
         disabledSources = Set(preferences.stringArray(forKey: AppDefaults.Key.disabledHistorySources) ?? [])
@@ -67,7 +69,8 @@ final class SiteScan {
             let found = await Task.detached { BrowserCatalog.sources() }.value
             sources = found
             let enabled = found.filter { !disabled.contains($0.id) && !$0.needsAccess }
-            let digest = await Self.digest(enabled, blocked: blocked)
+            let (digest, errors) = await Self.digest(enabled, blocked: blocked)
+            errors.forEach(messages.report)
             guard !digest.sites.isEmpty else {
                 state = .failed(enabled.isEmpty ? "Piper can read no browser history. Open Settings > Feeds to choose the sources."
                                 : "Piper found no sites in the last \(HistoryDigest.days) days of history.")
@@ -83,12 +86,17 @@ final class SiteScan {
 
     // MARK: - Parts
 
-    private nonisolated static func digest(_ sources: [HistorySource], blocked: [String]) async -> HistoryDigest {
+    /// The digest of the sources that Piper can read, and the error of each source that it cannot.
+    private nonisolated static func digest(_ sources: [HistorySource], blocked: [String]) async -> (HistoryDigest, [Error]) {
         await Task.detached {
             let now = Date()
             let since = now.addingTimeInterval(-Double(HistoryDigest.days) * 86_400)
-            let visits = sources.flatMap { (try? HistoryReader.read($0, since: since)) ?? [] }
-            return HistoryDigest(visits: visits, blocked: blocked, now: now)
+            var visits: [Visit] = []
+            var errors: [Error] = []
+            for source in sources {
+                do { visits += try HistoryReader.read(source, since: since) } catch { errors.append(error) }
+            }
+            return (HistoryDigest(visits: visits, blocked: blocked, now: now), errors)
         }.value
     }
 

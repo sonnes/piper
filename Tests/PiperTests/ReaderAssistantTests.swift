@@ -45,16 +45,16 @@ final class ReaderAssistantTests: XCTestCase {
     }
 
     private func makeAssistant(executable: URL?) -> (ReaderAssistant, FolderAgents) {
-        let agents = FolderAgents(store: store, preferences: preferences)
+        let agents = FolderAgents(store: store, messages: Messages(), preferences: preferences)
         agents.runner.executable = executable
         agents.runner.usesLoginShell = false
-        let assistant = ReaderAssistant(store: store, agents: agents)
+        let assistant = ReaderAssistant(store: store, agents: agents, messages: Messages())
         assistant.folder = { [root] in root?.path }
         return (assistant, agents)
     }
 
     private func capture() throws -> UUID {
-        XCTAssertTrue(store.add("https://example.com/article"))
+        XCTAssertNoThrow(try store.add("https://example.com/article", section: store.activeSection))
         return try XCTUnwrap(store.notes.last?.id)
     }
 
@@ -105,7 +105,7 @@ final class ReaderAssistantTests: XCTestCase {
     func testMarginSessionLookupSkipsAnOrdinarySessionOfTheSameNote() throws {
         let (assistant, agents) = makeAssistant(executable: nil)
         let parent = try capture()
-        let question = try XCTUnwrap(store.addChild("Explain: x", to: parent, tags: [NoteTag.question.rawValue]))
+        let question = try store.addChild("Explain: x", to: parent, tags: [NoteTag.question.rawValue])
         XCTAssertNil(assistant.session(for: parent))
 
         let margin = agents.newMarginSession(in: root.path, noteID: question.id)

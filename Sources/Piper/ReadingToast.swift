@@ -1,18 +1,17 @@
-import AppKit
 import Captures
 import Observation
 import PiperCore
 import SwiftUI
 
-/// The toast of a web page capture: a new highlight, a page saved to Reading,
-/// or the note field of a highlight.
+/// The cards of a web page capture in the toast: a new highlight, a page
+/// saved to Reading, or the note field of a highlight.
 ///
 /// The toast does not take the focus, so the reader keeps reading in the
 /// browser. Only the note field takes it, after a second capture of the same
 /// highlight. Return or Escape closes the field, and the browser gets the focus
 /// back because Piper never became the active application.
 @MainActor
-final class ReadingToast: NSObject {
+final class ReadingToast {
 
     enum Content: Equatable {
         case highlight(article: UUID, highlight: UUID)
@@ -23,72 +22,44 @@ final class ReadingToast: NSObject {
     // MARK: - Properties
 
     private(set) var content: Content?
-    private var panel: ToastPanel?
-    private var dismiss: DispatchWorkItem?
     private let draft = CommentDraft()
     private let store: CaptureStore
+    private let toast: Toast
+    private let messages: Messages
     /// Opens an article as a reader paper.
     var open: (UUID) -> Void = { _ in }
 
     /// The highlight on the screen, while its toast shows.
     var shownHighlight: (id: UUID, quote: String)? {
-        guard case .highlight(_, let id) = content, panel?.isVisible == true,
+        guard case .highlight(_, let id) = content, toast.isVisible,
               let note = store.notes.first(where: { $0.id == id }) else { return nil }
         return (id, note.anchor?.quote ?? note.text)
     }
 
     // MARK: - Initialization
 
-    init(store: CaptureStore) {
+    init(store: CaptureStore, toast: Toast, messages: Messages) {
         self.store = store
+        self.toast = toast
+        self.messages = messages
     }
 
     // MARK: - Showing
 
     func show(_ content: Content) {
-        dismiss?.cancel()
-        let previous = panel
-        self.content = content
         guard let view = view(for: content) else { return close() }
-        let panel = previous ?? makePanel()
-        let hosting = NSHostingView(rootView: view)
-        panel.contentView = hosting
-        let size = hosting.fittingSize
-        if let screen = NSScreen.main {
-            let margin = AppDefaults.ReadingToast.margin
-            panel.setFrame(NSRect(x: screen.visibleFrame.maxX - size.width - margin, y: screen.visibleFrame.minY + margin,
-                                  width: size.width, height: size.height), display: true)
-        }
-        self.panel = panel
-        if case .comment = content {
-            panel.acceptsKey = true
-            panel.makeKeyAndOrderFront(nil)
+        let closed: () -> Void = { [weak self] in self?.content = nil }
+        if case .comment(let id) = content {
+            toast.show(view, takesKeyboard: true, closed: closed) { [weak self] in self?.saveComment(on: id) }
         } else {
-            panel.acceptsKey = false
-            panel.orderFrontRegardless()
-            let work = DispatchWorkItem { [weak self] in self?.close() }
-            dismiss = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + AppDefaults.Agents.actionToastDuration, execute: work)
+            toast.show(view, closed: closed)
         }
+        self.content = content
     }
 
     func close() {
-        dismiss?.cancel()
-        dismiss = nil
-        content = nil
-        panel?.acceptsKey = false
-        panel?.orderOut(nil)
-    }
-}
-
-// MARK: - NSWindowDelegate
-
-extension ReadingToast: NSWindowDelegate {
-
-    /// A click in another window keeps the typed note.
-    func windowDidResignKey(_ notification: Notification) {
-        guard case .comment(let id) = content else { return }
-        saveComment(on: id)
+        guard content != nil else { return }
+        toast.close()
     }
 }
 
@@ -96,23 +67,9 @@ extension ReadingToast: NSWindowDelegate {
 
 private extension ReadingToast {
 
-    func makePanel() -> ToastPanel {
-        let panel = ToastPanel(contentRect: NSRect(x: 0, y: 0, width: AppDefaults.ReadingToast.width, height: 100),
-                               styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.isReleasedWhenClosed = false
-        panel.level = .floating
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.delegate = self
-        return panel
-    }
-
     func view(for content: Content) -> AnyView? {
         switch content {
-        case .highlight(let articleID, let highlightID):
+        case .highlight(let articleID, _):
             guard let article = store.notes.first(where: { $0.id == articleID }) else { return nil }
             let count = ReadingList.highlights(in: store.children(of: articleID)).count
             return AnyView(ToastCard {
@@ -165,14 +122,8 @@ private extension ReadingToast {
         let text = draft.text
         draft.text = ""
         close()
-        store.comment(text, on: id)
+        do { try store.comment(text, on: id) } catch { messages.report(error) }
     }
-}
-
-/// A panel that takes the keyboard only while the note field shows.
-private final class ToastPanel: NSPanel {
-    var acceptsKey = false
-    override var canBecomeKey: Bool { acceptsKey }
 }
 
 /// The text of the note field, read when the field closes.
@@ -182,19 +133,6 @@ private final class CommentDraft {
 }
 
 // MARK: - Views
-
-private struct ToastCard<Content: View>: View {
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 9) { content }
-            .padding(AppDefaults.ReadingToast.padding)
-            .frame(width: AppDefaults.ReadingToast.width, alignment: .leading)
-            .foregroundStyle(PiperTheme.ink)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppDefaults.ReadingToast.cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: AppDefaults.ReadingToast.cornerRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
-    }
-}
 
 private struct ToastHeader: View {
     let title: String
@@ -280,20 +218,6 @@ private struct CommentField: View {
         }
         .onExitCommand(perform: skip)
         .onAppear { focused = true }
-    }
-}
-
-/// The accent button of the toast. A stock prominent button turns gray in a
-/// panel that is not the key window, and the toast is rarely the key window.
-private struct ToastButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(PiperTheme.ui(.secondary, weight: .medium))
-            .foregroundStyle(PiperTheme.onAccent)
-            .padding(.horizontal, AppDefaults.ReadingToast.buttonPadding)
-            .frame(height: AppDefaults.ReadingToast.buttonHeight)
-            .background(PiperTheme.accent.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: PiperTheme.radius))
-            .contentShape(Rectangle())
     }
 }
 

@@ -56,6 +56,20 @@ Each module has a test target with the same name and a `Tests` suffix. `PiperTes
 
 A view or a controller takes the part that it uses. For example, `FolderTreeView` takes `Library`, and `FilePaperContent` takes `FileEditor`. `AppModel` takes one `UserDefaults` and gives it to each part, so a test can give its own suite.
 
+### Messages and Errors
+
+A store in a module throws its errors and returns what it made. For example, `CaptureStore.add` returns the new `Note`, and `CaptureStore.merge` returns the merged note. A store has no status text. The caller in the application target picks the words.
+
+`Messages` in `AppModel` is the one channel for the messages of the app. `show(_:undo:)` shows a line, with an optional Undo button. `show(_:action:)` shows a line with another button, such as Send or Show. `report(_:)` shows an error. `AppDelegate` sets `Messages.present` to the toast. A test reads `Messages.last`.
+
+Some errors happen where no caller waits:
+
+- `CaptureStore` keeps the error that stopped its database from opening in `loadError`. `AppModel` reports it at launch.
+- `FeedStore` and `ClipboardInbox` take a `report` closure. Their timers and their reads report each database error through it. A failed feed read then gives an empty value.
+- `SessionRunner` reports a storage error through the closure that `FolderAgents` gives it.
+- `EditorPage` runs each call on the page with a completion handler that reports a JavaScript exception. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
+- `SiteScan` reports each browser history that it cannot read, and then scans the others.
+
 ## Windows
 
 `AppDelegate` in `PiperApp.swift` creates each window when it first shows. It owns these windows:
@@ -65,8 +79,7 @@ A view or a controller takes the part that it uses. For example, `FolderTreeView
 | Feed paper, reader papers, and the detached session panel | `PaperDesk`, with `FeedPaperController`, one `ReaderPaperController` for each reader paper, and `SessionPanelController` |
 | Settings | `SettingsWindowController` |
 | Note editor windows | `AppDelegate`, one for each note |
-| Capture toast | `AppDelegate` |
-| Reading toast | `ReadingToast`, which `AppDelegate` owns |
+| Toast | `Toast`, which `AppDelegate` owns. `Messages` and `ReadingToast` show their content in it. |
 
 The feed paper is the main window. Piper shows it at launch, and `showLibrary()` shows it with the open reader papers. `newCapture()` shows the feed paper on Today and asks `TodayView` to focus the capture field through `FeedPaperModel.composerRequest`. Window > Today (Command-1), File > New Capture (Command-N), and New Capture in the menu bar item call `newCapture()`. Closing every window leaves the app running in the menu bar.
 
@@ -139,14 +152,18 @@ The service then looks for a web page. It reads `AXDocument` from the focused el
 | The text of the highlight on the toast, or none, while the toast shows | Any | `comment`: the toast opens the note field |
 | Text | Yes | `highlight`: `CaptureStore.saveHighlight` |
 | None | Yes | `article`: `CaptureStore.saveArticle` |
-| Text | No | `note`: `CaptureStore.add` |
-| None | No | `note` with an error message and no id |
+| Text | No | `note`: `CaptureStore.add`, with the new note |
+| None | No | An error, which the service reports |
 
 `CaptureStore.article(for:)` finds a link capture by the link that `CaptureLinks.canonical` returns, so two links to one page share one capture. `NoteAnchor.normalized` collapses the white space of a browser selection, as the Reader tab does. The anchor of a browser highlight has block -1. `NoteAnchor.locate` finds the quote when the Reader tab opens. A quote can run over more than one block. In that case, `locate` searches the blocks joined with spaces. The mark stops at the end of the first block. If the article holds only a part of the quote, it tries shorter starts of the quote, down to four words.
 
-`ReadingToast` is a borderless, non-activating `NSPanel`. It shows a new highlight, a saved page, or the note field. Only the note field makes the panel the key window. Piper never becomes the active application, so the browser gets the keyboard back when the panel closes. `CaptureService.shownHighlight` reads the highlight on the toast, so a second capture of it asks for a note.
+`CaptureService` reports each failure through `Messages`, for example "Select text in another app first" when Piper is in front.
 
-`CaptureStore` builds a candidate state and saves it before it replaces the current state. `Database` compares the stored blob with the last loaded blob on every save. A database error or a stale snapshot leaves the current notes as they are. See [Local storage](../concepts/storage.md).
+`Toast` owns one borderless, non-activating `NSPanel` at the bottom right corner of the screen. It owns the placement and the dismiss timer, and its `Toast.Metrics` hold its sizes and times. A message stays for 3 seconds, and a message with a button stays for 6 seconds. A new toast replaces the one on the screen. `ReadingToast` gives the toast its cards: a new highlight, a saved page, or the note field. Only the note field makes the panel the key window. Piper never becomes the active application, so the browser gets the keyboard back when the panel closes. `CaptureService.shownHighlight` reads the highlight on the toast, so a second capture of it asks for a note.
+
+`CaptureStore` builds a candidate state and saves it before it replaces the current state. `Database` compares the stored blob with the last loaded blob on every save. A database error or a stale snapshot leaves the current notes as they are, and the change throws the error. See [Local storage](../concepts/storage.md).
+
+The capture field of Today reads `# Name` alone on one line as a section, through `CaptureDraft`, and calls `CaptureStore.chooseSection`. Every other text goes to `CaptureStore.add` as it is. Capture Clipboard in the menu bar item and in Settings calls `AppModel.captureClipboard`.
 
 `ClipboardInbox` polls the pasteboard and keeps the 50 latest texts from the last 7 days, with the copy time and the app in front. It stores them in the `clipboard` table through the `Database` of `CaptureStore`. `ClipboardInbox.save` keeps a text as a kept note in Inbox. `dismiss` removes a text for Done, and `restore` puts it back for Undo. Today shows the texts in its tray.
 
@@ -385,7 +402,9 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [PiperTheme.swift](../../Sources/Piper/PiperTheme.swift) | App colors, shapes, fonts, and shared controls |
 | [FileReadState.swift](../../Sources/Piper/FileReadState.swift) | Read timestamps for each file |
 | [CaptureService.swift](../../Sources/Piper/CaptureService.swift) | Global shortcuts, Accessibility selection, and web page capture |
-| [ReadingToast.swift](../../Sources/Piper/ReadingToast.swift) | The toast of a web page capture and its note field |
+| [Messages.swift](../../Sources/Piper/Messages.swift) | `Messages`, the one channel for messages and errors |
+| [Toast.swift](../../Sources/Piper/Toast.swift) | `Toast`, the one panel that shows messages and the cards of a web page capture |
+| [ReadingToast.swift](../../Sources/Piper/ReadingToast.swift) | The cards of a web page capture and the note field |
 | [ReaderAssistant.swift](../../Sources/Piper/ReaderAssistant.swift) | `ReaderArticle`, highlights, notes, and Claude questions of the Reader tab |
 | [FolderAgents.swift](../../Sources/Piper/FolderAgents.swift) | Folders with skills, default skills, and every send action |
 | [AgentViews.swift](../../Sources/Piper/AgentViews.swift) | The session badge, the Send button, and the skill list |
@@ -398,7 +417,7 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [Papers/PaperDesk.swift](../../Sources/Piper/Papers/PaperDesk.swift) | The one way to open a paper, the feed paper, the reader papers, the session panel, their placement, and the focus |
 | [Papers/PaperFrames.swift](../../Sources/Piper/Papers/PaperFrames.swift) | The saved frames of the feed paper and the reader papers, the rules that keep a paper on the screen, and the double-click setting |
 | [Papers/PaperDeskState.swift](../../Sources/Piper/Papers/PaperDeskState.swift) | `PaperTab`, `PaperScope`, and the restored state of the feed paper |
-| [Papers/](../../Sources/Piper/Papers) | The feed paper, its tabs, its index, its lists, the reader papers, the row icons, and the error alert |
+| [Papers/](../../Sources/Piper/Papers) | The feed paper, its tabs, its index, its lists, the reader papers, and the row icons |
 | [Feeds/](../../Sources/Piper/Feeds) | The article list, the article detail, Sources, the history scan, and the Feeds settings |
 | [Modules/Feeds/](../../Sources/Modules/Feeds) | The parser, the feed database, refresh, feed discovery, and OPML import |
 | [Modules/History/](../../Sources/Modules/History) | History sources, history reads, the digest, the decay rank, and blocked sites |

@@ -177,7 +177,7 @@ final class WikiEditingTests: XCTestCase {
         XCTAssertFalse(model.files.settleEditors())
         XCTAssertEqual(model.files.selectedDocument, "First.md", "Piper shows the file that needs a choice")
         XCTAssertEqual(try disk("First.md"), "# Theirs\n")
-        XCTAssertNotNil(model.store.errorMessage)
+        XCTAssertEqual(model.messages.last?.isError, true)
     }
 
     @MainActor func testAPastedImageGoesNextToTheNote() throws {

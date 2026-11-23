@@ -38,6 +38,7 @@ final class CaptureService {
     private var monitoredShortcut: String?
     private var gesture = ShiftGesture()
     private let store: CaptureStore
+    private let messages: Messages
     private let shortcut: () -> String
     private let accessibilityChanged: (Bool) -> Void
     private let queue = DispatchQueue(label: "piper.capture")
@@ -51,8 +52,9 @@ final class CaptureService {
     /// - Parameters:
     ///   - shortcut: The capture shortcut that Settings shows.
     ///   - accessibilityChanged: Takes the Accessibility access of Piper each time the service checks it.
-    init(store: CaptureStore, shortcut: @escaping () -> String, accessibilityChanged: @escaping (Bool) -> Void) {
+    init(store: CaptureStore, messages: Messages, shortcut: @escaping () -> String, accessibilityChanged: @escaping (Bool) -> Void) {
         self.store = store
+        self.messages = messages
         self.shortcut = shortcut
         self.accessibilityChanged = accessibilityChanged
     }
@@ -103,12 +105,12 @@ final class CaptureService {
             return noErr
         }, 1, &event, Unmanaged.passUnretained(self).toOpaque(), &hotKeyHandler)
         guard installed == noErr else {
-            store.report(PiperError("Cannot register the capture shortcut. Choose Shift, Shift in Settings."))
+            messages.report(PiperError("Cannot register the capture shortcut. Choose Shift, Shift in Settings."))
             return
         }
         let registered = RegisterEventHotKey(49, UInt32(controlKey | optionKey), EventHotKeyID(signature: 0x50697072, id: 1), GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &hotKey)
         if registered != noErr {
-            store.report(PiperError("Control-Option-Space is unavailable. Choose Shift, Shift or release the shortcut in the other application."))
+            messages.report(PiperError("Control-Option-Space is unavailable. Choose Shift, Shift or release the shortcut in the other application."))
         }
     }
 
@@ -123,15 +125,23 @@ final class CaptureService {
     }
 
     func capture() {
+        capture(trusted: AXIsProcessTrusted(), frontmost: NSWorkspace.shared.frontmostApplication)
+    }
+
+    /// Captures the selection of the application in front.
+    ///
+    /// - Parameters:
+    ///   - trusted: True when Piper has Accessibility access.
+    ///   - frontmost: The application in front. Piper itself has no selection to capture.
+    func capture(trusted: Bool, frontmost: NSRunningApplication?) {
         guard !busy else { return }
-        guard AXIsProcessTrusted() else {
+        guard trusted else {
             accessibilityChanged(false)
-            store.status = "Enable Accessibility in Settings"
-            didCapture?(.note(store.status, nil))
+            messages.show("Enable Accessibility in Settings")
             return
         }
-        guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
-            store.status = "Select text in another app first"
+        guard let app = frontmost, app.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
+            messages.show("Select text in another app first")
             return
         }
         busy = true
@@ -143,13 +153,12 @@ final class CaptureService {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.busy = false
-                switch result {
-                case .success(let selection):
-                    self.didCapture?(Self.save(selection, source: source, section: section,
-                                               store: self.store, shown: self.shownHighlight?()))
-                case .failure(let error):
-                    self.store.status = error.localizedDescription
-                    self.didCapture?(.note(error.localizedDescription, nil))
+                do {
+                    let outcome = try Self.save(result.get(), source: source, section: section,
+                                                store: self.store, shown: self.shownHighlight?())
+                    self.didCapture?(outcome)
+                } catch {
+                    self.messages.report(error)
                 }
             }
         }
@@ -162,7 +171,7 @@ final class CaptureService {
     /// highlight asks for a note on it. The capture has no selection or the
     /// same text. A capture on another page saves as usual.
     static func save(_ selection: CapturedSelection, source: String, section: String,
-                     store: CaptureStore, shown: (id: UUID, quote: String)?) -> CaptureOutcome {
+                     store: CaptureStore, shown: (id: UUID, quote: String)?) throws -> CaptureOutcome {
         let quote = NoteAnchor.normalized(selection.text)
         if let shown, quote.isEmpty || quote == shown.quote,
            isOnPage(of: shown.id, selection.sourceURL, in: store) {
@@ -170,26 +179,20 @@ final class CaptureService {
         }
         guard let url = selection.sourceURL.flatMap(URL.init(string:)) else {
             guard !quote.isEmpty else {
-                store.status = "No readable selection. Copy the text, then choose Capture Clipboard."
-                return .note(store.status, nil)
+                throw PiperError("No readable selection. Copy the text, then choose Capture Clipboard.")
             }
-            let saved = store.add(selection.text, source: source, sourceURL: nil, to: section, interpretSection: false)
-            return .note(store.status, saved ? store.notes.last?.id : nil)
+            return .note(try store.add(selection.text, section: section, source: source))
         }
-        if let text = selection.pageText { store.savePageText(text, for: url) }
+        if let text = selection.pageText { try store.savePageText(text, for: url) }
         if quote.isEmpty {
             let isNew = store.article(for: url) == nil
-            guard let article = store.saveArticle(url, title: selection.title, source: source, to: section) else {
-                return .note(store.status, nil)
-            }
-            if let minutes = selection.minutes { store.updateReading(article.id) { if $0.minutes == nil { $0.minutes = minutes } } }
+            let article = try store.saveArticle(url, title: selection.title, source: source, to: section)
+            if let minutes = selection.minutes { try store.updateReading(article.id) { if $0.minutes == nil { $0.minutes = minutes } } }
             return .article(article.id, isNew: isNew)
         }
-        guard let saved = store.saveHighlight(selection.text, in: url, title: selection.title, source: source, to: section,
-                                              tags: [NoteTag.highlight.rawValue, ReaderAssistant.colors[0]]) else {
-            return .note(store.status, nil)
-        }
-        if let minutes = selection.minutes { store.updateReading(saved.article.id) { if $0.minutes == nil { $0.minutes = minutes } } }
+        let saved = try store.saveHighlight(selection.text, in: url, title: selection.title, source: source, to: section,
+                                            tags: [NoteTag.highlight.rawValue, ReaderAssistant.colors[0]])
+        if let minutes = selection.minutes { try store.updateReading(saved.article.id) { if $0.minutes == nil { $0.minutes = minutes } } }
         return .highlight(article: saved.article.id, highlight: saved.highlight.id)
     }
 
@@ -303,8 +306,8 @@ final class CaptureService {
 
 /// What one capture saved.
 enum CaptureOutcome: Equatable {
-    /// A plain note with its id, or a message and no id when nothing was saved.
-    case note(String, UUID?)
+    /// A plain note.
+    case note(Note)
     /// A highlight under the link capture of a web page.
     case highlight(article: UUID, highlight: UUID)
     /// A web page that the capture saved to Reading. A page that Reading

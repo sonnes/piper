@@ -13,7 +13,7 @@ public enum StarMigration {
 
     /// Returns the count of new link captures.
     @MainActor @discardableResult
-    public static func run(feeds: FeedStore, captures: CaptureStore, section: String = Note.inbox) -> Int {
+    public static func run(feeds: FeedStore, captures: CaptureStore, section: String = Note.inbox) throws -> Int {
         let starred = feeds.starredArticles()
         guard !starred.isEmpty else { return 0 }
         let titles = Dictionary(feeds.feeds.map { ($0.id, $0.title) }, uniquingKeysWith: { first, _ in first })
@@ -23,7 +23,7 @@ public enum StarMigration {
         }
         let before = captures.notes.count
         if !links.isEmpty {
-            guard !captures.keep(links: links, to: section, recordUndo: false).isEmpty else { return 0 }
+            try captures.keep(links: links, to: section, recordUndo: false)
         }
         feeds.clearStars()
         return captures.notes.count - before

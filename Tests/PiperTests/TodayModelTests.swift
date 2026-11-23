@@ -26,7 +26,7 @@ final class TodayModelTests: XCTestCase {
                     summary: "", published: Date(), arrived: Date())
         })
         model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path,
-                         feeds: FeedStore(url: feedsURL))
+                         feeds: FeedStore(url: feedsURL) { XCTFail("\($0)") })
         model.library.reload()
         today = TodayModel(model: model)
     }
@@ -36,9 +36,7 @@ final class TodayModelTests: XCTestCase {
     }
 
     private func note(_ text: String) throws -> StreamItem {
-        XCTAssertTrue(model.store.add(text, to: "Inbox", interpretSection: false))
-        let note = try XCTUnwrap(model.store.notes.last)
-        return .capture(note, children: [])
+        .capture(try model.store.add(text, section: "Inbox"), children: [])
     }
 
     private func article(_ id: String) throws -> StreamItem {
@@ -130,7 +128,7 @@ final class TodayModelTests: XCTestCase {
     // MARK: - File
 
     func testFileIntoASectionMovesCapturesAndKeepsArticlesThere() throws {
-        model.store.chooseSection("Harbor")
+        try model.store.chooseSection("Harbor")
         let item = try note("Lift order: north dock first")
         XCTAssertTrue(today.file([item, try article("two")], to: .section("Harbor")))
         XCTAssertEqual(stored(item)?.section, "Harbor")
@@ -140,8 +138,8 @@ final class TodayModelTests: XCTestCase {
     }
 
     func testFileADigestIntoASectionKeepsEachArticleThere() throws {
-        model.store.chooseSection("Harbor")
-        model.store.chooseSection("Inbox")
+        try model.store.chooseSection("Harbor")
+        try model.store.chooseSection("Inbox")
         let feed = try XCTUnwrap(model.feeds.feed("https://f.example/feed"))
         let digest = StreamItem.digest(model.feeds.articles(.allUnread), feed: feed, day: Date())
         XCTAssertTrue(today.file([digest], to: .section("Harbor")))
@@ -222,13 +220,27 @@ final class TodayModelTests: XCTestCase {
         let item = try note("Gate 4 closes at six")
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("com.piper.test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
-        let tray = ClipboardInbox(store: model.store, pasteboard: pasteboard)
+        let tray = ClipboardInbox(store: model.store, pasteboard: pasteboard) { XCTFail("\($0)") }
         tray.poll()
-        XCTAssertTrue(model.store.delete(try XCTUnwrap(item.note?.id)))
+        XCTAssertNoThrow(try model.store.delete([try XCTUnwrap(item.note?.id)]))
         today.copy([item], to: pasteboard)
         tray.poll()
         XCTAssertEqual(pasteboard.string(forType: .string), "Gate 4 closes at six")
         XCTAssertTrue(tray.entries.isEmpty)
+        XCTAssertEqual(model.messages.last?.text, "Copied")
+    }
+
+    // MARK: - Messages
+
+    func testAFailedWriteReachesTheMessages() throws {
+        let item = try note("Crane 3 is down")
+        // A second instance writes first, so the notes of the model are stale.
+        try CaptureStore(url: root.appendingPathComponent(".captures.sqlite")).add("from another instance", section: "Inbox")
+        today.keep([item])
+        let message = try XCTUnwrap(model.messages.last)
+        XCTAssertTrue(message.isError)
+        XCTAssertEqual(message.text, "Notes changed in another Piper instance. Restart Piper before saving. Your existing notes remain unchanged.")
+        XCTAssertFalse(try XCTUnwrap(stored(item)).isKept)
     }
 
     // MARK: - Capture Field
@@ -241,5 +253,13 @@ final class TodayModelTests: XCTestCase {
         XCTAssertEqual(CaptureDraft("https://tides.example/blog/feed"), .source(URL(string: "https://tides.example/blog/feed")!))
         XCTAssertEqual(CaptureDraft("https://tides.example/?p=4"), .link(URL(string: "https://tides.example/?p=4")!))
         XCTAssertEqual(CaptureDraft("see https://tides.example/guide"), .note)
+    }
+
+    func testAHashLineAloneNamesASection() {
+        XCTAssertEqual(CaptureDraft("# Research"), .section("Research"))
+        XCTAssertEqual(CaptureDraft("#  Field notes  "), .section("Field notes"))
+        XCTAssertEqual(CaptureDraft("# "), .section(""))
+        XCTAssertEqual(CaptureDraft("# literal\nheading"), .note)
+        XCTAssertEqual(CaptureDraft("#hashtag"), .note)
     }
 }

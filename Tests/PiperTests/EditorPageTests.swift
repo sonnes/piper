@@ -80,7 +80,7 @@ final class EditorPageTests: XCTestCase {
             (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?
                 .contains("Original text.") == true
         }
-        let flushed = await page.flush()
+        let flushed = try await page.flush()
         XCTAssertEqual(flushed?.path, "Tea.md")
         XCTAssertEqual(flushed?.text, raw)
 
@@ -180,7 +180,7 @@ final class EditorPageTests: XCTestCase {
         try await wait("The editor shows the new text.") {
             (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?.contains("Second.") == true
         }
-        let flushed = await page.flush()
+        let flushed = try await page.flush()
         XCTAssertEqual(flushed?.text, "# Note\n\nSecond.\n")
     }
 

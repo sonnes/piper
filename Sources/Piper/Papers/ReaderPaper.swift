@@ -47,7 +47,7 @@ struct ReaderPaper: View {
                 .labelStyle(.titleAndIcon)
                 .foregroundStyle(PiperTheme.tertiaryLabel)
             Spacer(minLength: 8)
-            Button { model.store.toggleDone(note.id) } label: {
+            Button { toggleDone(note) } label: {
                 Label(note.isDone ? "Open Again" : "Mark as Done",
                       systemImage: note.isDone ? "arrow.uturn.backward" : "checkmark")
                     .font(PiperTheme.paperUI(.body, weight: .semibold))
@@ -87,6 +87,10 @@ struct ReaderPaper: View {
         .font(PiperTheme.paperUI(.body, weight: .medium))
     }
 
+    private func toggleDone(_ note: Note) {
+        do { try model.store.toggleDone(note.id) } catch { model.messages.report(error) }
+    }
+
     private var closeButton: some View {
         PaperButton(title: "Put Back", symbol: "xmark", help: "Put the paper back · Escape", action: close)
     }
@@ -98,7 +102,7 @@ struct ReaderPaper: View {
             PaperToolbar {
                 PaperButton(title: note.isDone ? "Open Again" : "Mark as Done",
                             symbol: note.isDone ? "checkmark.circle.fill" : "checkmark.circle", active: note.isDone,
-                            help: note.isDone ? "Open the link again" : "Mark the link as done") { model.store.toggleDone(note.id) }
+                            help: note.isDone ? "Open the link again" : "Mark the link as done") { toggleDone(note) }
                 closeButton
             }
         } else if let note {

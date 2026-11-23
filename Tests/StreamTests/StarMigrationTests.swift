@@ -30,17 +30,17 @@ final class StarMigrationTests: XCTestCase {
         XCTAssertEqual(sqlite3_open(url.path, &handle), SQLITE_OK)
         sqlite3_exec(handle, "UPDATE articles SET starred = 1 WHERE id IN ('one', 'two')", nil, nil, nil)
         sqlite3_close(handle)
-        return FeedStore(url: url)
+        return FeedStore(url: url) { XCTFail("\($0)") }
     }
 
     func testStarsBecomeKeptLinkCapturesOneTime() throws {
         let feeds = try starredFeeds()
         let captures = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
         // A capture of the second link exists, so the copy skips it.
-        captures.add("https://www.f.example/two")
+        try captures.add("https://www.f.example/two", section: captures.activeSection)
         XCTAssertEqual(feeds.starredArticles().count, 2)
 
-        XCTAssertEqual(StarMigration.run(feeds: feeds, captures: captures), 1)
+        XCTAssertEqual(try StarMigration.run(feeds: feeds, captures: captures), 1)
         let copy = try XCTUnwrap(captures.notes.first { $0.text == "https://f.example/one" })
         XCTAssertTrue(copy.isKept)
         XCTAssertEqual(copy.reading?.title, "Post one")
@@ -48,19 +48,19 @@ final class StarMigrationTests: XCTestCase {
         XCTAssertEqual(captures.notes.count, 2)
         XCTAssertTrue(feeds.starredArticles().isEmpty)
         // Undo does not remove the copy.
-        captures.undo()
+        try captures.undo()
         XCTAssertTrue(captures.notes.contains { $0.id == copy.id })
 
         // A second run adds nothing.
-        XCTAssertEqual(StarMigration.run(feeds: feeds, captures: captures), 0)
+        XCTAssertEqual(try StarMigration.run(feeds: feeds, captures: captures), 0)
         XCTAssertEqual(captures.notes.count, 2)
     }
 
     func testARunThatStopsBeforeTheStarsClearAddsNoSecondCopy() throws {
         let feeds = try starredFeeds()
         let captures = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
-        captures.keep(links: [KeptLink(url: URL(string: "https://f.example/one")!)], recordUndo: false)
-        XCTAssertEqual(StarMigration.run(feeds: feeds, captures: captures), 1)
+        try captures.keep(links: [KeptLink(url: URL(string: "https://f.example/one")!)], recordUndo: false)
+        XCTAssertEqual(try StarMigration.run(feeds: feeds, captures: captures), 1)
         XCTAssertEqual(captures.notes.map(\.text).sorted(), ["https://f.example/one", "https://f.example/two"])
     }
 }

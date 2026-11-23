@@ -55,7 +55,7 @@ final class QuitSafetyTests: XCTestCase {
 
     func testAnUnresolvedCaptureEditBlocksQuit() {
         let store = CaptureStore(url: databaseURL)
-        XCTAssertTrue(store.add("original"))
+        XCTAssertNoThrow(try store.add("original", section: store.activeSection))
         let model = AppModel(store: store, wikiPath: wikiPath)
         let session = model.editCapture(store.notes[0])
         session.text = "an unsaved change"
@@ -67,8 +67,8 @@ final class QuitSafetyTests: XCTestCase {
 
     func testEveryCaptureEditIsOfferedBeforeQuit() {
         let store = CaptureStore(url: databaseURL)
-        XCTAssertTrue(store.add("first"))
-        XCTAssertTrue(store.add("second"))
+        XCTAssertNoThrow(try store.add("first", section: store.activeSection))
+        XCTAssertNoThrow(try store.add("second", section: store.activeSection))
         let model = AppModel(store: store, wikiPath: wikiPath)
         for note in store.notes {
             model.editCapture(note).text = note.text + " edited"

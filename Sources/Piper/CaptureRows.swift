@@ -69,9 +69,7 @@ struct NoteEditor: View {
                 .frame(minHeight: 180)
             Rule()
             HStack(spacing: 8) {
-                if let error = model.store.errorMessage {
-                    Text(error).font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.danger).textSelection(.enabled).lineLimit(2)
-                } else if session.hasChanges {
+                if session.hasChanges {
                     Text("Edited").font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
                 }
                 Spacer()

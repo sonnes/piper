@@ -30,8 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var editorSessions: [ObjectIdentifier: CaptureEditSession] = [:]
     private var statusItem: NSStatusItem?
     private var refresh: Timer?
-    private var toast: NSPanel?
-    private var toastDismiss: DispatchWorkItem?
+    private let toast = Toast()
     private var readingToast: ReadingToast?
     private var palette: CommandPaletteController?
     private var capture: CaptureService?
@@ -56,15 +55,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         model.openNoteEditor = { [weak self] note in self?.showEditor(note) }
         model.openSettings = { [weak self] in self?.settings() }
         if model.sessionPresentation == .detached { DispatchQueue.main.async { [weak self] in self?.desk.showSessionPanel() } }
-        let readingToast = ReadingToast(store: model.store)
+        model.messages.present = { [toast] message in toast.show(message) }
+        if let message = model.messages.last { toast.show(message) }
+        let readingToast = ReadingToast(store: model.store, toast: toast, messages: model.messages)
         readingToast.open = { [weak self] id in self?.showArticle(id) }
         self.readingToast = readingToast
-        let capture = CaptureService(store: model.store, shortcut: { [weak model] in model?.captureShortcut ?? "" },
+        let capture = CaptureService(store: model.store, messages: model.messages, shortcut: { [weak model] in model?.captureShortcut ?? "" },
                                      accessibilityChanged: { [weak model] enabled in model?.accessibilityEnabled = enabled })
         capture.didCapture = { [weak self] outcome in self?.captured(outcome) }
         capture.shownHighlight = { [weak readingToast] in readingToast?.shownHighlight }
         sendShortcut.action = { [weak self] in self?.sendClipboard() }
-        sendShortcut.failure = { [weak self] message in self?.model.store.report(PiperError(message)) }
+        sendShortcut.failure = { [weak self] message in self?.model.messages.report(PiperError(message)) }
         sendShortcut.update(enabled: !model.agents.folders.isEmpty)
         stopRunsOnTerminateSignal()
         self.capture = capture
@@ -265,7 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         if settingsWindowController == nil { settingsWindowController = SettingsWindowController(model: model) }
         settingsWindowController?.show()
     }
-    @objc private func clipboard() { model.captureClipboard(); showToast(model.store.status) }
+    @objc private func clipboard() { model.captureClipboard() }
 
     /// Names the default folder in the menu bar item, and hides the item when
     /// no folder has Claude skills.
@@ -277,24 +278,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     /// Saves the clipboard to Inbox and opens a draft in the default folder.
     @objc private func sendClipboard() {
-        guard let run = model.agents.sendPasteboard() else {
-            showToast(model.store.status)
-            return
+        do {
+            let run = try model.agents.sendPasteboard()
+            desk.open(.session(run.id))
+            showRunToast(run)
+        } catch {
+            model.messages.report(error)
         }
-        desk.open(.session(run.id))
-        showRunToast(run)
     }
 
     /// Confirms a capture. A web page capture shows the reading toast.
     private func captured(_ outcome: CaptureOutcome) {
         switch outcome {
-        case .note(let text, let noteID):
-            captured(text, noteID: noteID)
+        case .note(let note):
+            captured(note)
         case .highlight(let article, let highlight):
-            closeToast()
             readingToast?.show(.highlight(article: article, highlight: highlight))
         case .article(let article, let isNew):
-            closeToast()
             readingToast?.show(.article(article, isNew: isNew))
         case .comment(let highlight):
             readingToast?.show(.comment(highlight: highlight))
@@ -302,52 +302,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     /// Confirms a selection capture. A note that a folder can take gets a Send button.
-    private func captured(_ text: String, noteID: UUID?) {
-        guard let noteID, let note = model.store.notes.first(where: { $0.id == noteID }),
-              let action = model.agents.defaultAction(for: note.text) else {
-            showToast(text)
-            return
-        }
-        showToast(text, action: ToastAction(title: "Send to " + action.folder.name) { [weak self] in
-            guard let self, let session = model.agents.send(note, action: action) else { return }
-            desk.open(.session(session.id))
-            showRunToast(session)
+    private func captured(_ note: Note) {
+        let text = "Saved to \(note.section)"
+        guard let action = model.agents.defaultAction(for: note.text) else { return model.messages.show(text) }
+        model.messages.show(text, action: Message.Action(title: "Send to " + action.folder.name) { [weak self] in
+            guard let self else { return }
+            do {
+                let session = try model.agents.send(note, action: action)
+                desk.open(.session(session.id))
+                showRunToast(session)
+            } catch {
+                model.messages.report(error)
+            }
         })
     }
 
     private func showRunToast(_ session: AgentSession) {
-        showToast(model.store.status, action: session.noteID.map { id in
-            ToastAction(title: "Show") { [weak self] in self?.desk.open(.note(id)) }
+        model.messages.show("Draft in \(session.folderName)", action: session.noteID.map { id in
+            Message.Action(title: "Show") { [weak self] in self?.desk.open(.note(id)) }
         })
-    }
-
-    private func closeToast() {
-        toastDismiss?.cancel()
-        toast?.close()
-    }
-
-    private func showToast(_ text: String, action: ToastAction? = nil) {
-        closeToast()
-        readingToast?.close()
-        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 340, height: 44), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false
-        window.level = .floating
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = true
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        window.contentView = FirstMouseHostingView(rootView: ToastView(text: text, action: action.map { action in
-            ToastAction(title: action.title) { [weak window] in
-                window?.orderOut(nil)
-                action.perform()
-            }
-        }))
-        if let screen = NSScreen.main { window.setFrameOrigin(NSPoint(x: screen.visibleFrame.maxX - 370, y: screen.visibleFrame.minY + 30)) }
-        window.orderFrontRegardless()
-        toast = window
-        let dismiss = DispatchWorkItem { [weak window] in window?.orderOut(nil) }
-        toastDismiss = dismiss
-        DispatchQueue.main.asyncAfter(deadline: .now() + (action == nil ? 3 : AppDefaults.Agents.actionToastDuration), execute: dismiss)
     }
 
     /// Brings the open windows forward on a Dock click. With no window open,
@@ -440,38 +413,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         model.agents.runner.stopAll()
         model.clipboard.stop()
         refresh?.invalidate()
-    }
-}
-
-/// A button on the toast.
-private struct ToastAction {
-    let title: String
-    let perform: () -> Void
-}
-
-/// The toast takes a click without first becoming the key window.
-private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-}
-
-private struct ToastView: View {
-    let text: String
-    let action: ToastAction?
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 14)).foregroundStyle(PiperTheme.accent)
-            Text(text).font(PiperTheme.ui(.body)).lineLimit(1).help(text)
-            Spacer(minLength: 0)
-            if let action {
-                Button(action.title, action: action.perform)
-                    .buttonStyle(.borderedProminent).controlSize(.small)
-            } else {
-                Text("⌘1").font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
-            }
-        }
-        .foregroundStyle(PiperTheme.ink)
-        .padding(.horizontal, 14).frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
     }
 }

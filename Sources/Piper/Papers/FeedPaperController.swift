@@ -42,7 +42,9 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
             paper?.marks.feedFocused = focused
             // An article that the reader finished a week ago leaves Reading
             // when the reader comes back to the paper.
-            if focused { model?.store.archiveFinishedReading() }
+            if focused, let model {
+                do { try model.store.archiveFinishedReading() } catch { model.messages.report(error) }
+            }
             self?.focusChanged()
         }
 

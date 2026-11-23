@@ -92,6 +92,7 @@ final class TodayModel {
 
     private var store: CaptureStore { model.store }
     private var feeds: FeedStore { model.feeds }
+    private var messages: Messages { model.messages }
 
     // MARK: - Initialization
 
@@ -181,18 +182,19 @@ final class TodayModel {
     /// capture is kept already, Keep takes the mark away.
     func keep(_ items: [StreamItem]) {
         let captures = items.compactMap(\.note)
-        if !captures.isEmpty, captures.count == items.count, captures.allSatisfy(\.isKept) {
-            store.setKept(false, Set(captures.map(\.id)))
-            store.status = "Not kept"
-            return
+        do {
+            if !captures.isEmpty, captures.count == items.count, captures.allSatisfy(\.isKept) {
+                try store.setKept(false, Set(captures.map(\.id)))
+                return messages.show("Not kept")
+            }
+            if !captures.isEmpty { try store.setKept(true, Set(captures.map(\.id))) }
+            for clip in items.compactMap(\.clip) { try model.clipboard.save(clip.id) }
+        } catch {
+            return messages.report(error)
         }
-        if !captures.isEmpty { store.setKept(true, Set(captures.map(\.id))) }
         let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles)
-        if !articles.isEmpty {
-            model.keep(articles)
-        }
-        for clip in items.compactMap(\.clip) { model.clipboard.save(clip.id) }
-        store.status = "Kept"
+        if !articles.isEmpty, !model.keep(articles) { return }
+        messages.show("Kept")
     }
 
     // MARK: - Done
@@ -203,7 +205,7 @@ final class TodayModel {
         let captures = items.compactMap(\.note)
         let reopen = !captures.isEmpty && captures.allSatisfy(\.isDone)
         let ids = Set(captures.map(\.id))
-        if !ids.isEmpty { store.setDone(!reopen, ids) }
+        do { try store.setDone(!reopen, ids) } catch { return messages.report(error) }
         let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles).filter { !$0.read }
         feeds.setRead(true, articles)
         let clips = items.compactMap(\.clip).compactMap { model.clipboard.dismiss($0.id) }
@@ -211,7 +213,7 @@ final class TodayModel {
         let count = items.count
         offerUndo(reopen ? "Reopened \(Self.count(count))" : "Done · \(Self.count(count))") { [weak self] in
             guard let self else { return }
-            if !ids.isEmpty { store.setDone(reopen, ids) }
+            do { try store.setDone(reopen, ids) } catch { messages.report(error) }
             feeds.setRead(false, articles.map { var article = $0; article.read = true; return article })
             clips.forEach(model.clipboard.restore)
         }
@@ -231,44 +233,51 @@ final class TodayModel {
     @discardableResult
     func file(_ items: [StreamItem], to target: FileTarget, now: Date = Date()) -> Bool {
         guard !items.isEmpty else { return false }
+        do {
+            messages.show(try file(items, to: target, now: now))
+        } catch {
+            messages.report(error)
+            return false
+        }
+        selection.subtract(items.map(\.id))
+        return true
+    }
+
+    /// Files the items, and returns the message for the reader.
+    private func file(_ items: [StreamItem], to target: FileTarget, now: Date) throws -> String {
         switch target {
         case .section(let section):
-            let ids = Set(items.compactMap(\.note).map(\.id))
-            if !ids.isEmpty, !store.move(ids, to: section) { return false }
+            try store.move(Set(items.compactMap(\.note).map(\.id)), to: section)
             let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles)
             if !articles.isEmpty {
-                store.keep(links: model.keptLinks(articles), to: section)
+                try store.keep(links: model.keptLinks(articles), to: section)
                 feeds.setRead(true, articles)
             }
             for clip in items.compactMap(\.clip) {
-                store.add(clip.text, source: Note.clipboardSource, to: section, interpretSection: false)
+                try store.add(clip.text, section: section, source: Note.clipboardSource)
             }
-            store.status = "Filed in \(section)"
+            return "Filed in \(section)"
         case .folder(let root, let folder):
             let vault = Vault(path: root)
             let title = items.count == 1 ? Self.fileTitle(items[0]) : "Notes \(CaptureText.day(now))"
             let text = items.count == 1 ? fileText(items[0], now: now) : items.map { appendText($0) }.joined(separator: "\n")
             let name = ArticleMarkdown.fileName(for: title)
             let path = vault.freeName((name as NSString).deletingPathExtension, ext: (name as NSString).pathExtension, in: folder)
-            do { try vault.write(text, to: path) } catch { store.report(error); return false }
-            finishFiling(items, savedFile: vault.root.appendingPathComponent(path).path)
-            store.status = "Saved to " + target.title
+            try vault.write(text, to: path)
+            try finishFiling(items, savedFile: vault.root.appendingPathComponent(path).path)
             model.library.reload()
+            return "Saved to " + target.title
         case .file(let path):
             let vault = model.library.vault
-            do {
-                let current = (try? vault.read(path)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                let block = items.map { appendText($0) }.joined(separator: "\n")
-                let joined = current.isEmpty || current.hasSuffix("\n\n") ? current
-                    : current.hasSuffix("\n") ? current + "\n" : current + "\n\n"
-                try vault.write(joined + block, to: path)
-            } catch { store.report(error); return false }
-            finishFiling(items, savedFile: vault.root.appendingPathComponent(path).path)
-            store.status = "Added to " + path
+            let current = (try? vault.read(path)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            let block = items.map { appendText($0) }.joined(separator: "\n")
+            let joined = current.isEmpty || current.hasSuffix("\n\n") ? current
+                : current.hasSuffix("\n") ? current + "\n" : current + "\n\n"
+            try vault.write(joined + block, to: path)
+            try finishFiling(items, savedFile: vault.root.appendingPathComponent(path).path)
             model.library.reload()
+            return "Added to " + path
         }
-        selection.subtract(items.map(\.id))
-        return true
     }
 
     // MARK: - Send
@@ -278,13 +287,20 @@ final class TodayModel {
     /// text goes to Inbox first.
     func send(_ items: [StreamItem], action: FolderAgents.Action?) {
         for item in items {
-            var session: AgentSession?
-            if let clip = item.clip {
-                session = model.agents.send(clip, from: model.clipboard, action: action)
-            } else if let note = sendable(item) {
-                session = model.agents.send(note, action: action)
+            do {
+                var session: AgentSession?
+                if let clip = item.clip {
+                    session = try model.agents.send(clip, from: model.clipboard, action: action)
+                } else if let note = sendable(item) {
+                    session = try model.agents.send(note, action: action)
+                }
+                if let session {
+                    model.desk?.open(.session(session.id))
+                    messages.show("Draft in \(session.folderName)")
+                }
+            } catch {
+                messages.report(error)
             }
-            if let session { model.desk?.open(.session(session.id)) }
         }
     }
 
@@ -292,8 +308,7 @@ final class TodayModel {
     /// text of the item in the message field.
     func ask(_ item: StreamItem) {
         guard let folder = model.agents.defaultFolder ?? model.agents.folders.first, let note = sendable(item) else {
-            store.report(PiperError("Add a folder with Claude skills in Settings > AI before you ask about a note."))
-            return
+            return messages.report(PiperError("Add a folder with Claude skills in Settings > AI before you ask about a note."))
         }
         let session = model.agents.newSession(in: folder.path, noteID: note.id)
         session.draft = note.text + "\n\n"
@@ -306,10 +321,12 @@ final class TodayModel {
     func merge(_ items: [StreamItem]) {
         let ids = items.compactMap(\.note).map(\.id)
         guard ids.count > 1 else { return }
-        store.selection = Set(ids)
-        store.merge()
-        if let first = store.selection.first { select(.note(first)) }
-        store.selection.removeAll()
+        do {
+            select(.note(try store.merge(ids).id))
+            messages.show("Notes merged")
+        } catch {
+            messages.report(error)
+        }
     }
 
     /// Copies the text of each item: the text of a note, the link of a link
@@ -319,26 +336,27 @@ final class TodayModel {
         let text = asList
             ? texts.enumerated().map { "\($0.offset + 1). " + $0.element.replacingOccurrences(of: "\n", with: "\n   ") }.joined(separator: "\n\n")
             : texts.joined(separator: "\n\n")
-        if Clipboard.copy(text, to: pasteboard) { store.status = "Copied" }
+        if Clipboard.copy(text, to: pasteboard) {
+            messages.show("Copied")
+        } else {
+            messages.report(PiperError("Cannot write to the clipboard."))
+        }
     }
 
     /// Deletes the captures, with Undo. An article becomes read, and a
     /// clipboard text leaves the tray.
     func delete(_ items: [StreamItem]) {
-        let ids = Set(items.compactMap(\.note).map(\.id))
+        let ids = items.compactMap(\.note).map(\.id)
+        do { try store.delete(ids) } catch { return messages.report(error) }
         let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles).filter { !$0.read }
         feeds.setRead(true, articles)
         let clips = items.compactMap(\.clip).compactMap { model.clipboard.dismiss($0.id) }
-        var deleted = false
-        if !ids.isEmpty {
-            store.selection = ids
-            store.deleteSelection()
-            deleted = store.selection.isEmpty
-        }
         selection.subtract(items.map(\.id))
         offerUndo("Deleted \(Self.count(items.count))") { [weak self] in
             guard let self else { return }
-            if deleted { store.undo() }
+            if !ids.isEmpty {
+                do { try store.undo() } catch { messages.report(error) }
+            }
             feeds.setRead(false, articles.map { var article = $0; article.read = true; return article })
             clips.forEach(model.clipboard.restore)
         }
@@ -377,12 +395,11 @@ final class TodayModel {
     }
 
     /// Marks the filed items as done, and records the file of a link capture.
-    private func finishFiling(_ items: [StreamItem], savedFile: String) {
+    private func finishFiling(_ items: [StreamItem], savedFile: String) throws {
         for note in items.compactMap(\.note) where note.isArticle {
-            store.updateReading(note.id) { $0.savedFile = savedFile; $0.savedAt = Date() }
+            try store.updateReading(note.id) { $0.savedFile = savedFile; $0.savedAt = Date() }
         }
-        let ids = Set(items.compactMap(\.note).map(\.id))
-        if !ids.isEmpty { store.setDone(true, ids) }
+        try store.setDone(true, Set(items.compactMap(\.note).map(\.id)))
         feeds.setRead(true, items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles))
         items.compactMap(\.clip).forEach { model.clipboard.dismiss($0.id) }
     }

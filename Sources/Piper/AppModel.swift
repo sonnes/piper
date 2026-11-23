@@ -11,6 +11,8 @@ import WebKit
 
 @MainActor @Observable
 final class AppModel {
+    /// The messages that the toast shows.
+    let messages: Messages
     let store: CaptureStore
     let clipboard: ClipboardInbox
     let agents: FolderAgents
@@ -138,6 +140,8 @@ final class AppModel {
     ///   feed store gets a feed store in a temporary folder.
     init(store: CaptureStore? = nil, wikiPath: String? = nil, preferences: UserDefaults = .standard, feeds: FeedStore? = nil) {
         self.preferences = preferences
+        let messages = Messages()
+        self.messages = messages
         if Bundle.main.bundleIdentifier == "com.piper", !preferences.bool(forKey: AppDefaults.Key.migratedLocalPreferences) {
             let previous = preferences.persistentDomain(forName: "local.piper") ?? [:]
             let keys = [AppDefaults.Key.vaultPath, AppDefaults.Key.captureShortcut, AppDefaults.Key.composerDraft, AppDefaults.Key.readerSize]
@@ -151,26 +155,29 @@ final class AppModel {
         siteTabs = (preferences.dictionary(forKey: AppDefaults.Key.siteTabs) as? [String: Int] ?? [:])
             .compactMapValues { ArticleTab(rawValue: $0) }
         self.feeds = feeds ?? FeedStore(url: store == nil ? nil : FileManager.default.temporaryDirectory
-            .appendingPathComponent("PiperFeeds-\(UUID().uuidString)/Feeds.sqlite"))
+            .appendingPathComponent("PiperFeeds-\(UUID().uuidString)/Feeds.sqlite")) { [weak messages] in messages?.report($0) }
         favicons = FaviconStore(folder: store == nil ? nil : FileManager.default.temporaryDirectory
             .appendingPathComponent("PiperFavicons-\(UUID().uuidString)"))
         let store = store ?? CaptureStore()
         self.store = store
-        clipboard = ClipboardInbox(store: store)
-        let agents = FolderAgents(store: store, preferences: preferences)
+        if let error = store.loadError { messages.report(error) }
+        clipboard = ClipboardInbox(store: store) { [weak messages] in messages?.report($0) }
+        let agents = FolderAgents(store: store, messages: messages, preferences: preferences)
         self.agents = agents
         // Control-Option-C was the earlier alternative. A stored value that no
         // longer matches a preset leaves the capture shortcut dead.
         let stored = preferences.string(forKey: AppDefaults.Key.captureShortcut) ?? "Shift, Shift"
         captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
-        let reader = ReaderAssistant(store: store, agents: agents)
+        let reader = ReaderAssistant(store: store, agents: agents, messages: messages)
         self.reader = reader
         let library = Library(wikiPath: wikiPath, preferences: preferences, agents: agents)
         self.library = library
-        files = FileEditor(library: library, store: store, reader: reader, agents: agents, preferences: preferences)
-        siteScan = SiteScan(feeds: self.feeds, preferences: preferences)
-        store.archiveFinishedReading()
-        StarMigration.run(feeds: self.feeds, captures: store)
+        files = FileEditor(library: library, store: store, reader: reader, agents: agents, messages: messages, preferences: preferences)
+        siteScan = SiteScan(feeds: self.feeds, messages: messages, preferences: preferences)
+        do {
+            try store.archiveFinishedReading()
+            try StarMigration.run(feeds: self.feeds, captures: store)
+        } catch { messages.report(error) }
         // A question goes to the folder of the Send buttons, or else to the open folder.
         reader.folder = { [weak agents, weak library] in agents?.defaultFolder?.path ?? library?.vault.root.path }
     }
@@ -181,8 +188,20 @@ final class AppModel {
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
 
-    @discardableResult func captureClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
-        store.captureClipboard(from: pasteboard)
+    /// Saves the text of the clipboard as a note in the active section.
+    @discardableResult func captureClipboard(from pasteboard: NSPasteboard = .general) -> Note? {
+        guard let text = pasteboard.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            messages.show("The clipboard has no text")
+            return nil
+        }
+        do {
+            let note = try store.add(text, section: store.activeSection, source: Note.clipboardSource)
+            messages.show("Saved to \(note.section)")
+            return note
+        } catch {
+            messages.report(error)
+            return nil
+        }
     }
 
     func editCapture(_ note: Note) -> CaptureEditSession {
@@ -193,8 +212,13 @@ final class AppModel {
 
     @discardableResult func saveCaptureEdit(_ session: CaptureEditSession) -> Bool {
         guard session.hasChanges else { return true }
-        guard store.update(session.note.id, text: session.text, originalText: session.note.text),
-              let saved = store.notes.first(where: { $0.id == session.note.id }) else { return false }
+        do {
+            try store.update(session.note.id, text: session.text, originalText: session.note.text)
+        } catch {
+            messages.report(error)
+            return false
+        }
+        guard let saved = store.notes.first(where: { $0.id == session.note.id }) else { return false }
         session.note = saved
         return true
     }

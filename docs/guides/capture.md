@@ -76,6 +76,8 @@ Other actions are in the More menu and the context menu: Open, Edit, Edit in New
 
 Space and the circle of a note also mark it as done. The Delete key deletes the selected notes. Command-Z undoes the last change.
 
+Keep, File, Copy, and Merge show a short message in a toast at the bottom right corner of the screen. If a change cannot be saved, the toast shows the reason with a warning sign, and your notes stay as they were.
+
 ## File A Row
 
 File puts the selected rows in one place. The File list has one search field for these places:
@@ -120,7 +122,7 @@ Piper shows the texts that you copy while it runs, in the Clipboard part at the 
 
 Keep saves the text to Inbox as a kept note. A copied web link becomes a link capture. Done removes the text. Clear Clipboard History in the menu of the Clipboard part removes every text. Select a selected text again to copy it to the clipboard.
 
-The menu bar icon has a Capture Clipboard command. It saves the current clipboard text to the selected section.
+The menu bar icon has a Capture Clipboard command. It saves the current clipboard text to the selected section, and a toast confirms it. Capture Now in Settings > Capture does the same.
 
 Clipboard texts obey these rules:
 
@@ -143,7 +145,7 @@ Piper reads the selection directly. It does not simulate Copy, and it does not c
 
 If the app in front shows a web page, such as Safari, Chrome, or Arc, the selection becomes a highlight of that page. See [Capture from a web page](#capture-from-a-web-page).
 
-A secure text field or an empty selection creates no note. A small toast confirms each capture for three seconds.
+A secure text field or an empty selection creates no note, and a toast tells you why. If Piper is the app in front, the toast says "Select text in another app first". A small toast confirms each capture for three seconds.
 
 If an app does not expose its selection, use the clipboard:
 

@@ -36,13 +36,16 @@ final class FileEditor {
     @ObservationIgnored let store: CaptureStore
     @ObservationIgnored private let reader: ReaderAssistant
     @ObservationIgnored private let agents: FolderAgents
+    @ObservationIgnored let messages: Messages
     @ObservationIgnored private let preferences: UserDefaults
 
-    init(library: Library, store: CaptureStore, reader: ReaderAssistant, agents: FolderAgents, preferences: UserDefaults) {
+    init(library: Library, store: CaptureStore, reader: ReaderAssistant, agents: FolderAgents, messages: Messages,
+         preferences: UserDefaults) {
         self.library = library
         self.store = store
         self.reader = reader
         self.agents = agents
+        self.messages = messages
         self.preferences = preferences
         showsFileSource = preferences.bool(forKey: AppDefaults.Key.showsFileSource)
         library.delegate = self
@@ -172,7 +175,7 @@ final class FileEditor {
         if let blocked = editors.values.first(where: { $0.hasChanges || $0.status == .conflict }) {
             if blocked.path != selectedDocument { openDocument(blocked.path) }
             desk?.open(.file)
-            store.report(PiperError("“\(blocked.document.title)” changed on disk while you edited it. Choose Reload or Keep Mine first."))
+            messages.report(PiperError("“\(blocked.document.title)” changed on disk while you edited it. Choose Reload or Keep Mine first."))
             return false
         }
         editors = [:]
@@ -181,8 +184,13 @@ final class FileEditor {
 
     /// Takes the newest text from the editor page, which can be newer than its last save.
     func flushEditor() async {
-        guard let page = loadedEditorPage, let (path, text) = await page.flush() else { return }
-        editorChanged(path: path, text: text)
+        guard let page = loadedEditorPage else { return }
+        do {
+            guard let (path, text) = try await page.flush() else { return }
+            editorChanged(path: path, text: text)
+        } catch {
+            messages.report(error)
+        }
     }
 
     /// Drops the sessions of the files that are not open and that hold no text off disk.
@@ -226,9 +234,9 @@ final class FileEditor {
     func performFileAction(_ message: [String: Any], path: String) {
         guard let document = editors[path]?.document ?? library.files.first(where: { $0.id == path }) else { return }
         let link = fileLink(path)
-        ReaderMarks.perform(message, store: store, reader: reader, article: fileArticle(document),
+        ReaderMarks.perform(message, store: store, reader: reader, messages: messages, article: fileArticle(document),
                             open: { [weak self] item in self?.desk?.open(item) }) { [store] in
-            store.pageNote(for: link, title: document.title, source: ReaderAssistant.source)?.id
+            try store.pageNote(for: link, title: document.title, source: ReaderAssistant.source).id
         }
     }
 
@@ -241,7 +249,7 @@ final class FileEditor {
             do {
                 let location = try WikiLinks.resolve(target, from: document, files: library.files, vault: library.vault, wikiStyle: true)
                 openDocument(location.path, anchor: location.anchor)
-            } catch { store.report(error) }
+            } catch { messages.report(error) }
             return
         }
         let encoded = target.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed)
@@ -256,7 +264,7 @@ final class FileEditor {
             let target = url.path + (url.fragment.map { "#" + $0 } ?? "")
             let location = try WikiLinks.resolve(target, from: document, files: library.files, vault: library.vault)
             openDocument(location.path, anchor: location.anchor)
-        } catch { store.report(error) }
+        } catch { messages.report(error) }
     }
 
     /// Writes a pasted image next to a note, as `<note>.assets/<hash>.<ext>`,

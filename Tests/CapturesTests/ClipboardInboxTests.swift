@@ -15,7 +15,7 @@ final class ClipboardInboxTests: XCTestCase {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         pasteboard = NSPasteboard(name: NSPasteboard.Name("com.piper.test." + UUID().uuidString))
         store = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
-        inbox = ClipboardInbox(store: store, pasteboard: pasteboard)
+        inbox = ClipboardInbox(store: store, pasteboard: pasteboard, report: { XCTFail("\($0)") })
     }
 
     override func tearDown() async throws {
@@ -32,34 +32,34 @@ final class ClipboardInboxTests: XCTestCase {
         inbox.poll()
     }
 
-    func testKeepSavesAKeptCaptureAndDoneDismissesWithUndo() {
+    func testKeepSavesAKeptCaptureAndDoneDismissesWithUndo() throws {
         copy("first")
         copy("second")
-        XCTAssertTrue(inbox.save(inbox.entries[0].id))
+        XCTAssertNotNil(try inbox.save(inbox.entries[0].id))
         XCTAssertTrue(store.notes[0].isKept)
         let entry = inbox.entries[0]
         XCTAssertEqual(inbox.dismiss(entry.id), entry)
         XCTAssertTrue(inbox.entries.isEmpty)
-        XCTAssertTrue(ClipboardInbox(store: store, pasteboard: pasteboard).entries.isEmpty)
+        XCTAssertTrue(ClipboardInbox(store: store, pasteboard: pasteboard, report: { XCTFail("\($0)") }).entries.isEmpty)
         inbox.restore(entry)
         XCTAssertEqual(inbox.entries, [entry])
-        XCTAssertEqual(ClipboardInbox(store: store, pasteboard: pasteboard).entries.map(\.text), ["first"])
+        XCTAssertEqual(ClipboardInbox(store: store, pasteboard: pasteboard, report: { XCTFail("\($0)") }).entries.map(\.text), ["first"])
     }
 
-    func testClipboardStaysTemporaryUntilClickedAndSavesExactText() {
+    func testClipboardStaysTemporaryUntilClickedAndSavesExactText() throws {
         let text = "  # A literal heading\n\t`code`\n"
         copy(text)
         XCTAssertEqual(inbox.entries.map(\.text), [text])
         XCTAssertTrue(store.notes.isEmpty)
         XCTAssertTrue(CaptureStore(url: folder.appendingPathComponent("notes.sqlite")).notes.isEmpty)
         let id = inbox.entries[0].id
-        XCTAssertTrue(inbox.save(id))
+        XCTAssertNotNil(try inbox.save(id))
         XCTAssertTrue(inbox.entries.isEmpty)
         XCTAssertEqual(store.notes.first?.text, text)
         XCTAssertEqual(store.notes.first?.section, "Inbox")
         XCTAssertEqual(store.notes.first?.sources, ["Clipboard"])
         XCTAssertEqual(CaptureStore(url: folder.appendingPathComponent("notes.sqlite")).notes.first?.text, text)
-        XCTAssertFalse(inbox.save(id))
+        XCTAssertNil(try inbox.save(id))
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(pasteboard.string(forType: .string), text)
     }
@@ -105,20 +105,20 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertEqual(inbox.entries.map(\.text), ["three"])
     }
 
-    func testUndoRestoresAnUnsavedGhostAfterAnotherCopy() {
+    func testUndoRestoresAnUnsavedGhostAfterAnotherCopy() throws {
         copy("first thought")
         let id = inbox.entries[0].id
-        XCTAssertTrue(inbox.save(id))
+        XCTAssertNotNil(try inbox.save(id))
         copy("next thought")
         XCTAssertEqual(inbox.entries.map(\.text), ["next thought"])
-        store.undo()
+        try store.undo()
         XCTAssertEqual(inbox.entries.map(\.text), ["next thought", "first thought"])
         XCTAssertEqual(inbox.entries.last?.id, id)
         XCTAssertTrue(store.notes.isEmpty)
     }
 
-    func testSavedNotesAndNonTextItemsDoNotBecomeGhosts() {
-        store.add("already saved")
+    func testSavedNotesAndNonTextItemsDoNotBecomeGhosts() throws {
+        try store.add("already saved", section: "Inbox")
         copy("already saved")
         copy(" \n\t")
         pasteboard.clearContents()
@@ -126,7 +126,7 @@ final class ClipboardInboxTests: XCTestCase {
         inbox.poll()
         XCTAssertTrue(inbox.entries.isEmpty)
         copy("save another way")
-        store.add("save another way")
+        try store.add("save another way", section: "Inbox")
         XCTAssertTrue(inbox.entries.isEmpty)
     }
 
@@ -142,25 +142,25 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertEqual(inbox.entries.map(\.text), ["ordinary text"])
     }
 
-    func testSavingAlwaysUsesInboxAndDoesNotInterpretAHeading() {
+    func testSavingAlwaysUsesInboxAndDoesNotInterpretAHeading() throws {
         copy("# Keep this heading")
-        store.add("# Research")
-        XCTAssertTrue(inbox.save(inbox.entries[0].id))
+        try store.chooseSection("Research")
+        XCTAssertNotNil(try inbox.save(inbox.entries[0].id))
         XCTAssertEqual(store.notes.first?.section, "Inbox")
         XCTAssertEqual(store.activeSection, "Research")
         XCTAssertEqual(store.notes.first?.text, "# Keep this heading")
         XCTAssertEqual(store.sections, ["Inbox", "Research"])
     }
 
-    func testFailedSaveKeepsTheGhostAvailable() {
+    func testFailedSaveKeepsTheGhostAvailable() throws {
         let failed = CaptureStore(url: folder)
-        let previews = ClipboardInbox(store: failed, pasteboard: pasteboard)
+        let previews = ClipboardInbox(store: failed, pasteboard: pasteboard, report: { _ in })
         previews.receive(["keep until saved"])
         let id = previews.entries[0].id
-        XCTAssertFalse(previews.save(id))
+        XCTAssertThrowsError(try previews.save(id))
         XCTAssertEqual(previews.entries[0].id, id)
         XCTAssertTrue(failed.notes.isEmpty)
-        XCTAssertNotNil(failed.errorMessage)
+        XCTAssertNotNil(failed.loadError)
     }
 
     func testMultiplePasteboardItemsKeepTheirOrderAndRejectOversizedText() {
@@ -180,7 +180,7 @@ final class ClipboardInboxTests: XCTestCase {
 
     private func reopen(now: Date = Date()) -> ClipboardInbox {
         let reopened = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
-        return ClipboardInbox(store: reopened, pasteboard: pasteboard, now: now)
+        return ClipboardInbox(store: reopened, pasteboard: pasteboard, now: now, report: { XCTFail("\($0)") })
     }
 
     func testHistorySurvivesARestartWithItsIdentityTimeAndSource() {
@@ -222,16 +222,16 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertEqual(sqlite3_exec(db, "CREATE TABLE state (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL, data BLOB NOT NULL); INSERT INTO state VALUES(1,1,CAST('\(state)' AS BLOB));", nil, nil, nil), SQLITE_OK)
         sqlite3_close(db)
         let oldStore = CaptureStore(url: url)
-        XCTAssertNil(oldStore.errorMessage)
-        ClipboardInbox(store: oldStore, pasteboard: pasteboard).receive(["after upgrade"])
-        XCTAssertNil(oldStore.errorMessage)
-        XCTAssertEqual(ClipboardInbox(store: CaptureStore(url: url), pasteboard: pasteboard).entries.map(\.text), ["after upgrade"])
+        XCTAssertNil(oldStore.loadError)
+        ClipboardInbox(store: oldStore, pasteboard: pasteboard, report: { XCTFail("\($0)") }).receive(["after upgrade"])
+        XCTAssertNil(oldStore.loadError)
+        XCTAssertEqual(ClipboardInbox(store: CaptureStore(url: url), pasteboard: pasteboard, report: { XCTFail("\($0)") }).entries.map(\.text), ["after upgrade"])
     }
 
-    func testSavingANoteKeepsTheStoredText() {
+    func testSavingANoteKeepsTheStoredText() throws {
         copy("keep me")
-        XCTAssertTrue(inbox.save(inbox.entries[0].id))
-        store.undo()
+        XCTAssertNotNil(try inbox.save(inbox.entries[0].id))
+        try store.undo()
         XCTAssertEqual(reopen().entries.map(\.text), ["keep me"])
     }
 }

@@ -39,6 +39,7 @@ final class FolderAgents {
     /// Every folder of the Folders index with skills, including the folders that are off.
     private(set) var available: [Folder] = []
     @ObservationIgnored private let store: CaptureStore
+    @ObservationIgnored private let messages: Messages
     @ObservationIgnored private let preferences: UserDefaults
 
     private(set) var disabledPaths: Set<String> {
@@ -104,8 +105,9 @@ final class FolderAgents {
 
     // MARK: - Initialization
 
-    init(store: CaptureStore, preferences: UserDefaults = .standard) {
+    init(store: CaptureStore, messages: Messages, preferences: UserDefaults = .standard) {
         self.store = store
+        self.messages = messages
         self.preferences = preferences
         disabledPaths = Set(preferences.stringArray(forKey: AppDefaults.Key.agentDisabledFolders) ?? [])
         lastFolderPath = preferences.string(forKey: AppDefaults.Key.agentLastFolder)
@@ -119,7 +121,7 @@ final class FolderAgents {
         sessionAgentID = preferences.string(forKey: AppDefaults.Key.sessionAgent) ?? AgentDefinition.claudeCodeID
         marginAgentID = preferences.string(forKey: AppDefaults.Key.marginAgent) ?? AgentDefinition.claudeCodeID
         marginModel = preferences.string(forKey: AppDefaults.Key.marginModel) ?? AppDefaults.Agents.marginModel
-        runner = SessionRunner(storage: store.database) { [weak store] error in store?.report(error) }
+        runner = SessionRunner(storage: store.database) { [weak messages] error in messages?.report(error) }
         runner.executable = Self.executable(chosen: claudePath)
         runner.permissionMode = permissionMode
         runner.model = model
@@ -259,62 +261,53 @@ final class FolderAgents {
 
     /// Makes a draft for a note with the chosen skill or its default skill.
     @discardableResult
-    func send(_ note: Note, action: Action? = nil) -> AgentSession? {
+    func send(_ note: Note, action: Action? = nil) throws -> AgentSession {
         guard let action = action ?? defaultAction(for: note.text) else {
-            store.report(PiperError("No folder has a skill for this note. Choose one in Settings > AI."))
-            return nil
+            throw PiperError("No folder has a skill for this note. Choose one in Settings > AI.")
         }
         let command = SlashCommand(name: action.skill.name, arguments: note.text)
         lastFolderPath = action.folder.path
         let session = runner.newSession(in: action.folder.path, noteID: note.id, command: command)
         session.draft = command.prompt
-        store.status = "Draft in \(action.folder.name)"
         return session
     }
 
-    /// Saves clipboard text to Inbox, then makes its draft.
+    /// Saves clipboard text to Inbox, then makes its draft. Returns nil for
+    /// a text that the clipboard history no longer holds.
     @discardableResult
-    func send(_ entry: ClipboardEntry, from clipboard: ClipboardInbox, action: Action? = nil) -> AgentSession? {
-        guard clipboard.save(entry.id), let note = store.notes.last(where: { $0.text == entry.text }) else { return nil }
-        return send(note, action: action)
+    func send(_ entry: ClipboardEntry, from clipboard: ClipboardInbox, action: Action? = nil) throws -> AgentSession? {
+        guard let note = try clipboard.save(entry.id) else { return nil }
+        return try send(note, action: action)
     }
 
     /// Saves the pasteboard text to Inbox, then makes its draft. A note
     /// whose draft is not sent yet returns that draft.
     @discardableResult
-    func sendPasteboard(_ pasteboard: NSPasteboard = .general) -> AgentSession? {
-        guard defaultFolder != nil else {
-            store.status = "No folder on the Folders index has Claude skills"
-            return nil
-        }
+    func sendPasteboard(_ pasteboard: NSPasteboard = .general) throws -> AgentSession {
+        guard defaultFolder != nil else { throw PiperError("No folder on the Folders index has Claude skills") }
         guard let text = pasteboard.string(forType: .string),
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            store.status = "The clipboard has no text"
-            return nil
+            throw PiperError("The clipboard has no text")
         }
         if let note = store.notes.last(where: { $0.text == text }) {
             if let session = runner.latestSession(for: note.id), session.state != .failed {
                 if session.blocks.isEmpty { return session }
-                store.status = "Already sent to \(session.folderName)"
-                return nil
+                throw PiperError("Already sent to \(session.folderName)")
             }
-            return send(note)
+            return try send(note)
         }
-        guard store.add(text, source: Note.clipboardSource, to: Note.inbox, interpretSection: false),
-              let note = store.notes.last else { return nil }
-        return send(note)
+        return try send(store.add(text, section: Note.inbox, source: Note.clipboardSource))
     }
 
     /// Runs a command from the composer. The arguments become a note in the
     /// active section, so the run has a row. A chosen action picks the folder.
     /// Returns nil when no folder has the skill.
     @discardableResult
-    func run(_ command: SlashCommand, action chosen: Action? = nil) -> AgentSession? {
+    func run(_ command: SlashCommand, action chosen: Action? = nil) throws -> AgentSession? {
         let chosen = chosen.flatMap { $0.skill.name == command.name && folders.contains($0.folder) ? $0 : nil }
         guard let action = chosen ?? action(for: command) else { return nil }
         let text = command.arguments.isEmpty ? command.prompt : command.arguments
-        guard store.add(text, to: store.activeSection, interpretSection: false),
-              let note = store.notes.last else { return nil }
+        let note = try store.add(text, section: store.activeSection)
         return start(command, in: action.folder, noteID: note.id)
     }
 
@@ -350,7 +343,6 @@ final class FolderAgents {
         lastFolderPath = folder.path
         let session = runner.newSession(in: folder.path, noteID: noteID, command: command)
         runner.send(command.prompt, to: session)
-        store.status = "Running /\(command.name) in \(folder.name)"
         return session
     }
 }

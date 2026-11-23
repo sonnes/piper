@@ -119,10 +119,11 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
         }
     }
 
-    /// The text in the editor now, which can be newer than the last `change` message.
-    func flush() async -> (path: String, text: String)? {
+    /// The text in the editor now, which can be newer than the last `change`
+    /// message. Nil when the page shows no file.
+    func flush() async throws -> (path: String, text: String)? {
         guard ready, let path = shown?.path,
-              let text = try? await webView.evaluateJavaScript("window.piper.flush()") as? String else { return nil }
+              let text = try await webView.evaluateJavaScript("window.piper.flush()") as? String else { return nil }
         return (path, text)
     }
 
@@ -140,13 +141,20 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
     private func call(_ function: String, _ value: some Encodable) {
         guard let data = try? JSONEncoder().encode(value) else { return }
         let script = "window.piper.\(function)(\(String(decoding: data, as: UTF8.self)))"
-        if ready { webView.evaluateJavaScript(script) } else { queue.append(script) }
+        if ready { run(script) } else { queue.append(script) }
     }
 
     private func call(_ function: String, _ values: [String?]) {
         guard let data = try? JSONEncoder().encode(values) else { return }
         let script = "window.piper.\(function)(...\(String(decoding: data, as: UTF8.self)))"
-        if ready { webView.evaluateJavaScript(script) } else { queue.append(script) }
+        if ready { run(script) } else { queue.append(script) }
+    }
+
+    /// Runs a call on the page. An exception in the page reaches the toast.
+    private func run(_ script: String) {
+        webView.evaluateJavaScript(script) { [weak self] _, error in
+            if let error { self?.files?.messages.report(error) }
+        }
     }
 
     // MARK: Messages
@@ -160,7 +168,7 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
             ready = true
             let pending = queue
             queue = []
-            for script in pending { _ = try? await webView.evaluateJavaScript(script) }
+            pending.forEach(run)
         case "change":
             guard let path = body["path"] as? String, let text = body["text"] as? String else { break }
             files.editorChanged(path: path, text: text)
@@ -171,7 +179,7 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
             guard let path = body["path"] as? String, let data = body["data"] as? String else { break }
             do { return (try files.saveEditorImage(for: path, type: body["type"] as? String ?? "", base64: data), nil) }
             catch {
-                files.store.report(error)
+                files.messages.report(error)
                 return (nil, error.localizedDescription)
             }
         case "lossy":

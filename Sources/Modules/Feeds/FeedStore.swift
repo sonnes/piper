@@ -6,7 +6,8 @@ import PiperCore
 /// It owns the database and the refresh of each feed.
 ///
 /// The database calls run on the main thread. A fetch and its parse run in a
-/// detached task, and the result comes back to the main thread.
+/// detached task, and the result comes back to the main thread. Each database
+/// error goes to `report`. A read that fails then gives an empty value.
 @MainActor @Observable
 public final class FeedStore {
 
@@ -23,22 +24,24 @@ public final class FeedStore {
     public private(set) var fetching: Set<String> = []
     /// Changes on each write, so a list of articles can read the database again.
     public private(set) var revision = 0
-    public private(set) var loadError: String?
 
     @ObservationIgnored private let database: FeedDatabase?
+    @ObservationIgnored private let report: @MainActor (Error) -> Void
     @ObservationIgnored private let session: URLSession
     @ObservationIgnored private var timer: Timer?
 
     // MARK: - Initialization
 
-    public init(url: URL? = nil, session: URLSession = .shared) {
+    /// - Parameter report: Takes each database error.
+    public init(url: URL? = nil, session: URLSession = .shared, report: @escaping @MainActor (Error) -> Void) {
         let location = url ?? DataFolder.url.appendingPathComponent("Feeds.sqlite")
         self.session = session
+        self.report = report
         do {
             database = try FeedDatabase(url: location)
         } catch {
             database = nil
-            loadError = error.localizedDescription
+            report(error)
         }
         reload()
     }
@@ -92,12 +95,12 @@ public final class FeedStore {
 
     /// The articles of a filter. See `FeedDatabase.articles`.
     public func articles(_ filter: FeedFilter, keeping: Set<String> = []) -> [Article] {
-        (try? database?.articles(filter, keeping: keeping)) ?? []
+        read([]) { try $0.articles(filter, keeping: keeping) }
     }
 
     /// The article with the ID, with its current marks.
     public func article(_ id: String) -> Article? {
-        try? database?.article(id)
+        read(nil) { try $0.article(id) }
     }
 
     public func setRead(_ read: Bool, _ articles: [Article]) {
@@ -108,19 +111,19 @@ public final class FeedStore {
 
     /// The count of articles of each feed in the days before now, by feed ID.
     public func articleCounts(days: Int, now: Date = Date()) -> [String: Int] {
-        (try? database?.articleCounts(since: now.addingTimeInterval(-Double(days) * 86_400))) ?? [:]
+        read([:]) { try $0.articleCounts(since: now.addingTimeInterval(-Double(days) * 86_400)) }
     }
 
     /// The count of unread articles of each feed, by feed ID. A view that
     /// reads it shows the new count after each write.
     public func unreadCounts() -> [String: Int] {
         _ = revision
-        return (try? database?.unreadCounts()) ?? [:]
+        return read([:]) { try $0.unreadCounts() }
     }
 
     /// The articles that an older version of Piper starred.
     public func starredArticles() -> [Article] {
-        (try? database?.starredArticles()) ?? []
+        read([]) { try $0.starredArticles() }
     }
 
     /// Removes each old star, after the copy to link captures.
@@ -217,21 +220,27 @@ public final class FeedStore {
 
     // MARK: - Database
 
+    /// Runs a read. A store whose database did not open reads nothing, and
+    /// it reported that error when it opened.
+    private func read<Value>(_ empty: Value, _ query: (FeedDatabase) throws -> Value) -> Value {
+        guard let database else { return empty }
+        do {
+            return try query(database)
+        } catch {
+            report(error)
+            return empty
+        }
+    }
+
     private func write(_ change: (FeedDatabase) throws -> Void) {
         guard let database else { return }
-        do {
-            try change(database)
-            loadError = nil
-        } catch {
-            loadError = error.localizedDescription
-        }
+        do { try change(database) } catch { report(error) }
         reload()
     }
 
     private func reload() {
-        guard let database else { return }
-        feeds = (try? database.feeds()) ?? []
-        suggestions = (try? database.suggestions()) ?? []
+        feeds = read([]) { try $0.feeds() }
+        suggestions = read([]) { try $0.suggestions() }
         revision += 1
     }
 }

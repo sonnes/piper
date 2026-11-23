@@ -33,18 +33,15 @@ final class PiperTests: XCTestCase {
         let url = folder.appendingPathComponent("notes.sqlite")
         let store = CaptureStore(url: url)
         let text = "  αβ\n\t`code`\n"
-        XCTAssertTrue(store.add(text, interpretSection: false))
-        XCTAssertTrue(store.add("second", source: "TextEdit"))
-        store.selection = Set(store.notes.map(\.id))
-        store.merge()
+        XCTAssertNoThrow(try store.add(text, section: store.activeSection))
+        XCTAssertNoThrow(try store.add("second", section: store.activeSection, source: "TextEdit"))
+        try store.merge(store.notes.map(\.id))
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(store.notes[0].text, text + "\n\nsecond")
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.notes.count, 2)
         XCTAssertEqual(CaptureStore(url: url).notes[0].text, text)
-        XCTAssertTrue(store.add("# Research"))
-        XCTAssertEqual(CaptureStore(url: url).activeSection, "Research")
-        XCTAssertTrue(store.add("# literal heading", to: "Inbox", interpretSection: false))
+        XCTAssertNoThrow(try store.add("# literal heading", section: "Inbox"))
         XCTAssertEqual(store.notes.last?.text, "# literal heading")
     }
 
@@ -56,8 +53,8 @@ final class PiperTests: XCTestCase {
         sqlite3_close(db)
         let before = try Data(contentsOf: url)
         let store = CaptureStore(url: url)
-        XCTAssertNotNil(store.errorMessage)
-        XCTAssertFalse(store.add("overwrite"))
+        XCTAssertNotNil(store.loadError)
+        XCTAssertThrowsError(try store.add("overwrite", section: store.activeSection))
         XCTAssertEqual(try Data(contentsOf: url), before)
     }
 

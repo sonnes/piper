@@ -553,7 +553,7 @@ final class PaperDeskTests: XCTestCase {
         try database.insert([Article(id: "a1", feedID: "https://example.com/feed", url: "https://example.com/harbor",
                                      title: "Harbor", summary: "", published: Date(), arrived: Date())])
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path,
-                             feeds: FeedStore(url: feedsURL))
+                             feeds: FeedStore(url: feedsURL) { XCTFail("\($0)") })
         let article = PaperItem.article("a1")
         XCTAssertEqual(article.identity(in: model), article, "An article that nobody kept is its own paper.")
 
@@ -615,7 +615,7 @@ final class PaperDeskTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let desk = PaperDesk(model: model, defaults: defaults)
         defer { desk.hide() }
-        XCTAssertTrue(model.store.add("Fictional note"))
+        XCTAssertNoThrow(try model.store.add("Fictional note", section: model.store.activeSection))
         desk.paper.pick(.done)
         desk.paper.today.query = "fictional"
         desk.paper.today.selection = Set(model.store.notes.map { .note($0.id) })

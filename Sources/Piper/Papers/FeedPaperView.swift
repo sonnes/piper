@@ -31,7 +31,7 @@ struct FeedPaperView: View {
         .environment(paper.marks)
         .sheet(isPresented: $namingSection) {
             NewSectionSheet(sections: model.store.sections) { name in
-                guard model.store.chooseSection(name) else { return }
+                do { try model.store.chooseSection(name) } catch { return model.messages.report(error) }
                 namingSection = false
                 paper.pick(.today(section: model.store.activeSection))
             }
@@ -41,15 +41,6 @@ struct FeedPaperView: View {
         .onChange(of: model.library.files.count) { paper.recordFileCount() }
         .onChange(of: model.store.sections) { _, sections in
             if case .today(let section?) = paper.state.scope, !sections.contains(section) { paper.pick(.today(section: nil)) }
-        }
-        // The alert goes on the feed paper only, so it cannot open twice.
-        .alert("Piper", isPresented: Binding(
-            get: { model.store.errorMessage != nil },
-            set: { if !$0 { model.store.errorMessage = nil } }
-        )) {
-            Button("OK") { model.store.errorMessage = nil }
-        } message: {
-            Text(model.store.errorMessage ?? "")
         }
     }
 

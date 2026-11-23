@@ -23,12 +23,12 @@ final class CaptureServiceTests: XCTestCase {
     /// A store with one highlight on the page, and the toast that shows it.
     private func highlighted() throws -> (store: CaptureStore, shown: (id: UUID, quote: String)) {
         let store = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
-        let saved = try XCTUnwrap(store.saveHighlight("one long read", in: page, tags: ["highlight", "yellow"]))
+        let saved = try store.saveHighlight("one long read", in: page, tags: ["highlight", "yellow"])
         return (store, (saved.highlight.id, "one long read"))
     }
 
-    private func save(_ text: String, on url: URL?, in store: CaptureStore, shown: (id: UUID, quote: String)?) -> CaptureOutcome {
-        CaptureService.save(CapturedSelection(text: text, sourceURL: url?.absoluteString), source: "Safari", section: "Inbox",
+    private func save(_ text: String, on url: URL?, in store: CaptureStore, shown: (id: UUID, quote: String)?) throws -> CaptureOutcome {
+        try CaptureService.save(CapturedSelection(text: text, sourceURL: url?.absoluteString), source: "Safari", section: "Inbox",
                             store: store, shown: shown)
     }
 
@@ -37,18 +37,18 @@ final class CaptureServiceTests: XCTestCase {
     func testASecondCaptureOnTheSamePageAsksForANote() throws {
         let (store, shown) = try highlighted()
         let samePage = URL(string: "https://example.dev/notes/wal#intro")!
-        XCTAssertEqual(save("", on: samePage, in: store, shown: shown), .comment(shown.id))
-        XCTAssertEqual(save("one  long\nread", on: samePage, in: store, shown: shown), .comment(shown.id))
+        XCTAssertEqual(try save("", on: samePage, in: store, shown: shown), .comment(shown.id))
+        XCTAssertEqual(try save("one  long\nread", on: samePage, in: store, shown: shown), .comment(shown.id))
     }
 
     func testACaptureOnAnotherPageSavesThatPage() throws {
         let (store, shown) = try highlighted()
-        guard case .article(let id, isNew: true) = save("", on: otherPage, in: store, shown: shown) else {
+        guard case .article(let id, isNew: true) = try save("", on: otherPage, in: store, shown: shown) else {
             return XCTFail("A capture with no selection on another page saves the page")
         }
         XCTAssertEqual(store.notes.first { $0.id == id }?.articleURL, otherPage)
 
-        guard case .highlight(let article, _) = save("one long read", on: otherPage, in: store, shown: shown) else {
+        guard case .highlight(let article, _) = try save("one long read", on: otherPage, in: store, shown: shown) else {
             return XCTFail("The same text on another page is a new highlight")
         }
         XCTAssertEqual(article, id)
@@ -56,18 +56,29 @@ final class CaptureServiceTests: XCTestCase {
 
     func testACaptureOutsideABrowserIsANote() throws {
         let (store, shown) = try highlighted()
-        guard case .note(_, let id) = save("a plain selection", on: nil, in: store, shown: shown) else {
+        guard case .note(let note) = try save("a plain selection", on: nil, in: store, shown: shown) else {
             return XCTFail("A selection without a page is a note")
         }
-        XCTAssertNotNil(id)
-        guard case .note(_, nil) = save("", on: nil, in: store, shown: shown) else {
-            return XCTFail("An empty selection without a page saves nothing")
-        }
+        XCTAssertEqual(store.notes.first { $0.id == note.id }?.text, "a plain selection")
+        XCTAssertThrowsError(try save("", on: nil, in: store, shown: shown), "An empty selection without a page saves nothing")
+    }
+
+    func testACaptureWithPiperInFrontAsksForAnotherApp() {
+        let store = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
+        let messages = Messages()
+        let service = CaptureService(store: store, messages: messages, shortcut: { "Shift, Shift" }, accessibilityChanged: { _ in })
+        service.capture(trusted: true, frontmost: nil)
+        XCTAssertEqual(messages.last?.text, "Select text in another app first")
+        service.capture(trusted: true, frontmost: .current)
+        XCTAssertEqual(messages.last?.text, "Select text in another app first")
+        service.capture(trusted: false, frontmost: nil)
+        XCTAssertEqual(messages.last?.text, "Enable Accessibility in Settings")
+        XCTAssertTrue(store.notes.isEmpty)
     }
 
     func testWithoutAToastANewSelectionIsAHighlight() throws {
         let (store, _) = try highlighted()
-        guard case .highlight = save("another passage", on: page, in: store, shown: nil) else {
+        guard case .highlight = try save("another passage", on: page, in: store, shown: nil) else {
             return XCTFail("A selection on a web page is a highlight")
         }
         XCTAssertEqual(store.children(of: try XCTUnwrap(store.article(for: page)).id).count, 2)

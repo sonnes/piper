@@ -10,7 +10,8 @@ struct NoteWebReader: View {
     // MARK: - Properties
 
     let url: URL
-    let capture: (String, String, URL) -> Bool
+    /// Saves the text of the page, with its title and its address, and returns the note.
+    let capture: (String, String, URL) throws -> Note
     @State private var page = NoteWebPage()
     @State private var isCapturing = false
     @State private var captureMessage: String?
@@ -127,7 +128,7 @@ struct NoteWebReader: View {
             }
             let title = (values["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let source = title.isEmpty ? (sourceURL.host ?? "Web Page") : title
-            captureMessage = capture(text, source, sourceURL) ? "Saved to Inbox" : "Capture was not saved. Try again."
+            captureMessage = "Saved to " + (try capture(text, source, sourceURL)).section
         } catch {
             captureMessage = error.localizedDescription
         }

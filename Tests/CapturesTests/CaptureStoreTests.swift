@@ -25,33 +25,33 @@ final class CaptureStoreTests: XCTestCase {
 
     func testVerbsChangeSeveralCapturesWithOneUndoStep() throws {
         let store = CaptureStore(url: url())
-        store.add("one")
-        store.add("two")
-        store.chooseSection("Harbor")
-        store.chooseSection("Inbox")
+        try store.add("one", section: store.activeSection)
+        try store.add("two", section: store.activeSection)
+        try store.chooseSection("Harbor")
+        try store.chooseSection("Inbox")
         let ids = Set(store.notes.map(\.id))
 
-        XCTAssertTrue(store.setKept(true, ids))
+        XCTAssertNoThrow(try store.setKept(true, ids))
         XCTAssertTrue(store.notes.allSatisfy(\.isKept))
-        store.undo()
+        try store.undo()
         XCTAssertFalse(store.notes.contains(where: \.isKept))
 
-        XCTAssertTrue(store.setDone(true, ids))
+        XCTAssertNoThrow(try store.setDone(true, ids))
         XCTAssertTrue(store.notes.allSatisfy(\.isDone))
-        store.undo()
+        try store.undo()
         XCTAssertFalse(store.notes.contains(where: \.isDone))
 
-        XCTAssertTrue(store.move(ids, to: "Harbor"))
+        XCTAssertNoThrow(try store.move(ids, to: "Harbor"))
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Harbor"])
-        store.undo()
+        try store.undo()
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Inbox"])
-        XCTAssertFalse(store.move(ids, to: "Missing"))
+        XCTAssertThrowsError(try store.move(ids, to: "Missing"))
     }
 
     func testKeepLinksAddsKeptCapturesAndTagsKnownLinks() throws {
         let store = CaptureStore(url: url())
-        store.add("https://a.example/known")
-        let kept = store.keep(links: [
+        try store.add("https://a.example/known", section: store.activeSection)
+        let kept = try store.keep(links: [
             KeptLink(url: URL(string: "https://www.a.example/known/")!),
             KeptLink(url: URL(string: "https://a.example/new")!, title: "New", source: "A Feed"),
             KeptLink(url: URL(string: "https://a.example/new#top")!)
@@ -60,29 +60,27 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.notes.count, 2)
         XCTAssertTrue(store.notes.allSatisfy(\.isKept))
         XCTAssertEqual(store.notes.last?.reading?.title, "New")
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["https://a.example/known"])
         XCTAssertFalse(store.notes[0].isKept)
     }
 
     func testPageNoteIsAddedOnceAndIsNotAnArticle() throws {
         let store = CaptureStore(url: url())
-        let first = try XCTUnwrap(store.pageNote(for: "piper-file://reading/journal.md", title: "Reading journal", source: "Reader"))
-        let second = store.pageNote(for: "piper-file://reading/journal.md", title: "Reading journal", source: "Reader")
-        XCTAssertEqual(first.id, second?.id)
+        let first = try store.pageNote(for: "piper-file://reading/journal.md", title: "Reading journal", source: "Reader")
+        let second = try store.pageNote(for: "piper-file://reading/journal.md", title: "Reading journal", source: "Reader")
+        XCTAssertEqual(first.id, second.id)
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertFalse(first.isArticle)
     }
 
-    func testMultipleSelectionsCopyAndDeleteTogether() {
+    func testSeveralNotesDeleteTogether() throws {
         let store = CaptureStore(url: url())
-        for text in ["first", "second", "third"] { XCTAssertTrue(store.add(text)) }
+        for text in ["first", "second", "third"] { XCTAssertNoThrow(try store.add(text, section: store.activeSection)) }
         let ids = store.notes.map(\.id)
-        store.selection = [ids[0], ids[2]]
-        store.deleteSelection()
+        try store.delete([ids[0], ids[2]])
         XCTAssertEqual(store.notes.map(\.text), ["second"])
-        XCTAssertTrue(store.selection.isEmpty)
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first", "second", "third"])
     }
 
@@ -90,18 +88,15 @@ final class CaptureStoreTests: XCTestCase {
         let url = url()
         let store = CaptureStore(url: url)
         let text = "  αβ\n\t`code`\n"
-        XCTAssertTrue(store.add(text, interpretSection: false))
-        XCTAssertTrue(store.add("second", source: "TextEdit"))
-        store.selection = Set(store.notes.map(\.id))
-        store.merge()
-        XCTAssertEqual(store.notes.count, 1)
+        XCTAssertNoThrow(try store.add(text, section: store.activeSection))
+        XCTAssertNoThrow(try store.add("second", section: store.activeSection, source: "TextEdit"))
+        let merged = try store.merge(store.notes.map(\.id))
+        XCTAssertEqual(store.notes, [merged])
         XCTAssertEqual(store.notes[0].text, text + "\n\nsecond")
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.notes.count, 2)
         XCTAssertEqual(CaptureStore(url: url).notes[0].text, text)
-        XCTAssertTrue(store.add("# Research"))
-        XCTAssertEqual(CaptureStore(url: url).activeSection, "Research")
-        XCTAssertTrue(store.add("# literal heading", to: "Inbox", interpretSection: false))
+        XCTAssertNoThrow(try store.add("# literal heading", section: "Inbox"))
         XCTAssertEqual(store.notes.last?.text, "# literal heading")
     }
 
@@ -113,8 +108,8 @@ final class CaptureStoreTests: XCTestCase {
         sqlite3_close(db)
         let before = try Data(contentsOf: url)
         let store = CaptureStore(url: url)
-        XCTAssertNotNil(store.errorMessage)
-        XCTAssertFalse(store.add("overwrite"))
+        XCTAssertNotNil(store.loadError)
+        XCTAssertThrowsError(try store.add("overwrite", section: store.activeSection))
         XCTAssertEqual(try Data(contentsOf: url), before)
     }
 
@@ -133,207 +128,202 @@ final class CaptureStoreTests: XCTestCase {
         sqlite3_finalize(statement)
         sqlite3_close(db)
         let store = CaptureStore(url: url)
-        XCTAssertNotNil(store.errorMessage)
-        XCTAssertFalse(store.add("overwrite", interpretSection: false))
+        XCTAssertNotNil(store.loadError)
+        XCTAssertThrowsError(try store.add("overwrite", section: store.activeSection))
         XCTAssertTrue(store.notes.isEmpty)
     }
 
-    func testUndoRestoresDeletedNotesAndDropsGoneSelection() {
+    func testUndoRestoresDeletedNotes() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("first", interpretSection: false))
-        XCTAssertTrue(store.add("second", interpretSection: false))
-        store.selection = Set(store.notes.map(\.id))
-        store.deleteSelection()
+        XCTAssertNoThrow(try store.add("first", section: store.activeSection))
+        XCTAssertNoThrow(try store.add("second", section: store.activeSection))
+        try store.delete(store.notes.map(\.id))
         XCTAssertTrue(store.notes.isEmpty)
-        XCTAssertTrue(store.selection.isEmpty)
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first", "second"])
-        XCTAssertEqual(store.status, "Last note change undone")
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first", "second"])
         XCTAssertEqual(CaptureStore(url: url()).notes.count, 2)
 
-        XCTAssertTrue(store.add("third", interpretSection: false))
-        store.selection = [store.notes[2].id]
-        store.undo()
+        XCTAssertNoThrow(try store.add("third", section: store.activeSection))
+        try store.undo()
         XCTAssertEqual(store.notes.count, 2)
-        XCTAssertTrue(store.selection.isEmpty)
     }
 
-    func testOnlyOneUndoStepIsKept() {
+    func testOnlyOneUndoStepIsKept() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("first", interpretSection: false))
-        XCTAssertTrue(store.add("second", interpretSection: false))
-        store.undo()
+        XCTAssertNoThrow(try store.add("first", section: store.activeSection))
+        XCTAssertNoThrow(try store.add("second", section: store.activeSection))
+        try store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first"])
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first"])
     }
 
-    func testChangingTheActiveSectionSavesWithoutAnUndoStep() {
+    func testChangingTheActiveSectionSavesWithoutAnUndoStep() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.chooseSection("Research"))
+        XCTAssertNoThrow(try store.chooseSection("Research"))
         XCTAssertEqual(store.sections, ["Inbox", "Research"])
         XCTAssertEqual(store.activeSection, "Research")
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
 
-        XCTAssertTrue(store.chooseSection("Research"))
-        store.undo()
-        XCTAssertTrue(store.chooseSection("Research"))
-        XCTAssertTrue(store.chooseSection("inbox"))
+        XCTAssertNoThrow(try store.chooseSection("Research"))
+        try store.undo()
+        XCTAssertNoThrow(try store.chooseSection("Research"))
+        XCTAssertNoThrow(try store.chooseSection("inbox"))
         XCTAssertEqual(store.activeSection, "Inbox")
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
     }
 
-    func testTheActiveSectionSurvivesAnUndo() {
+    func testTheActiveSectionSurvivesAnUndo() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.chooseSection("Research"))
-        XCTAssertTrue(store.add("a note", interpretSection: false))
-        store.selection = Set(store.notes.map(\.id))
-        store.deleteSelection()
-        store.activeSection = "Inbox"
-        store.undo()
+        XCTAssertNoThrow(try store.chooseSection("Research"))
+        XCTAssertNoThrow(try store.add("a note", section: store.activeSection))
+        try store.delete(store.notes.map(\.id))
+        try store.chooseSection("Inbox")
+        try store.undo()
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(store.activeSection, "Inbox")
         XCTAssertEqual(CaptureStore(url: url()).activeSection, "Inbox")
     }
 
-    func testASecondInstanceCannotOverwriteTheFirst() {
+    func testASecondInstanceCannotOverwriteTheFirst() throws {
         let url = url("shared.sqlite")
         let first = CaptureStore(url: url)
         let second = CaptureStore(url: url)
-        XCTAssertNil(first.errorMessage)
-        XCTAssertNil(second.errorMessage)
-        XCTAssertTrue(first.add("from the first instance", interpretSection: false))
-        XCTAssertFalse(second.add("from the second instance", interpretSection: false))
+        XCTAssertNil(first.loadError)
+        XCTAssertNil(second.loadError)
+        XCTAssertNoThrow(try first.add("from the first instance", section: first.activeSection))
+        XCTAssertThrowsError(try second.add("from the second instance", section: second.activeSection)) { error in
+            XCTAssertEqual(error.localizedDescription,
+                           "Notes changed in another Piper instance. Restart Piper before saving. Your existing notes remain unchanged.")
+        }
         XCTAssertTrue(second.notes.isEmpty)
-        XCTAssertEqual(second.errorMessage, "Notes changed in another Piper instance. Restart Piper before saving. Your existing notes remain unchanged.")
         XCTAssertEqual(CaptureStore(url: url).notes.map(\.text), ["from the first instance"])
 
         let third = CaptureStore(url: url)
         let fourth = CaptureStore(url: url)
-        XCTAssertTrue(third.add("third", interpretSection: false))
-        XCTAssertFalse(fourth.add("fourth", interpretSection: false))
-        XCTAssertNotNil(fourth.errorMessage)
+        XCTAssertNoThrow(try third.add("third", section: third.activeSection))
+        XCTAssertThrowsError(try fourth.add("fourth", section: fourth.activeSection))
         XCTAssertEqual(CaptureStore(url: url).notes.map(\.text), ["from the first instance", "third"])
     }
 
-    func testAnUnavailableDatabaseRejectsEveryChange() {
+    func testAnUnavailableDatabaseRejectsEveryChange() throws {
         let store = CaptureStore(url: folder)
-        XCTAssertNotNil(store.errorMessage)
-        XCTAssertFalse(store.add("a note", interpretSection: false))
-        XCTAssertFalse(store.chooseSection("Research"))
+        XCTAssertNotNil(store.loadError)
+        XCTAssertThrowsError(try store.add("a note", section: store.activeSection))
+        XCTAssertThrowsError(try store.chooseSection("Research"))
         XCTAssertTrue(store.notes.isEmpty)
-        store.undo()
+        try store.undo()
         XCTAssertTrue(store.notes.isEmpty)
     }
 
-    func testUpdateRejectsAStaleEditAndAMissingNote() {
+    func testUpdateRejectsAStaleEditAndAMissingNote() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("original", interpretSection: false))
+        XCTAssertNoThrow(try store.add("original", section: store.activeSection))
         let id = store.notes[0].id
-        XCTAssertFalse(store.update(id, text: "   ", originalText: "original"))
-        XCTAssertFalse(store.update(UUID(), text: "text"))
-        XCTAssertEqual(store.errorMessage, "This note was removed. Copy your changes into a new note.")
-        XCTAssertFalse(store.update(id, text: "changed", originalText: "something else"))
-        XCTAssertEqual(store.errorMessage, "This note changed in another editor. Copy your changes before reopening the note.")
+        XCTAssertThrowsError(try store.update(id, text: "   ", originalText: "original"))
+        XCTAssertThrowsError(try store.update(UUID(), text: "text")) { error in
+            XCTAssertEqual(error.localizedDescription, "This note was removed. Copy your changes into a new note.")
+        }
+        XCTAssertThrowsError(try store.update(id, text: "changed", originalText: "something else")) { error in
+            XCTAssertEqual(error.localizedDescription, "This note changed in another editor. Copy your changes before reopening the note.")
+        }
         XCTAssertEqual(store.notes[0].text, "original")
-        XCTAssertTrue(store.update(id, text: "original"))
-        XCTAssertTrue(store.update(id, text: "changed", originalText: "original"))
+        XCTAssertNoThrow(try store.update(id, text: "original"))
+        XCTAssertNoThrow(try store.update(id, text: "changed", originalText: "original"))
         XCTAssertEqual(store.notes[0].text, "changed")
-        XCTAssertTrue(store.update(id, text: "changed", sourceURL: ""))
+        XCTAssertNoThrow(try store.update(id, text: "changed", sourceURL: ""))
         XCTAssertTrue(store.notes[0].sourceURLs.isEmpty)
     }
 
-    func testAddKeepsOnlyWebSourceURLs() {
+    func testAddKeepsOnlyWebSourceURLs() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("https://example.com/page", interpretSection: false))
+        XCTAssertNoThrow(try store.add("https://example.com/page", section: store.activeSection))
         XCTAssertEqual(store.notes[0].sourceURLs, ["https://example.com/page"])
-        XCTAssertTrue(store.add("plain text", sourceURL: "javascript:alert(1)", interpretSection: false))
+        XCTAssertNoThrow(try store.add("plain text", section: store.activeSection, sourceURL: "javascript:alert(1)"))
         XCTAssertTrue(store.notes[1].sourceURLs.isEmpty)
-        XCTAssertFalse(store.add("   \n\t"))
-        XCTAssertFalse(store.add("# "))
-        XCTAssertFalse(store.add("a note", to: "Missing", interpretSection: false))
-        XCTAssertEqual(store.errorMessage, "This section no longer exists. Choose another section.")
+        XCTAssertThrowsError(try store.add("   \n\t", section: store.activeSection))
+        XCTAssertThrowsError(try store.add("a note", section: "Missing")) { error in
+            XCTAssertEqual(error.localizedDescription, "This section no longer exists. Choose another section.")
+        }
     }
 
-    func testEmbeddedLinksDoNotBecomeWholeTextSourceURLs() {
+    func testEmbeddedLinksDoNotBecomeWholeTextSourceURLs() throws {
         let store = CaptureStore(url: url())
         let text = "https://example.com/article This is a note"
-        XCTAssertTrue(store.add(text, interpretSection: false))
+        XCTAssertNoThrow(try store.add(text, section: store.activeSection))
         XCTAssertEqual(store.notes[0].text, text)
         XCTAssertTrue(store.notes[0].sourceURLs.isEmpty)
-        XCTAssertTrue(store.add(text, sourceURL: "https://source.example/page", interpretSection: false))
+        XCTAssertNoThrow(try store.add(text, section: store.activeSection, sourceURL: "https://source.example/page"))
         XCTAssertEqual(store.notes[1].sourceURLs, ["https://source.example/page"])
-        XCTAssertTrue(store.update(store.notes[0].id, text: "https://swift.org"))
+        XCTAssertNoThrow(try store.update(store.notes[0].id, text: "https://swift.org"))
         XCTAssertEqual(CaptureLinks(store.notes[0].text).standaloneURL?.absoluteString, "https://swift.org")
     }
 
-    func testSectionNamesAreLimitedToOneShortLine() {
+    func testSectionNamesAreLimitedToOneShortLine() throws {
         let store = CaptureStore(url: url())
-        XCTAssertFalse(store.chooseSection("  "))
-        XCTAssertFalse(store.chooseSection("two\nlines"))
-        XCTAssertFalse(store.chooseSection(String(repeating: "x", count: 81)))
-        XCTAssertEqual(store.errorMessage, "Use a section name with 1 to 80 characters on one line.")
+        XCTAssertThrowsError(try store.chooseSection("  "))
+        XCTAssertThrowsError(try store.chooseSection("two\nlines"))
+        XCTAssertThrowsError(try store.chooseSection(String(repeating: "x", count: 81))) { error in
+            XCTAssertEqual(error.localizedDescription, "Use a section name with 1 to 80 characters on one line.")
+        }
         XCTAssertEqual(store.sections, ["Inbox"])
-        XCTAssertTrue(store.chooseSection(String(repeating: "x", count: 80)))
+        XCTAssertNoThrow(try store.chooseSection(String(repeating: "x", count: 80)))
         XCTAssertEqual(store.sections.count, 2)
     }
 
-    func testRenameSectionPreservesNotesAndPersistsOneUndoStep() {
+    func testRenameSectionPreservesNotesAndPersistsOneUndoStep() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.chooseSection("Research"))
-        XCTAssertTrue(store.add("a note", source: "Safari", interpretSection: false))
+        XCTAssertNoThrow(try store.chooseSection("Research"))
+        XCTAssertNoThrow(try store.add("a note", section: store.activeSection, source: "Safari"))
         let original = store.state
         let note = store.notes[0]
-        store.selection = [note.id]
 
-        XCTAssertTrue(store.renameSection("Research", to: "  Reading  "))
+        XCTAssertNoThrow(try store.renameSection("Research", to: "  Reading  "))
         XCTAssertEqual(store.sections, ["Inbox", "Reading"])
         XCTAssertEqual(store.activeSection, "Reading")
         var renamed = note
         renamed.section = "Reading"
         XCTAssertEqual(store.notes, [renamed])
-        XCTAssertEqual(store.selection, [note.id])
         XCTAssertEqual(CaptureStore(url: url()).state, store.state)
 
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.state, original)
         XCTAssertEqual(CaptureStore(url: url()).state, original)
     }
 
-    func testRenameSectionRejectsInvalidNamesAndAllowsCaseChanges() {
+    func testRenameSectionRejectsInvalidNamesAndAllowsCaseChanges() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.chooseSection("Research"))
+        XCTAssertNoThrow(try store.chooseSection("Research"))
         let original = store.state
         for name in ["", "  ", "two\nlines", String(repeating: "x", count: 81), "INBOX"] {
-            XCTAssertFalse(store.renameSection("Research", to: name))
+            XCTAssertThrowsError(try store.renameSection("Research", to: name))
             XCTAssertEqual(store.state, original)
         }
-        XCTAssertFalse(store.renameSection("Inbox", to: "Archive"))
-        XCTAssertFalse(store.renameSection("Missing", to: "Archive"))
+        try store.renameSection("Inbox", to: "Archive")
+        try store.renameSection("Missing", to: "Archive")
         XCTAssertEqual(store.state, original)
-        store.activeSection = "Inbox"
-        XCTAssertTrue(store.renameSection("Research", to: "research"))
+        try store.chooseSection("Inbox")
+        XCTAssertNoThrow(try store.renameSection("Research", to: "research"))
         XCTAssertEqual(store.sections, ["Inbox", "research"])
         XCTAssertEqual(store.activeSection, "Inbox")
     }
 
-    func testDeleteSectionMovesNotesToInboxAndUndoRestoresThem() {
+    func testDeleteSectionMovesNotesToInboxAndUndoRestoresThem() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("existing inbox note", interpretSection: false))
-        XCTAssertTrue(store.chooseSection("Research"))
-        XCTAssertTrue(store.add("research note", source: "Safari", sourceURL: "https://example.com", interpretSection: false))
+        XCTAssertNoThrow(try store.add("existing inbox note", section: store.activeSection))
+        XCTAssertNoThrow(try store.chooseSection("Research"))
+        XCTAssertNoThrow(try store.add("research note", section: store.activeSection, source: "Safari", sourceURL: "https://example.com"))
         let id = store.notes[1].id
-        store.toggleDone(id)
-        store.selection = [id]
+        try store.toggleDone(id)
         let original = store.state
 
-        XCTAssertTrue(store.deleteSection("Research"))
+        XCTAssertNoThrow(try store.deleteSection("Research"))
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
         XCTAssertEqual(store.notes.map(\.section), ["Inbox", "Inbox"])
@@ -342,88 +332,69 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.notes[1].sources, ["Safari"])
         XCTAssertEqual(store.notes[1].sourceURLs, ["https://example.com"])
         XCTAssertTrue(store.notes[1].isDone)
-        XCTAssertEqual(store.selection, [id])
         XCTAssertEqual(CaptureStore(url: url()).state, store.state)
 
-        store.undo()
+        try store.undo()
         XCTAssertEqual(store.notes, original.notes)
         XCTAssertEqual(store.sections, original.sections)
         XCTAssertEqual(store.activeSection, "Inbox")
         XCTAssertEqual(CaptureStore(url: url()).state, store.state)
     }
 
-    func testDeletingAnEmptySectionKeepsTheActiveSectionAndProtectsInbox() {
+    func testDeletingAnEmptySectionKeepsTheActiveSectionAndProtectsInbox() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.chooseSection("Research"))
-        XCTAssertTrue(store.chooseSection("Work"))
-        XCTAssertTrue(store.deleteSection("Research"))
+        XCTAssertNoThrow(try store.chooseSection("Research"))
+        XCTAssertNoThrow(try store.chooseSection("Work"))
+        XCTAssertNoThrow(try store.deleteSection("Research"))
         XCTAssertEqual(store.sections, ["Inbox", "Work"])
         XCTAssertEqual(store.activeSection, "Work")
         let original = store.state
-        XCTAssertFalse(store.deleteSection("Inbox"))
-        XCTAssertFalse(store.deleteSection("Missing"))
+        try store.deleteSection("Inbox")
+        try store.deleteSection("Missing")
         XCTAssertEqual(store.state, original)
     }
 
-    func testSectionChangesLeaveMemoryUntouchedWhenPersistenceFails() {
+    func testSectionChangesLeaveMemoryUntouchedWhenPersistenceFails() throws {
         let first = CaptureStore(url: url())
-        XCTAssertTrue(first.chooseSection("Research"))
-        XCTAssertTrue(first.add("original note", interpretSection: false))
+        XCTAssertNoThrow(try first.chooseSection("Research"))
+        XCTAssertNoThrow(try first.add("original note", section: first.activeSection))
         let stale = CaptureStore(url: url())
         let original = stale.state
-        XCTAssertTrue(first.add("another note", interpretSection: false))
+        XCTAssertNoThrow(try first.add("another note", section: first.activeSection))
 
-        XCTAssertFalse(stale.renameSection("Research", to: "Reading"))
+        XCTAssertThrowsError(try stale.renameSection("Research", to: "Reading"))
         XCTAssertEqual(stale.state, original)
-        XCTAssertFalse(stale.deleteSection("Research"))
+        XCTAssertThrowsError(try stale.deleteSection("Research"))
         XCTAssertEqual(stale.state, original)
-        stale.undo()
+        try stale.undo()
         XCTAssertEqual(stale.state, original)
         XCTAssertEqual(CaptureStore(url: url()).state, first.state)
     }
 
-    func testSelectedNotesFollowTheSectionsAndMovesNeedASection() {
+    func testMergeFollowsTheSectionsAndMovesNeedASection() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.chooseSection("Research"))
-        XCTAssertTrue(store.add("alpha", to: "Inbox", interpretSection: false))
-        XCTAssertTrue(store.add("beta", to: "Inbox", interpretSection: false))
+        XCTAssertNoThrow(try store.chooseSection("Research"))
+        XCTAssertNoThrow(try store.add("alpha", section: "Inbox"))
+        XCTAssertNoThrow(try store.add("beta", section: "Inbox"))
         let ids = store.notes.map(\.id)
-        store.selection = [ids[1], ids[0]]
-        XCTAssertEqual(store.selectedNotes.map(\.text), ["alpha", "beta"])
+        XCTAssertEqual(try store.merge([ids[1], ids[0]]).text, "alpha\n\nbeta")
+        try store.undo()
 
-        XCTAssertTrue(store.move(Set(ids), to: "Research"))
+        XCTAssertNoThrow(try store.move(Set(ids), to: "Research"))
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Research"])
-        XCTAssertFalse(store.move(Set(ids), to: "Missing"))
+        XCTAssertThrowsError(try store.move(Set(ids), to: "Missing"))
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Research"])
     }
 
-    func testMergeNeedsMoreThanOneNote() {
+    func testMergeNeedsMoreThanOneNote() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("only", source: "Mail", interpretSection: false))
-        store.selection = Set(store.notes.map(\.id))
-        store.merge()
+        XCTAssertNoThrow(try store.add("only", section: store.activeSection, source: "Mail"))
+        XCTAssertThrowsError(try store.merge(store.notes.map(\.id)))
         XCTAssertEqual(store.notes.count, 1)
-        XCTAssertEqual(store.status, "Saved to Inbox")
-        XCTAssertTrue(store.add("second", source: "Safari", interpretSection: false))
-        store.selection = Set(store.notes.map(\.id))
-        store.merge()
+        XCTAssertNoThrow(try store.add("second", section: store.activeSection, source: "Safari"))
+        try store.merge(store.notes.map(\.id))
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(store.notes[0].sources, ["Mail", "Safari"])
-        XCTAssertEqual(store.status, "Notes merged · Undo available")
-    }
-
-    func testCaptureClipboardSavesTheTextAsIs() {
-        let store = CaptureStore(url: url())
-        let pasteboard = NSPasteboard(name: NSPasteboard.Name("com.piper.test." + UUID().uuidString))
-        defer { pasteboard.releaseGlobally() }
-        XCTAssertFalse(store.captureClipboard(from: pasteboard))
-        XCTAssertEqual(store.status, "The clipboard has no text")
-        pasteboard.clearContents()
-        pasteboard.setString("# Not a section", forType: .string)
-        XCTAssertTrue(store.captureClipboard(from: pasteboard))
-        XCTAssertEqual(store.notes[0].text, "# Not a section")
-        XCTAssertEqual(store.notes[0].sources, ["Clipboard"])
-        XCTAssertEqual(store.sections, ["Inbox"])
     }
 
     // MARK: - Child Notes
@@ -436,14 +407,13 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertNil(state.notes[0].anchor)
     }
 
-    func testChildNotesShowUnderTheirParentAndPersist() {
+    func testChildNotesShowUnderTheirParentAndPersist() throws {
         let url = url()
         let store = CaptureStore(url: url)
-        XCTAssertTrue(store.add("https://example.dev/wal"))
+        XCTAssertNoThrow(try store.add("https://example.dev/wal", section: store.activeSection))
         let parent = store.notes[0].id
         let anchor = NoteAnchor(quote: "old pages", block: 1, offset: 40)
-        let child = store.addChild("old pages", to: parent, tags: ["highlight", "yellow"], anchor: anchor)
-        XCTAssertNotNil(child)
+        try store.addChild("old pages", to: parent, tags: ["highlight", "yellow"], anchor: anchor)
         XCTAssertEqual(store.children(of: parent).map(\.text), ["old pages"])
 
         let reopened = CaptureStore(url: url)
@@ -453,39 +423,37 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(reopened.children(of: parent).first?.sourceURLs, ["https://example.dev/wal"])
     }
 
-    func testDeletingAParentDeletesItsChildren() {
+    func testDeletingAParentDeletesItsChildren() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("https://example.dev/wal"))
-        XCTAssertTrue(store.add("other"))
+        XCTAssertNoThrow(try store.add("https://example.dev/wal", section: store.activeSection))
+        XCTAssertNoThrow(try store.add("other", section: store.activeSection))
         let parent = store.notes[0].id
-        XCTAssertNotNil(store.addChild("quote", to: parent, tags: ["highlight"]))
-        store.selection = [parent]
-        store.deleteSelection()
+        XCTAssertNoThrow(try store.addChild("quote", to: parent, tags: ["highlight"]))
+        try store.delete([parent])
         XCTAssertEqual(store.notes.map(\.text), ["other"])
     }
 
-    func testMovingAParentMovesItsChildren() {
+    func testMovingAParentMovesItsChildren() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("https://example.dev/wal"))
-        XCTAssertTrue(store.chooseSection("Reading"))
+        XCTAssertNoThrow(try store.add("https://example.dev/wal", section: store.activeSection))
+        XCTAssertNoThrow(try store.chooseSection("Reading"))
         let parent = store.notes[0].id
-        XCTAssertNotNil(store.addChild("quote", to: parent, tags: ["highlight"]))
-        XCTAssertTrue(store.move([parent], to: "Reading"))
+        XCTAssertNoThrow(try store.addChild("quote", to: parent, tags: ["highlight"]))
+        XCTAssertNoThrow(try store.move([parent], to: "Reading"))
         XCTAssertEqual(store.notes.map(\.section), ["Reading", "Reading"])
     }
 
-    func testAChildNeedsAParentThatExists() {
+    func testAChildNeedsAParentThatExists() throws {
         let store = CaptureStore(url: url())
-        XCTAssertNil(store.addChild("quote", to: UUID(), tags: []))
-        XCTAssertNotNil(store.errorMessage)
+        XCTAssertThrowsError(try store.addChild("quote", to: UUID(), tags: []))
         XCTAssertTrue(store.notes.isEmpty)
     }
 
-    func testAppendAddsAParagraph() {
+    func testAppendAddsAParagraph() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("Explain: wal-index"))
+        XCTAssertNoThrow(try store.add("Explain: wal-index", section: store.activeSection))
         let id = store.notes[0].id
-        XCTAssertTrue(store.append("  A lookup table.  ", to: id))
+        XCTAssertNoThrow(try store.append("  A lookup table.  ", to: id))
         XCTAssertEqual(store.notes[0].text, "Explain: wal-index\n\nA lookup table.")
     }
 
@@ -522,19 +490,18 @@ final class CaptureStoreTests: XCTestCase {
         let v1 = Data(#"{"notes":[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","text":"from 0.3","section":"Inbox","sources":[],"sourceURLs":[],"isDone":false,"createdAt":0,"modifiedAt":0}],"sections":["Inbox"],"activeSection":"Inbox"}"#.utf8)
         writeState(version: 1, v1, to: url)
         let store = CaptureStore(url: url)
-        XCTAssertNil(store.errorMessage)
+        XCTAssertNil(store.loadError)
         XCTAssertEqual(store.notes.map(\.text), ["from 0.3"])
-        XCTAssertNotNil(store.addChild("a quote", to: store.notes[0].id, tags: ["highlight"]))
-        XCTAssertNil(store.errorMessage)
+        XCTAssertNoThrow(try store.addChild("a quote", to: store.notes[0].id, tags: ["highlight"]))
         XCTAssertEqual(storedVersion(at: url), 2)
         // A second save compares against version 2.
-        XCTAssertTrue(store.add("second", interpretSection: false))
+        XCTAssertNoThrow(try store.add("second", section: store.activeSection))
         XCTAssertEqual(CaptureStore(url: url).children(of: store.notes[0].id).map(\.tags), [["highlight"]])
     }
 
-    func testANewDatabaseIsVersionTwo() {
+    func testANewDatabaseIsVersionTwo() throws {
         let url = url("new.sqlite")
-        XCTAssertTrue(CaptureStore(url: url).add("first", interpretSection: false))
+        XCTAssertNoThrow(try CaptureStore(url: url).add("first", section: "Inbox"))
         XCTAssertEqual(storedVersion(at: url), 2)
     }
 
@@ -543,33 +510,32 @@ final class CaptureStoreTests: XCTestCase {
         writeState(version: 3, Data(#"{"notes":[],"sections":["Inbox"],"activeSection":"Inbox"}"#.utf8), to: url)
         let before = try Data(contentsOf: url)
         let store = CaptureStore(url: url)
-        XCTAssertNotNil(store.errorMessage)
-        XCTAssertFalse(store.add("overwrite", interpretSection: false))
+        XCTAssertNotNil(store.loadError)
+        XCTAssertThrowsError(try store.add("overwrite", section: store.activeSection))
         XCTAssertEqual(try Data(contentsOf: url), before)
         XCTAssertEqual(storedVersion(at: url), 3)
     }
 
     // MARK: - Deleting
 
-    func testDeletingOneNoteTakesItsChildrenAndKeepsTheSelection() throws {
+    func testDeletingOneNoteTakesItsChildren() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("https://example.dev/wal"))
-        XCTAssertTrue(store.add("another", interpretSection: false))
+        XCTAssertNoThrow(try store.add("https://example.dev/wal", section: store.activeSection))
+        XCTAssertNoThrow(try store.add("another", section: store.activeSection))
         let parent = store.notes[0].id
         let other = store.notes[1].id
-        let child = try XCTUnwrap(store.addChild("quote", to: parent, tags: ["highlight"]))
-        XCTAssertNotNil(store.addChild("Explain: quote", to: child.id, tags: ["question"]))
-        store.selection = [other, child.id]
+        let child = try store.addChild("quote", to: parent, tags: ["highlight"])
+        XCTAssertNoThrow(try store.addChild("Explain: quote", to: child.id, tags: ["question"]))
 
-        XCTAssertTrue(store.delete(child.id))
+        XCTAssertNoThrow(try store.delete([child.id]))
         XCTAssertEqual(store.notes.map(\.text), ["https://example.dev/wal", "another"])
         XCTAssertTrue(store.children(of: parent).isEmpty)
-        XCTAssertEqual(store.selection, [other])
-        store.undo()
+        XCTAssertTrue(store.notes.contains { $0.id == other })
+        try store.undo()
         XCTAssertEqual(store.children(of: parent).map(\.id), [child.id])
         XCTAssertEqual(store.children(of: child.id).count, 1)
 
-        XCTAssertTrue(store.delete(parent))
+        XCTAssertNoThrow(try store.delete([parent]))
         XCTAssertEqual(store.notes.map(\.text), ["another"])
     }
 
@@ -579,61 +545,49 @@ final class CaptureStoreTests: XCTestCase {
         let kept = URL(string: "https://example.dev/kept")!
         let gone = URL(string: "https://www.example.dev/gone?utm_source=feed")!
         let orphan = URL(string: "https://example.dev/orphan")!
-        let keptArticle = try XCTUnwrap(store.saveArticle(kept))
-        let goneArticle = try XCTUnwrap(store.saveArticle(gone))
-        store.savePageText("kept text", for: kept)
-        store.savePageText("gone text", for: gone)
-        store.savePageText("orphan text", for: orphan)
+        try store.saveArticle(kept)
+        let goneArticle = try store.saveArticle(gone)
+        try store.savePageText("kept text", for: kept)
+        try store.savePageText("gone text", for: gone)
+        try store.savePageText("orphan text", for: orphan)
 
-        XCTAssertTrue(store.delete(goneArticle.id))
+        XCTAssertNoThrow(try store.delete([goneArticle.id]))
         // Undo can bring the article back, so its page text stays for now.
-        XCTAssertEqual(store.pageText(for: gone), "gone text")
+        XCTAssertEqual(try store.pageText(for: gone), "gone text")
 
         let reopened = CaptureStore(url: url)
-        XCTAssertEqual(reopened.pageText(for: kept), "kept text")
-        XCTAssertNil(reopened.pageText(for: gone))
-        XCTAssertNil(reopened.pageText(for: orphan))
+        XCTAssertEqual(try reopened.pageText(for: kept), "kept text")
+        XCTAssertNil(try reopened.pageText(for: gone))
+        XCTAssertNil(try reopened.pageText(for: orphan))
     }
 
     func testASecondDeleteRemovesThePageTextOfTheFirst() throws {
         let store = CaptureStore(url: url())
         let first = URL(string: "https://example.dev/first")!
         let second = URL(string: "https://example.dev/second")!
-        let firstArticle = try XCTUnwrap(store.saveArticle(first))
-        let secondArticle = try XCTUnwrap(store.saveArticle(second))
-        store.savePageText("first text", for: first)
-        store.savePageText("second text", for: second)
-        XCTAssertTrue(store.delete(firstArticle.id))
-        XCTAssertTrue(store.delete(secondArticle.id))
-        XCTAssertNil(store.pageText(for: first))
-        XCTAssertEqual(store.pageText(for: second), "second text")
+        let firstArticle = try store.saveArticle(first)
+        let secondArticle = try store.saveArticle(second)
+        try store.savePageText("first text", for: first)
+        try store.savePageText("second text", for: second)
+        XCTAssertNoThrow(try store.delete([firstArticle.id]))
+        XCTAssertNoThrow(try store.delete([secondArticle.id]))
+        XCTAssertNil(try store.pageText(for: first))
+        XCTAssertEqual(try store.pageText(for: second), "second text")
     }
 
-    // MARK: - Merging And Copying
+    // MARK: - Merging
 
     func testMergeMovesChildrenToTheMergedNote() throws {
         let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("first", interpretSection: false))
-        XCTAssertTrue(store.add("second", interpretSection: false))
+        XCTAssertNoThrow(try store.add("first", section: store.activeSection))
+        XCTAssertNoThrow(try store.add("second", section: store.activeSection))
         let first = store.notes[0].id
         let second = store.notes[1].id
-        let child = try XCTUnwrap(store.addChild("quote", to: second, tags: ["highlight"]))
-        store.selection = [first, second]
-        store.merge()
+        let child = try store.addChild("quote", to: second, tags: ["highlight"])
+        try store.merge([first, second])
         XCTAssertEqual(store.notes.filter { $0.parent == nil }.map(\.id), [first])
         XCTAssertEqual(store.children(of: first).map(\.id), [child.id])
         XCTAssertTrue(store.children(of: second).isEmpty)
         XCTAssertEqual(CaptureStore(url: url()).notes.first { $0.id == child.id }?.parent, first)
-    }
-
-    func testCopyingOneNoteWritesItsTextWithTheMarker() throws {
-        let store = CaptureStore(url: url())
-        XCTAssertTrue(store.add("copied text", interpretSection: false))
-        let pasteboard = NSPasteboard(name: NSPasteboard.Name("piper-tests-" + UUID().uuidString))
-        defer { pasteboard.releaseGlobally() }
-        store.copy(store.notes[0].id, to: pasteboard)
-        XCTAssertEqual(pasteboard.string(forType: .string), "copied text")
-        XCTAssertNotNil(pasteboard.data(forType: ClipboardInbox.copiedNoteType))
-        XCTAssertEqual(store.status, "Copied")
     }
 }

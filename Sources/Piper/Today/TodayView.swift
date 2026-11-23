@@ -6,14 +6,21 @@ import PiperCore
 import Stream
 import SwiftUI
 
-/// What the capture field holds: a note, a web link to read later, or the
-/// address of a feed or a site, which the Sources paper subscribes to.
+/// What the capture field holds: a note, a web link to read later, the
+/// address of a feed or a site, which the Sources paper subscribes to, or
+/// `# Name` alone on one line, which creates or chooses a section.
 enum CaptureDraft: Equatable {
     case note
     case link(URL)
     case source(URL)
+    /// The name after `# `. It is empty when the line has no name.
+    case section(String)
 
     init(_ text: String) {
+        if text.hasPrefix("# "), !text.contains("\n") {
+            self = .section(String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces))
+            return
+        }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.contains(where: \.isWhitespace), let url = CaptureLinks(trimmed).standaloneURL,
               url.isWeb else {
@@ -197,7 +204,7 @@ struct TodayView: View {
         if let action = composedAction { return "Return runs /\(action.skill.name) in \(action.folder.name)" }
         if !completions.isEmpty { return "Tab completes · ↑↓ choose" }
         switch CaptureDraft(model.composerDraft) {
-        case .note: return nil
+        case .note, .section: return nil
         case .link: return "Return saves it to read later"
         case .source: return "Return subscribes · ⌥Return reads later"
         }
@@ -450,7 +457,7 @@ struct TodayView: View {
             desk?.open(.article(id))
         case .digest(let feed, _): paper.pick(.feed(feed))
         case .clip:
-            if let text = item.clip?.text, Clipboard.copy(text) { store.status = "Copied" }
+            if let text = item.clip?.text, Clipboard.copy(text) { model.messages.show("Copied") }
         }
     }
 
@@ -471,7 +478,13 @@ struct TodayView: View {
     private func save(readLater: Bool) {
         guard canSave else { return }
         if let command = SlashCommand(model.composerDraft), let action = composedAction {
-            if agents.run(command, action: action) != nil { clearComposer() }
+            do {
+                guard let session = try agents.run(command, action: action) else { return }
+                model.messages.show("Running /\(command.name) in \(session.folderName)")
+                clearComposer()
+            } catch {
+                model.messages.report(error)
+            }
             return
         }
         let target = section ?? (store.sections.contains(Note.inbox) ? Note.inbox : store.activeSection)
@@ -480,13 +493,16 @@ struct TodayView: View {
             paper.showSources(address: url.absoluteString)
             clearComposer()
         case .link(let url), .source(let url):
-            if !store.keep(links: [KeptLink(url: url, source: "Piper")], to: target).isEmpty { clearComposer() }
-        case .note:
-            let heading = model.composerDraft.hasPrefix("# ") && !model.composerDraft.contains("\n")
-            guard store.add(model.composerDraft, to: target) else { return }
+            do { try store.keep(links: [KeptLink(url: url, source: "Piper")], to: target) } catch { return model.messages.report(error) }
             clearComposer()
-            // "# Name" alone creates or chooses a section. The list then shows it.
-            if heading { paper.pick(.today(section: store.activeSection)) }
+        case .section(let name):
+            guard !name.isEmpty else { return }
+            do { try store.chooseSection(name) } catch { return model.messages.report(error) }
+            clearComposer()
+            paper.pick(.today(section: store.activeSection))
+        case .note:
+            do { try store.add(model.composerDraft, section: target) } catch { return model.messages.report(error) }
+            clearComposer()
         }
     }
 
@@ -568,7 +584,11 @@ struct TodayView: View {
                 today.multiple = !order.isEmpty
             case "c" where !editingText && !chosen.isEmpty: today.copy(chosen, asList: flags.contains(.shift))
             case "z" where !editingText:
-                if today.undo != nil { today.runUndo() } else { store.undo() }
+                if today.undo != nil {
+                    today.runUndo()
+                } else {
+                    do { try store.undo() } catch { model.messages.report(error) }
+                }
             default:
                 if event.keyCode == 36, flags.contains(.shift), !editingText, !chosen.isEmpty {
                     today.send(chosen, action: nil)

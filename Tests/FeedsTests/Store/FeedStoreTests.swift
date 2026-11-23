@@ -250,7 +250,7 @@ private func temporaryDatabase() -> URL {
 
     @Test func subscribeFetchesAndCountsUnread() async throws {
         StubProtocol.serve(["https://store.example/feed.xml": .init(status: 200, body: rss, headers: ["ETag": "\"v1\""])])
-        let store = FeedStore(url: temporaryDatabase(), session: StubProtocol.session())
+        let store = FeedStore(url: temporaryDatabase(), session: StubProtocol.session()) { Issue.record("\($0)") }
         #expect(store.subscribe(url: "https://store.example/feed.xml", title: nil))
         #expect(!store.subscribe(url: "https://store.example/feed.xml", title: nil))
         while !store.fetching.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
@@ -265,7 +265,7 @@ private func temporaryDatabase() -> URL {
     }
 
     @Test func failedFetchRecordsTheReason() async throws {
-        let store = FeedStore(url: temporaryDatabase(), session: StubProtocol.session())
+        let store = FeedStore(url: temporaryDatabase(), session: StubProtocol.session()) { Issue.record("\($0)") }
         store.subscribe(url: "https://gone.example/feed", title: "Gone")
         while !store.fetching.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
         let feed = try #require(store.feeds.first)

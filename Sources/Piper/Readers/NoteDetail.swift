@@ -36,8 +36,7 @@ struct NoteDetail: View {
                     ArticleReader(model: model, note: note, url: articleURL, showWebPage: { model.chooseArticleTab(.web, for: note) })
                 case .web:
                     NoteWebReader(url: articleURL) { text, title, url in
-                        model.store.add(text, source: title, sourceURL: url.absoluteString,
-                                        to: Note.inbox, interpretSection: false)
+                        try model.store.add(text, section: Note.inbox, source: title, sourceURL: url.absoluteString)
                     }
                 case .notes:
                     ArticleNotebook(model: model, note: note, url: articleURL)
@@ -48,7 +47,7 @@ struct NoteDetail: View {
         }
         .background(PiperTheme.paper)
         .overlay(alignment: .bottom) {
-            if let articleURL {
+            if articleURL != nil {
                 TabIsland(selection: Binding(get: { model.articleTab(for: note) }, set: { model.chooseArticleTab($0, for: note) }),
                           cardPresented: model.sessionPresentation == .card)
             }
@@ -84,11 +83,6 @@ struct NoteDetail: View {
                     : PiperTheme.paperUINS(.reading), paper: true)
                 .padding(.horizontal, -5)
                 .accessibilityLabel("Note text")
-            }
-            if let error = model.store.errorMessage, session?.hasChanges == true {
-                Text(error).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.danger)
-                    .textSelection(.enabled)
-                    .padding(.vertical, 8)
             }
         }
         .padding(AppDefaults.Papers.noteBodyPadding)

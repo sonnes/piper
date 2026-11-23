@@ -34,10 +34,10 @@ final class ReadingTests: XCTestCase {
 
     func testHighlightsFromOnePageGoUnderOneArticle() throws {
         let store = store()
-        let first = try XCTUnwrap(store.saveHighlight("A reader that starts\n before a commit", in: page, title: "WAL",
-                                                      source: "Safari", tags: ["highlight", "yellow"]))
-        let second = try XCTUnwrap(store.saveHighlight("one long read", in: URL(string: "https://example.dev/notes/sqlite-wal")!,
-                                                       source: "Safari", tags: ["highlight", "yellow"]))
+        let first = try store.saveHighlight("A reader that starts\n before a commit", in: page, title: "WAL",
+                                                      source: "Safari", tags: ["highlight", "yellow"])
+        let second = try store.saveHighlight("one long read", in: URL(string: "https://example.dev/notes/sqlite-wal")!,
+                                                       source: "Safari", tags: ["highlight", "yellow"])
         XCTAssertEqual(first.article.id, second.article.id)
         XCTAssertEqual(store.notes.filter { $0.parent == nil }.count, 1)
         XCTAssertEqual(first.article.text, page.absoluteString)
@@ -51,8 +51,8 @@ final class ReadingTests: XCTestCase {
 
     func testAPlainNoteFromAPageIsNotItsArticle() throws {
         let store = store()
-        XCTAssertTrue(store.add("A quote from the page", source: "Safari", sourceURL: page.absoluteString))
-        let saved = try XCTUnwrap(store.saveHighlight("one long read", in: page, tags: ["highlight"]))
+        XCTAssertNoThrow(try store.add("A quote from the page", section: store.activeSection, source: "Safari", sourceURL: page.absoluteString))
+        let saved = try store.saveHighlight("one long read", in: page, tags: ["highlight"])
         XCTAssertNotEqual(saved.article.id, store.notes[0].id)
         XCTAssertFalse(store.notes[0].isArticle)
         XCTAssertTrue(saved.article.isArticle)
@@ -61,19 +61,19 @@ final class ReadingTests: XCTestCase {
 
     func testSavingAnArticleAgainReopensItAndKeepsTheFirstTitle() throws {
         let store = store()
-        let article = try XCTUnwrap(store.saveArticle(page, title: "First", source: "Safari"))
-        store.toggleDone(article.id)
-        let again = try XCTUnwrap(store.saveArticle(page, title: "Second"))
+        let article = try store.saveArticle(page, title: "First", source: "Safari")
+        try store.toggleDone(article.id)
+        let again = try store.saveArticle(page, title: "Second")
         XCTAssertEqual(again.id, article.id)
         XCTAssertFalse(again.isDone)
         XCTAssertEqual(again.reading?.title, "First")
-        XCTAssertNil(store.saveArticle(URL(string: "file:///tmp/a.html")!))
+        XCTAssertThrowsError(try store.saveArticle(URL(string: "file:///tmp/a.html")!))
     }
 
     func testACommentFollowsTheQuote() throws {
         let store = store()
-        let saved = try XCTUnwrap(store.saveHighlight("one long read", in: page, tags: ["highlight", "yellow"]))
-        XCTAssertTrue(store.comment("  This is the bug.  ", on: saved.highlight.id))
+        let saved = try store.saveHighlight("one long read", in: page, tags: ["highlight", "yellow"])
+        XCTAssertNoThrow(try store.comment("  This is the bug.  ", on: saved.highlight.id))
         let highlight = try XCTUnwrap(store.notes.first { $0.id == saved.highlight.id })
         XCTAssertEqual(highlight.text, "one long read\n\nThis is the bug.")
         XCTAssertEqual(HighlightText.comment(of: highlight.text, quote: highlight.anchor?.quote), "This is the bug.")
@@ -82,9 +82,9 @@ final class ReadingTests: XCTestCase {
 
     func testReadingStateSurvivesARestartWithoutAnUndoStep() throws {
         let store = store()
-        let article = try XCTUnwrap(store.saveArticle(page))
+        let article = try store.saveArticle(page)
         let date = Date(timeIntervalSince1970: 1_000)
-        XCTAssertTrue(store.updateReading(article.id) { $0.block = 4; $0.progress = 0.5; $0.minutes = 8; $0.openedAt = date })
+        XCTAssertNoThrow(try store.updateReading(article.id) { $0.block = 4; $0.progress = 0.5; $0.minutes = 8; $0.openedAt = date })
         let reopened = self.store()
         let reading = try XCTUnwrap(reopened.notes.first?.reading)
         XCTAssertEqual(reading.block, 4)
@@ -92,11 +92,11 @@ final class ReadingTests: XCTestCase {
         XCTAssertEqual(reading.openedAt, date)
     }
 
-    func testPageTextIsKeptByCanonicalLink() {
+    func testPageTextIsKeptByCanonicalLink() throws {
         let store = store()
-        XCTAssertNil(store.pageText(for: page))
-        store.savePageText("Full text of the page", for: page)
-        XCTAssertEqual(store.pageText(for: URL(string: "https://example.dev/notes/sqlite-wal")!), "Full text of the page")
+        XCTAssertNil(try store.pageText(for: page))
+        try store.savePageText("Full text of the page", for: page)
+        XCTAssertEqual(try store.pageText(for: URL(string: "https://example.dev/notes/sqlite-wal")!), "Full text of the page")
     }
 
     // MARK: - Groups
@@ -104,15 +104,15 @@ final class ReadingTests: XCTestCase {
     func testReadingGroupsStartedNewAndFinishedArticles() throws {
         let store = store()
         let now = Date()
-        let fresh = try XCTUnwrap(store.saveArticle(URL(string: "https://a.dev/new")!))
-        let started = try XCTUnwrap(store.saveHighlight("text", in: URL(string: "https://a.dev/started")!, tags: ["highlight"])).article
-        let opened = try XCTUnwrap(store.saveArticle(URL(string: "https://a.dev/opened")!))
-        store.updateReading(opened.id) { $0.openedAt = now }
-        let done = try XCTUnwrap(store.saveArticle(URL(string: "https://a.dev/done")!))
-        store.updateReading(done.id) { $0.finishedAt = now.addingTimeInterval(-3_600) }
-        let old = try XCTUnwrap(store.saveArticle(URL(string: "https://a.dev/old")!))
-        store.updateReading(old.id) { $0.finishedAt = now.addingTimeInterval(-10 * 86_400) }
-        XCTAssertTrue(store.add("A plain note with a link https://a.dev/x inside"))
+        let fresh = try store.saveArticle(URL(string: "https://a.dev/new")!)
+        let started = try store.saveHighlight("text", in: URL(string: "https://a.dev/started")!, tags: ["highlight"]).article
+        let opened = try store.saveArticle(URL(string: "https://a.dev/opened")!)
+        try store.updateReading(opened.id) { $0.openedAt = now }
+        let done = try store.saveArticle(URL(string: "https://a.dev/done")!)
+        try store.updateReading(done.id) { $0.finishedAt = now.addingTimeInterval(-3_600) }
+        let old = try store.saveArticle(URL(string: "https://a.dev/old")!)
+        try store.updateReading(old.id) { $0.finishedAt = now.addingTimeInterval(-10 * 86_400) }
+        XCTAssertNoThrow(try store.add("A plain note with a link https://a.dev/x inside", section: store.activeSection))
 
         let list = ReadingList(notes: store.notes, now: now)
         XCTAssertEqual(Set(list.inProgress.map(\.id)), [started.id, opened.id])
@@ -120,7 +120,7 @@ final class ReadingTests: XCTestCase {
         XCTAssertEqual(list.finished.map(\.id), [done.id])
         XCTAssertEqual(list.count, 4)
 
-        store.archiveFinishedReading(now: now)
+        try store.archiveFinishedReading(now: now)
         XCTAssertEqual(store.notes.first { $0.id == old.id }?.isDone, true)
         XCTAssertEqual(store.notes.first { $0.id == done.id }?.isDone, false)
     }
@@ -167,14 +167,14 @@ final class ReadingTests: XCTestCase {
     func testArchiveMarksOnlyArticlesFinishedBeforeTheDate() throws {
         let store = store()
         let now = Date()
-        let old = try XCTUnwrap(store.saveArticle(URL(string: "https://a.dev/old")!))
-        store.updateReading(old.id) { $0.finishedAt = now.addingTimeInterval(-8 * 86_400) }
-        let recent = try XCTUnwrap(store.saveArticle(URL(string: "https://a.dev/recent")!))
-        store.updateReading(recent.id) { $0.finishedAt = now.addingTimeInterval(-86_400) }
-        let unread = try XCTUnwrap(store.saveArticle(URL(string: "https://a.dev/unread")!))
-        store.updateReading(unread.id) { $0.openedAt = now.addingTimeInterval(-30 * 86_400) }
+        let old = try store.saveArticle(URL(string: "https://a.dev/old")!)
+        try store.updateReading(old.id) { $0.finishedAt = now.addingTimeInterval(-8 * 86_400) }
+        let recent = try store.saveArticle(URL(string: "https://a.dev/recent")!)
+        try store.updateReading(recent.id) { $0.finishedAt = now.addingTimeInterval(-86_400) }
+        let unread = try store.saveArticle(URL(string: "https://a.dev/unread")!)
+        try store.updateReading(unread.id) { $0.openedAt = now.addingTimeInterval(-30 * 86_400) }
 
-        store.archiveFinishedReading(now: now)
+        try store.archiveFinishedReading(now: now)
         let reopened = self.store()
         XCTAssertEqual(reopened.notes.first { $0.id == old.id }?.isDone, true)
         XCTAssertEqual(reopened.notes.first { $0.id == recent.id }?.isDone, false)

@@ -29,6 +29,7 @@ public struct ClipboardEntry: Identifiable, Equatable {
 /// The history goes into the clipboard table of the note database, so it
 /// survives a restart. It never becomes a note on its own. A reader saves an
 /// entry, and then the entry disappears because the store holds the same text.
+/// The timer writes the history, so each database error goes to `report`.
 @MainActor @Observable
 public final class ClipboardInbox {
 
@@ -48,6 +49,7 @@ public final class ClipboardInbox {
     private let store: CaptureStore
     private let pasteboard: NSPasteboard
     private let retention: TimeInterval
+    private let report: @MainActor (Error) -> Void
     private var items: [ClipboardEntry] = []
     @ObservationIgnored private var changeCount: Int?
     @ObservationIgnored private var timer: Timer?
@@ -58,10 +60,13 @@ public final class ClipboardInbox {
 
     // MARK: - Initialization
 
-    public init(store: CaptureStore, pasteboard: NSPasteboard = .general, retention: TimeInterval = defaultRetention, now: Date = Date()) {
+    /// - Parameter report: Takes each database error.
+    public init(store: CaptureStore, pasteboard: NSPasteboard = .general, retention: TimeInterval = defaultRetention, now: Date = Date(),
+                report: @escaping @MainActor (Error) -> Void) {
         self.store = store
         self.pasteboard = pasteboard
         self.retention = retention
+        self.report = report
         guard let database = store.database else { return }
         do {
             try database.removeClipboard(before: now.addingTimeInterval(-retention))
@@ -70,7 +75,7 @@ public final class ClipboardInbox {
             }
             items = Array(loaded.prefix(Self.historyLimit))
             persist(items, previous: loaded)
-        } catch { store.report(error) }
+        } catch { report(error) }
     }
 
     // MARK: - Polling
@@ -132,18 +137,17 @@ public final class ClipboardInbox {
 
     /// Forgets every text that the reader has not saved.
     public func clear() {
-        do { try store.database?.removeAllClipboard() } catch { store.report(error) }
+        do { try store.database?.removeAllClipboard() } catch { report(error) }
         items.removeAll()
     }
 
     // MARK: - Saving
 
-    /// Keeps a text as a kept capture in Inbox.
-    @discardableResult public func save(_ id: UUID) -> Bool {
-        guard let entry = entries.first(where: { $0.id == id }),
-              store.add(entry.text, source: Note.clipboardSource, to: Note.inbox, interpretSection: false,
-                        tags: [NoteTag.kept.rawValue]) else { return false }
-        return true
+    /// Keeps a text as a kept capture in Inbox. Returns nil for a text that
+    /// the history no longer holds.
+    @discardableResult public func save(_ id: UUID) throws -> Note? {
+        guard let entry = entries.first(where: { $0.id == id }) else { return nil }
+        return try store.add(entry.text, section: Note.inbox, source: Note.clipboardSource, tags: [NoteTag.kept.rawValue])
     }
 
     /// Removes a text from the history, for Done. Returns the text, so that
@@ -172,7 +176,7 @@ public final class ClipboardInbox {
 
     /// Writes the entries that changed and removes the entries that left the history.
     ///
-    /// A failed write keeps the history in memory and shows the error.
+    /// A failed write keeps the history in memory and reports the error.
     private func persist(_ updated: [ClipboardEntry], previous: [ClipboardEntry]) {
         guard let database = store.database else { return }
         let changed = updated.filter { !previous.contains($0) }.map {
@@ -180,6 +184,6 @@ public final class ClipboardInbox {
         }
         let kept = Set(updated.map(\.id))
         let removed = previous.map(\.id).filter { !kept.contains($0) }
-        do { try database.saveClipboard(changed, removing: removed) } catch { store.report(error) }
+        do { try database.saveClipboard(changed, removing: removed) } catch { report(error) }
     }
 }

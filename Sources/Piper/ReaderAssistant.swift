@@ -118,14 +118,16 @@ final class ReaderAssistant {
     @ObservationIgnored private var watched: Set<UUID> = []
     @ObservationIgnored private let store: CaptureStore
     @ObservationIgnored private let agents: FolderAgents
+    @ObservationIgnored private let messages: Messages
     /// The folder that a new session works in.
     @ObservationIgnored var folder: () -> String? = { nil }
 
     // MARK: - Initialization
 
-    init(store: CaptureStore, agents: FolderAgents) {
+    init(store: CaptureStore, agents: FolderAgents, messages: Messages) {
         self.store = store
         self.agents = agents
+        self.messages = messages
     }
 
     // MARK: - Notes
@@ -133,22 +135,20 @@ final class ReaderAssistant {
     /// Saves a highlight under the capture. A comment is the note of the
     /// reader, and it follows the quote in the note text.
     @discardableResult
-    func highlight(_ anchor: NoteAnchor, color: String, in parent: UUID, comment: String = "") -> Note? {
+    func highlight(_ anchor: NoteAnchor, color: String, in parent: UUID, comment: String = "") throws -> Note {
         let color = Self.colors.contains(color) ? color : Self.colors[0]
-        return store.addChild(HighlightText.adding(comment, to: anchor.quote), to: parent,
+        return try store.addChild(HighlightText.adding(comment, to: anchor.quote), to: parent,
                               tags: [NoteTag.highlight.rawValue, color], anchor: anchor, source: Self.source)
     }
 
     /// Asks the margin agent to review every highlight and note of the capture.
+    /// Returns nil for a capture with no highlights.
     @discardableResult
-    func reviewHighlights(in parent: UUID, article: ReaderArticle) -> Note? {
+    func reviewHighlights(in parent: UUID, article: ReaderArticle) throws -> Note? {
         let highlights = ReadingList.highlights(in: store.children(of: parent))
         guard !highlights.isEmpty else { return nil }
-        guard let folder = folder() else {
-            store.report(PiperError("Add a folder on the Folders index. An agent works in a folder."))
-            return nil
-        }
-        guard let note = store.addChild(Self.reviewTitle, to: parent, tags: [NoteTag.question.rawValue]) else { return nil }
+        guard let folder = folder() else { throw Self.noFolder }
+        let note = try store.addChild(Self.reviewTitle, to: parent, tags: [NoteTag.question.rawValue])
         let session = session(for: parent) ?? agents.newMarginSession(in: folder, noteID: note.id)
         let list = highlights.map { highlight -> String in
             let comment = HighlightText.comment(of: highlight.text, quote: highlight.anchor?.quote)
@@ -169,17 +169,15 @@ final class ReaderAssistant {
     /// The source of a note that the reader made in Piper.
     static let source = "Piper"
     static let reviewTitle = "Review: My highlights"
+    private static let noFolder = PiperError("Add a folder on the Folders index. An agent works in a folder.")
 
     /// Saves a question under the capture and sends it to the margin agent.
     @discardableResult
-    func ask(_ request: Request, about anchor: NoteAnchor, in parent: UUID, article: ReaderArticle) -> Note? {
-        guard let folder = folder() else {
-            store.report(PiperError("Add a folder on the Folders index. An agent works in a folder."))
-            return nil
-        }
+    func ask(_ request: Request, about anchor: NoteAnchor, in parent: UUID, article: ReaderArticle) throws -> Note {
+        guard let folder = folder() else { throw Self.noFolder }
         var text = request.label + ": " + Self.line(anchor.quote)
         if case .ask(let question) = request { text += "\n\n" + NoteThread.question(question) }
-        guard let note = store.addChild(text, to: parent, tags: [NoteTag.question.rawValue], anchor: anchor) else { return nil }
+        let note = try store.addChild(text, to: parent, tags: [NoteTag.question.rawValue], anchor: anchor)
         let session = session(for: parent) ?? agents.newMarginSession(in: folder, noteID: note.id)
         var message = Self.prompt(request, quote: anchor.quote)
         if session.blocks.isEmpty { message += "\n\n" + Self.context(article) }
@@ -188,10 +186,10 @@ final class ReaderAssistant {
     }
 
     /// Adds a follow-up question to a question note and sends it.
-    func followUp(_ question: String, on noteID: UUID, in parent: UUID, article: ReaderArticle) {
+    func followUp(_ question: String, on noteID: UUID, in parent: UUID, article: ReaderArticle) throws {
         let question = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !question.isEmpty, let note = store.notes.first(where: { $0.id == noteID }),
-              store.append(NoteThread.question(question), to: noteID) else { return }
+        guard !question.isEmpty, let note = store.notes.first(where: { $0.id == noteID }) else { return }
+        try store.append(NoteThread.question(question), to: noteID)
         let quote = note.anchor?.quote ?? ""
         var message = question + (quote.isEmpty ? "" : "\n\nThis follows up on the passage:\n\n> " + Self.line(quote))
         if let session = session(for: parent) {
@@ -221,12 +219,10 @@ final class ReaderAssistant {
     }
 
     /// Makes a draft session with the thread of a question and the page, with every tool.
-    func continueInSession(_ noteID: UUID, article: ReaderArticle) -> AgentSession? {
+    /// Returns nil for a note that was removed.
+    func continueInSession(_ noteID: UUID, article: ReaderArticle) throws -> AgentSession? {
         guard let note = store.notes.first(where: { $0.id == noteID }) else { return nil }
-        guard let folder = folder() else {
-            store.report(PiperError("Add a folder on the Folders index. An agent works in a folder."))
-            return nil
-        }
+        guard let folder = folder() else { throw Self.noFolder }
         let quote = note.anchor.map { "\n\n> " + Self.line($0.quote) } ?? ""
         let session = agents.newSession(in: folder)
         session.draft = "This continues my questions about \u{201C}\(article.title)\u{201D} (\(article.url.absoluteString))."
@@ -337,7 +333,7 @@ private extension ReaderAssistant {
                 if case .assistant(_, let text) = block { return text } else { return nil }
             }
             let answer = result.text.isEmpty ? texts.joined(separator: "\n\n") : result.text
-            if !answer.isEmpty { store.append(answer, to: item.noteID) }
+            do { try store.append(answer, to: item.noteID) } catch { messages.report(error) }
             let calls = turn[..<end].compactMap { block -> ToolCall? in
                 if case .toolCall(let call) = block { return call } else { return nil }
             }

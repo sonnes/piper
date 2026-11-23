@@ -177,9 +177,17 @@ extension AppModel {
     }
 
     /// Keeps articles as kept link captures, and marks them as read.
-    func keep(_ articles: [Article]) {
-        store.keep(links: keptLinks(articles))
+    /// Returns false after it reports an error.
+    @discardableResult
+    func keep(_ articles: [Article]) -> Bool {
+        do {
+            try store.keep(links: keptLinks(articles))
+        } catch {
+            messages.report(error)
+            return false
+        }
         feeds.setRead(true, articles)
+        return true
     }
 
     /// True when a kept capture holds the link of the article.
