@@ -300,11 +300,31 @@ struct TodayMenu: View {
         if let openFeed = verbs.openFeed {
             Divider()
             Button("Show the Feed", action: openFeed)
+            if let feed = item.articles.first.flatMap({ model.feeds.feed($0.feedID) }) {
+                FeedModeMenu(feeds: model.feeds, feed: feed)
+            }
         }
         if let stop = verbs.stopSession { Button("Stop Session", action: stop) }
         if item.kind != .article && item.kind != .digest {
             Divider()
             Button("Delete", role: .destructive, action: verbs.delete)
         }
+    }
+}
+
+/// How Today shows the posts of one feed: each post, the best posts and a
+/// digest of the rest, one digest a day, or nothing. Piper saves the choice
+/// for the feed.
+struct FeedModeMenu: View {
+    let feeds: FeedStore
+    let feed: Feed
+
+    var body: some View {
+        Picker("Show Posts", selection: Binding(get: { feed.mode }, set: { feeds.setMode($0, of: feed.id) })) {
+            ForEach(FeedMode.allCases, id: \.self) { mode in
+                Text(mode.title).tag(mode)
+            }
+        }
+        .pickerStyle(.menu)
     }
 }
