@@ -69,7 +69,7 @@ struct FilePreview: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .background(PiperTheme.page)
+        .background(PiperTheme.paper)
     }
 }
 
@@ -88,7 +88,7 @@ struct PlainTextPreview: NSViewRepresentable {
         scroll.hasHorizontalScroller = false
         scroll.autohidesScrollers = true
         scroll.drawsBackground = true
-        scroll.backgroundColor = PiperTheme.pageNS
+        scroll.backgroundColor = PiperTheme.paperNS
         guard let editor = scroll.documentView as? NSTextView else { return scroll }
         editor.isEditable = false
         editor.isSelectable = true
@@ -98,8 +98,8 @@ struct PlainTextPreview: NSViewRepresentable {
         editor.textContainer?.widthTracksTextView = true
         editor.textContainerInset = NSSize(width: 32, height: 20)
         editor.font = PiperTheme.manuscript(size: 12.5)
-        editor.textColor = PiperTheme.inkNS
-        editor.backgroundColor = PiperTheme.pageNS
+        editor.textColor = PiperTheme.paperInkNS
+        editor.backgroundColor = PiperTheme.paperNS
         editor.defaultParagraphStyle = {
             let style = NSMutableParagraphStyle()
             style.lineSpacing = 3

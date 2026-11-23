@@ -80,7 +80,7 @@ private extension ReadingToast {
                         KeyChip(text: "⇧⇧")
                         Text("again to add a note")
                     }
-                    .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                     Spacer(minLength: 8)
                     Button("Continue in Piper") { [weak self] in self?.continueReading(articleID) }
                         .buttonStyle(ToastButtonStyle())
@@ -144,11 +144,11 @@ private struct ToastHeader: View {
                 .font(.system(size: ReadingToast.Metrics.checkFontSize, weight: .bold))
                 .foregroundStyle(PiperTheme.onAccent)
                 .frame(width: ReadingToast.Metrics.checkSize, height: ReadingToast.Metrics.checkSize)
-                .background(PiperTheme.accent, in: Circle())
+                .background(PiperTheme.brand, in: Circle())
                 .accessibilityHidden(true)
-            Text(title).font(PiperTheme.ui(.body, weight: .semibold))
+            Text(title).font(PiperTheme.paperUI(.body, weight: .semibold))
             Spacer(minLength: 8)
-            if let detail { Text(detail).font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint).lineLimit(1) }
+            if let detail { Text(detail).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint).lineLimit(1) }
         }
     }
 }
@@ -159,10 +159,10 @@ private struct KeyChip: View {
 
     var body: some View {
         Text(text)
-            .font(PiperTheme.ui(.caption))
-            .foregroundStyle(PiperTheme.ink)
+            .font(PiperTheme.paperUI(.body))
+            .foregroundStyle(PiperTheme.paperInk)
             .padding(.horizontal, 5).padding(.vertical, 1)
-            .background(PiperTheme.selection, in: RoundedRectangle(cornerRadius: 4))
+            .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: 4))
     }
 }
 
@@ -175,14 +175,14 @@ private struct ToastArticle: View {
         HStack(spacing: 10) {
             ArticleBadge(host: host, size: ReadingToast.Metrics.badgeSize)
             VStack(alignment: .leading, spacing: 1) {
-                Text(article.reading?.title ?? host).font(PiperTheme.ui(.body, weight: .semibold)).lineLimit(2)
+                Text(article.reading?.title ?? host).font(PiperTheme.paperUI(.body, weight: .semibold)).lineLimit(2)
                 Text([host, detail].compactMap { $0 }.joined(separator: " · "))
-                    .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted).lineLimit(1)
             }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(PiperTheme.hover, in: RoundedRectangle(cornerRadius: 8))
+        .background(PiperTheme.rowHover, in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -197,21 +197,21 @@ private struct CommentField: View {
         VStack(alignment: .leading, spacing: 9) {
             Text(quote)
                 .font(.system(size: 13, design: .serif).italic())
-                .foregroundStyle(PiperTheme.secondary)
+                .foregroundStyle(PiperTheme.paperMuted)
                 .lineLimit(3)
                 .padding(.leading, 9)
                 .overlay(alignment: .leading) { Rectangle().fill(PiperTheme.markYellow).frame(width: 2) }
             TextField("Add a note", text: $draft.text, axis: .vertical)
                 .textFieldStyle(.plain)
-                .font(PiperTheme.ui(.body))
+                .font(PiperTheme.paperUI(.body))
                 .lineLimit(3...6)
                 .focused($focused)
                 .onSubmit(save)
                 .padding(8)
-                .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: 8))
+                .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PiperTheme.focusRing, lineWidth: 1.5))
             HStack {
-                Text("Return saves · Esc skips").font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
+                Text("Return saves · Esc skips").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                 Spacer()
                 Button("Save", action: save).buttonStyle(ToastButtonStyle())
             }

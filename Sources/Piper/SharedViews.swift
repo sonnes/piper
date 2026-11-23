@@ -12,8 +12,8 @@ struct IconButton: View {
             Image(systemName: icon)
                 .font(.system(size: Metrics.glyph, weight: .regular))
                 .frame(width: Metrics.size.width, height: Metrics.size.height)
-                .foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary)
-                .background(active ? PiperTheme.selection : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+                .foregroundStyle(active ? PiperTheme.paperInk : PiperTheme.paperMuted)
+                .background(active ? PiperTheme.paperTint : .clear, in: RoundedRectangle(cornerRadius: Metrics.cornerRadius))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -26,6 +26,7 @@ extension IconButton {
     enum Metrics {
         static let glyph: CGFloat = 14
         static let size = CGSize(width: 28, height: 24)
+        static let cornerRadius: CGFloat = 6
     }
 }
 
@@ -33,7 +34,7 @@ extension IconButton {
 struct Rule: View {
     var vertical = false
     var body: some View {
-        Rectangle().fill(PiperTheme.rule)
+        Rectangle().fill(PiperTheme.paperRule)
             .frame(width: vertical ? Metrics.thickness : nil, height: vertical ? nil : Metrics.thickness)
     }
 }
@@ -51,9 +52,9 @@ struct EmptyPane: View {
 
     var body: some View {
         VStack(spacing: Metrics.spacing) {
-            Text(title).font(PiperTheme.ui(.reading, weight: .semibold)).foregroundStyle(PiperTheme.secondary)
+            Text(title).font(PiperTheme.paperUI(.row, weight: .semibold)).foregroundStyle(PiperTheme.paperMuted)
             if let detail {
-                Text(detail).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.faint)
+                Text(detail).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
             }
         }
         .multilineTextAlignment(.center)

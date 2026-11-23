@@ -139,16 +139,16 @@ struct TodayView: View {
 
     private func searchField(matches: Int) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(PiperTheme.faint)
+            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(PiperTheme.paperFaint)
             TextField("Search", text: $today.query)
                 .textFieldStyle(.plain).focused($searching)
                 .font(PiperTheme.paperUI(.row))
                 .accessibilityLabel("Search Today")
                 .onAppear { if showingSearch { DispatchQueue.main.async { searching = true } } }
             Text(matches == 1 ? "1 match" : "\(matches) matches")
-                .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.faint).lineLimit(1).fixedSize()
+                .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint).lineLimit(1).fixedSize()
             if !today.query.isEmpty {
-                Button { today.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(PiperTheme.faint) }
+                Button { today.query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(PiperTheme.paperFaint) }
                     .buttonStyle(.plain).accessibilityLabel("Clear search")
             }
         }
@@ -167,9 +167,9 @@ struct TodayView: View {
     private var composer: some View {
         let metrics = CaptureEditor.Metrics.self
         let field = Metrics.self
-        let inset = metrics.paperTextInset.height * 2
+        let inset = metrics.textInset.height * 2
         let height = min(max(composerTextHeight, field.composerHeight),
-                         metrics.paperLineHeight * CGFloat(field.maxLines) + inset)
+                         metrics.lineHeight * CGFloat(field.maxLines) + inset)
         let hint = composerHint
         return HStack(alignment: .top, spacing: 0) {
             Text("+")
@@ -178,7 +178,7 @@ struct TodayView: View {
                 .frame(width: field.composerTextInset, height: field.composerHeight)
                 .accessibilityHidden(true)
             CaptureEditor(text: $model.composerDraft, focused: $composing,
-                          placeholder: "Write a note, or paste a link to read later", paper: true,
+                          placeholder: "Write a note, or paste a link to read later",
                           contentHeight: { composerTextHeight = $0 })
                 .frame(height: height)
             if let hint {
@@ -305,7 +305,7 @@ struct TodayView: View {
         let limit = showsWholeTray ? tray.count : min(tray.count, Metrics.trayLimit)
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Clipboard").font(PiperTheme.paperUI(.body, weight: .semibold)).foregroundStyle(PiperTheme.secondaryLabel)
+                Text("Clipboard").font(PiperTheme.paperUI(.body, weight: .semibold)).foregroundStyle(PiperTheme.paperMuted)
                 Text("\(tray.count)").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint).monospacedDigit()
                 Spacer()
                 if tray.count > Metrics.trayLimit {

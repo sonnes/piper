@@ -93,7 +93,7 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     /// The hairline under the row. It hides beside a fill, as in Mail.
     @ViewBuilder private var separator: some View {
         if !selected && !hovered && !lifted {
-            PiperTheme.separator
+            PiperTheme.paperRule
                 .frame(height: Metrics.separatorHeight)
                 .padding(.leading, Metrics.separatorInset)
                 .padding(.trailing, Metrics.listRowPadding.trailing)
@@ -116,7 +116,7 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     private var timeLabel: some View {
         let text: String = lifted ? "on the desk" : time
         let weight: NSFont.Weight = lifted ? .medium : .regular
-        let color: Color = lifted ? PiperTheme.brand : PiperTheme.secondaryLabel
+        let color: Color = lifted ? PiperTheme.brand : PiperTheme.paperMuted
         return Text(text)
             .font(PiperTheme.paperUI(.body, weight: weight))
             .foregroundStyle(color)
@@ -155,7 +155,7 @@ extension PaperRow where Actions == EmptyView {
 struct RowAction: View {
     let symbol: String
     let title: String
-    var tint: Color = PiperTheme.secondaryLabel
+    var tint: Color = PiperTheme.paperMuted
     let action: () -> Void
 
     @State private var hovered = false
@@ -206,7 +206,7 @@ struct PaperRowMeta<Content: View>: View {
     var body: some View {
         HStack(spacing: 5) { content() }
             .font(PiperTheme.paperUI(.body))
-            .foregroundStyle(PiperTheme.secondaryLabel)
+            .foregroundStyle(PiperTheme.paperMuted)
             .lineLimit(1)
             .padding(.top, 1)
     }
@@ -228,7 +228,7 @@ struct TickMark: View {
                 Circle().fill(PiperTheme.indigo)
                 Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(PiperTheme.onAccent)
             } else {
-                Circle().strokeBorder(hovered ? PiperTheme.brand : PiperTheme.tertiaryLabel, lineWidth: metrics.markLine)
+                Circle().strokeBorder(hovered ? PiperTheme.brand : PiperTheme.paperFaint, lineWidth: metrics.markLine)
             }
         }
         .frame(width: metrics.tickSize, height: metrics.tickSize)
@@ -319,7 +319,7 @@ struct PaperGroupHeader: View {
 
     var body: some View {
         HStack {
-            Text(title).foregroundStyle(PiperTheme.secondaryLabel)
+            Text(title).foregroundStyle(PiperTheme.paperMuted)
             Spacer(minLength: 8)
             if let action {
                 Button(action.title, action: action.run).buttonStyle(.plain).foregroundStyle(PiperTheme.brand)
@@ -370,12 +370,12 @@ struct PaperEmpty: View {
         VStack(spacing: 6) {
             Image(systemName: symbol)
                 .font(.system(size: PaperRowMetrics.emptySymbol, weight: .light))
-                .foregroundStyle(PiperTheme.tertiaryLabel)
+                .foregroundStyle(PiperTheme.paperFaint)
                 .padding(.bottom, 6)
                 .accessibilityHidden(true)
-            Text(title).font(PiperTheme.paperUI(.row, weight: .semibold)).foregroundStyle(PiperTheme.secondaryLabel)
+            Text(title).font(PiperTheme.paperUI(.row, weight: .semibold)).foregroundStyle(PiperTheme.paperMuted)
             if let detail {
-                Text(detail).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.tertiaryLabel)
+                Text(detail).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
             }
         }
         .multilineTextAlignment(.center)

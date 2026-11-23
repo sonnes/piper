@@ -11,7 +11,7 @@ struct SessionComposer: View {
     @Bindable var model: AppModel
     let session: AgentSession?
     let folder: String
-    /// The item on the screen. It is blue while the next message takes it.
+    /// The item on the screen. It is indigo while the next message takes it.
     let screen: ScreenContext?
     let screenItem: ScreenItem?
     let removeScreen: () -> Void
@@ -109,9 +109,10 @@ struct SessionComposer: View {
                         .padding(.bottom, 8)
                 }
             }
+            .padding(.leading, Metrics.textInset)
             .padding(.trailing, 8)
-            .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-            .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
+            .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+            .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
             .background {
                 RoundedRectangle(cornerRadius: PiperTheme.cardRadius + 3.5)
                     .fill(focused ? PiperTheme.focusRing : .clear)
@@ -125,7 +126,7 @@ struct SessionComposer: View {
                 Text(completionCount > 0 ? (commands.isEmpty ? "Tab adds · ↑↓ choose" : "Tab completes · ↑↓ choose")
                                          : "/ commands · @ adds")
                     .font(PiperTheme.paperUI(.body))
-                    .foregroundStyle(PiperTheme.faint)
+                    .foregroundStyle(PiperTheme.paperFaint)
                     .layoutPriority(-1)
             }
             .lineLimit(1)
@@ -242,5 +243,7 @@ extension SessionComposer {
     enum Metrics {
         /// The lines that the composer of a session shows.
         static let composerLines = 3
+        /// The space between the edge of the card and the text.
+        static let textInset: CGFloat = 10
     }
 }

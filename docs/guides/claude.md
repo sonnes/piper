@@ -83,12 +83,12 @@ The first message starts a session.
 
 The item on the screen is the open file, the link of the open capture, or the text of the open note. A chip over the message field shows it.
 
-- A blue chip goes with the next message. To send the message without it, select the x on the chip.
+- An indigo chip goes with the next message. To send the message without it, select the x on the chip.
 - After a message takes the item, the chip turns gray. The session has the item, so later messages do not send it again.
-- To send a gray item again, select the chip. It turns blue.
-- When you open another file or capture, the chip changes to it. The chip is blue if the session does not have the item yet.
+- To send a gray item again, select the chip. It turns indigo.
+- When you open another file or capture, the chip changes to it. The chip is indigo if the session does not have the item yet.
 
-To add more items, type `@`. The list shows the item on the screen, the files of the session folder, and the captures that are not done. Type a part of a name to filter the list. Tab or Return adds the item. The mention shows in blue in the text, and a blue chip shows over the field. To remove a mention, delete its text or select the x on its chip.
+To add more items, type `@`. The list shows the item on the screen, the files of the session folder, and the captures that are not done. Type a part of a name to filter the list. Tab or Return adds the item. The mention shows in indigo in the text, and an indigo chip shows over the field. To remove a mention, delete its text or select the x on its chip.
 
 Each item goes after the text of the message, as a `Context file:`, `Context link:`, or `Context note:` line. A skill takes the item as its argument, for example `/verify <path>`. If the text already holds the path or the address, Piper does not add it again.
 
@@ -118,7 +118,7 @@ The dot before each session shows its state:
 | --- | --- |
 | Orange | The session waits for you. |
 | Green | The agent works on a turn, or the turn waits for a free slot. |
-| Blue | The session has a turn that you have not read. |
+| Indigo | The session has a turn that you have not read. |
 | Gray | The session is idle, and you read its last turn. |
 
 To delete a session, Control-click it and select Delete Session.

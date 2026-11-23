@@ -78,7 +78,7 @@ struct FeedArticleList: View {
                 ProgressView().controlSize(.small).frame(width: PaperRowMetrics.rowActionSize)
             }
             RowAction(symbol: "envelope.open", title: "Mark All as Read · Command-K",
-                      tint: articles.contains { !$0.read } ? PiperTheme.brand : PiperTheme.tertiaryLabel) { feeds.markAllRead(.feed(feedID)) }
+                      tint: articles.contains { !$0.read } ? PiperTheme.brand : PiperTheme.paperFaint) { feeds.markAllRead(.feed(feedID)) }
                 .disabled(!articles.contains { !$0.read })
                 .keyboardShortcut("k", modifiers: .command)
         }

@@ -30,11 +30,11 @@ struct NoteWebReader: View {
                 .buttonStyle(.borderless)
                 HStack(spacing: 6) {
                     Image(systemName: page.isLoading ? "hourglass" : "globe")
-                        .font(.system(size: 14)).foregroundStyle(PiperTheme.faint)
+                        .font(.system(size: 14)).foregroundStyle(PiperTheme.paperFaint)
                     Text(address)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                        .foregroundStyle(PiperTheme.secondary)
+                        .foregroundStyle(PiperTheme.paperMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .help((page.url ?? url).absoluteString)
                     Button { page.reload() } label: { Image(systemName: "arrow.clockwise").font(.system(size: 10, weight: .semibold)) }
@@ -43,7 +43,7 @@ struct NoteWebReader: View {
                 }
                 .padding(.horizontal, 8)
                 .frame(height: 22)
-                .background(PiperTheme.ink.opacity(0.05), in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+                .background(PiperTheme.paperInk.opacity(0.05), in: RoundedRectangle(cornerRadius: Metrics.addressRadius))
                 Button(isCapturing ? "Capturing…" : "Capture") {
                     Task { await capturePage() }
                 }
@@ -58,20 +58,20 @@ struct NoteWebReader: View {
             .font(PiperTheme.paperUI(.body))
             .padding(.horizontal, 12)
             .frame(height: 38)
-            .background(PiperTheme.panel)
+            .background(PiperTheme.paperTint)
             Rule()
             NoteWebView(url: url, page: page)
                 .overlay {
                     if let error = page.errorMessage {
                         VStack(spacing: 10) {
                             Text("Cannot Open Page").font(PiperTheme.paperUI(.row, weight: .semibold))
-                            Text(error).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.secondary)
+                            Text(error).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                                 .multilineTextAlignment(.center)
                             Button("Try Again") { page.reload() }
                         }
                         .padding(24)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(PiperTheme.page)
+                        .background(PiperTheme.paper)
                     }
                 }
                 .overlay(alignment: .bottom) {
@@ -132,6 +132,12 @@ struct NoteWebReader: View {
         } catch {
             captureMessage = error.localizedDescription
         }
+    }
+}
+
+extension NoteWebReader {
+    enum Metrics {
+        static let addressRadius: CGFloat = 6
     }
 }
 

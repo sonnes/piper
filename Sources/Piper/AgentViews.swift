@@ -20,8 +20,8 @@ struct SessionStateChip: View {
 
     static func color(_ state: AgentSession.State) -> Color {
         switch state {
-        case .waiting: return PiperTheme.secondary
-        case .running: return PiperTheme.accent
+        case .waiting: return PiperTheme.paperMuted
+        case .running: return PiperTheme.brand
         case .needsYou: return PiperTheme.warning
         case .idle: return PiperTheme.success
         case .failed: return PiperTheme.danger
@@ -40,7 +40,7 @@ struct SessionStateChip: View {
             }
             Text(session.blocks.isEmpty ? "Draft" : Self.title(session.state))
         }
-        .font(PiperTheme.ui(.caption, weight: .medium))
+        .font(PiperTheme.paperUI(.body, weight: .medium))
         .foregroundStyle(color)
         .padding(.horizontal, 7)
         .frame(height: 18)
@@ -120,16 +120,16 @@ struct SkillCompletions: View {
             ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
                 if index == 0 || actions[index - 1].folder != action.folder {
                     Text(action.folder.name.uppercased())
-                        .font(PiperTheme.ui(.caption, weight: .semibold)).tracking(0.4)
-                        .foregroundStyle(PiperTheme.faint)
+                        .font(PiperTheme.paperUI(.body, weight: .semibold)).tracking(0.4)
+                        .foregroundStyle(PiperTheme.paperFaint)
                         .padding(.horizontal, 8).padding(.top, index == 0 ? 4 : 8).padding(.bottom, 3)
                 }
                 row(action, active: index == selected)
             }
         }
         .padding(6)
-        .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
+        .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(label)
@@ -142,24 +142,30 @@ struct SkillCompletions: View {
                     .font(Font(PiperTheme.manuscript(size: 12.5)))
                     .fixedSize()
                 Text(action.skill.summary)
-                    .font(PiperTheme.ui(.secondary))
-                    .foregroundStyle(active ? Color.white.opacity(0.85) : PiperTheme.secondary)
+                    .font(PiperTheme.paperUI(.body))
+                    .foregroundStyle(active ? Color.white.opacity(0.85) : PiperTheme.paperMuted)
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 if let hint = action.skill.argumentHint {
                     Text(hint)
                         .font(Font(PiperTheme.manuscript(size: 11)))
-                        .foregroundStyle(active ? Color.white.opacity(0.85) : PiperTheme.faint)
+                        .foregroundStyle(active ? Color.white.opacity(0.85) : PiperTheme.paperFaint)
                         .lineLimit(1).fixedSize()
                 }
             }
-            .foregroundStyle(active ? Color.white : PiperTheme.ink)
+            .foregroundStyle(active ? Color.white : PiperTheme.paperInk)
             .padding(.horizontal, 8)
             .frame(height: 26)
-            .background(active ? PiperTheme.accent : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+            .background(active ? PiperTheme.brand : .clear, in: RoundedRectangle(cornerRadius: Metrics.rowRadius))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(active ? .isSelected : [])
+    }
+}
+
+extension SkillCompletions {
+    enum Metrics {
+        static let rowRadius: CGFloat = 6
     }
 }

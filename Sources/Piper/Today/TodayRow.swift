@@ -95,7 +95,7 @@ struct TodayRow: View {
         case .clip:
             Image(systemName: "doc.on.clipboard")
                 .font(.system(size: 14))
-                .foregroundStyle(PiperTheme.tertiaryLabel)
+                .foregroundStyle(PiperTheme.paperFaint)
                 .accessibilityHidden(true)
         }
     }
@@ -216,21 +216,21 @@ struct VerbButtons: View {
         HStack(spacing: TodayRow.Metrics.verbSpacing) {
             let kept = item.note?.isKept == true
             VerbButton(symbol: kept ? "star.fill" : "star", title: kept ? "Kept · K removes the mark" : "Keep · K",
-                       tint: kept ? PiperTheme.brand : PiperTheme.secondaryLabel, action: verbs.keep)
+                       tint: kept ? PiperTheme.brand : PiperTheme.paperMuted, action: verbs.keep)
             VerbButton(symbol: item.state == .done ? "arrow.uturn.backward" : "checkmark",
                        title: item.state == .done ? "Reopen · E" : "Done · E", action: verbs.done)
             VerbButton(symbol: "arrow.turn.down.right", title: "File · F", action: verbs.file)
             Menu {
                 SendItems(model: model, verbs: verbs)
             } label: {
-                VerbGlyph(symbol: "paperplane", tint: PiperTheme.secondaryLabel)
+                VerbGlyph(symbol: "paperplane", tint: PiperTheme.paperMuted)
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .help("Send · S").accessibilityLabel("Send")
             Menu {
                 TodayMenu(item: item, model: model, verbs: verbs)
             } label: {
-                VerbGlyph(symbol: "ellipsis", tint: PiperTheme.secondaryLabel)
+                VerbGlyph(symbol: "ellipsis", tint: PiperTheme.paperMuted)
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
             .help("More").accessibilityLabel("More")
@@ -242,7 +242,7 @@ struct VerbButtons: View {
 struct VerbButton: View {
     let symbol: String
     let title: String
-    var tint: Color = PiperTheme.secondaryLabel
+    var tint: Color = PiperTheme.paperMuted
     let action: () -> Void
 
     var body: some View {

@@ -110,20 +110,19 @@ Each value has one home:
 
 A Swift generic type cannot hold a static stored property. For a generic view, the enum stands beside it, for example `PaperRowMetrics` and `TabIslandMetrics`. Do not write a literal size or color in a view.
 
-Give each text outside a web page a size from `PiperTheme.TextSize`:
+Give each text outside a web page a size from `PiperTheme.PaperSize`. Set the text with `PiperTheme.paperUI` (Noto Sans) or `PiperTheme.paperTitle` (Fraunces):
 
 | Size | Points | Use |
 | --- | --- | --- |
-| `caption` | 11 | Group headers, counts, hints, and times |
-| `secondary` | 12 | Meta lines, reasons, tabs, and tool rows |
-| `body` | 13 | List rows and controls |
-| `reading` | 15 | Notes and agent messages |
-| `title` | 17 | Titles and the palette field |
-| `display` | 24 | The title of an article notebook |
+| `body` | 14 | Meta lines, counts, tabs, and buttons |
+| `row` | 16 | Rows of an index and of a list |
+| `reading` | 18 | Text that the reader reads |
+| `heading` | 22 | The title of an index |
+| `title` | 28 | The title of the feed paper |
 
-The chrome of a paper uses `PiperTheme.PaperSize` instead: 14, 16, 18, 22, and 28 points, with `PiperTheme.paperUI` (Noto Sans) and `PiperTheme.paperTitle` (Fraunces). No text on the chrome of a paper is smaller than 14 points.
+Do not use a half-point size. An SF Symbol and code in `PiperTheme.manuscript` can use another size.
 
-`PiperTheme.ui` and `PiperTheme.uiNS` take only the sizes of `TextSize`. Do not use a half-point size. An SF Symbol can use another size.
+The app has one palette. `PiperTheme.brand` is the accent color. Text has three levels: `paperInk`, `paperMuted`, and `paperFaint`.
 
 Use nil-targeted actions and the responder chain where they fit.
 

@@ -160,7 +160,7 @@ private struct FooterMenu: ViewModifier {
             .menuStyle(.borderlessButton)
             .menuIndicator(.visible)
             .fixedSize()
-            .foregroundStyle(PiperTheme.secondary)
+            .foregroundStyle(PiperTheme.paperMuted)
     }
 }
 
@@ -195,14 +195,14 @@ struct ApprovalDrawer: View {
             HStack(spacing: Metrics.requestButtonSpacing) {
                 Text(Self.title(request)).font(PiperTheme.paperUI(.body, weight: .semibold))
                 if count > 1 {
-                    Text("1 of \(count)").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.secondary)
+                    Text("1 of \(count)").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                 }
                 Spacer(minLength: 4)
             }
             if !detail.isEmpty {
                 Text(detail)
                     .font(Font(PiperTheme.manuscript(size: Metrics.requestDetailFontSize)))
-                    .foregroundStyle(PiperTheme.secondary)
+                    .foregroundStyle(PiperTheme.paperMuted)
                     .textSelection(.enabled)
                     .lineLimit(Metrics.requestDetailLineLimit)
                     .frame(maxWidth: .infinity, alignment: .leading)

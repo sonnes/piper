@@ -169,15 +169,15 @@ struct MentionCompletions: View {
                 if index == 0 || options[index - 1].group != option.group {
                     Text(option.group.title)
                         .font(PiperTheme.paperUI(.body, weight: .semibold))
-                        .foregroundStyle(PiperTheme.faint)
+                        .foregroundStyle(PiperTheme.paperFaint)
                         .padding(.horizontal, 8).padding(.top, index == 0 ? 4 : 8).padding(.bottom, 3)
                 }
                 row(option, active: index == selected)
             }
         }
         .padding(6)
-        .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
+        .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
         .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Context")
@@ -191,14 +191,14 @@ struct MentionCompletions: View {
                 Spacer(minLength: 4)
                 Text(option.detail)
                     .font(PiperTheme.paperUI(.body))
-                    .foregroundStyle(active ? Color.white.opacity(0.8) : PiperTheme.faint)
+                    .foregroundStyle(active ? Color.white.opacity(0.8) : PiperTheme.paperFaint)
                     .lineLimit(1).truncationMode(.head)
             }
             .font(PiperTheme.paperUI(.body))
-            .foregroundStyle(active ? Color.white : PiperTheme.ink)
+            .foregroundStyle(active ? Color.white : PiperTheme.paperInk)
             .padding(.horizontal, 8)
             .frame(height: 24)
-            .background(active ? PiperTheme.accent : .clear, in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+            .background(active ? PiperTheme.brand : .clear, in: RoundedRectangle(cornerRadius: ContextMetrics.rowRadius))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -206,12 +206,12 @@ struct MentionCompletions: View {
     }
 }
 
-/// A context item over the message field. A blue chip goes with the next
+/// A context item over the message field. An indigo chip goes with the next
 /// message. A gray chip is an item that the session has.
 struct ContextChip: View {
     let item: ContextItem
     let pending: Bool
-    /// Removes a blue chip. Nil hides the x.
+    /// Removes an indigo chip. Nil hides the x.
     var remove: (() -> Void)?
     /// Sends a gray chip again.
     var resend: (() -> Void)?
@@ -220,7 +220,7 @@ struct ContextChip: View {
         HStack(spacing: 4) {
             Image(systemName: item.icon)
             Text(item.label).lineLimit(1).truncationMode(.middle)
-            if !pending { Text("· in session").foregroundStyle(PiperTheme.faint) }
+            if !pending { Text("· in session").foregroundStyle(PiperTheme.paperFaint) }
             if pending, let remove {
                 Button(action: remove) { Image(systemName: "xmark").font(.system(size: 8, weight: .bold)) }
                     .buttonStyle(.plain)
@@ -228,13 +228,13 @@ struct ContextChip: View {
             }
         }
         .font(PiperTheme.paperUI(.body))
-        .foregroundStyle(pending ? PiperTheme.accent : PiperTheme.faint)
+        .foregroundStyle(pending ? PiperTheme.brand : PiperTheme.paperFaint)
         .padding(.horizontal, 7).frame(height: 20)
         .background {
             if pending {
-                Capsule().fill(PiperTheme.accent.opacity(0.1))
+                Capsule().fill(PiperTheme.brand.opacity(0.1))
             } else {
-                Capsule().strokeBorder(PiperTheme.rule, lineWidth: 0.5)
+                Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 0.5)
             }
         }
         .contentShape(Capsule())
@@ -254,4 +254,5 @@ private enum ContextMetrics {
     static let folderFileLimit = 5000
     /// The characters of a note or a title in a context chip or a mention.
     static let contextLabelLimit = 40
+    static let rowRadius: CGFloat = 6
 }

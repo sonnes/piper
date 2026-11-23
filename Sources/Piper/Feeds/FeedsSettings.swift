@@ -16,7 +16,7 @@ struct FeedsSettings: View {
             Section {
                 if scan.sources.isEmpty {
                     Text("Piper found no browser history on this Mac.")
-                        .foregroundStyle(PiperTheme.secondary)
+                        .foregroundStyle(PiperTheme.paperMuted)
                 }
                 ForEach(scan.sources) { source in
                     if source.needsAccess {
@@ -38,11 +38,11 @@ struct FeedsSettings: View {
                 Text("History for Sites You Read Often")
             } footer: {
                 Text("Sources reads the last \(HistoryDigest.days) days of history on this Mac. The history does not leave your Mac. A source with Open Privacy Settings needs Full Disk Access. Agent sessions that Piper starts can get the same access.")
-                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             }
             Section {
                 TextEditor(text: $blockedText)
-                    .font(PiperTheme.ui(.secondary))
+                    .font(PiperTheme.paperUI(.body))
                     .frame(height: 130)
                     .onChange(of: blockedText) { _, text in
                         scan.blockedSites = BlockedSites.normalized(text.components(separatedBy: .newlines))
@@ -51,7 +51,7 @@ struct FeedsSettings: View {
                 Text("Blocked Sites")
             } footer: {
                 Text("Enter one host on each line. A block also covers each subdomain. Piper always blocks private addresses.")
-                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             }
         }
         .formStyle(.grouped)

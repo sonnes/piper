@@ -154,11 +154,11 @@ private struct TreeRow: View {
     @ViewBuilder private var meta: some View {
         Group {
             if row.isFolder {
-                Text("\(row.count)").foregroundStyle(PiperTheme.secondaryLabel)
+                Text("\(row.count)").foregroundStyle(PiperTheme.paperMuted)
             } else if onDesk {
                 Text("on the desk").fontWeight(.medium).foregroundStyle(PiperTheme.brand)
             } else if let date {
-                Text(RowTime.text(date)).foregroundStyle(PiperTheme.secondaryLabel)
+                Text(RowTime.text(date)).foregroundStyle(PiperTheme.paperMuted)
             }
         }
         .font(PiperTheme.paperUI(.body))

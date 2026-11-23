@@ -60,7 +60,7 @@ struct SessionPane: View {
                             send: send,
                             stop: { if let session { runner.stop(session) } }, choice: $choice)
         }
-        .background(PiperTheme.page)
+        .background(PiperTheme.paper)
         .onChange(of: screenItem?.item) { _, _ in
             removedScreen = nil
             resentScreen = nil
@@ -107,7 +107,7 @@ private struct SessionTranscript: View {
                             ProgressView().controlSize(.mini)
                             Text(session.state == .waiting ? "Waiting for another session" : "Working")
                         }
-                        .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.faint)
+                        .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                     }
                     Color.clear.frame(height: 1).id(Self.end)
                 }
@@ -155,7 +155,7 @@ private struct SessionFooter: View {
                 }
             }
             .font(PiperTheme.paperUI(.body))
-            .foregroundStyle(PiperTheme.secondary)
+            .foregroundStyle(PiperTheme.paperMuted)
             .padding(.horizontal, 14).padding(.vertical, 6)
             .overlay(alignment: .top) { Rule() }
         }
@@ -242,9 +242,9 @@ private struct TurnFold<Content: View>: View {
                     Spacer(minLength: 0)
                 }
                 .font(PiperTheme.paperUI(.body))
-                .foregroundStyle(PiperTheme.secondary)
+                .foregroundStyle(PiperTheme.paperMuted)
                 .padding(Metrics.chipPadding)
-                .background(PiperTheme.hover, in: RoundedRectangle(cornerRadius: Metrics.chipRadius))
+                .background(PiperTheme.rowHover, in: RoundedRectangle(cornerRadius: Metrics.chipRadius))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -253,7 +253,7 @@ private struct TurnFold<Content: View>: View {
             if isOpen {
                 VStack(alignment: .leading, spacing: 6) { content }
                     .padding(.leading, 12)
-                    .overlay(alignment: .leading) { Rectangle().fill(PiperTheme.rule).frame(width: 1).padding(.leading, 6) }
+                    .overlay(alignment: .leading) { Rectangle().fill(PiperTheme.paperRule).frame(width: 1).padding(.leading, 6) }
             }
         }
     }

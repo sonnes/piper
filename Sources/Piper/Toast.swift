@@ -18,6 +18,7 @@ final class Toast: NSObject {
         static let padding = EdgeInsets(top: 11, leading: 14, bottom: 11, trailing: 12)
         static let buttonHeight: CGFloat = 24
         static let buttonPadding: CGFloat = 10
+        static let buttonRadius: CGFloat = 6
         /// How long a toast with no button stays.
         static let duration: TimeInterval = 3
         /// How long a toast with a button stays.
@@ -143,9 +144,9 @@ struct ToastCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 9) { content }
             .padding(Toast.Metrics.padding)
             .frame(width: Toast.Metrics.width, alignment: .leading)
-            .foregroundStyle(PiperTheme.ink)
+            .foregroundStyle(PiperTheme.paperInk)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Toast.Metrics.cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: Toast.Metrics.cornerRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: Toast.Metrics.cornerRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
     }
 }
 
@@ -154,11 +155,11 @@ struct ToastCard<Content: View>: View {
 struct ToastButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(PiperTheme.ui(.secondary, weight: .medium))
+            .font(PiperTheme.paperUI(.body, weight: .medium))
             .foregroundStyle(PiperTheme.onAccent)
             .padding(.horizontal, Toast.Metrics.buttonPadding)
             .frame(height: Toast.Metrics.buttonHeight)
-            .background(PiperTheme.accent.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: PiperTheme.radius))
+            .background(PiperTheme.brand.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: Toast.Metrics.buttonRadius))
             .contentShape(Rectangle())
     }
 }
@@ -172,14 +173,14 @@ private struct MessageCard: View {
             HStack(spacing: 10) {
                 Image(systemName: message.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
                     .font(.system(size: 14))
-                    .foregroundStyle(message.isError ? PiperTheme.warning : PiperTheme.accent)
+                    .foregroundStyle(message.isError ? PiperTheme.warning : PiperTheme.brand)
                     .accessibilityHidden(true)
-                Text(message.text).font(PiperTheme.ui(.body)).lineLimit(3).help(message.text)
+                Text(message.text).font(PiperTheme.paperUI(.body)).lineLimit(3).help(message.text)
                 Spacer(minLength: 0)
                 if let action {
                     Button(action.title, action: action.perform).buttonStyle(ToastButtonStyle())
                 } else if !message.isError {
-                    Text("⌘1").font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
+                    Text("⌘1").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                 }
             }
         }

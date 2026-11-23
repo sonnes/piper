@@ -8,8 +8,6 @@ struct CaptureEditor: NSViewRepresentable {
     let placeholder: String
     var label = "New note text"
     var help = "Return saves the note. Shift-Return inserts a new line."
-    /// The capture field of the feed paper: Noto Sans at 16 points, in a field 48 points high.
-    var paper = false
     /// The texts that show in the accent color, such as `@` mentions.
     var highlights: [String] = []
     /// Handles a key command such as `insertNewline:` or `moveUp:`. Returns
@@ -23,9 +21,9 @@ struct CaptureEditor: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let metrics = Metrics.self
-        let lineHeight = paper ? metrics.paperLineHeight : metrics.lineHeight
-        let font = paper ? PiperTheme.paperUINS(.row) : PiperTheme.uiNS(metrics.fontSize)
-        let textInset = paper ? metrics.paperTextInset : metrics.textInset
+        let lineHeight = metrics.lineHeight
+        let font = PiperTheme.paperUINS(.row)
+        let textInset = metrics.textInset
         let scroll = CaptureScrollView(frame: NSRect(x: 0, y: 0, width: metrics.width, height: metrics.height))
         scroll.borderType = .noBorder
         scroll.drawsBackground = false
@@ -44,9 +42,9 @@ struct CaptureEditor: NSViewRepresentable {
         editor.importsGraphics = false
         editor.drawsBackground = false
         editor.font = font
-        editor.textColor = paper ? PiperTheme.paperInkNS : PiperTheme.inkNS
-        editor.insertionPointColor = paper ? PiperTheme.brandNS : PiperTheme.accentNS
-        editor.selectedTextAttributes = [.backgroundColor: PiperTheme.selectionNS, .foregroundColor: PiperTheme.inkNS]
+        editor.textColor = PiperTheme.paperInkNS
+        editor.insertionPointColor = PiperTheme.brandNS
+        editor.selectedTextAttributes = [.backgroundColor: PiperTheme.paperSelectionNS, .foregroundColor: PiperTheme.paperInkNS]
         editor.textContainerInset = textInset
         editor.textContainer?.lineFragmentPadding = 0
         editor.textContainer?.widthTracksTextView = true
@@ -54,7 +52,7 @@ struct CaptureEditor: NSViewRepresentable {
         editor.isVerticallyResizable = true
         editor.isHorizontallyResizable = false
         editor.autoresizingMask = [.width]
-        editor.minSize = NSSize(width: 0, height: paper ? lineHeight : metrics.textHeight)
+        editor.minSize = NSSize(width: 0, height: lineHeight)
         editor.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         editor.allowsUndo = true
         editor.isAutomaticQuoteSubstitutionEnabled = false
@@ -68,13 +66,12 @@ struct CaptureEditor: NSViewRepresentable {
         editor.defaultParagraphStyle = paragraph
         editor.typingAttributes = [
             .font: font,
-            .foregroundColor: paper ? PiperTheme.paperInkNS : PiperTheme.inkNS,
+            .foregroundColor: PiperTheme.paperInkNS,
             .paragraphStyle: paragraph
         ]
         editor.string = text
         editor.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
         editor.placeholder = placeholder
-        if paper { editor.placeholderColor = PiperTheme.paperFaintNS }
         editor.delegate = context.coordinator
         editor.setAccessibilityLabel(label)
         editor.setAccessibilityHelp(help)
@@ -143,8 +140,8 @@ struct CaptureEditor: NSViewRepresentable {
                 while search.length > 0 {
                     let found = text.range(of: token, range: search)
                     guard found.location != NSNotFound else { break }
-                    manager.addTemporaryAttributes([.foregroundColor: PiperTheme.accentNS,
-                                                    .backgroundColor: PiperTheme.accentNS.withAlphaComponent(0.1)],
+                    manager.addTemporaryAttributes([.foregroundColor: PiperTheme.brandNS,
+                                                    .backgroundColor: PiperTheme.brandNS.withAlphaComponent(0.1)],
                                                    forCharacterRange: found)
                     let next = found.location + found.length
                     search = NSRange(location: next, length: text.length - next)
@@ -173,24 +170,17 @@ struct CaptureEditor: NSViewRepresentable {
 /// lines is therefore visible, and no line is cut at the bottom edge.
 extension CaptureEditor {
     enum Metrics {
-        /// The font of the session composer.
-        static let fontSize = PiperTheme.TextSize.reading
-        /// The line and the insets of the capture field of the feed paper, 48 points high with one line.
-        static let paperLineHeight: CGFloat = 22
-        static let paperTextInset = NSSize(width: 0, height: 13)
-        static let lineHeight: CGFloat = 23
-        static let visibleLines = 2
+        /// The line and the insets of the field, 48 points high with one line.
+        static let lineHeight: CGFloat = 22
         /// The space between the edge of the text region and the first line.
-        static let textInset = NSSize(width: 10, height: 7)
+        static let textInset = NSSize(width: 0, height: 13)
         /// The space between the edge of the card and the text region.
         static let regionInset: CGFloat = 5
         /// The space that holds the overlay scroller off the text.
         static let scrollerInset: CGFloat = 6
 
-        /// The height of the text region that scrolls.
-        static let textHeight = textInset.height * 2 + lineHeight * CGFloat(visibleLines)
-        /// The height of the whole card.
-        static let height = textHeight + regionInset * 2
+        /// The height of the field with one line, before its first layout.
+        static let height = textInset.height * 2 + lineHeight + regionInset * 2
         /// The width of the card before its first layout.
         static let width: CGFloat = 572
         /// The width available to the text.
@@ -216,7 +206,7 @@ private final class CaptureScrollView: NSScrollView {
 private final class CaptureTextView: NSTextView {
     var onFocusChange: ((Bool) -> Void)?
     var placeholder = ""
-    var placeholderColor = PiperTheme.faintNS
+    var placeholderColor = PiperTheme.paperFaintNS
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()

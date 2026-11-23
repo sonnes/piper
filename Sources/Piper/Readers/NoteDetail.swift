@@ -80,7 +80,7 @@ struct NoteDetail: View {
                     scheduleSave()
                 }), font: CaptureText.looksLikeCode(note.text)
                     ? PiperTheme.manuscript(size: Metrics.codeFontSize)
-                    : PiperTheme.paperUINS(.reading), paper: true)
+                    : PiperTheme.paperUINS(.reading))
                 .padding(.horizontal, -5)
                 .accessibilityLabel("Note text")
             }
@@ -127,8 +127,6 @@ extension NoteDetail {
 struct NoteTextEditor: NSViewRepresentable {
     @Binding var text: String
     let font: NSFont
-    /// True on a paper: zinc ink, an indigo caret, and an indigo selection, with the line height of the paper.
-    var paper = false
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -148,14 +146,13 @@ struct NoteTextEditor: NSViewRepresentable {
         editor.isAutomaticDashSubstitutionEnabled = false
         editor.isAutomaticTextReplacementEnabled = false
         editor.isAutomaticSpellingCorrectionEnabled = false
-        let ink = paper ? PiperTheme.paperInkNS : PiperTheme.inkNS
-        editor.textColor = ink
-        editor.insertionPointColor = paper ? PiperTheme.brandNS : PiperTheme.accentNS
-        editor.selectedTextAttributes = [.backgroundColor: paper ? PiperTheme.paperSelectionNS : PiperTheme.selectionNS,
-                                         .foregroundColor: ink]
+        editor.textColor = PiperTheme.paperInkNS
+        editor.insertionPointColor = PiperTheme.brandNS
+        editor.selectedTextAttributes = [.backgroundColor: PiperTheme.paperSelectionNS,
+                                         .foregroundColor: PiperTheme.paperInkNS]
         editor.defaultParagraphStyle = {
             let style = NSMutableParagraphStyle()
-            style.lineSpacing = paper ? NoteDetail.Metrics.lineSpacing : 3
+            style.lineSpacing = NoteDetail.Metrics.lineSpacing
             return style
         }()
         editor.typingAttributes[.paragraphStyle] = editor.defaultParagraphStyle

@@ -137,7 +137,7 @@ struct SourcesView: View {
     @ViewBuilder private var sites: some View {
         let shown = Self.sites(feeds.suggestions, feeds: feeds.feeds)
         HStack {
-            Text("Sites You Read Often").font(PiperTheme.paperUI(.body, weight: .semibold)).foregroundStyle(PiperTheme.secondaryLabel)
+            Text("Sites You Read Often").font(PiperTheme.paperUI(.body, weight: .semibold)).foregroundStyle(PiperTheme.paperMuted)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             if scan.state == .scanning {

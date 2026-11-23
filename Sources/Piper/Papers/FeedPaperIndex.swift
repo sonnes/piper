@@ -137,7 +137,7 @@ struct IndexHeader: View {
     var body: some View {
         Text(title)
             .font(PiperTheme.paperUI(.body, weight: .semibold))
-            .foregroundStyle(PiperTheme.secondaryLabel)
+            .foregroundStyle(PiperTheme.paperMuted)
             .padding(FeedPaperIndex.Metrics.indexHeaderPadding)
             .accessibilityAddTraits(.isHeader)
     }
@@ -181,11 +181,11 @@ struct IndexRow: View {
             Spacer(minLength: 8)
             if count > 0 {
                 Text("\(count)").monospacedDigit().fontWeight(.regular)
-                    .foregroundStyle(PiperTheme.secondaryLabel)
+                    .foregroundStyle(PiperTheme.paperMuted)
             }
         }
         .font(PiperTheme.paperUI(.row, weight: .medium))
-        .foregroundStyle(PiperTheme.label)
+        .foregroundStyle(PiperTheme.paperInk)
         .padding(.horizontal, PaperRowMetrics.rowPadding)
         .frame(minHeight: Metrics.rowHeight)
         .background(background, in: RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius, style: .continuous))

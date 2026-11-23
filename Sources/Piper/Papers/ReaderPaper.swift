@@ -44,7 +44,7 @@ struct ReaderPaper: View {
         HStack(spacing: 8) {
             Label("Saved as you type", systemImage: "checkmark.icloud")
                 .labelStyle(.titleAndIcon)
-                .foregroundStyle(PiperTheme.tertiaryLabel)
+                .foregroundStyle(PiperTheme.paperFaint)
             Spacer(minLength: 8)
             Button { toggleDone(note) } label: {
                 Label(note.isDone ? "Open Again" : "Mark as Done",
@@ -62,7 +62,7 @@ struct ReaderPaper: View {
         .padding(Metrics.noteFootPadding)
         .background(WindowDragArea())
         .overlay(alignment: .top) {
-            PiperTheme.separator.frame(height: PaperRowMetrics.separatorHeight)
+            PiperTheme.paperRule.frame(height: PaperRowMetrics.separatorHeight)
                 .padding(.horizontal, Metrics.noteFootPadding.leading)
         }
     }
@@ -122,7 +122,7 @@ struct ReaderPaper: View {
             }
             label([feed?.title, RowTime.text(article.date)].compactMap { $0 }.joined(separator: " · "))
             PaperToolbar {
-                PaperButton(title: kept ? "Kept" : "Keep", symbol: kept ? "star.fill" : "star",
+                PaperButton(title: kept ? "Kept" : "Keep", symbol: kept ? "star.fill" : "star", tint: PiperTheme.star,
                             help: kept ? "Kept" : "Keep · K") {
                     model.keep([article])
                 }
@@ -163,7 +163,7 @@ struct ReaderPaper: View {
 
     private func label(_ text: String) -> some View {
         Text(text)
-            .foregroundStyle(PiperTheme.secondaryLabel)
+            .foregroundStyle(PiperTheme.paperMuted)
             .lineLimit(1).truncationMode(.middle)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -220,7 +220,7 @@ struct PaperToolbar<Content: View>: View {
 /// The thin line between two groups of a toolbar.
 struct PaperToolbarDivider: View {
     var body: some View {
-        PiperTheme.separator.frame(width: 1, height: 16).padding(.horizontal, 3).accessibilityHidden(true)
+        PiperTheme.paperRule.frame(width: 1, height: 16).padding(.horizontal, 3).accessibilityHidden(true)
     }
 }
 
@@ -231,6 +231,8 @@ struct PaperButton: View {
     let title: String
     var symbol: String?
     var active = false
+    /// The color of the symbol while the button is active.
+    var tint = PiperTheme.brand
     let help: String
     let action: () -> Void
 
@@ -250,8 +252,8 @@ struct PaperButton: View {
                         .padding(.horizontal, 12).frame(height: Metrics.toolbarButton)
                 }
             }
-            .foregroundStyle(!enabled ? PiperTheme.tertiaryLabel.opacity(0.6)
-                             : active ? (symbol == "star.fill" ? PiperTheme.star : PiperTheme.brand) : PiperTheme.label)
+            .foregroundStyle(!enabled ? PiperTheme.paperFaint.opacity(0.6)
+                             : active ? tint : PiperTheme.paperInk)
             .background(hovered && enabled ? PiperTheme.rowHover : .clear, in: Capsule())
             .contentShape(Capsule())
         }

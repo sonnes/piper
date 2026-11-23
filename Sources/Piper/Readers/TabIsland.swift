@@ -32,7 +32,7 @@ struct TabIsland<Tab: Hashable>: View {
                 } label: {
                     Text(item.title)
                         .font(PiperTheme.paperUI(.body, weight: active ? .semibold : .medium))
-                        .foregroundStyle(active ? PiperTheme.label : PiperTheme.secondaryLabel)
+                        .foregroundStyle(active ? PiperTheme.paperInk : PiperTheme.paperMuted)
                         .padding(.horizontal, Metrics.segmentPadding)
                         .frame(height: Metrics.segmentHeight)
                         .background {

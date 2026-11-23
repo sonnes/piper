@@ -73,7 +73,7 @@ extension CommandPaletteController {
         /// The space between the top of the paper and the palette.
         static let topInset: CGFloat = 90
         static let cornerRadius: CGFloat = 12
-        static let queryFontSize = PiperTheme.TextSize.title
+        static let queryFontSize = PiperTheme.PaperSize.row
         static let fileLimit = 20
         /// The most files that the line search lists.
         static let contentFileLimit = 50
@@ -213,7 +213,7 @@ private struct CommandPaletteView: View {
         VStack(spacing: 0) {
             TextField("Go to file, or type / for commands", text: $query)
                 .textFieldStyle(.plain)
-                .font(PiperTheme.ui(CommandPaletteController.Metrics.queryFontSize))
+                .font(PiperTheme.paperUI(CommandPaletteController.Metrics.queryFontSize))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .focused($focused)
@@ -230,7 +230,7 @@ private struct CommandPaletteView: View {
                         section("Commands", results.commands, offset: results.files.count + results.lines.count)
                         if rows.isEmpty {
                             Text(query.isEmpty ? "Type to find a file." : "No results")
-                                .foregroundStyle(PiperTheme.secondary)
+                                .foregroundStyle(PiperTheme.paperMuted)
                                 .padding(14)
                         }
                     }
@@ -262,8 +262,8 @@ private struct CommandPaletteView: View {
     private func section(_ title: String, _ rows: [PaletteResults.Row], offset: Int) -> some View {
         if !rows.isEmpty {
             Text(title)
-                .font(PiperTheme.ui(.caption, weight: .semibold))
-                .foregroundStyle(PiperTheme.secondary)
+                .font(PiperTheme.paperUI(.body, weight: .semibold))
+                .foregroundStyle(PiperTheme.paperMuted)
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
                 .padding(.bottom, 3)
@@ -300,26 +300,26 @@ private struct PaletteRow: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .frame(width: 16)
-                    .foregroundStyle(selected ? Color.white : PiperTheme.secondary)
+                    .foregroundStyle(selected ? Color.white : PiperTheme.paperMuted)
                 Text(title).lineLimit(1)
                 Spacer(minLength: 8)
                 Text(detail)
                     .lineLimit(1)
-                    .foregroundStyle(selected ? Color.white.opacity(0.8) : PiperTheme.secondary)
+                    .foregroundStyle(selected ? Color.white.opacity(0.8) : PiperTheme.paperMuted)
             }
             if case .line(_, let excerpt) = row {
                 Text(highlighted(excerpt))
                     .lineLimit(1)
-                    .font(PiperTheme.ui(.secondary))
-                    .foregroundStyle(selected ? Color.white.opacity(0.85) : PiperTheme.secondary)
+                    .font(PiperTheme.paperUI(.body))
+                    .foregroundStyle(selected ? Color.white.opacity(0.85) : PiperTheme.paperMuted)
                     .padding(.leading, 24)
             }
         }
-        .font(PiperTheme.ui(.body))
-        .foregroundStyle(selected ? Color.white : PiperTheme.ink)
+        .font(PiperTheme.paperUI(.body))
+        .foregroundStyle(selected ? Color.white : PiperTheme.paperInk)
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
-        .background(selected ? PiperTheme.accent : Color.clear)
+        .background(selected ? PiperTheme.brand : Color.clear)
     }
 
     private var icon: String {

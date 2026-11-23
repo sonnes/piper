@@ -26,7 +26,7 @@ struct NewSectionSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("New Section").font(PiperTheme.ui(.body, weight: .semibold))
+            Text("New Section").font(PiperTheme.paperUI(.body, weight: .semibold))
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
                 .focused($focused)
@@ -62,7 +62,7 @@ struct NoteEditor: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            TextEditor(text: $session.text).font(PiperTheme.ui(.reading)).lineSpacing(3)
+            TextEditor(text: $session.text).font(PiperTheme.paperUI(.row)).lineSpacing(3)
                 .scrollContentBackground(.hidden)
                 .padding(.horizontal, 14).padding(.vertical, 12)
                 .accessibilityLabel("Edit note text")
@@ -70,7 +70,7 @@ struct NoteEditor: View {
             Rule()
             HStack(spacing: 8) {
                 if session.hasChanges {
-                    Text("Edited").font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+                    Text("Edited").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                 }
                 Spacer()
                 Button("Cancel") { if let cancel { cancel() } else { dismiss() } }
@@ -83,9 +83,9 @@ struct NoteEditor: View {
             .padding(.horizontal, 14).padding(.vertical, 10)
         }
         .frame(width: 480, height: cancel == nil ? 300 : nil)
-        .background(PiperTheme.page)
-        .foregroundStyle(PiperTheme.ink)
-        .tint(PiperTheme.accent)
+        .background(PiperTheme.paper)
+        .foregroundStyle(PiperTheme.paperInk)
+        .tint(PiperTheme.brand)
         .interactiveDismissDisabled(session.hasChanges)
         .onDisappear { model.captureEdits.removeValue(forKey: session.id) }
     }

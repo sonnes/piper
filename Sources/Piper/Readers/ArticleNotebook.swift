@@ -40,7 +40,7 @@ struct ArticleNotebook: View {
                 NoteTextEditor(text: Binding(get: { summary }, set: { text in
                     summary = text
                     scheduleSummarySave()
-                }), font: PiperTheme.paperUINS(.row), paper: true)
+                }), font: PiperTheme.paperUINS(.row))
                 .frame(minHeight: Metrics.summaryMinimumHeight)
                 .padding(Metrics.fieldPadding)
                 .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: Metrics.fieldRadius, style: .continuous))
@@ -342,7 +342,7 @@ private struct SaveArticleForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Save as File").font(PiperTheme.ui(.body, weight: .semibold))
+            Text("Save as File").font(PiperTheme.paperUI(.body, weight: .semibold))
             field("Folder") {
                 Picker("Folder", selection: $destination) {
                     ForEach(destinations, id: \.self) { Text($0.label).tag(Optional($0)) }
@@ -360,14 +360,14 @@ private struct SaveArticleForm: View {
             ScrollView {
                 Text(text)
                     .font(Font(PiperTheme.manuscript(size: ArticleNotebook.Metrics.previewFontSize)))
-                    .foregroundStyle(PiperTheme.secondary)
+                    .foregroundStyle(PiperTheme.paperMuted)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
             .frame(height: ArticleNotebook.Metrics.previewHeight)
             .padding(ArticleNotebook.Metrics.fieldPadding)
-            .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius))
-            .overlay(RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius).strokeBorder(PiperTheme.rule, lineWidth: 1))
+            .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius))
+            .overlay(RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 1))
             HStack {
                 Spacer()
                 Button("Cancel", action: close).keyboardShortcut(.cancelAction)
@@ -385,7 +385,7 @@ private struct SaveArticleForm: View {
 
     private func field(_ label: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+            Text(label).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             content()
         }
     }

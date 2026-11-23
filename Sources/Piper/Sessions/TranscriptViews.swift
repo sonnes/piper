@@ -75,12 +75,12 @@ struct UserTurnView: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(Metrics.bubblePadding)
-                .background(PiperTheme.accent, in: UnevenRoundedRectangle(
+                .background(PiperTheme.brand, in: UnevenRoundedRectangle(
                     topLeadingRadius: Metrics.bubbleRadius, bottomLeadingRadius: Metrics.bubbleRadius,
                     bottomTrailingRadius: Metrics.bubbleTailRadius, topTrailingRadius: Metrics.bubbleRadius))
             ForEach(context, id: \.self) { item in
                 Label(item.label, systemImage: item.icon)
-                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.faint)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                     .lineLimit(1)
                     .help(item.argument)
             }
@@ -127,16 +127,16 @@ struct ToolCallRow: View {
             } else {
                 header
                     .padding(Metrics.chipPadding)
-                    .background(PiperTheme.hover, in: RoundedRectangle(cornerRadius: Metrics.chipRadius))
+                    .background(PiperTheme.rowHover, in: RoundedRectangle(cornerRadius: Metrics.chipRadius))
             }
             if expanded, let preview = call.resultPreview {
                 Text(preview)
                     .font(Font(PiperTheme.manuscript(size: 11)))
-                    .foregroundStyle(call.isError ? PiperTheme.danger : PiperTheme.secondary)
+                    .foregroundStyle(call.isError ? PiperTheme.danger : PiperTheme.paperMuted)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(Metrics.chipPadding)
-                    .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.rule, lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 1))
             }
         }
         .accessibilityElement(children: .combine)
@@ -148,7 +148,7 @@ struct ToolCallRow: View {
             status.frame(width: 12)
             Text(call.line)
                 .font(Font(PiperTheme.manuscript(size: 12)))
-                .foregroundStyle(PiperTheme.secondary)
+                .foregroundStyle(PiperTheme.paperMuted)
                 .lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 4)
             if let path = call.path, VaultFile.isMarkdown(path), !call.isError {
@@ -167,7 +167,7 @@ struct ToolCallRow: View {
         } else if isLive {
             ProgressView().controlSize(.mini)
         } else {
-            Image(systemName: "circle.dashed").foregroundStyle(PiperTheme.faint)
+            Image(systemName: "circle.dashed").foregroundStyle(PiperTheme.paperFaint)
         }
     }
 }
@@ -186,19 +186,19 @@ struct DiffView<Header: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .font(PiperTheme.paperUI(.body))
-                .foregroundStyle(PiperTheme.secondary)
+                .foregroundStyle(PiperTheme.paperMuted)
                 .padding(Metrics.chipPadding)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(PiperTheme.hover)
+                .background(PiperTheme.rowHover)
             ForEach(Array(shown.enumerated()), id: \.offset) { _, line in row(line) }
             if changes > shown.count {
                 Text("\(changes - shown.count) more lines")
-                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.faint)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                     .padding(.horizontal, 9).padding(.vertical, 3)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: Metrics.chipRadius))
-        .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.rule, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Changes")
     }
@@ -218,7 +218,7 @@ struct DiffView<Header: View>: View {
         }()
         return Text(mark + " " + text)
             .font(Font(PiperTheme.manuscript(size: 11.5)))
-            .foregroundStyle(PiperTheme.ink)
+            .foregroundStyle(PiperTheme.paperInk)
             .lineLimit(1).truncationMode(.tail)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 9).padding(.vertical, 1)
@@ -256,8 +256,8 @@ struct PermissionCard: View {
         } else {
             HStack(spacing: 6) {
                 Image(systemName: decision == .denied ? "hand.raised" : "lock.open")
-                    .foregroundStyle(decision == .denied ? PiperTheme.danger : PiperTheme.faint)
-                Text(summary).foregroundStyle(PiperTheme.faint)
+                    .foregroundStyle(decision == .denied ? PiperTheme.danger : PiperTheme.paperFaint)
+                Text(summary).foregroundStyle(PiperTheme.paperFaint)
                     .lineLimit(1).truncationMode(.middle)
             }
             .font(PiperTheme.paperUI(.body))
@@ -282,7 +282,7 @@ struct WaitingLine: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "lock.shield").foregroundStyle(PiperTheme.warning)
-            Text(text).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+            Text(text).foregroundStyle(PiperTheme.paperMuted).lineLimit(1)
         }
         .font(PiperTheme.paperUI(.body))
     }
@@ -303,7 +303,7 @@ struct QuestionCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(questions, id: \.question) { question in
                     Text(question.question + " " + (answers[question.question] ?? "Not answered"))
-                        .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.secondary)
+                        .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                 }
             }
         } else {
@@ -317,7 +317,7 @@ struct QuestionCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if !question.header.isEmpty {
                         Text(question.header.uppercased())
-                            .font(PiperTheme.paperUI(.body, weight: .semibold)).tracking(0.4).foregroundStyle(PiperTheme.faint)
+                            .font(PiperTheme.paperUI(.body, weight: .semibold)).tracking(0.4).foregroundStyle(PiperTheme.paperFaint)
                     }
                     Text(question.question).font(PiperTheme.paperUI(.body, weight: .semibold))
                         .fixedSize(horizontal: false, vertical: true)
@@ -337,8 +337,8 @@ struct QuestionCard: View {
             .controlSize(.small)
         }
         .padding(10)
-        .background(PiperTheme.card, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.accent.opacity(0.5), lineWidth: 1))
+        .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.brand.opacity(0.5), lineWidth: 1))
     }
 
     private func optionRow(_ option: PermissionRequest.Question.Option, in question: PermissionRequest.Question) -> some View {
@@ -356,11 +356,11 @@ struct QuestionCard: View {
                 Image(systemName: question.multiSelect
                       ? (selected ? "checkmark.square.fill" : "square")
                       : (selected ? "largecircle.fill.circle" : "circle"))
-                    .foregroundStyle(selected ? PiperTheme.accent : PiperTheme.faint)
+                    .foregroundStyle(selected ? PiperTheme.brand : PiperTheme.paperFaint)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(option.label).font(PiperTheme.paperUI(.body))
                     if !option.description.isEmpty {
-                        Text(option.description).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.secondary)
+                        Text(option.description).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                     }
                 }
                 Spacer(minLength: 0)
@@ -393,7 +393,7 @@ struct ResultRow: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
-            Text(summary).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.faint)
+            Text(summary).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
         }
     }
 }

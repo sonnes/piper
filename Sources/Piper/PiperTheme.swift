@@ -5,9 +5,9 @@ import SwiftUI
 /// The shared colors, fonts, and type sizes of the application. A feature
 /// keeps its own colors in its `Metrics`.
 ///
-/// Text and surfaces use the system colors, so they follow the dark appearance
-/// and the contrast settings of the reader. The accent is the one saturated
-/// color, and it marks selection with focus, links, and the primary button.
+/// The app has one palette: the zinc and indigo of September. Each color has
+/// a light and a dark value. The brand indigo is the one saturated color, and
+/// it marks selection with focus, links, and the primary button.
 enum PiperTheme {
     static let resources: Bundle = {
         if let url = Bundle.main.url(forResource: "Piper_Piper", withExtension: "bundle"), let bundle = Bundle(url: url) {
@@ -19,20 +19,6 @@ enum PiperTheme {
 
     // MARK: Colors
 
-    /// The background of a list and of a reader paper.
-    static let pageNS = paperNS
-    /// The background of the reader bar and the link card.
-    static let panelNS = color(light: 0xF3F3F4, dark: 0x232324)
-    /// The background of a grouped card.
-    static let cardNS = color(light: 0xFFFFFF, dark: 0x2C2C2E)
-    static let inkNS = NSColor.labelColor
-    static let secondaryNS = NSColor.secondaryLabelColor
-    static let faintNS = NSColor.tertiaryLabelColor
-    /// The accent color: srgb 0.031 0.416 0.933, and 0.369 0.620 0.957 in the dark.
-    static let accentNS = color(light: 0x086AEE, dark: 0x5E9EF4)
-    /// The selection of a row without keyboard focus.
-    static let selectionNS = NSColor.unemphasizedSelectedContentBackgroundColor
-    static let ruleNS = NSColor.separatorColor
     static let warningNS = NSColor.systemOrange
     static let dangerNS = NSColor.systemRed
     static let successNS = NSColor.systemGreen
@@ -50,15 +36,6 @@ enum PiperTheme {
     /// Yellow 400. The bar beside a highlight.
     static let markYellow = Color(nsColor: hex(0xFACC15))
 
-    static let page = Color(nsColor: pageNS)
-    static let panel = Color(nsColor: panelNS)
-    static let card = Color(nsColor: cardNS)
-    static let ink = Color(nsColor: inkNS)
-    static let secondary = Color(nsColor: secondaryNS)
-    static let faint = Color(nsColor: faintNS)
-    static let accent = Color(nsColor: accentNS)
-    static let selection = Color(nsColor: selectionNS)
-    static let rule = Color(nsColor: ruleNS)
     static let warning = Color(nsColor: warningNS)
     /// The fill of the bar over the editor when Piper stopped saving.
     static let warningFill = warning.opacity(0.14)
@@ -67,10 +44,8 @@ enum PiperTheme {
     static let claude = Color(nsColor: claudeNS)
     static let star = Color(nsColor: starNS)
     static let acpAgent = Color(nsColor: acpAgentNS)
-    /// A row under the pointer.
-    static let hover = Color.primary.opacity(0.045)
     /// The ring around a focused field.
-    static let focusRing = accent.opacity(0.45)
+    static let focusRing = brand.opacity(0.45)
     /// Text and symbols on an accent fill, such as a check or a toast button.
     static let onAccent = Color.white
     /// Faint text on an accent or warning fill, such as the shortcut in the Needs You pill.
@@ -134,17 +109,10 @@ enum PiperTheme {
     // MARK: Lists And Chrome
 
     // The lists and the chrome of the papers follow the Apple apps, such as
-    // Mail and Reminders, in the zinc and indigo of September. Text has three
-    // levels: the label, the secondary label, and the tertiary label.
+    // Mail and Reminders. Text has three levels: `paperInk` for a row and a
+    // title, `paperMuted` for a meta line and a group header, and `paperFaint`
+    // for a count, an empty state, and a done row.
 
-    /// The text of a row and of a title.
-    static let label = paperInk
-    /// The meta line and the time of a row, and the header of a group.
-    static let secondaryLabel = paperMuted
-    /// A count, an empty state, and the text of a done row.
-    static let tertiaryLabel = paperFaint
-    /// The hairline between two rows.
-    static let separator = paperRule
     /// The band around a paper that resizes it: black at the least alpha
     /// that the window server counts, so that the band takes a click.
     static let resizeBand = NSColor(white: 0, alpha: 1 / 255)
@@ -190,8 +158,6 @@ enum PiperTheme {
 
     // MARK: Shapes
 
-    /// Corner radius for controls, rows, and selection backgrounds.
-    static let radius: CGFloat = 6
     /// Corner radius for cards, the composer, and popovers.
     static let cardRadius: CGFloat = 10
 
@@ -220,7 +186,7 @@ enum PiperTheme {
         }
     }()
 
-    /// The type scale of the papers. No text on a paper is smaller than 14 points.
+    /// The type scale of the app. No size of the scale is smaller than 14 points.
     enum PaperSize: CGFloat {
         /// Meta lines, counts, tabs, and buttons.
         case body = 14
@@ -276,32 +242,6 @@ enum PiperTheme {
         let weightAxis = 0x77676874
         let descriptor = base.fontDescriptor.addingAttributes([.variation: [weightAxis: 600]])
         return Font((NSFont(descriptor: descriptor, size: size.rawValue) ?? base) as CTFont)
-    }
-
-    /// The type scale. Each text of the app outside a web page uses one of
-    /// these sizes. A larger size marks a higher level of the hierarchy.
-    enum TextSize: CGFloat {
-        /// Group headers, counts, hints, and times.
-        case caption = 11
-        /// Meta lines, reasons, tabs, and tool rows.
-        case secondary = 12
-        /// List rows and controls.
-        case body = 13
-        /// Notes and agent messages: text that the reader reads, not scans.
-        case reading = 15
-        /// Pane titles and the palette field.
-        case title = 17
-        /// The title of an article notebook.
-        case display = 24
-    }
-
-    /// Control and label text.
-    static func uiNS(_ size: TextSize, weight: NSFont.Weight = .regular) -> NSFont {
-        .systemFont(ofSize: size.rawValue, weight: weight)
-    }
-
-    static func ui(_ size: TextSize, weight: Font.Weight = .regular) -> Font {
-        .system(size: size.rawValue, weight: weight)
     }
 
     static func isDark(_ appearance: NSAppearance) -> Bool {

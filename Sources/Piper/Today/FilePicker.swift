@@ -36,7 +36,7 @@ struct FilePicker: View {
                             if index == 0 || header(of: targets[index - 1]) != header(of: target) {
                                 Text(header(of: target))
                                     .font(PiperTheme.paperUI(.body, weight: .semibold))
-                                    .foregroundStyle(PiperTheme.secondaryLabel)
+                                    .foregroundStyle(PiperTheme.paperMuted)
                                     .padding(.top, 10).padding(.bottom, 2)
                                     .accessibilityAddTraits(.isHeader)
                             }

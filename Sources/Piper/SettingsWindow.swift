@@ -88,13 +88,13 @@ private struct GeneralSettings: View {
             Section("Folders") {
                 List(model.library.wikiPaths, id: \.self, selection: $selection) { path in
                     HStack(spacing: 8) {
-                        Image(systemName: "folder").foregroundStyle(PiperTheme.accent)
+                        Image(systemName: "folder").foregroundStyle(PiperTheme.brand)
                         Text(URL(fileURLWithPath: path).lastPathComponent)
                         Spacer()
                         Text((path as NSString).abbreviatingWithTildeInPath)
-                            .foregroundStyle(PiperTheme.secondary).lineLimit(1).truncationMode(.head)
+                            .foregroundStyle(PiperTheme.paperMuted).lineLimit(1).truncationMode(.head)
                     }
-                    .font(PiperTheme.ui(.body))
+                    .font(PiperTheme.paperUI(.body))
                 }
                 .frame(height: 96)
                 .listStyle(.bordered(alternatesRowBackgrounds: false))
@@ -176,7 +176,7 @@ private struct AISettings: View {
                     HStack(spacing: 6) {
                         Text(agents.runner.executable.map { ($0.path as NSString).abbreviatingWithTildeInPath }
                              ?? "No claude command")
-                            .foregroundStyle(agents.runner.executable == nil ? PiperTheme.danger : PiperTheme.secondary)
+                            .foregroundStyle(agents.runner.executable == nil ? PiperTheme.danger : PiperTheme.paperMuted)
                             .lineLimit(1).truncationMode(.middle)
                         Spacer(minLength: 4)
                         if agents.claudePath != nil {
@@ -190,7 +190,7 @@ private struct AISettings: View {
                         HStack(spacing: 6) {
                             Text(([agent.command] + agent.arguments).joined(separator: " "))
                                 .font(Font(PiperTheme.manuscript(size: 11)))
-                                .foregroundStyle(PiperTheme.secondary)
+                                .foregroundStyle(PiperTheme.paperMuted)
                                 .lineLimit(1).truncationMode(.middle)
                             Spacer(minLength: 4)
                             Button("Remove") { agents.removeAgent(agent) }
@@ -213,7 +213,7 @@ private struct AISettings: View {
                 Text("Agents")
             } footer: {
                 Text("An ACP agent is a command that speaks the Agent Client Protocol on standard input and output.")
-                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             }
             Section {
                 Picker("New sessions", selection: Binding(get: { agents.sessionAgentID }, set: { agents.sessionAgentID = $0 })) {
@@ -237,7 +237,7 @@ private struct AISettings: View {
                 Text("Defaults")
             } footer: {
                 Text("The composer of a session can change its agent before the first message, and its model and mode at any time.")
-                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             }
             Section {
                 Picker(selection: Binding(get: { agents.model }, set: { agents.model = $0 })) {
@@ -262,12 +262,12 @@ private struct AISettings: View {
                 Text("Claude Code")
             } footer: {
                 Text("Skill runs from Send use these. A session can choose another model or mode in its composer.")
-                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             }
             Section {
                 if agents.available.isEmpty {
                     Text("No folder on the Folders index has skills in .claude/skills.")
-                        .foregroundStyle(PiperTheme.secondary)
+                        .foregroundStyle(PiperTheme.paperMuted)
                 }
                 ForEach(agents.available) { folder in
                     FolderAgentRow(agents: agents, folder: folder)
@@ -276,7 +276,7 @@ private struct AISettings: View {
                 Text("Folders")
             } footer: {
                 Text("Send runs a Claude Code skill for links or for text in the folder you used last. \(SendShortcut.glyphs) sends the clipboard.")
-                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             }
         }
         .formStyle(.grouped)
@@ -326,7 +326,7 @@ private struct AgentRow<Controls: View>: View {
         case .ready?: return PiperTheme.success
         case .warning?: return PiperTheme.warning
         case .error?: return PiperTheme.danger
-        case .checking?, nil: return PiperTheme.faint
+        case .checking?, nil: return PiperTheme.paperFaint
         }
     }
 
@@ -336,16 +336,16 @@ private struct AgentRow<Controls: View>: View {
                 Circle().fill(color).frame(width: 8, height: 8)
                     .accessibilityLabel(status?.headline ?? "Not checked")
                 AgentMark(agentID: agent.id)
-                Text(agent.name).font(PiperTheme.ui(.body, weight: .semibold))
+                Text(agent.name).font(PiperTheme.paperUI(.body, weight: .semibold))
                 Text(status?.headline ?? "Not checked")
-                    .foregroundStyle(PiperTheme.secondary)
+                    .foregroundStyle(PiperTheme.paperMuted)
                     .lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 4)
                 if let version = status?.version {
-                    Text(version).font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.secondary)
+                    Text(version).font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.paperMuted)
                 }
             }
-            controls.font(PiperTheme.ui(.secondary))
+            controls.font(PiperTheme.paperUI(.body))
         }
     }
 }
@@ -372,14 +372,14 @@ private struct AddAgentSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Add ACP Agent").font(PiperTheme.ui(.reading, weight: .semibold))
+            Text("Add ACP Agent").font(PiperTheme.paperUI(.row, weight: .semibold))
             Form {
                 TextField("Name", text: $name)
                 TextField("Command", text: $command, prompt: Text("A path, or a name on your PATH"))
                 TextField("Arguments", text: $arguments, prompt: Text("Separated by spaces"))
             }
             Text("Piper starts the command in the folder of each session, through your login shell.")
-                .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+                .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             HStack {
                 Spacer()
                 Button("Cancel", action: cancel).keyboardShortcut(.cancelAction)
@@ -458,7 +458,7 @@ private struct ReadingPane: View {
             } footer: {
                 HStack {
                     Text("These settings change how Piper shows a file. The file does not change.")
-                        .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
+                        .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                     Spacer()
                     Button("Reset to Defaults") { reading.reset() }
                 }

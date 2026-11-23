@@ -114,7 +114,7 @@ struct SessionCard: View {
                             model.newSessionNote = nil
                         })
         }
-        .background(detached ? AnyShapeStyle(PiperTheme.page) : AnyShapeStyle(.regularMaterial))
+        .background(detached ? AnyShapeStyle(PiperTheme.paper) : AnyShapeStyle(.regularMaterial))
         .modifier(CardShape(detached: detached, height: height))
         .overlay(alignment: .top) { if !detached { resizeHandle } }
         .onExitCommand { if !detached { model.sessionPresentation = .pill } }
@@ -245,7 +245,7 @@ private struct CardShape: ViewModifier {
                 .frame(width: layout.cardWidth)
                 .frame(minHeight: SessionCard.Metrics.minimumHeight, idealHeight: height, maxHeight: height)
                 .clipShape(RoundedRectangle(cornerRadius: SessionCard.Metrics.cornerRadius))
-                .overlay(RoundedRectangle(cornerRadius: SessionCard.Metrics.cornerRadius).strokeBorder(PiperTheme.rule, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: SessionCard.Metrics.cornerRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
                 .shadow(color: SessionCard.Metrics.cardShadow, radius: SessionCard.Metrics.cardShadowRadius,
                         y: SessionCard.Metrics.cardShadowOffset)
                 .padding(SessionCard.Metrics.margin)
@@ -267,18 +267,18 @@ struct SessionPill: View {
                 icon(session)
                 Text(text(session)).lineLimit(1)
                 if session?.isActive != true {
-                    Text("⌥⌘C").font(PiperTheme.paperUI(.body)).foregroundStyle(needsYou ? PiperTheme.onAccentSecondary : PiperTheme.faint)
+                    Text("⌥⌘C").font(PiperTheme.paperUI(.body)).foregroundStyle(needsYou ? PiperTheme.onAccentSecondary : PiperTheme.paperFaint)
                 }
             }
             .font(PiperTheme.paperUI(.body))
-            .foregroundStyle(needsYou ? PiperTheme.onAccent : PiperTheme.ink)
+            .foregroundStyle(needsYou ? PiperTheme.onAccent : PiperTheme.paperInk)
             .padding(SessionCard.Metrics.pillPadding)
             .frame(height: SessionCard.Metrics.pillHeight)
             .frame(maxWidth: SessionCard.Metrics.pillMaximumWidth)
             .background {
                 if needsYou { Capsule().fill(PiperTheme.warning) } else { Capsule().fill(.regularMaterial) }
             }
-            .overlay(Capsule().strokeBorder(PiperTheme.rule, lineWidth: 0.5))
+            .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
             .shadow(color: SessionCard.Metrics.pillShadow, radius: SessionCard.Metrics.pillShadowRadius,
                     y: SessionCard.Metrics.pillShadowOffset)
             .contentShape(Capsule())
