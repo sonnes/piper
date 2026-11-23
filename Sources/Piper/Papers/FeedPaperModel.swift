@@ -15,6 +15,35 @@ enum PaperItem: Hashable {
     case newSession(String)
 }
 
+/// What the rows of the feed paper show about the papers on the desk.
+///
+/// A row of an item that is open as a reader paper shows a dashed slot. A
+/// row flashes when its paper goes back. The views of the feed paper find
+/// this object in their environment. The capture panel has none.
+@MainActor @Observable
+final class DeskMarks {
+    /// One flash of a row.
+    struct Flash: Equatable {
+        let item: PaperItem
+        let id = UUID()
+    }
+
+    /// The items that are open as reader papers.
+    var open: Set<PaperItem> = []
+    /// The path of the file in the file paper, while the file paper is open.
+    var openFile: String?
+    /// The last item whose paper went back.
+    var flash: Flash?
+    /// True while the feed paper has the keyboard focus.
+    var feedFocused = false
+
+    func isOpen(_ item: PaperItem) -> Bool { open.contains(item) }
+
+    func isOpenFile(_ path: String) -> Bool { openFile == path && open.contains(.file) }
+
+    func flashes(_ item: PaperItem) -> UUID? { flash?.item == item ? flash?.id : nil }
+}
+
 /// The state of the feed paper that its views read and change.
 ///
 /// A tab click shows the index of the tab. A pick on the index shows the
@@ -31,6 +60,8 @@ final class FeedPaperModel {
     }
     /// True while the paper shows the index of the active tab in place of the list.
     var showsIndex = false
+    /// The open papers and the flash of a row.
+    let marks = DeskMarks()
     /// A new value puts the cursor in the add field of the Inbox list.
     var composerRequest: UUID?
     /// The selected article of the list of a feed.

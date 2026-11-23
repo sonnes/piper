@@ -87,6 +87,24 @@ final class AppDefaults {
         static let sessionSize = NSSize(width: 480, height: 680)
         static let readerMinimumSize = NSSize(width: 380, height: 320)
         static let cornerRadius: CGFloat = 20
+        /// The space around a paper in its window, for the shadow of the paper.
+        static let shadowMargin = NSEdgeInsets(top: 16, left: 24, bottom: 36, right: 24)
+        static let shadowInsets = EdgeInsets(top: shadowMargin.top, leading: shadowMargin.left,
+                                             bottom: shadowMargin.bottom, trailing: shadowMargin.right)
+        /// The card shadow of the paper with the keyboard focus: `0 8px 24px` in the mock.
+        static let focusShadow = (radius: CGFloat(12), y: CGFloat(8))
+        /// The shadow of another paper: `0 3px 12px` in the mock.
+        static let restShadow = (radius: CGFloat(6), y: CGFloat(3))
+        /// The thin line under the focused paper: `0 1px 0` in the mock.
+        static let edgeShadowY: CGFloat = 1
+        /// The tilts of the reader papers without the keyboard focus, in degrees, in the order the papers open.
+        static let tilts: [CGFloat] = [-0.5, 0.45, -0.3, 0.6]
+        /// The opacity of the content of a reader paper without the keyboard focus.
+        static let restOpacity = 0.72
+        /// A paper rises by this distance as it fades in.
+        static let rise: CGFloat = 14
+        /// The time of the flash of a row when its paper goes back.
+        static let flash: Double = 1.4
         /// The space between the feed paper and the first reader paper.
         static let gap: CGFloat = 24
         /// The offset of each next reader paper, to the right and down.

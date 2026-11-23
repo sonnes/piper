@@ -17,6 +17,8 @@ final class PaperDesk {
     private let model: AppModel
     private var feed: FeedPaperController?
     private var readers: [ReaderPaperController] = []
+    /// The number of papers that opened, which picks the tilt of the next paper.
+    private var opened = 0
 
     // MARK: - Initialization
 
@@ -52,7 +54,10 @@ final class PaperDesk {
     /// Opens an item as a reader paper, or brings its open paper to the front.
     func open(_ item: PaperItem) {
         if feed?.window?.isVisible != true { show() }
-        if item == .file { paper.state.selectedFile = model.selectedDocument }
+        if item == .file {
+            paper.state.selectedFile = model.selectedDocument
+            paper.marks.openFile = model.selectedDocument
+        }
         if let open = readers.first(where: { $0.item == item }) {
             open.focus()
             return
@@ -61,11 +66,23 @@ final class PaperDesk {
         let screen = feed?.window?.screen ?? NSScreen.main
         let frame = Self.frame(size: size, feed: feedPaperFrame,
                                screen: screen?.visibleFrame ?? NSRect(origin: .zero, size: size),
-                               open: readers.compactMap { $0.window?.frame })
-        let reader = ReaderPaperController(item: item, model: model, frame: frame)
+                               open: readers.compactMap(\.paperFrame))
+        let tilts = AppDefaults.Papers.tilts
+        let reader = ReaderPaperController(item: item, model: model, frame: frame, tilt: tilts[opened % tilts.count])
+        opened += 1
         reader.delegate = self
         readers.append(reader)
+        paper.marks.open.insert(item)
         reader.focus()
+    }
+
+    /// Puts each reader paper back in its place of the cascade, in the order the papers opened.
+    func tidy() {
+        let screen = (feed?.window?.screen ?? NSScreen.main)?.visibleFrame
+        for (index, reader) in readers.enumerated() {
+            guard let size = reader.paperFrame?.size, let screen else { continue }
+            reader.move(to: Self.frame(index: index, size: size, feed: feedPaperFrame, screen: screen))
+        }
     }
 
     /// Opens a file in the file paper.
@@ -182,8 +199,8 @@ final class PaperDesk {
 
     /// The frame of the paper of the feed paper, without its column of tabs.
     private var feedPaperFrame: NSRect? {
-        guard let window = feed?.window, window.isVisible else { return nil }
-        var frame = window.frame
+        guard let window = feed?.window as? PaperWindow, window.isVisible else { return nil }
+        var frame = window.paperFrame
         frame.origin.x += FeedPaperController.tabColumn
         frame.size.width -= FeedPaperController.tabColumn
         return frame
@@ -219,6 +236,8 @@ extension PaperDesk: ReaderPaperControllerDelegate {
 
     func readerPaperWillClose(_ controller: ReaderPaperController) {
         readers.removeAll { $0 === controller }
+        paper.marks.open.remove(controller.item)
+        paper.marks.flash = DeskMarks.Flash(item: controller.item)
         // The editor page stays, so the last edit of the file still saves.
         if controller.item == .file { Task { await model.flushEditor() } }
         guard feed?.window?.isVisible == true else { return }
@@ -227,6 +246,8 @@ extension PaperDesk: ReaderPaperControllerDelegate {
 
     func readerPaper(_ controller: ReaderPaperController, didStart session: UUID) {
         model.selectedSession = session
+        paper.marks.open.remove(controller.item)
+        paper.marks.open.insert(.session(session))
         controller.replace(with: .session(session))
     }
 }

@@ -14,6 +14,7 @@ struct ReaderPaper: View {
     let started: (AgentSession) -> Void
     let close: () -> Void
 
+    @Environment(PaperLayout.self) private var layout
     private typealias Metrics = AppDefaults.Papers
 
     var body: some View {
@@ -24,6 +25,7 @@ struct ReaderPaper: View {
                 .background(WindowDragArea())
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .opacity(layout.focused ? 1 : Metrics.restOpacity)
         }
         .background(PiperTheme.page)
         // The title bar is hidden, so the header starts at the top edge.

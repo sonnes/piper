@@ -135,6 +135,15 @@ final class PaperDeskStateTests: XCTestCase {
 
     /// A paper that opens after another paper closed takes the free place, and
     /// does not cover a paper that is still open.
+    func testThePaperWindowHoldsTheMarginOfTheShadow() {
+        let paper = NSRect(x: 100, y: 200, width: 520, height: 760)
+        let margin = AppDefaults.Papers.shadowMargin
+        let window = PaperWindow.windowFrame(of: paper)
+        XCTAssertEqual(window.width, paper.width + margin.left + margin.right)
+        XCTAssertEqual(window.height, paper.height + margin.top + margin.bottom)
+        XCTAssertEqual(PaperWindow.paperFrame(of: window), paper)
+    }
+
     func testANewPaperTakesTheFirstFreePlace() {
         let screen = NSRect(x: 0, y: 0, width: 2000, height: 1200)
         let feed = NSRect(x: 100, y: 200, width: 520, height: 760)

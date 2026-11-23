@@ -20,6 +20,8 @@ struct FeedPaperView: View {
                 .padding(.top, Metrics.tabsTop)
             sheet.zIndex(1)
         }
+        .padding(Metrics.shadowInsets)
+        .environment(paper.marks)
         .sheet(isPresented: $model.addingFeed) {
             AddFeedSheet(feeds: model.feeds) { added in
                 model.addingFeed = false
@@ -59,6 +61,7 @@ struct FeedPaperView: View {
         }
         .background(PiperTheme.paper)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+        .paperShadow(focused: paper.marks.feedFocused)
         .foregroundStyle(PiperTheme.paperInk)
     }
 

@@ -1,40 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// A paper window: frameless, with round corners, and moved by its background.
-///
-/// The window has a title bar for its shadow, its resize edges, and Close
-/// Window, but the bar is clear and its buttons are hidden. Escape calls
-/// `escape`.
-final class PaperWindow: NSWindow {
-    var escape: () -> Void = {}
-
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
-
-    init(size: NSSize, minimumSize: NSSize) {
-        super.init(contentRect: NSRect(origin: .zero, size: size),
-                   styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-                   backing: .buffered, defer: false)
-        titleVisibility = .hidden
-        titlebarAppearsTransparent = true
-        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-            standardWindowButton(button)?.isHidden = true
-        }
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = true
-        isMovableByWindowBackground = true
-        isReleasedWhenClosed = false
-        tabbingMode = .disallowed
-        minSize = minimumSize
-    }
-
-    override func cancelOperation(_ sender: Any?) {
-        escape()
-    }
-}
-
 /// Owns the feed paper window.
 ///
 /// The window holds the column of tabs and the paper. Its frame, its tab,
@@ -58,11 +24,12 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         let size = NSSize(width: AppDefaults.Papers.feedSize.width + Self.tabColumn, height: AppDefaults.Papers.feedSize.height)
         let minimum = NSSize(width: AppDefaults.Papers.feedMinimumSize.width + Self.tabColumn,
                              height: AppDefaults.Papers.feedMinimumSize.height)
-        let window = PaperWindow(size: size, minimumSize: minimum)
+        let window = PaperWindow(paperSize: size, minimumPaperSize: minimum)
         window.title = "Piper"
         super.init(window: window)
         window.delegate = self
         window.escape = { [weak paper] in paper?.showList() }
+        window.focusChanged = { [weak paper] focused in paper?.marks.feedFocused = focused }
 
         let hosting = NSHostingView(rootView: FeedPaperView(paper: paper, model: model, window: { [weak window] in window }))
         // The window sets its own size. The SwiftUI size would pin it to its content.
@@ -71,15 +38,14 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
         if let saved = paper.state.feedFrame, let screen = NSScreen.main,
            screen.visibleFrame.intersects(NSRectFromString(saved)) {
-            window.setFrame(NSRectFromString(saved), display: false)
+            window.setPaperFrame(NSRectFromString(saved), display: false)
         } else if let screen = NSScreen.main {
             let frame = screen.visibleFrame
-            window.setFrameOrigin(NSPoint(x: frame.minX + AppDefaults.Papers.screenInset * 2,
-                                          y: frame.midY - size.height / 2))
+            window.setPaperFrame(NSRect(x: frame.minX + AppDefaults.Papers.screenInset * 2, y: frame.midY - size.height / 2,
+                                        width: size.width, height: size.height), display: false)
         }
         NotificationCenter.default.addObserver(self, selector: #selector(vaultChanged),
                                                name: .vaultPathDidChange, object: model)
-        observeShape()
     }
 
     @available(*, unavailable)
@@ -118,26 +84,13 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Private
 
+    /// Saves the frame of the paper, with its column of tabs.
     private func saveFrame() {
-        guard let frame = window?.frame else { return }
+        guard let frame = (window as? PaperWindow)?.paperFrame else { return }
         paper.state.feedFrame = NSStringFromRect(frame)
     }
 
     @objc private func vaultChanged() {
         paper.vaultChanged()
-    }
-
-    /// The shadow follows the shape of the tabs, so it redraws when the tabs change.
-    private func observeShape() {
-        withObservationTracking {
-            _ = paper.state.tab
-            _ = paper.column
-            _ = paper.showsIndex
-        } onChange: { [weak self] in
-            DispatchQueue.main.asyncAfter(deadline: .now() + AppDefaults.Papers.fade) {
-                self?.window?.invalidateShadow()
-                self?.observeShape()
-            }
-        }
     }
 }

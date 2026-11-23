@@ -86,13 +86,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         stopRunsOnTerminateSignal()
         self.capture = capture
         model.captureShortcutChanged = { [weak capture] in capture?.start() }
-        capture.start()
-        model.clipboard.start()
+        // In QA mode, Piper records neither the clipboard nor the selections of the
+        // user, so that no private text gets into a test or a screenshot.
+        if !QA.isOn {
+            capture.start()
+            model.clipboard.start()
+        }
         model.initialDocument = PaperDeskState.restore().selectedFile
         model.reload()
         refresh = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.capture?.start()
+                if !QA.isOn { self?.capture?.start() }
                 self?.sendShortcut.update(enabled: self?.model.agents.folders.isEmpty == false)
                 if self?.desk.isVisible == true { self?.model.reload() }
             }

@@ -12,8 +12,10 @@ protocol ReaderPaperControllerDelegate: AnyObject {
 
 /// Owns one reader paper: a frameless window with round corners for one item.
 ///
-/// The session card floats over the bottom right corner of the paper while
-/// the paper has the keyboard focus.
+/// The paper with the keyboard focus lies straight and has the deep shadow.
+/// Another paper tilts by less than one degree, and its content fades. The
+/// session card floats over the bottom right corner of the paper while the
+/// paper has the keyboard focus.
 @MainActor
 final class ReaderPaperController: NSWindowController, NSWindowDelegate {
 
@@ -22,24 +24,28 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     weak var delegate: ReaderPaperControllerDelegate?
     private(set) var item: PaperItem
     private let model: AppModel
-    private let viewController = ReaderPaperViewController()
+    private let viewController: ReaderPaperViewController
+    private var shown = false
+    private var closing = false
+
+    private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
     // MARK: - Initialization
 
-    init(item: PaperItem, model: AppModel, frame: NSRect) {
+    /// Makes a paper with `frame` as the frame of its paper. `tilt` is the
+    /// angle in degrees while the paper has no focus.
+    init(item: PaperItem, model: AppModel, frame: NSRect, tilt: CGFloat) {
         self.item = item
         self.model = model
-        let window = PaperWindow(size: frame.size, minimumSize: AppDefaults.Papers.readerMinimumSize)
+        viewController = ReaderPaperViewController(tilt: tilt)
+        let window = PaperWindow(paperSize: frame.size, minimumPaperSize: AppDefaults.Papers.readerMinimumSize)
         window.title = "Paper"
         super.init(window: window)
         window.delegate = self
         window.escape = { [weak window] in window?.performClose(nil) }
         window.contentViewController = viewController
-        window.setFrame(frame, display: false)
-        let layer = viewController.view.layer
-        layer?.cornerRadius = AppDefaults.Papers.cornerRadius
-        layer?.cornerCurve = .continuous
-        layer?.masksToBounds = true
+        window.setPaperFrame(frame, display: false)
+        window.focusChanged = { [weak viewController] focused in viewController?.setFocused(focused) }
         refresh()
     }
 
@@ -48,10 +54,37 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - API
 
-    /// Shows the paper and gives it the keyboard.
+    /// The frame of the paper, without the margin of its shadow.
+    var paperFrame: NSRect? { (window as? PaperWindow)?.paperFrame }
+
+    /// Shows the paper and gives it the keyboard. The first time, the paper
+    /// fades in and rises into its place.
     func focus() {
-        window?.makeKeyAndOrderFront(nil)
+        guard let window = window as? PaperWindow else { return }
+        if !shown {
+            shown = true
+            if !reduceMotion {
+                let target = window.frame
+                window.alphaValue = 0
+                window.setFrameOrigin(NSPoint(x: target.minX, y: target.minY - AppDefaults.Papers.rise))
+                window.makeKeyAndOrderFront(nil)
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = AppDefaults.Papers.fade
+                    context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    window.animator().alphaValue = 1
+                    window.animator().setFrame(target, display: true)
+                }
+                QA.activate()
+                return
+            }
+        }
+        window.makeKeyAndOrderFront(nil)
         QA.activate()
+    }
+
+    /// Moves the paper to a place, as Tidy does.
+    func move(to frame: NSRect) {
+        (window as? PaperWindow)?.setPaperFrame(frame, display: true, animate: !reduceMotion)
     }
 
     /// Shows another item in the same paper.
@@ -71,6 +104,17 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     }
 
     // MARK: - NSWindowDelegate
+
+    /// The paper fades out before it closes.
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard !closing, !reduceMotion else { return true }
+        closing = true
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = AppDefaults.Papers.fade
+            sender.animator().alphaValue = 0
+        }, completionHandler: { sender.close() })
+        return false
+    }
 
     func windowDidBecomeKey(_ notification: Notification) {
         delegate?.readerPaperDidBecomeKey(self)
@@ -94,9 +138,10 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     }
 }
 
-/// The view of a reader paper: the content, and the session card in a
-/// hosting view of its own over the bottom right corner. That view takes the
-/// size of the pill or the card, so a click anywhere else reaches the content.
+/// The view of a reader paper: the shadow, the sheet with the content, and
+/// the session card in a hosting view of its own over the bottom right
+/// corner. That view takes the size of the pill or the card, so a click
+/// anywhere else reaches the content.
 @MainActor
 final class ReaderPaperViewController: NSViewController {
 
@@ -104,13 +149,23 @@ final class ReaderPaperViewController: NSViewController {
 
     private var hostingView: NSHostingView<AnyView>?
     private var overlayView: NSHostingView<AnyView>?
+    private var paperView: PaperContainerView?
     private let layout = PaperLayout()
+    private let tilt: CGFloat
+
+    init(tilt: CGFloat) {
+        self.tilt = tilt
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     // MARK: - NSViewController
 
     override func loadView() {
-        let container = NSView()
-        container.wantsLayer = true
+        let paper = PaperContainerView(tilt: tilt)
+        let container = paper.sheet
         let hosting = NSHostingView(rootView: AnyView(Color.clear))
         hosting.translatesAutoresizingMaskIntoConstraints = false
         // The window sets its own size. The SwiftUI size would pin it to its content.
@@ -132,12 +187,20 @@ final class ReaderPaperViewController: NSViewController {
         ])
         hostingView = hosting
         overlayView = overlay
-        view = container
+        paperView = paper
+        view = paper
     }
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        if layout.width != view.bounds.width { layout.width = view.bounds.width }
+        let width = paperView?.sheet.bounds.width ?? 0
+        if layout.width != width { layout.width = width }
+    }
+
+    /// Straightens the paper and gives it the deep shadow, or tilts it and fades its content.
+    func setFocused(_ focused: Bool) {
+        layout.focused = focused
+        paperView?.focused = focused
     }
 
     // MARK: - API
@@ -153,10 +216,62 @@ final class ReaderPaperViewController: NSViewController {
     }
 }
 
-/// The width of a reader paper, which the session card and the tabs share.
+/// The paper of a reader paper window: a shadow and a sheet with round
+/// corners, inside the margin of the shadow. The sheet tilts while the paper
+/// has no focus.
+final class PaperContainerView: NSView {
+
+    let sheet = NSView()
+    var focused = false {
+        didSet {
+            guard focused != oldValue else { return }
+            shadowView.focused = focused
+            needsLayout = true
+        }
+    }
+
+    private let card = NSView()
+    private let shadowView = PaperShadowView()
+    private let tilt: CGFloat
+
+    init(tilt: CGFloat) {
+        self.tilt = tilt
+        super.init(frame: .zero)
+        wantsLayer = true
+        card.wantsLayer = true
+        sheet.wantsLayer = true
+        sheet.layer?.cornerRadius = AppDefaults.Papers.cornerRadius
+        sheet.layer?.cornerCurve = .continuous
+        sheet.layer?.masksToBounds = true
+        for view in [shadowView, sheet] {
+            view.autoresizingMask = [.width, .height]
+            card.addSubview(view)
+        }
+        addSubview(card)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func layout() {
+        super.layout()
+        let margin = AppDefaults.Papers.shadowMargin
+        card.frameCenterRotation = 0
+        card.frame = NSRect(x: margin.left, y: margin.bottom,
+                            width: max(0, bounds.width - margin.left - margin.right),
+                            height: max(0, bounds.height - margin.top - margin.bottom))
+        shadowView.frame = card.bounds
+        sheet.frame = card.bounds
+        card.frameCenterRotation = focused || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : tilt
+    }
+}
+
+/// The width of a reader paper, which the session card and the tabs share,
+/// and whether the paper has the keyboard focus.
 @MainActor @Observable
 final class PaperLayout {
     var width: CGFloat = 0
+    var focused = true
 
     var cardWidth: CGFloat {
         min(AppDefaults.SessionCard.width, max(0, width - 2 * AppDefaults.SessionCard.margin))

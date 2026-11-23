@@ -189,8 +189,19 @@ enum PiperTheme {
     static let pinTab = Color(nsColor: pinTabNS)
     static let pinTabActive = Color(nsColor: pinTabActiveNS)
     static let pinTabInk = Color(nsColor: pinTabInkNS)
-    /// The shadow of a tab.
-    static let tabShadowColor = Color.black.opacity(0.14)
+    /// The shadow of a tab: 12 percent black, and 18 percent for the active tab.
+    static let tabShadowColor = Color.black.opacity(0.12)
+    static let activeTabShadowColor = Color.black.opacity(0.18)
+    /// `Tokens.writeCardShadow` of September: the shadow of the paper with the
+    /// keyboard focus. Black at 18 percent, and 55 percent in the dark.
+    static let paperShadowNS = shade(light: 0.18, dark: 0.55)
+    /// The shadow of a paper without the keyboard focus. Black at 10 percent, and 40 percent in the dark.
+    static let paperRestShadowNS = shade(light: 0.10, dark: 0.40)
+    /// The line under the focused paper. Black at 4 percent.
+    static let paperEdgeShadowNS = shade(light: 0.04, dark: 0)
+    static let paperShadow = Color(nsColor: paperShadowNS)
+    static let paperRestShadow = Color(nsColor: paperRestShadowNS)
+    static let paperEdgeShadow = Color(nsColor: paperEdgeShadowNS)
 
     // MARK: Shapes
 
@@ -295,6 +306,12 @@ enum PiperTheme {
     private static func color(light: UInt32, dark: UInt32) -> NSColor {
         NSColor(name: nil) { appearance in
             hex(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light)
+        }
+    }
+
+    private static func shade(light: CGFloat, dark: CGFloat) -> NSColor {
+        NSColor(name: nil) { appearance in
+            NSColor.black.withAlphaComponent(appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light)
         }
     }
 
