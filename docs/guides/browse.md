@@ -41,13 +41,13 @@ The feed paper has a column of tabs on its left edge. Each tab shows a count:
 
 | Tab | Count | Index |
 | --- | --- | --- |
-| Inbox | The captures that are not done | All Sections, each section, Done, and New Section |
+| Inbox | The captures that are not done | All Sections, Notes, Reading, each section, Done, and New Section |
 | Clipboard | The clipboard texts | None. The tab shows the clipboard history. |
 | Feeds | The unread articles | Discover, All Unread, Starred, and each feed. See [Read feeds](feeds.md). |
 | Folders | The files of the active folder | Pinned folders that have no tab, each folder, and the tree of the active folder |
 | Agents | The sessions that wait for you | Each folder that has sessions. See [Find a session](claude.md#find-a-session). |
 
-The Agents tab shows only while a folder has sessions. A count over 999 shows as 999+.
+The Agents tab shows only while a folder has sessions. A count over 999 shows as 999+. The dashed + Folder tab at the end of the column opens the Folders index.
 
 ### Move Between The Index And The List
 
@@ -57,6 +57,16 @@ The feed paper shows the index of a tab or the list of one scope. A scope is one
 2. Select an item on the index. The paper shows its list.
 
 To go back to the list, press Escape, select Back to the List, or select the active tab again. To see the index again, select the active tab. If Reduce Motion is off, the index and the list fade into each other in 0.22 seconds.
+
+These keys work while the feed paper has the focus and no text field is active:
+
+- To show a tab, press its number, from 1 to 8.
+- To open the index of the active tab, press Left Arrow or the number of the tab.
+- On the index, press Up Arrow or Down Arrow to move the cursor. A bar at the left marks the row of the cursor.
+- To show the scope at the cursor, press Return or Right Arrow.
+- To show the previous or the next scope of the tab, press `[` or `]`.
+
+If the active tab shows a scope other than its first scope, its number shows the first scope. A second press opens the index.
 
 The title of the list names the tab and the scope, for example "Feeds › All Unread". The More menu at the top right has New Capture, New Section, Add Folder, Add Feed, Reveal in Finder, Refresh, and Settings.
 
@@ -70,12 +80,19 @@ The header of a reader paper holds the actions of the item:
 
 | Item | Header |
 | --- | --- |
-| A capture | The section, the time, and Mark as Done or Reopen |
+| A note | The section, the source app, and the time |
+| A link | The site, the reading time, and Mark as Done or Open Again |
 | An article | The site icon, the feed, the time, Read, Star, and Keep |
-| A file | The folders of the file, the file name, Back, and Forward |
+| A file | The folder, the folders of the file, the file name, Back, and Forward |
 | A session | The title of the session and its state |
 
-To close a reader paper, press Escape or Command-W, or select Put Back. To move the focus to the next paper, press Command-`. To move a paper, drag its header.
+Each header ends with Put Back. The foot of a note paper says "Saved as you type" and has Mark as Done or Open Again.
+
+The paper with the focus has a deep shadow. Each other reader paper tilts a little, and its content fades. The row of an open item shows a dashed outline and "on the desk" in place of its time. When the paper goes back, the row flashes.
+
+To close a reader paper, press Escape or Command-W, or select Put Back. To move the focus to the next paper, press Command-`. To move a paper, drag its header. To put each reader paper back in its place of the cascade, press T.
+
+While Piper is active, a strip at the bottom of the screen shows the keys for the paper with the focus.
 
 ### Pin A Folder
 
@@ -97,7 +114,7 @@ The feed paper restores its frame, its tab, its scope, the open folders, the pin
 
 ## Search Captures And The Clipboard
 
-The search field sits at the top of the list of captures and at the top of the clipboard history. In Inbox, search filters the notes of every section. In Clipboard, search filters the clipboard history.
+Press Command-F to show the search field at the top of the list of captures or of the clipboard history. In Inbox, search filters the notes of every section. In Clipboard, search filters the clipboard history.
 
 To find a file, use [Go to File](#go-to-a-file).
 
@@ -167,14 +184,14 @@ A save writes the text of the editor. The editor changes some Markdown to one fo
 
 Select text in a file to show the selection bar. It is the bar of the Reader tab, with Bold, Italic, and Link at the end. See [Highlight and ask in the Reader tab](#highlight-and-ask-in-the-reader-tab).
 
-- A highlight color writes the highlight into the file. Yellow is `==text==`. Green and pink are `<mark class="green">text</mark>` and `<mark class="pink">text</mark>`. To remove a highlight, select the text and the same color again.
-- Note writes a yellow highlight into the file, and keeps your note in Piper. The note shows as a card in the margin.
+- Highlight writes `==text==` into the file. To remove the highlight, select the text and select Highlight again. A green or pink highlight from an older version stays `<mark class="green">text</mark>` or `<mark class="pink">text</mark>`.
+- Note writes a highlight into the file, and keeps your note in Piper. The note shows as a card in the margin.
 - Ask, Explain, and Define send the selection to the margin agent. The answer shows as a card in the margin, and Piper keeps it. The file does not change. A dashed line marks the text of each question.
 - Capture saves the selection as a new capture in Inbox.
 
 Piper keeps the notes and the answers of a file under one capture in Inbox, with the address `piper-file://` and the path of the file. If you rename or move the file, its cards do not follow it.
 
-If the paper is too narrow for the margin, the cards show under the text. In a read-only Preview, the bar has no colors, no Note highlight, and no formatting.
+If the paper is too narrow for the margin, the cards show under the text. In a read-only Preview, the bar has no Highlight, no Note highlight, and no formatting.
 
 ### When Preview Is Read-Only
 
@@ -226,43 +243,45 @@ The page shows the HTML file in a frame. Piper reloads the frame when the file c
 
 Select the Inbox tab, then select All Sections to see the notes and links of every section in one list. Inbox also becomes the section for new notes. Select a section on the Inbox index to show only its captures and make it the section for new notes. Select the Clipboard tab to see the clipboard history. See [Capture notes](capture.md) for the actions on a capture.
 
-The field to add a note is at the top of the list. The list shows the newest capture first, in day groups: Today, Yesterday, This Week, and Earlier. A note shows only its text. To see its time or its source app, move the pointer over the row. A link shows its site, and its number of highlights or its reading time. A capture from a section other than Inbox shows the dot and the name of its section. The chips over the list choose what the list shows:
+The first rows of the Inbox index choose what the list of all sections shows:
 
-| Chip | Captures |
+| Row | Captures |
 | --- | --- |
-| All | Every capture. Continue Reading over the day groups shows up to three articles that you started. See All selects Reading. |
+| All Sections | Every capture. Continue Reading over the day groups shows up to three articles that you started. See All selects Reading. |
 | Notes | The captures that are not links |
 | Reading | The links, in Continue, Up Next, and Finished This Week. See [Keep a reading list](#keep-a-reading-list). |
 
-Piper keeps the chip of each section until you quit.
+The field to add a note is the first line of the list. The list shows the newest capture first, in day groups: Today, Yesterday, This Week, and Earlier. Each row shows its time at the right. A note shows its text, and under it the section and the source app. A link shows the first line of its title in a serif font. Under the title, it shows the site, the reading time, the progress, and the section.
 
-The captures that you mark as done today show under "done today" at the end of All and Notes. Select the line to show or hide them.
+The captures that you mark as done today show under "done today" at the end of All Sections and Notes. Select the line to show or hide them.
 
-A note has a circle. Select the circle to mark the note as done. A link has a ring that fills as you read. Select the ring to mark the article as read, or to read it again. A completed note and a read article show a gray check, and their titles are gray.
+A note has a circle. Select the circle to mark the note as done. A done note shows an indigo circle with a check, and a line goes through its text. A link has a dot, which is indigo until you open the link. Select the dot to mark the article as read, or to read it again.
 
-A link shows the first line of its title, and its site under the title. A started article also shows the minutes left. If a capture has highlights, notes, or questions, their number shows on the second line. Select the number to open the list of them. Select it again to close the list.
+The last two notes of a capture show under its row, with the quoted text. A line under them gives the number of the other notes. Select a note to open it. When a new note lands under a row, the row flashes.
 
-Select a capture to open it on a reader paper. You can also select it and press Return. The date shows at the top. Type in the text to change the note. Piper saves the change shortly after you stop typing. If the note looks like source code, the text uses a monospaced font. The editor does not change quotes or dashes while you type. The source app shows under the text.
+Under the list, a line shows the latest clipboard text. Select Keep to save it to Inbox.
+
+Select a capture to open it on a reader paper. You can also select it and press Return. Type in the text to change the note. Piper saves the change shortly after you stop typing. If the note looks like source code, the text uses a monospaced font. The editor does not change quotes or dashes while you type. The source app shows under the text.
 
 A capture that holds only a web link opens in the tab that you last chose for its site, Reader or Web. A link from a new site opens in the Web tab. A click on one of its highlights or questions opens the Reader tab at that text. Its agent session, if it has one, shows in the session card. A note that holds a link and more text opens in the editor. To read its link, Control-click the note and select Add Link to Reading.
 
-The tabs at the bottom of the paper show Reader, Web, and Notes for a capture with a link. The Reader tab shows the article as clean text, with the site, the title, and the reading time. It keeps the images with their captions, the videos, the code blocks, and the tables of the page. A YouTube, Vimeo, Loom, or Wistia video shows as its still image. Select it to watch the video in your browser. On a narrow paper, notes appear below the article. On a wide paper, they appear in the margin. The Web tab shows the original page. The Notes tab shows the notes of the article. If Piper cannot find the article text, select Show Web Page.
+The tabs at the bottom of the paper show Reader, Web, and Notes for a capture with a link. The Reader tab shows the article as clean text, with the site, the title, and the reading time. It keeps the images with their captions, the videos, the code blocks, and the tables of the page. A YouTube, Vimeo, Loom, or Wistia video shows as its still image. Select it to watch the video in your browser. Notes and answers show under their passage. The Web tab shows the original page. The Notes tab shows the notes of the article. If Piper cannot find the article text, select Show Web Page.
 
 While the article loads, the Reader tab shows the site, the title when Piper knows it, and gray lines in the place of the text. If the page takes more than five seconds, a line says that the page is slow. When the text arrives, it moves into place. If Reduce Motion is on in the Accessibility settings of macOS, nothing moves.
 
-The bar over the article shows the minutes left, and a line under it shows the progress. Piper saves your place when you stop scrolling. The next time, the article opens at that place, and a line over the article says so. To go to the title, select Start from the top. An article that you highlighted in a browser, and did not open in Piper, opens at your newest highlight.
+The row of the article in the list shows the reading time and the progress. Piper saves your place when you stop scrolling. The next time, the article opens at that place, and a line over the article says so. To go to the title, select Start from the top. An article that you highlighted in a browser, and did not open in Piper, opens at your newest highlight.
 
 ### Highlight And Ask In The Reader Tab
 
 ![Close-up of article highlights with personal notes in the margin](../images/reader-highlights.png)
 
-Select text in the article to show the selection bar. The bar has Ask, Explain, Define, three highlight colors, and Capture.
+Select text in the article to show the selection bar. The bar has Highlight and Note, then Ask, Explain, Define, and Capture.
 
-- To mark the text, select a color.
+- To mark the text, select Highlight or press H. The highlight is indigo. Green and pink highlights from older versions keep their color.
 - To get an explanation, select Explain.
 - To get the meaning of a word or a phrase, select Define.
 - To ask your own question, select Ask or press Command-K. Type the question, then press Return.
-- To write your own note, select Note or press N. Type the note, then press Return. Piper saves a yellow highlight with the note.
+- To write your own note, select Note or press N. A note field opens under the passage. Type the note, then press Return. Piper saves a highlight with the note. Escape closes the field and keeps the highlight.
 - To save the selection as a new capture in Inbox, select Capture.
 
 Ask, Explain, and Define send the selection to the margin agent. By default, the margin agent is Claude Code with Haiku. To change the agent or the model, open Settings > AI > Defaults.
@@ -271,9 +290,9 @@ The first question about a capture also sends the article text. One hidden sessi
 
 The margin agent works in the folder of the Send buttons. It can read the files of that folder and search the web. It cannot change a file or run a command, so it never asks for your approval. Claude Code gets only the Read, Grep, Glob, WebSearch, and WebFetch tools, and no MCP server. For an ACP agent, Piper uses the read-only mode of the agent, such as Plan. Piper also allows each request that only reads, and denies each other request. An ACP agent without a read-only mode cannot answer in the margin. See [Choose the agent, the model, and the mode](claude.md#choose-the-agent-the-model-and-the-mode).
 
-Your notes show as plain cards in the margin, with the app and the time. Up Arrow and Down Arrow scroll the article, also while the list has the focus. To move to the next or the previous mark, press Option-Down Arrow or Option-Up Arrow.
+Your notes show under their passage, with the app and the time. Up Arrow and Down Arrow scroll the article, also while the list has the focus. To move to the next or the previous mark, press Option-Down Arrow or Option-Up Arrow.
 
-The answer shows as a card in the margin, next to the underlined text. The card names the model and the agent. If the answer used tools, a line under the answer names them, for example "Used 2 reads, 1 search". To ask a follow-up question, type in the card and press Return. To hide a card, select its close button. To show the card again, select the underlined text.
+The answer shows as a card under the passage, and the text of the question is underlined. The card names the model and the agent. If the answer used tools, a line under the answer names them, for example "Used 2 reads, 1 search". To ask a follow-up question, type in the card and press Return. To hide a card, select its close button. To show the card again, select the underlined text.
 
 To continue with an agent that can change files, select Continue in Session on the card. Piper opens a draft session with the question thread and the address of the page. The agent starts only after you send the draft.
 
@@ -296,7 +315,7 @@ Piper loads HTTP and HTTPS pages only. A page needs a network connection.
 
 ## Keep A Reading List
 
-Select the Reading chip over the Inbox list. Reading shows each capture that holds only a web link, and each page that you saved from a browser.
+Select Reading on the Inbox index. Reading shows each capture that holds only a web link, and each page that you saved from a browser.
 
 | Group | Articles |
 | --- | --- |
@@ -304,7 +323,7 @@ Select the Reading chip over the Inbox list. Reading shows each capture that hol
 | Up Next | The articles that you did not open |
 | Finished This Week | The articles that you read to the end in the last seven days |
 
-The count on the Reading chip includes all three groups. When you scroll to the end of an article, or select its ring, Piper moves it to Finished This Week. Seven days later, Piper marks it as done, and it moves to Done. Piper makes this check at launch and each time the feed paper becomes active.
+The count of the Reading row includes all three groups. When you scroll to the end of an article, or select its dot, Piper moves it to Finished This Week. Seven days later, Piper marks it as done, and it moves to Done. Piper makes this check at launch and each time the feed paper becomes active.
 
 ### Use The Notes Tab
 

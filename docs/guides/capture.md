@@ -106,7 +106,7 @@ If an app does not expose its selection, use the clipboard:
 
 ## Capture From A Web Page
 
-Piper finds the web page in front through Accessibility. Each web page has one link capture, which shows in Inbox and under the Reading chip. The highlights, the notes, and the reading position of the page belong to that capture. See [Keep a reading list](browse.md#keep-a-reading-list).
+Piper finds the web page in front through Accessibility. Each web page has one link capture, which shows in Inbox and under Reading on the Inbox index. The highlights, the notes, and the reading position of the page belong to that capture. See [Keep a reading list](browse.md#keep-a-reading-list).
 
 Two links name the same page when they differ only in tracking parameters, such as `utm_source`, in the fragment, or in `www.`.
 
@@ -146,7 +146,7 @@ Piper loads a page in its own web view, and that web view does not have the sign
 
 - In the capture panel, move the pointer over a copied link and select Read. Piper adds the page to Inbox and opens it.
 - Control-click a note that holds a link and more text, then select Add Link to Reading.
-- Save a note that holds only a link. The Reading chip shows each capture that holds only a link.
+- Save a note that holds only a link. Reading on the Inbox index shows each capture that holds only a link.
 
 ## Organize Notes
 
@@ -207,7 +207,7 @@ On the feed paper, select a note to open it on a reader paper. You edit the note
 
 The circle on a note row marks the note as done. The ring on an article marks it as read. On the feed paper, Space marks the selected notes as done. On a note paper, select Mark as Done. Mark as Done is also in the selection bar and the context menu. A note that you mark as done moves to "done today" at the end of its list. The next day, it shows only in Done.
 
-Done is on the Inbox index of the feed paper and in the More tab of the capture panel. Done groups the completed notes by the month in which you marked them as done. The newest month is first. A completed note shows a gray check, and its text is gray. Search in Done matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
+Done is on the Inbox index of the feed paper and in the More tab of the capture panel. Done groups the completed notes by the month in which you marked them as done. The newest month is first. In the capture panel, a completed note shows a gray check, and its text is gray. On the feed paper, it shows an indigo check, and a line goes through its text. Search in Done matches only completed notes. Space marks selected notes as done or reopens them. Reopened notes return to their original sections.
 
 If you close a changed editor or quit Piper, Piper asks you to Save, Discard, or Cancel. A failed save keeps the draft.
 

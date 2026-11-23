@@ -33,10 +33,8 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 
 - [ ] Run the paper, editing, and reading preference checks.
 - [ ] Decide whether the file paper needs find in the open file.
+- [ ] Test the paper keys, the hint strip, and the paper motion with real input. QA posted the key events to PiperQA in a locked session, so the menus, the mouse, a drag, and the animations are not checked.
 - [ ] Take new screenshots of the papers for the README and the guides. `main-window.png` and `feeds.png` show the old main window.
-- [ ] Give each article paper its own Reader, Web, or Notes tab. Today `AppModel.articleTab` is one value, so two open link papers show the same tab.
-- [ ] Decide whether the index of a tab moves with the arrow keys, and whether keys choose a tab.
-- [ ] Decide whether R, S, and I act on an article paper. Today they act on the article list.
 - [ ] Decide whether the capture tabs follow the section at the top of the list while it scrolls. Today a tab changes only on a click.
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
 - [ ] Import a real NetNewsWire `Subscriptions.opml`, and make sure that each feed refreshes.

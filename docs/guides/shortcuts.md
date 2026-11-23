@@ -69,16 +69,23 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 | Command-W | Close the reader paper with the focus, or the feed paper |
 | Escape | Close the reader paper with the focus. On the feed paper, go from the index back to the list. |
 | Command-` | Move the focus to the next paper |
+| T | Put each reader paper back in its place of the cascade |
+| 1 to 8 | On the feed paper, show the tab with that number. The number of the active tab shows its first scope, then opens its index. |
+| Left Arrow | On the feed paper, open the index of the active tab |
+| Up Arrow / Down Arrow | On the index, move the cursor. In a list of files or sessions, select the previous or next row. |
+| Return / Right Arrow | On the index, show the scope at the cursor. Return in a list of files or sessions opens the row on a paper. |
+| `[` / `]` | On the feed paper, show the previous or the next scope of the tab |
 | Option-Command-C | Open or close the session card of the reader paper with the focus. With no reader paper open, open the detached session panel. |
 | Command-K | In the Reader tab, with text selected, ask about the selected text |
-| N | In the Reader tab, write a note on the selected text |
+| H | In the Reader tab, highlight the selected text |
+| N | In the Reader tab, write a note on the selected text. Return saves the note. Escape keeps the highlight with no note. |
 | Up Arrow / Down Arrow | In the Reader tab, scroll the article |
 | Option-Down Arrow / Option-Up Arrow | In the Reader tab, move to the next or the previous mark |
 | Escape | In the Reader tab, close the selection bar |
 
 ## Feeds
 
-These shortcuts work in the list of articles. See [Read feeds](feeds.md).
+These shortcuts work in the list of articles. R, S, I, and B also work on an article paper with the focus. See [Read feeds](feeds.md).
 
 | Shortcut | Action |
 | --- | --- |

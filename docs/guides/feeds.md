@@ -62,7 +62,7 @@ When you select an article, Piper marks it as read. The article stays in the lis
 | I | Keep the article in Inbox |
 | Command-K | Mark all articles in the list as read |
 
-The keys act on the article that you select in the list. The header of an article paper has Read, Star, and Keep. Right-click an article in the list for the same actions, Open in Browser, and Copy Link.
+The keys act on the article that you select in the list. R, S, I, and B also act on an article paper with the focus. The header of an article paper has Read, Star, and Keep. Right-click an article in the list for the same actions, Open in Browser, and Copy Link.
 
 Keep saves the article to Inbox as a link capture. The source of the capture is the title of the feed. After Keep, the paper also shows the Notes tab. A highlight or a note on a feed article also keeps the article, because a note needs a capture.
 

@@ -46,7 +46,7 @@ The tests do not cover the UI or the global shortcut path.
 
 1. Select the Inbox tab, then All Sections. Make sure that the captures of every section show in one list, in day groups, and that the Inbox tab shows the count.
 2. Select a section on the Inbox index. Make sure that the list shows only the captures of that section, and that the composer saves to it.
-3. Select each chip: All, Notes, and Reading. Make sure that each count matches the list.
+3. On the Inbox index, select All Sections, Notes, and Reading. Make sure that each count matches the list.
 4. Select New Section on the Inbox index. Make sure that the new section shows on the index.
 5. Select several notes. Use Merge, Move, Copy, Delete, and Undo.
 6. Search from the field at the top of the Inbox list. Make sure that results come from every section.

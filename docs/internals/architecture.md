@@ -60,7 +60,7 @@ The panel is a non-activating `NSPanel` on every Space. Its initial size is 600 
 
 ### Papers
 
-`PaperDesk` owns the feed paper and the reader papers. A paper is a `PaperWindow`: a titled window with a full-size content view, a transparent title bar, and no title bar buttons. Its background is clear, and the content clips to a rounded rectangle of 20 points. The system draws the shadow. A drag on the background or on the header moves the paper. `PaperWindow.cancelOperation` calls its `escape` closure, so Escape reaches the paper after the views in it.
+`PaperDesk` owns the feed paper and the reader papers. A paper is a `PaperWindow`: a titled window with a full-size content view, a transparent title bar, and no title bar buttons. Its background is clear, and the content clips to a rounded rectangle of 20 points. The window is larger than its paper by `AppDefaults.Papers.shadowMargin`, and the paper draws its own shadow in that margin. The system shadow is off. A drag on the background or on the header moves the paper. `PaperWindow.cancelOperation` calls its `escape` closure, so Escape reaches the paper after the views in it.
 
 `FeedPaperController` owns the feed paper. `FeedPaperView` draws the column of tabs on the left edge, and the sheet with the index or the list. `FeedPaperModel` holds the state of the paper:
 
@@ -84,7 +84,17 @@ A row of a list calls `FeedPaperModel.open`, which `PaperDesk.open(_:)` handles.
 
 `AppModel.sessionPresentation` is the pill, the card, or the detached panel, and preferences keep it. `SessionCard` hosts `SessionPane`, and `SessionTarget` picks its folder, its session, and its context page. `SessionPanelController` shows the same card in a non-activating `NSPanel` on every Space. Its close button returns the presentation to the pill. When a reader paper becomes key, the desk sets `AppModel.actionTarget` from its item.
 
-`PaperDesk.cycle()` moves the focus to the next visible paper, for Next Paper (Command-`). `PaperDesk.closeFocused()` closes the reader paper with the focus.
+`PaperDesk.cycle()` moves the focus to the next visible paper, for Next Paper (Command-`). `PaperDesk.closeFocused()` closes the reader paper with the focus. `PaperDesk.tidy()` moves each reader paper back to its place of the cascade.
+
+### Paper Keys
+
+`PaperKey` turns a key event with no modifier into a paper key: an arrow, Return, a number, a bracket, or a letter. `FeedPaperController` and each `ReaderPaperController` have a local key monitor. A monitor acts only when its window is `PaperKey.focusedWindow` and `PaperKey.editsText` is false. A text view or a sheet keeps its keys.
+
+- The feed paper reads the number keys through `NumberKey.action`, Left Arrow, the brackets, and T. On the index, the arrows move `FeedPaperModel.indexCursor` over `IndexEntry.entries`, and Return picks the row.
+- A list of articles, files, or sessions sets `FeedPaperModel.listKeys` for its arrows, Return, and letters. A list of captures reads its own keys in `CaptureView`.
+- A reader paper scrolls the Reader tab with the arrows, sends H and N to the reader page, and gives R, S, I, and B to `AppModel.articleKey`. While the reader page has the focus, the page reads its own keys. It posts each letter that it does not use, and the paper performs it.
+
+`HintStrip` is a non-activating panel at the bottom of the screen. `Hint.hints` gives the keys for the paper with the focus, and the desk updates the strip when the focus changes.
 
 ## Capture
 
@@ -112,7 +122,7 @@ The service then looks for a web page. It reads `AXDocument` from the focused el
 
 `ClipboardInbox` polls the pasteboard and keeps the 50 latest texts from the last 7 days, with the copy time and the app in front. It stores them in the `clipboard` table through the `Database` of `CaptureStore`. `ClipboardRow` in `CaptureRows.swift` saves to Inbox with Keep, and pastes through `ClipboardPaster` on a double-click.
 
-`CaptureView` draws the capture list for both windows. The add field is at the top of the list in both windows. In the panel, the list holds the active section, the newest note first. A search shows every section under a header. Tabs select the first `AppDefaults.CaptureItem.sectionTabCount` sections, and `CaptureSectionMenu` holds the others. The clipboard strip under the panel list shows the latest clipboard texts. `InboxStream.doneToday` gives the captures done today for the fold at the end of each list. On the feed paper, `CaptureListContent.stream` shows the `InboxStream` of the scope: every section for Inbox, or one section. `InboxStream` filters the captures by section, chip, and search, and groups them as Continue Reading and days, or as Continue, Up Next, and Finished This Week. `AppModel.inboxFilters` keeps the chip of each section. `InboxRow` draws each capture of the stream, and `NoteContextMenu` gives the panel rows and the stream rows the same menu. On the feed paper, a click on a row calls `openCapture`, which opens the capture on a reader paper. Command-click and Shift-click set `checking` and select several captures. The selection bar shows while `checking` is true. The circle completes a note, and the ring marks an article as read. `NoteDetail` shows a link capture in its tabs and any other note in an editor. `SessionTarget` reads the open note from `AppModel.actionTarget`. For a note, the card shows the selected session when it belongs to the note, or else the newest session of the note, and it leaves out the margin sessions. A message from the card starts a session with the `noteID` of the note. `AppModel.newSessionNote` keeps the card empty after New Session. The child notes of an article stay hidden until the reader opens them. Done shows `InboxStream.archive`, which groups the done captures by the month of `modifiedAt`, because marking a capture as done sets that time. `CaptureView` takes keys on the feed paper only while the paper shows a list.
+`CaptureView` draws the capture list for both windows. The add field is at the top of the list in both windows. In the panel, the list holds the active section, the newest note first. A search shows every section under a header. Tabs select the first `AppDefaults.CaptureItem.sectionTabCount` sections, and `CaptureSectionMenu` holds the others. The clipboard strip under the panel list shows the latest clipboard texts. `InboxStream.doneToday` gives the captures done today for the fold at the end of each list. On the feed paper, `CaptureListContent.stream` shows the `InboxStream` of the scope: every section for Inbox, or one section. `InboxStream` filters the captures by section, filter, and search, and groups them as Continue Reading and days, or as Continue, Up Next, and Finished This Week. `AppModel.inboxFilters` keeps the filter of each section. The Notes and Reading rows of the Inbox index set the filter. `InboxRow` draws each capture of the stream, and `NoteContextMenu` gives the panel rows and the stream rows the same menu. On the feed paper, a click on a row calls `openCapture`, which opens the capture on a reader paper. Command-click and Shift-click set `checking` and select several captures. The selection bar shows while `checking` is true. The circle completes a note, and the dot marks an article as read. `NoteDetail` shows a link capture in its tabs and any other note in an editor. `SessionTarget` reads the open note from `AppModel.actionTarget`. For a note, the card shows the selected session when it belongs to the note, or else the newest session of the note, and it leaves out the margin sessions. A message from the card starts a session with the `noteID` of the note. `AppModel.newSessionNote` keeps the card empty after New Session. The child notes of an article stay hidden until the reader opens them. Done shows `InboxStream.archive`, which groups the done captures by the month of `modifiedAt`, because marking a capture as done sets that time. `CaptureView` takes keys on the feed paper only while the paper shows a list.
 
 ## Agent Sessions
 
@@ -294,7 +304,7 @@ After each refresh, `FeedStore` prunes the read articles that are not starred an
 
 `FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` and `RowIcon.favicon` draw the icon.
 
-The Feeds index holds one row for each `FeedFilter`. `FeedArticleList` fills the list of the feed paper. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `ReaderAddressBar` and `TabIsland` as `ArticleReader`. The header of the article paper has Read, Star, and Keep. `FeedStore.revision` changes after each write, so the views read again.
+The Feeds index holds one row for each `FeedFilter`. `FeedArticleList` fills the list of the feed paper. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `TabIsland` as `ArticleReader`. The header of the article paper has Read, Star, and Keep. `FeedStore.revision` changes after each write, so the views read again.
 
 ## Discover
 
@@ -314,6 +324,8 @@ A debug build that starts with `-PiperQA YES` is in QA mode. A test uses QA mode
 - At launch, Piper opens the feed paper instead of the capture panel.
 - `QA.activate` replaces `NSApp.activate`, so Piper never becomes the active app.
 - `QAScripts` runs JavaScript in the editor page. A test posts the distributed notification `com.piper.qa.eval` with the body of an async function. Piper writes the result to the file that `-PiperQAResult` names.
+- The distributed notification `com.piper.qa.do` runs one command on the papers: `key`, `focus`, `open`, or `reader`. The `key` command posts a key event, which the local key monitors read. See `QAScripts` for the syntax.
+- In QA mode, `PaperKey.focusedWindow` is the paper that QA gave the focus, because Piper has no key window while it is not active.
 
 macOS sends keys only to the active app. Thus a test in QA mode inserts text with a script, not with keys. A release build has no QA mode.
 
@@ -348,7 +360,7 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [InboxRow.swift](../../Sources/Piper/InboxRow.swift) | The rows of the Inbox stream and the progress ring |
 | [Readers/](../../Sources/Piper/Readers) | File previews, the Reader tab, the Web tab, the Notes tab, and the tabs at the bottom of a paper |
 | [Modules/Captures/ReadingList.swift](../../Sources/Modules/Captures/ReadingList.swift) | The Reading groups and the Markdown of Save as File |
-| [Modules/Captures/InboxStream.swift](../../Sources/Modules/Captures/InboxStream.swift) | The groups and the chip counts of the Inbox stream |
+| [Modules/Captures/InboxStream.swift](../../Sources/Modules/Captures/InboxStream.swift) | The groups and the filter counts of the Inbox stream |
 | [Readers/EditorPage.swift](../../Sources/Piper/Readers/EditorPage.swift) | The editor page, its bridge, the asset scheme, and the conflict bar |
 | [EditorSession.swift](../../Sources/Piper/EditorSession.swift) | The save of a Markdown file and the conflict rules |
 | [CommandPalette.swift](../../Sources/Piper/CommandPalette.swift) | The command palette |
