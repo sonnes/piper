@@ -173,6 +173,10 @@ struct NoteTextEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: NoteTextEditor
         init(_ parent: NoteTextEditor) { self.parent = parent }
+        /// The typing undo of the note. The undo stack of the app stays apart.
+        private let undoManager = UndoManager()
+
+        func undoManager(for view: NSTextView) -> UndoManager? { undoManager }
 
         func textDidChange(_ notification: Notification) {
             guard let editor = notification.object as? NSTextView else { return }

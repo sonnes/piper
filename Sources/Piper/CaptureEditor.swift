@@ -118,6 +118,10 @@ struct CaptureEditor: NSViewRepresentable {
         init(_ parent: CaptureEditor) { self.parent = parent }
 
         private var reportedHeight: CGFloat?
+        /// The typing undo of the field. The undo stack of the app stays apart.
+        private let undoManager = UndoManager()
+
+        func undoManager(for view: NSTextView) -> UndoManager? { undoManager }
 
         func textDidChange(_ notification: Notification) {
             guard let editor = notification.object as? NSTextView else { return }

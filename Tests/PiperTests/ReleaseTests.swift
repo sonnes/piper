@@ -108,7 +108,7 @@ final class ReleaseTests: XCTestCase {
         XCTAssertNoThrow(try store.add("keep", section: store.activeSection))
         XCTAssertNoThrow(try store.update(store.notes[0].id, text: "keep"))
         XCTAssertNoThrow(try store.chooseSection("Inbox"))
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertTrue(store.notes.isEmpty)
         XCTAssertEqual(store.sections, ["Inbox", "Research"])
         XCTAssertEqual(store.activeSection, "Inbox")
@@ -129,7 +129,10 @@ final class ReleaseTests: XCTestCase {
         let second = CaptureStore(url: databaseURL)
         XCTAssertNoThrow(try second.add("newer note", section: second.activeSection))
         XCTAssertThrowsError(try first.update(first.notes[0].id, text: "stale edit"))
-        XCTAssertThrowsError(try first.undo())
+        var undoError: Error?
+        first.reportUndoError = { undoError = $0 }
+        first.undoManager.undo()
+        XCTAssertNotNil(undoError)
         XCTAssertEqual(first.notes.map(\.text), ["baseline"])
         XCTAssertEqual(CaptureStore(url: databaseURL).notes.map(\.text), ["baseline", "newer note"])
     }
@@ -144,11 +147,11 @@ final class ReleaseTests: XCTestCase {
         XCTAssertThrowsError(try store.add("retry me", section: store.activeSection))
         XCTAssertEqual(store.notes.map(\.text), ["saved"])
         XCTAssertEqual(sqlite3_exec(lock, "ROLLBACK", nil, nil, nil), SQLITE_OK)
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertTrue(store.notes.isEmpty)
         XCTAssertNoThrow(try store.add("retry me", section: store.activeSection))
         XCTAssertEqual(CaptureStore(url: databaseURL).notes.map(\.text), ["retry me"])
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertTrue(store.notes.isEmpty)
     }
 

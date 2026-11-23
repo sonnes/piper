@@ -38,7 +38,7 @@ final class PiperTests: XCTestCase {
         try store.merge(store.notes.map(\.id))
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(store.notes[0].text, text + "\n\nsecond")
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.notes.count, 2)
         XCTAssertEqual(CaptureStore(url: url).notes[0].text, text)
         XCTAssertNoThrow(try store.add("# literal heading", section: "Inbox"))

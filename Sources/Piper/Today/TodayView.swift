@@ -583,12 +583,6 @@ struct TodayView: View {
                 today.selection = Set(order)
                 today.multiple = !order.isEmpty
             case "c" where !editingText && !chosen.isEmpty: today.copy(chosen, asList: flags.contains(.shift))
-            case "z" where !editingText:
-                if today.undo != nil {
-                    today.runUndo()
-                } else {
-                    do { try store.undo() } catch { model.messages.report(error) }
-                }
             default:
                 if event.keyCode == 36, flags.contains(.shift), !editingText, !chosen.isEmpty {
                     today.send(chosen, action: nil)

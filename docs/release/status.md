@@ -15,7 +15,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Capability | Status | Evidence or limit |
 | --- | --- | --- |
 | Notes, sections, and search in Today | Implemented | `CaptureStoreTests`, `ReleaseTests`, `UnifiedStreamTests` (search) |
-| Merge, copy as list, done, move, delete, and one-step undo | Implemented | `CaptureStoreTests` |
+| Merge, copy as list, done, move, delete, and undo and redo with several levels | Implemented | `CaptureStoreTests`, `TodayModelTests`. Edit > Undo and Edit > Redo on a paper are not checked in the app. |
 | Capture field draft that survives a restart | Implemented | Stored in UserDefaults. No automated test. |
 | Note editing in a sheet, a window, or in place | Implemented | `ReleaseTests` (editor conflict), `QuitSafetyTests`. In-place saving has no automated test. |
 | Command-1, New Capture, and the menu bar item open the capture field of Today | Implemented | `PaperDeskTests` (New Capture). The keys and the menu bar item are not checked in the app. |
@@ -63,7 +63,6 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |
 | Feed parsing: RSS, Atom, RSS-in-JSON, JSON Feed, and OPML | Implemented | `FeedsTests` (the upstream parser tests of NetNewsWire, with their fixtures) |
 | Feed subscriptions, refresh, read marks, and the mode of each feed | Implemented | `FeedStoreTests` (conditional GET, failure waits, prune, marks, mode on an old database). Not checked on a real build. |
-| Copy of starred articles to kept link captures | Implemented | `StarMigrationTests` (one copy, no undo of the copy) |
 | Import of NetNewsWire subscriptions and OPML files | Implemented | `FeedStoreTests` (OPML with folders). Not checked on a real NetNewsWire file. |
 | Sources: the feed list with rates and modes, add by address, OPML import, and Sites You Read Often | Implemented | `SourcesTests`, `HistoryTests` (sources, digest, decay, blocked sites), `FeedStoreTests` (feed discovery, suggestions), `PaperDeskTests` (open Sources). Checked in the app with fictional data on November 23, 2026. Import and a real history scan not checked in the app. |
 | Vault search across titles, paths, descriptions, and text | Implemented | `WikiWorkspaceTests` (multiple words) |

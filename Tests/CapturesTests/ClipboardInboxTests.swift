@@ -111,7 +111,7 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertNotNil(try inbox.save(id))
         copy("next thought")
         XCTAssertEqual(inbox.entries.map(\.text), ["next thought"])
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(inbox.entries.map(\.text), ["next thought", "first thought"])
         XCTAssertEqual(inbox.entries.last?.id, id)
         XCTAssertTrue(store.notes.isEmpty)
@@ -231,7 +231,7 @@ final class ClipboardInboxTests: XCTestCase {
     func testSavingANoteKeepsTheStoredText() throws {
         copy("keep me")
         XCTAssertNotNil(try inbox.save(inbox.entries[0].id))
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(reopen().entries.map(\.text), ["keep me"])
     }
 }

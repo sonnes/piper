@@ -74,7 +74,9 @@ Keep on a digest keeps each article of the digest. Done on a digest marks each a
 
 Other actions are in the More menu and the context menu: Open, Edit, Edit in New Window, Copy, Copy Link, Open in Browser, Show the Feed, and Delete. Delete is not available for an article or a digest.
 
-Space and the circle of a note also mark it as done. The Delete key deletes the selected notes. Command-Z undoes the last change.
+Space and the circle of a note also mark it as done. The Delete key deletes the selected notes.
+
+To undo a change, press Command-Z or choose Edit > Undo. The Undo button of the toast does the same. To undo older changes, press Command-Z again. To redo a change, press Shift-Command-Z. Undo does not change reading progress or answers from Claude that came after the change.
 
 Keep, File, Copy, and Merge show a short message in a toast at the bottom right corner of the screen. If a change cannot be saved, the toast shows the reason with a warning sign, and your notes stay as they were.
 

@@ -51,7 +51,8 @@ These shortcuts work in Today on the feed paper when no sheet is open. The lette
 | Command-C | Copy the selected rows |
 | Command-Shift-C | Copy the selected rows as a numbered list |
 | Command-Shift-Return | Prepare a draft for each selected row in the default folder |
-| Command-Z | Undo the last Done, or the last note change |
+| Command-Z | Undo the last change, such as Done, Delete, File, or a note change. Press it again to undo the change before it. |
+| Shift-Command-Z | Redo the change that Command-Z undid |
 | Delete / Forward Delete | Delete the selected notes, with Undo |
 | Escape | Clear the selection, then clear the search |
 
@@ -72,7 +73,8 @@ In the File list, Up Arrow and Down Arrow choose a place, Return files the rows,
 | Command-R | Scan the folder again |
 | Command-[ | Go back |
 | Command-] | Go forward |
-| Command-Z | Undo an edit |
+| Command-Z | Undo an edit in a text field. Outside a text field, undo the last change to the notes. |
+| Shift-Command-Z | Redo |
 | Command-W | Close the reader paper with the focus, or the feed paper |
 | Escape | Close the reader paper with the focus. On the feed paper, go from the index back to the list. |
 | Command-` | Move the focus to the next paper |

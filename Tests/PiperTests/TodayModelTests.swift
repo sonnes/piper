@@ -125,6 +125,20 @@ final class TodayModelTests: XCTestCase {
         XCTAssertNotNil(stored(item))
     }
 
+    func testEditUndoAndRedoGoThroughTheSameStackAsTheUndoButton() throws {
+        let item = try note("Crane 3 is down")
+        let entry = try clip("tail -f cranes.log")
+        today.done([item, try article("one"), entry])
+        model.undoManager.undo()
+        XCTAssertEqual(stored(item)?.isDone, false)
+        XCTAssertEqual(model.feeds.article("one")?.read, false)
+        XCTAssertEqual(model.clipboard.entries.map(\.text), ["tail -f cranes.log"])
+        model.undoManager.redo()
+        XCTAssertEqual(stored(item)?.isDone, true)
+        XCTAssertEqual(model.feeds.article("one")?.read, true)
+        XCTAssertTrue(model.clipboard.entries.isEmpty)
+    }
+
     // MARK: - File
 
     func testFileIntoASectionMovesCapturesAndKeepsArticlesThere() throws {

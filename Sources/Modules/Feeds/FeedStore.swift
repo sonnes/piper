@@ -103,8 +103,7 @@ public final class FeedStore {
         read(nil) { try $0.article(id) }
     }
 
-    public func setRead(_ read: Bool, _ articles: [Article]) {
-        let ids = articles.filter { $0.read != read }.map(\.id)
+    public func setRead(_ read: Bool, ids: [String]) {
         guard !ids.isEmpty else { return }
         write { try $0.setRead(read, ids: ids) }
     }
@@ -121,19 +120,9 @@ public final class FeedStore {
         return read([:]) { try $0.unreadCounts() }
     }
 
-    /// The articles that an older version of Piper starred.
-    public func starredArticles() -> [Article] {
-        read([]) { try $0.starredArticles() }
-    }
-
-    /// Removes each old star, after the copy to link captures.
-    public func clearStars() {
-        write { try $0.clearStars() }
-    }
-
     /// Marks as read each article that the filter shows.
     public func markAllRead(_ filter: FeedFilter) {
-        setRead(true, articles(filter))
+        setRead(true, ids: articles(filter).filter { !$0.read }.map(\.id))
     }
 
     // MARK: - Suggestions

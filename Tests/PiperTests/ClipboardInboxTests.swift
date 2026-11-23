@@ -74,7 +74,7 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertNotNil(try inbox.save(id))
         copy("next thought")
         XCTAssertEqual(inbox.entries.map(\.text), ["next thought"])
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(inbox.entries.map(\.text), ["next thought", "first thought"])
         XCTAssertEqual(inbox.entries.last?.id, id)
         XCTAssertTrue(store.notes.isEmpty)

@@ -32,7 +32,7 @@ public final class FeedDatabase {
         CREATE TABLE IF NOT EXISTS articles (
           id TEXT PRIMARY KEY, feed_id TEXT NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
           url TEXT NOT NULL, title TEXT NOT NULL, summary TEXT NOT NULL, published REAL, arrived REAL NOT NULL,
-          read INTEGER NOT NULL DEFAULT 0, starred INTEGER NOT NULL DEFAULT 0)
+          read INTEGER NOT NULL DEFAULT 0)
         """)
         try execute("CREATE INDEX IF NOT EXISTS articles_feed ON articles(feed_id, read)")
         if try !columns(of: "feeds").contains("mode") {
@@ -201,27 +201,9 @@ public final class FeedDatabase {
         }
     }
 
-    /// The articles that an older version of Piper starred. `StarMigration`
-    /// copies them to link captures.
-    public func starredArticles() throws -> [Article] {
-        let statement = try prepare("""
-        SELECT id, feed_id, url, title, summary, published, arrived, read FROM articles WHERE starred = 1
-        """)
-        defer { sqlite3_finalize(statement) }
-        var articles: [Article] = []
-        while sqlite3_step(statement) == SQLITE_ROW { articles.append(row(statement)) }
-        return articles
-    }
-
-    /// Removes the old star of each article, after `StarMigration` copied it.
-    public func clearStars() throws {
-        try execute("UPDATE articles SET starred = 0 WHERE starred = 1")
-    }
-
-    /// Removes the read articles that arrived before the date. An article
-    /// with an old star stays until `StarMigration` copies it.
+    /// Removes the read articles that arrived before the date.
     public func prune(before date: Date) throws {
-        let statement = try prepare("DELETE FROM articles WHERE read = 1 AND starred = 0 AND arrived < ?")
+        let statement = try prepare("DELETE FROM articles WHERE read = 1 AND arrived < ?")
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_double(statement, 1, date.timeIntervalSince1970)
         try step(statement)

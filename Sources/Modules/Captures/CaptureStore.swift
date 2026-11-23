@@ -8,6 +8,11 @@ import PiperCore
 /// Each change writes to the database first. The in-memory state moves only
 /// after that write succeeds, so a failed write leaves the notes untouched and
 /// throws its error to the caller.
+///
+/// A change that records undo registers its inverse with `undoManager`. The
+/// inverse touches only the notes and the sections that the change touched,
+/// so a later change without undo, such as reading progress, survives it.
+/// The active section is never part of an undo step.
 @MainActor @Observable
 public final class CaptureStore {
 
@@ -22,14 +27,24 @@ public final class CaptureStore {
     public private(set) var loadError: Error?
     /// The note database. The app also keeps the agent sessions in it.
     public private(set) var database: Database?
-    private var undoState: SavedState?
+    /// The undo stack of the app. Undo and redo of a change go here.
+    @ObservationIgnored public let undoManager: UndoManager
+    /// Takes the error of an undo or a redo that cannot save.
+    @ObservationIgnored public var reportUndoError: (Error) -> Void = { _ in }
     public var notes: [Note] { state.notes }
     public var sections: [String] { state.sections }
     public var activeSection: String { state.activeSection }
 
     // MARK: - Initialization
 
-    public init(url: URL? = nil) {
+    /// - Parameter undoManager: The undo stack of the app. Nil makes a stack
+    ///   in which each change is its own undo step.
+    public init(url: URL? = nil, undoManager: UndoManager? = nil) {
+        self.undoManager = undoManager ?? {
+            let manager = UndoManager()
+            manager.groupsByEvent = false
+            return manager
+        }()
         do {
             let location = url ?? DataFolder.url.appendingPathComponent("notes.sqlite")
             let db = try Database(url: location)
@@ -45,16 +60,6 @@ public final class CaptureStore {
     /// The notes whose parent is this note, oldest first.
     public func children(of id: UUID) -> [Note] {
         childIndex[id] ?? []
-    }
-
-    // MARK: - Undo
-
-    public func undo() throws {
-        guard var previous = undoState, let database else { return }
-        if previous.sections.contains(activeSection) { previous.activeSection = activeSection }
-        try database.save(JSONEncoder().encode(previous))
-        state = previous
-        undoState = nil
     }
 
     // MARK: - Changing Notes
@@ -205,11 +210,8 @@ public final class CaptureStore {
     /// Adds a kept link capture for each web link that no capture holds, with
     /// one undo step. A link that a capture holds already gets the kept tag.
     /// Returns the captures of the links, in the order of the links.
-    ///
-    /// - Parameter recordUndo: False for a copy that Undo must not remove, such
-    ///   as `StarMigration`. The undo step before the copy goes too.
     @discardableResult
-    public func keep(links: [KeptLink], to section: String? = nil, recordUndo: Bool = true) throws -> [Note] {
+    public func keep(links: [KeptLink], to section: String? = nil) throws -> [Note] {
         let destination = section.flatMap { sections.contains($0) ? $0 : nil } ?? activeSection
         var seen: Set<String> = []
         let fresh = links.filter { link in
@@ -220,14 +222,12 @@ public final class CaptureStore {
             Note(text: link.url.absoluteString, section: destination, sources: link.source.map { [$0] } ?? [],
                  sourceURLs: [link.url.absoluteString], tags: [NoteTag.kept.rawValue], reading: Reading(title: link.title))
         }
-        try change(recordUndo: recordUndo) { state in
+        try change { state in
             state.notes += added
             for i in state.notes.indices where existing.contains(state.notes[i].id) && !state.notes[i].isKept {
                 state.notes[i].tags.append(NoteTag.kept.rawValue)
             }
         }
-        // Undo restores a whole state. An older state has no copy, so it goes.
-        if !recordUndo { undoState = nil }
         return links.compactMap { article(for: $0.url) }
     }
 
@@ -368,11 +368,11 @@ public final class CaptureStore {
         try openDatabase().loadPage(url: CaptureLinks.canonical(url))
     }
 
-    /// Removes the page text that no link capture uses. A capture that Undo
-    /// can bring back keeps its page text.
+    /// Removes the page text that no link capture uses. It runs at launch
+    /// only, because Undo can bring back a deleted capture until Piper quits.
     private func prunePages() throws {
         let database = try openDatabase()
-        let kept = Set((state.notes + (undoState?.notes ?? [])).compactMap { note -> String? in
+        let kept = Set(state.notes.compactMap { note -> String? in
             guard note.parent == nil, note.isArticle else { return nil }
             return note.articleURL.map(CaptureLinks.canonical)
         })
@@ -403,7 +403,7 @@ private extension String {
 
 private extension CaptureStore {
 
-    /// Removes the notes and every note under them, then the page text that only they used.
+    /// Removes the notes and every note under them.
     func remove(_ selected: Set<UUID>) throws {
         guard !selected.isEmpty else { return }
         var ids = selected
@@ -412,11 +412,9 @@ private extension CaptureStore {
             level = Set(level.flatMap { children(of: $0).map(\.id) }).subtracting(ids)
             ids.formUnion(level)
         }
-        let removesArticle = notes.contains { ids.contains($0.id) && $0.parent == nil && $0.isArticle }
         try change { state in
             state.notes.removeAll { ids.contains($0.id) }
         }
-        if removesArticle { try prunePages() }
     }
 
     /// Reads the stored blob. An empty database starts a new state.
@@ -444,7 +442,82 @@ private extension CaptureStore {
         update(&candidate)
         guard candidate != state else { return }
         try database.save(JSONEncoder().encode(candidate))
-        if recordUndo { undoState = state }
+        if recordUndo { registerUndo(Revert(undoing: candidate, back: state)) }
         state = candidate
+    }
+
+    /// Registers the revert as one undo step. Its own change registers the
+    /// redo, because the undo manager records a change during an undo as redo.
+    func registerUndo(_ revert: Revert) {
+        undoManager.beginUndoGrouping()
+        undoManager.registerUndo(withTarget: self) { store in
+            do { try store.change { revert.apply(to: &$0) } } catch { store.reportUndoError(error) }
+        }
+        undoManager.endUndoGrouping()
+    }
+}
+
+/// The inverse of one change. It names only the notes and the sections that
+/// the change touched, so the other notes stay as they are.
+private struct Revert {
+    /// The notes that the change added.
+    let added: Set<UUID>
+    /// The notes that the change removed, with their places in the list.
+    let removed: [(index: Int, note: Note)]
+    /// The notes that the change edited, before and after the edit.
+    let edited: [(before: Note, after: Note)]
+    /// The sections before the change. Nil when the change kept them.
+    let sections: [String]?
+    /// The active section before the change. It applies only when the
+    /// current active section no longer exists.
+    let activeSection: String
+
+    init(undoing after: SavedState, back before: SavedState) {
+        let old = Dictionary(uniqueKeysWithValues: before.notes.map { ($0.id, $0) })
+        let kept = Set(after.notes.map(\.id))
+        added = kept.filter { old[$0] == nil }
+        removed = before.notes.enumerated().filter { !kept.contains($0.element.id) }.map { ($0.offset, $0.element) }
+        edited = after.notes.compactMap { note in old[note.id].flatMap { $0 == note ? nil : ($0, note) } }
+        sections = before.sections == after.sections ? nil : before.sections
+        activeSection = before.activeSection
+    }
+
+    func apply(to state: inout SavedState) {
+        state.notes.removeAll { added.contains($0.id) }
+        for (before, after) in edited {
+            guard let i = state.notes.firstIndex(where: { $0.id == before.id }) else { continue }
+            state.notes[i].revert(after, to: before)
+        }
+        for (index, note) in removed where !state.notes.contains(where: { $0.id == note.id }) {
+            state.notes.insert(note, at: min(index, state.notes.count))
+        }
+        if let sections { state.sections = sections }
+        if !state.sections.contains(state.activeSection) {
+            state.activeSection = state.sections.contains(activeSection) ? activeSection : Note.inbox
+        }
+        // The store refuses to load a note whose section is gone.
+        for i in state.notes.indices where !state.sections.contains(state.notes[i].section) {
+            state.notes[i].section = Note.inbox
+        }
+    }
+}
+
+private extension Note {
+    /// Sets each field that differs between the two notes to its value in `before`.
+    mutating func revert(_ after: Note, to before: Note) {
+        func put<Value: Equatable>(_ field: WritableKeyPath<Note, Value>) {
+            if before[keyPath: field] != after[keyPath: field] { self[keyPath: field] = before[keyPath: field] }
+        }
+        put(\.text)
+        put(\.section)
+        put(\.sources)
+        put(\.sourceURLs)
+        put(\.isDone)
+        put(\.createdAt)
+        put(\.modifiedAt)
+        put(\.parent)
+        put(\.tags)
+        put(\.anchor)
+        put(\.reading)
     }
 }

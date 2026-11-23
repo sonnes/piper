@@ -33,17 +33,17 @@ final class CaptureStoreTests: XCTestCase {
 
         XCTAssertNoThrow(try store.setKept(true, ids))
         XCTAssertTrue(store.notes.allSatisfy(\.isKept))
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertFalse(store.notes.contains(where: \.isKept))
 
         XCTAssertNoThrow(try store.setDone(true, ids))
         XCTAssertTrue(store.notes.allSatisfy(\.isDone))
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertFalse(store.notes.contains(where: \.isDone))
 
         XCTAssertNoThrow(try store.move(ids, to: "Harbor"))
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Harbor"])
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Inbox"])
         XCTAssertThrowsError(try store.move(ids, to: "Missing"))
     }
@@ -60,7 +60,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.notes.count, 2)
         XCTAssertTrue(store.notes.allSatisfy(\.isKept))
         XCTAssertEqual(store.notes.last?.reading?.title, "New")
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.notes.map(\.text), ["https://a.example/known"])
         XCTAssertFalse(store.notes[0].isKept)
     }
@@ -80,7 +80,7 @@ final class CaptureStoreTests: XCTestCase {
         let ids = store.notes.map(\.id)
         try store.delete([ids[0], ids[2]])
         XCTAssertEqual(store.notes.map(\.text), ["second"])
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first", "second", "third"])
     }
 
@@ -93,7 +93,7 @@ final class CaptureStoreTests: XCTestCase {
         let merged = try store.merge(store.notes.map(\.id))
         XCTAssertEqual(store.notes, [merged])
         XCTAssertEqual(store.notes[0].text, text + "\n\nsecond")
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.notes.count, 2)
         XCTAssertEqual(CaptureStore(url: url).notes[0].text, text)
         XCTAssertNoThrow(try store.add("# literal heading", section: "Inbox"))
@@ -139,25 +139,53 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertNoThrow(try store.add("second", section: store.activeSection))
         try store.delete(store.notes.map(\.id))
         XCTAssertTrue(store.notes.isEmpty)
-        try store.undo()
-        XCTAssertEqual(store.notes.map(\.text), ["first", "second"])
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first", "second"])
         XCTAssertEqual(CaptureStore(url: url()).notes.count, 2)
 
         XCTAssertNoThrow(try store.add("third", section: store.activeSection))
-        try store.undo()
-        XCTAssertEqual(store.notes.count, 2)
+        store.undoManager.undo()
+        XCTAssertEqual(store.notes.map(\.text), ["first", "second"])
     }
 
-    func testOnlyOneUndoStepIsKept() throws {
+    func testUndoHasSeveralLevelsAndRedo() throws {
         let store = CaptureStore(url: url())
         XCTAssertNoThrow(try store.add("first", section: store.activeSection))
         XCTAssertNoThrow(try store.add("second", section: store.activeSection))
-        try store.undo()
+        try store.delete([store.notes[0].id])
+        store.undoManager.undo()
+        XCTAssertEqual(store.notes.map(\.text), ["first", "second"])
+        store.undoManager.undo()
         XCTAssertEqual(store.notes.map(\.text), ["first"])
-        try store.undo()
-        XCTAssertEqual(store.notes.map(\.text), ["first"])
+        store.undoManager.redo()
+        XCTAssertEqual(store.notes.map(\.text), ["first", "second"])
+        store.undoManager.redo()
+        XCTAssertEqual(store.notes.map(\.text), ["second"])
+        XCTAssertEqual(CaptureStore(url: url()).notes.map(\.text), ["second"])
+    }
+
+    func testUndoOfADeleteKeepsLaterReadingProgress() throws {
+        let store = CaptureStore(url: url())
+        let gone = try store.saveArticle(URL(string: "https://example.dev/gone")!)
+        let read = try store.saveArticle(URL(string: "https://example.dev/read")!)
+        try store.delete([gone.id])
+        try store.updateReading(read.id) { $0.progress = 0.5 }
+        store.undoManager.undo()
+        XCTAssertEqual(store.notes.map(\.id), [gone.id, read.id])
+        XCTAssertEqual(store.notes[1].reading?.progress, 0.5)
+        XCTAssertEqual(CaptureStore(url: url()).notes[1].reading?.progress, 0.5)
+    }
+
+    func testUndoOfAnEditKeepsTheFieldsThatALaterChangeSet() throws {
+        let store = CaptureStore(url: url())
+        let article = try store.saveArticle(URL(string: "https://example.dev/wal")!)
+        try store.toggleDone(article.id)
+        try store.updateReading(article.id) { $0.progress = 0.8 }
+        try store.append("An answer.", to: article.id)
+        store.undoManager.undo()
+        XCTAssertFalse(store.notes[0].isDone)
+        XCTAssertEqual(store.notes[0].reading?.progress, 0.8)
+        XCTAssertTrue(store.notes[0].text.hasSuffix("An answer."))
     }
 
     func testChangingTheActiveSectionSavesWithoutAnUndoStep() throws {
@@ -165,16 +193,16 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertNoThrow(try store.chooseSection("Research"))
         XCTAssertEqual(store.sections, ["Inbox", "Research"])
         XCTAssertEqual(store.activeSection, "Research")
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
 
         XCTAssertNoThrow(try store.chooseSection("Research"))
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertNoThrow(try store.chooseSection("Research"))
         XCTAssertNoThrow(try store.chooseSection("inbox"))
         XCTAssertEqual(store.activeSection, "Inbox")
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
     }
@@ -185,7 +213,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertNoThrow(try store.add("a note", section: store.activeSection))
         try store.delete(store.notes.map(\.id))
         try store.chooseSection("Inbox")
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(store.activeSection, "Inbox")
         XCTAssertEqual(CaptureStore(url: url()).activeSection, "Inbox")
@@ -218,7 +246,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.add("a note", section: store.activeSection))
         XCTAssertThrowsError(try store.chooseSection("Research"))
         XCTAssertTrue(store.notes.isEmpty)
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertTrue(store.notes.isEmpty)
     }
 
@@ -292,7 +320,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.notes, [renamed])
         XCTAssertEqual(CaptureStore(url: url()).state, store.state)
 
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.state, original)
         XCTAssertEqual(CaptureStore(url: url()).state, original)
     }
@@ -334,7 +362,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertTrue(store.notes[1].isDone)
         XCTAssertEqual(CaptureStore(url: url()).state, store.state)
 
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.notes, original.notes)
         XCTAssertEqual(store.sections, original.sections)
         XCTAssertEqual(store.activeSection, "Inbox")
@@ -366,7 +394,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(stale.state, original)
         XCTAssertThrowsError(try stale.deleteSection("Research"))
         XCTAssertEqual(stale.state, original)
-        try stale.undo()
+        stale.undoManager.undo()
         XCTAssertEqual(stale.state, original)
         XCTAssertEqual(CaptureStore(url: url()).state, first.state)
     }
@@ -378,7 +406,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertNoThrow(try store.add("beta", section: "Inbox"))
         let ids = store.notes.map(\.id)
         XCTAssertEqual(try store.merge([ids[1], ids[0]]).text, "alpha\n\nbeta")
-        try store.undo()
+        store.undoManager.undo()
 
         XCTAssertNoThrow(try store.move(Set(ids), to: "Research"))
         XCTAssertEqual(Set(store.notes.map(\.section)), ["Research"])
@@ -531,7 +559,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.notes.map(\.text), ["https://example.dev/wal", "another"])
         XCTAssertTrue(store.children(of: parent).isEmpty)
         XCTAssertTrue(store.notes.contains { $0.id == other })
-        try store.undo()
+        store.undoManager.undo()
         XCTAssertEqual(store.children(of: parent).map(\.id), [child.id])
         XCTAssertEqual(store.children(of: child.id).count, 1)
 
@@ -539,7 +567,7 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertEqual(store.notes.map(\.text), ["another"])
     }
 
-    func testDeletingAnArticleRemovesItsPageText() throws {
+    func testPageTextOfADeletedArticleGoesAtTheNextLaunch() throws {
         let url = url()
         let store = CaptureStore(url: url)
         let kept = URL(string: "https://example.dev/kept")!
@@ -552,27 +580,12 @@ final class CaptureStoreTests: XCTestCase {
         try store.savePageText("orphan text", for: orphan)
 
         XCTAssertNoThrow(try store.delete([goneArticle.id]))
-        // Undo can bring the article back, so its page text stays for now.
         XCTAssertEqual(try store.pageText(for: gone), "gone text")
 
         let reopened = CaptureStore(url: url)
         XCTAssertEqual(try reopened.pageText(for: kept), "kept text")
         XCTAssertNil(try reopened.pageText(for: gone))
         XCTAssertNil(try reopened.pageText(for: orphan))
-    }
-
-    func testASecondDeleteRemovesThePageTextOfTheFirst() throws {
-        let store = CaptureStore(url: url())
-        let first = URL(string: "https://example.dev/first")!
-        let second = URL(string: "https://example.dev/second")!
-        let firstArticle = try store.saveArticle(first)
-        let secondArticle = try store.saveArticle(second)
-        try store.savePageText("first text", for: first)
-        try store.savePageText("second text", for: second)
-        XCTAssertNoThrow(try store.delete([firstArticle.id]))
-        XCTAssertNoThrow(try store.delete([secondArticle.id]))
-        XCTAssertNil(try store.pageText(for: first))
-        XCTAssertEqual(try store.pageText(for: second), "second text")
     }
 
     // MARK: - Merging

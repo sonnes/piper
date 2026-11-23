@@ -80,6 +80,10 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - NSWindowDelegate
 
+    /// Edit > Undo on a paper goes to the undo stack of the app. A text view
+    /// with its own undo manager handles Undo before the window does.
+    func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? { model.undoManager }
+
     func windowDidMove(_ notification: Notification) { frameChanged() }
     func windowDidEndLiveResize(_ notification: Notification) { frameChanged() }
 

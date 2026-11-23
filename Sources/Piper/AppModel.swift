@@ -5,7 +5,6 @@ import Observation
 import PiperCore
 import Captures
 import Feeds
-import Stream
 import Vault
 import WebKit
 
@@ -14,6 +13,8 @@ final class AppModel {
     /// The messages that the toast shows.
     let messages: Messages
     let store: CaptureStore
+    /// The undo stack of the app. Edit > Undo, Command-Z, and the Undo button of Today use it.
+    var undoManager: UndoManager { store.undoManager }
     let clipboard: ClipboardInbox
     let agents: FolderAgents
     /// The highlights and questions of link captures.
@@ -158,8 +159,9 @@ final class AppModel {
             .appendingPathComponent("PiperFeeds-\(UUID().uuidString)/Feeds.sqlite")) { [weak messages] in messages?.report($0) }
         favicons = FaviconStore(folder: store == nil ? nil : FileManager.default.temporaryDirectory
             .appendingPathComponent("PiperFavicons-\(UUID().uuidString)"))
-        let store = store ?? CaptureStore()
+        let store = store ?? CaptureStore(undoManager: UndoManager())
         self.store = store
+        store.reportUndoError = { [weak messages] in messages?.report($0) }
         if let error = store.loadError { messages.report(error) }
         clipboard = ClipboardInbox(store: store) { [weak messages] in messages?.report($0) }
         let agents = FolderAgents(store: store, messages: messages, preferences: preferences)
@@ -174,10 +176,7 @@ final class AppModel {
         self.library = library
         files = FileEditor(library: library, store: store, reader: reader, agents: agents, messages: messages, preferences: preferences)
         siteScan = SiteScan(feeds: self.feeds, messages: messages, preferences: preferences)
-        do {
-            try store.archiveFinishedReading()
-            try StarMigration.run(feeds: self.feeds, captures: store)
-        } catch { messages.report(error) }
+        do { try store.archiveFinishedReading() } catch { messages.report(error) }
         // A question goes to the folder of the Send buttons, or else to the open folder.
         reader.folder = { [weak agents, weak library] in agents?.defaultFolder?.path ?? library?.vault.root.path }
     }

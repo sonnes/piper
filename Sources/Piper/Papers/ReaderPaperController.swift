@@ -181,6 +181,14 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
         return false
     }
 
+    /// Edit > Undo on a paper goes to the undo stack of the app. A text view
+    /// with its own undo manager handles Undo before the window does. The file
+    /// paper keeps the undo manager of its window, because WebKit can record
+    /// the edits of the editor page there.
+    func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
+        item == .file ? nil : model.undoManager
+    }
+
     func windowDidMove(_ notification: Notification) { frameChanged() }
     func windowDidEndLiveResize(_ notification: Notification) { frameChanged() }
 

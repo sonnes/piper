@@ -18,12 +18,12 @@ The feed database is `~/Library/Application Support/Piper/Feeds.sqlite`. It has 
 | Table | Content |
 | --- | --- |
 | `feeds` | The address, the title, and the home page of each feed. Also the ETag and Last-Modified values, the count of failures in a row, the time of the next refresh, the last error, and the mode: `every`, `best`, `digest`, or `off`. |
-| `articles` | Each article: the feed, the link, the title, a plain-text summary, the dates, and the read mark. The `starred` column of an older database stays, and Piper clears it. |
+| `articles` | Each article: the feed, the link, the title, a plain-text summary, the dates, and the read mark. |
 | `suggestions` | The sites of the last history scan for Sites You Read Often: the host, the feed, the visits, the score, and the ignore mark |
 
 Piper removes a read article 30 days after it arrives. An older database gets the `mode` column at launch, with the value `best`.
 
-At launch, Piper copies each starred article of an older database to a kept link capture in Inbox, then clears the star. A link that a capture holds already gets the kept tag. The copy runs one time, and Undo does not remove it. A scan replaces the suggestions, but the ignored rows stay.
+A scan replaces the suggestions, but the ignored rows stay.
 
 The folder `~/Library/Application Support/Piper/Favicons` holds the icon of each site, in one file for each host. Piper fetches an icon only when the folder has no file for the host. To fetch the icons again, delete the folder.
 
@@ -67,13 +67,13 @@ The schema is version 2. Version 2 adds the parent, the tags, the anchor, and th
 
 The `pages` table keeps the text of each web page that a capture read from a browser. Each row has the `url` in the form that Piper compares, the `text`, and a `saved_at` time. A new capture of the page replaces its row. The Reader tab uses this text when Piper cannot load the page. The capture of a page keeps at most 400,000 characters.
 
-At launch, and after you delete a link capture, Piper removes the row of each page that no link capture holds. Undo can restore a deleted capture, so its row stays until the next delete of a link capture or the next launch.
+At launch, Piper removes the row of each page that no link capture holds. Undo can restore a deleted capture until Piper quits, so the row of a deleted capture stays until the next launch.
 
 ### Undo
 
-Piper keeps one earlier state in memory. Undo saves that state to the database. A restart clears the undo step.
+Piper keeps the undo steps in memory, and a restart clears them. Each undo step holds only the notes that its change touched. Undo saves the old values of those notes to the database. The other notes stay as they are. Redo applies the change again.
 
-Selecting an existing section does not replace the undo step. A change to the reading state, such as a new place in an article, adds no undo step. An editor save with no change adds no undo step.
+Selecting a section adds no undo step, and Undo does not change the active section. A change to the reading state, such as a new place in an article, adds no undo step. An answer from Claude adds no undo step. An editor save with no change adds no undo step.
 
 ## Agent Sessions
 

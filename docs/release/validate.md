@@ -24,7 +24,7 @@ The tests use temporary folders and temporary databases. Each module has a test 
 | `HistoryTests` | Browser sources, history reads, the digest, the decay rank, and blocked sites |
 | `FeedsTests` | The feed parser, the feed database, refresh, feed discovery, OPML import, and suggestions |
 | `CapturesTests` | The capture store, clipboard entries, and capture links |
-| `StreamTests` | The stream of Today, the feed rows and modes, the relevance score, and the star migration |
+| `StreamTests` | The stream of Today, the feed rows and modes, and the relevance score |
 | `VaultTests` | Scans, path safety, reads, writes, and the watcher |
 | `PiperTests` | The app model: editing, refresh, previews, quit safety, the verbs of Today, and Sources |
 

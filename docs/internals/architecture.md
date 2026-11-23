@@ -40,7 +40,7 @@ flowchart LR
 | `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, `PermissionRule`, and the `SessionStorage` protocol | `PiperCore` |
 | `History` | `BrowserCatalog`, `HistoryReader`, `DatabaseCopy`, `HistoryDigest`, `Decay`, and `BlockedSites` | `PiperCore`, `CSQLite` |
 | `Feeds` | The RSParser port of NetNewsWire, `FeedStore`, `FeedDatabase`, `FeedFetch`, `FeedDiscovery`, `FeedMode`, and `OPMLImport` | `PiperCore`, `CSQLite` |
-| `Stream` | `UnifiedStream`, `StreamItem`, `FeedRows`, `Relevance`, `FeedStats`, and `StarMigration` | `PiperCore`, `Captures`, `Feeds` |
+| `Stream` | `UnifiedStream`, `StreamItem`, `FeedRows`, `Relevance`, and `FeedStats` | `PiperCore`, `Captures`, `Feeds` |
 | `Piper` | Windows, views, and app state | All modules and Yams |
 
 `PiperCore` and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the rules that several modules share: the site of a link (`Site.key` is the host in lowercase without `www.`), the web link test, and the data folder. Each text that Piper copies goes through `Clipboard.copy`, which marks the copy so that the clipboard tray ignores it.
@@ -65,6 +65,7 @@ A store in a module throws its errors and returns what it made. For example, `Ca
 Some errors happen where no caller waits:
 
 - `CaptureStore` keeps the error that stopped its database from opening in `loadError`. `AppModel` reports it at launch.
+- `CaptureStore` sends the error of an undo or a redo that cannot save to `reportUndoError`. `AppModel` sets it to `Messages.report`.
 - `FeedStore` and `ClipboardInbox` take a `report` closure. Their timers and their reads report each database error through it. A failed feed read then gives an empty value.
 - `SessionRunner` reports a storage error through the closure that `FolderAgents` gives it.
 - `EditorPage` runs each call on the page with a completion handler that reports a JavaScript exception. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
@@ -163,6 +164,16 @@ The service then looks for a web page. It reads `AXDocument` from the focused el
 
 `CaptureStore` builds a candidate state and saves it before it replaces the current state. `Database` compares the stored blob with the last loaded blob on every save. A database error or a stale snapshot leaves the current notes as they are, and the change throws the error. See [Local storage](../concepts/storage.md).
 
+### Undo
+
+The app has one undo stack: the `UndoManager` that `AppModel` gives to `CaptureStore` at init. `AppModel.undoManager` returns it. A change that records undo registers its inverse on this stack. The inverse names only the notes that the change touched. It removes the notes that the change added, and puts back the notes that the change removed. It sets each field that the change edited back to its old value. The other notes and fields stay as they are, so a later change without undo survives an undo. Examples are reading progress, Claude answers, `saveArticle`, and `archiveFinishedReading`.
+
+An undo is itself a change, so it registers the redo on the same stack. The active section is not part of an undo step. If an undo removes the active section, the section that was active before the change becomes active.
+
+`TodayModel` puts each verb in one undo group. Done, Delete, and File also register the inverse of the read marks through `FeedStore.setRead(_:ids:)`, and the inverse of the clipboard texts that left the tray. The Undo button of `UndoToast` calls `undoManager.undo()`.
+
+`FeedPaperController` and `ReaderPaperController` return the app stack from `windowWillReturnUndoManager`, so Edit > Undo and Edit > Redo on a paper go to it. `CaptureEditor` and `NoteTextEditor` give their text views their own `UndoManager`, so typing undo stays in the field.
+
 The capture field of Today reads `# Name` alone on one line as a section, through `CaptureDraft`, and calls `CaptureStore.chooseSection`. Every other text goes to `CaptureStore.add` as it is. Capture Clipboard in the menu bar item and in Settings calls `AppModel.captureClipboard`.
 
 `ClipboardInbox` polls the pasteboard and keeps the 50 latest texts from the last 7 days, with the copy time and the app in front. It stores them in the `clipboard` table through the `Database` of `CaptureStore`. `ClipboardInbox.save` keeps a text as a kept note in Inbox. `dismiss` removes a text for Done, and `restore` puts it back for Undo. Today shows the texts in its tray.
@@ -175,11 +186,9 @@ The stream drops an article when a capture holds its link, so a kept article sho
 
 `FeedRows` turns the new articles of each feed and day into rows by the `FeedMode` of the feed. A busy day has more than 3 articles from one feed. On a busy day, Best gives an article row to the 2 best articles at or above `Relevance.bar`. The other articles go into one digest row. `Relevance` scores an article from 0 to 1 with local data only. The score uses the keep rate of the feed from `FeedStats`, and the visits to its site from the history suggestions. It also uses the words that the title shares with the file names of the active folder. It sends no request.
 
-`TodayModel` in the application target holds the selection, the search, the Undo offer, and the File list. Its verbs act on `StreamItem` values: `keep`, `done`, `file`, `send`, `ask`, `merge`, `copy`, and `delete`. Done and Delete offer Undo for `AppDefaults.Today.undoSeconds`. `TodayView` draws the capture field, the lenses (`SegmentedCapsule`), the groups, the tray, `UndoToast`, and `SelectionBar`. `TodayRow` draws one row through `PaperRow`, with the verb buttons on the selected row and on the row under the pointer. `PaperRow` combines the mark, the text, and the time into one accessibility element, and keeps each action a separate button. `FilePicker` lists `FileTarget` values: sections, folders, and the Markdown files of the active folder. `PiperTheme.listTitle` is the title style of every list row.
+`TodayModel` in the application target holds the selection, the search, the Undo offer, and the File list. Its verbs act on `StreamItem` values: `keep`, `done`, `file`, `send`, `ask`, `merge`, `copy`, and `delete`. Done and Delete offer Undo for `AppDefaults.Today.undoSeconds`. See [Undo](#undo). `TodayView` draws the capture field, the lenses (`SegmentedCapsule`), the groups, the tray, `UndoToast`, and `SelectionBar`. `TodayRow` draws one row through `PaperRow`, with the verb buttons on the selected row and on the row under the pointer. `PaperRow` combines the mark, the text, and the time into one accessibility element, and keeps each action a separate button. `FilePicker` lists `FileTarget` values: sections, folders, and the Markdown files of the active folder. `PiperTheme.listTitle` is the title style of every list row.
 
 `CaptureDraft` sorts the text of the capture field. A web link alone is a link and becomes a kept link capture. A site home page or a feed address is a source and opens Sources, unless the reader presses Option-Return.
-
-At launch, `StarMigration.run` copies each starred article to a kept link capture with `CaptureStore.keep(links:recordUndo:)`, then clears the stars. The copy records no undo step, so Undo cannot remove it.
 
 `NoteDetail` shows a link capture in its tabs and any other note in an editor. `SessionTarget` reads the open note from `AppModel.actionTarget`. For a note, the card shows the selected session when it belongs to the note, or else the newest session of the note, and it leaves out the margin sessions. A message from the card starts a session with the `noteID` of the note. `AppModel.newSessionNote` keeps the card empty after New Session. The child notes of an article stay hidden until the reader opens them.
 
@@ -359,7 +368,7 @@ A refresh has these steps:
 4. `FeedDatabase.insert` ignores an article id that exists, so a refresh keeps the read marks.
 5. A success sets `nextFetch` to 30 minutes later. Each failure in a row sets a longer wait, from `FeedFetch.waitHours`.
 
-After each refresh, `FeedStore` prunes the read articles that arrived more than 30 days ago. The prune also skips a row with the old `starred` mark, which `StarMigration` clears.
+After each refresh, `FeedStore` prunes the read articles that arrived more than 30 days ago.
 
 `FeedDiscovery.find` takes the address of a site or a feed. If the address is a feed, it returns that feed. If not, `HTMLFeedFinder` reads the feed links of the page. `find` parses the 3 best candidates to confirm them.
 
@@ -423,7 +432,7 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [Modules/History/](../../Sources/Modules/History) | History sources, history reads, the digest, the decay rank, and blocked sites |
 | [Readers/](../../Sources/Piper/Readers) | File previews, the Reader tab, the Web tab, the Notes tab, and the tabs at the bottom of a paper |
 | [Modules/Captures/ReadingList.swift](../../Sources/Modules/Captures/ReadingList.swift) | The Reading groups and the Markdown of Save as File |
-| [Modules/Stream/](../../Sources/Modules/Stream) | The stream of Today, the feed rows, the relevance score, and the star migration |
+| [Modules/Stream/](../../Sources/Modules/Stream) | The stream of Today, the feed rows, and the relevance score |
 | [Readers/EditorPage.swift](../../Sources/Piper/Readers/EditorPage.swift) | The editor page, its bridge, the asset scheme, and the conflict bar |
 | [EditorSession.swift](../../Sources/Piper/EditorSession.swift) | The save of a Markdown file and the conflict rules |
 | [CommandPalette.swift](../../Sources/Piper/CommandPalette.swift) | The command palette |

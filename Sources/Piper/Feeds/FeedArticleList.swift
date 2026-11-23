@@ -36,7 +36,7 @@ struct FeedArticleList: View {
                             ForEach(articles) { article in
                                 FeedArticleRow(article: article, feed: feed, favicons: model.favicons,
                                                selected: article.id == selectedID,
-                                               toggleRead: { feeds.setRead(!article.read, [article]) }) {
+                                               toggleRead: { feeds.setRead(!article.read, ids: [article.id]) }) {
                                     open(article)
                                     openPaper(article)
                                 }
@@ -89,7 +89,7 @@ struct FeedArticleList: View {
 
     @ViewBuilder
     private func menu(for article: Article) -> some View {
-        Button(article.read ? "Mark as Unread" : "Mark as Read") { feeds.setRead(!article.read, [article]) }
+        Button(article.read ? "Mark as Unread" : "Mark as Read") { feeds.setRead(!article.read, ids: [article.id]) }
         Divider()
         Button("Keep") { model.keep([article]) }.disabled(model.isKept(article))
         Button("Open in Browser") { model.openInBrowser(article) }
@@ -106,7 +106,7 @@ struct FeedArticleList: View {
     /// Selects the article and marks it as read.
     private func open(_ article: Article?) {
         select(article)
-        if let article, !article.read { feeds.setRead(true, [article]) }
+        if let article, !article.read { feeds.setRead(true, ids: [article.id]) }
     }
 
     /// The keys of the list: the arrows move the selection, Return opens the
@@ -186,7 +186,7 @@ extension AppModel {
             messages.report(error)
             return false
         }
-        feeds.setRead(true, articles)
+        feeds.setRead(true, ids: articles.filter { !$0.read }.map(\.id))
         return true
     }
 
@@ -198,7 +198,7 @@ extension AppModel {
     func openInBrowser(_ article: Article) {
         guard let url = URL(string: article.url) else { return }
         NSWorkspace.shared.open(url)
-        feeds.setRead(true, [article])
+        if !article.read { feeds.setRead(true, ids: [article.id]) }
     }
 
     /// The letter keys of an article, on its row or on its paper: K keeps it,

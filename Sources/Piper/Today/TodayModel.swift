@@ -55,11 +55,11 @@ enum FileTarget: Hashable, Identifiable {
     }
 }
 
-/// An Undo button that shows for a few seconds after Done or Delete.
+/// An Undo button that shows for a few seconds after Done or Delete. It
+/// runs Edit > Undo.
 struct UndoOffer: Identifiable {
     let id = UUID()
     let message: String
-    let run: () -> Void
 }
 
 /// The state of Today and the verbs of its rows, such as Keep, Done, File, and Send.
@@ -93,6 +93,7 @@ final class TodayModel {
     private var store: CaptureStore { model.store }
     private var feeds: FeedStore { model.feeds }
     private var messages: Messages { model.messages }
+    private var undoManager: UndoManager { model.undoManager }
 
     // MARK: - Initialization
 
@@ -204,19 +205,13 @@ final class TodayModel {
     func done(_ items: [StreamItem]) {
         let captures = items.compactMap(\.note)
         let reopen = !captures.isEmpty && captures.allSatisfy(\.isDone)
-        let ids = Set(captures.map(\.id))
-        do { try store.setDone(!reopen, ids) } catch { return messages.report(error) }
-        let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles).filter { !$0.read }
-        feeds.setRead(true, articles)
-        let clips = items.compactMap(\.clip).compactMap { model.clipboard.dismiss($0.id) }
+        undoManager.beginUndoGrouping()
+        defer { undoManager.endUndoGrouping() }
+        do { try store.setDone(!reopen, Set(captures.map(\.id))) } catch { return messages.report(error) }
+        markRead(items)
+        dismissClips(items.compactMap(\.clip).map(\.id))
         selection.subtract(items.map(\.id))
-        let count = items.count
-        offerUndo(reopen ? "Reopened \(Self.count(count))" : "Done · \(Self.count(count))") { [weak self] in
-            guard let self else { return }
-            do { try store.setDone(reopen, ids) } catch { messages.report(error) }
-            feeds.setRead(false, articles.map { var article = $0; article.read = true; return article })
-            clips.forEach(model.clipboard.restore)
-        }
+        offerUndo(reopen ? "Reopened \(Self.count(items.count))" : "Done · \(Self.count(items.count))")
     }
 
     // MARK: - File
@@ -233,6 +228,8 @@ final class TodayModel {
     @discardableResult
     func file(_ items: [StreamItem], to target: FileTarget, now: Date = Date()) -> Bool {
         guard !items.isEmpty else { return false }
+        undoManager.beginUndoGrouping()
+        defer { undoManager.endUndoGrouping() }
         do {
             messages.show(try file(items, to: target, now: now))
         } catch {
@@ -251,7 +248,7 @@ final class TodayModel {
             let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles)
             if !articles.isEmpty {
                 try store.keep(links: model.keptLinks(articles), to: section)
-                feeds.setRead(true, articles)
+                markRead(items)
             }
             for clip in items.compactMap(\.clip) {
                 try store.add(clip.text, section: section, source: Note.clipboardSource)
@@ -346,35 +343,28 @@ final class TodayModel {
     /// Deletes the captures, with Undo. An article becomes read, and a
     /// clipboard text leaves the tray.
     func delete(_ items: [StreamItem]) {
-        let ids = items.compactMap(\.note).map(\.id)
-        do { try store.delete(ids) } catch { return messages.report(error) }
-        let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles).filter { !$0.read }
-        feeds.setRead(true, articles)
-        let clips = items.compactMap(\.clip).compactMap { model.clipboard.dismiss($0.id) }
+        undoManager.beginUndoGrouping()
+        defer { undoManager.endUndoGrouping() }
+        do { try store.delete(items.compactMap(\.note).map(\.id)) } catch { return messages.report(error) }
+        markRead(items)
+        dismissClips(items.compactMap(\.clip).map(\.id))
         selection.subtract(items.map(\.id))
-        offerUndo("Deleted \(Self.count(items.count))") { [weak self] in
-            guard let self else { return }
-            if !ids.isEmpty {
-                do { try store.undo() } catch { messages.report(error) }
-            }
-            feeds.setRead(false, articles.map { var article = $0; article.read = true; return article })
-            clips.forEach(model.clipboard.restore)
-        }
+        offerUndo("Deleted \(Self.count(items.count))")
     }
 
     // MARK: - Undo
 
-    /// Runs the Undo of the last Done or Delete, while it shows.
+    /// Runs Edit > Undo from the Undo button, while it shows.
     func runUndo() {
-        guard let undo else { return }
-        self.undo = nil
+        guard undo != nil else { return }
+        undo = nil
         undoTimer?.invalidate()
-        undo.run()
+        undoManager.undo()
     }
 
-    private func offerUndo(_ message: String, run: @escaping () -> Void) {
+    private func offerUndo(_ message: String) {
         undoTimer?.invalidate()
-        let offer = UndoOffer(message: message, run: run)
+        let offer = UndoOffer(message: message)
         undo = offer
         undoTimer = Timer.scheduledTimer(withTimeInterval: AppDefaults.Today.undoSeconds, repeats: false) { [weak self] _ in
             Task { @MainActor in
@@ -400,8 +390,32 @@ final class TodayModel {
             try store.updateReading(note.id) { $0.savedFile = savedFile; $0.savedAt = Date() }
         }
         try store.setDone(true, Set(items.compactMap(\.note).map(\.id)))
-        feeds.setRead(true, items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles))
-        items.compactMap(\.clip).forEach { model.clipboard.dismiss($0.id) }
+        markRead(items)
+        dismissClips(items.compactMap(\.clip).map(\.id))
+    }
+
+    /// Marks the unread articles of the items as read, with an undo step.
+    private func markRead(_ items: [StreamItem]) {
+        let ids = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles).filter { !$0.read }.map(\.id)
+        setRead(true, ids: ids)
+    }
+
+    private func setRead(_ read: Bool, ids: [String]) {
+        guard !ids.isEmpty else { return }
+        feeds.setRead(read, ids: ids)
+        undoManager.registerUndo(withTarget: self) { today in today.setRead(!read, ids: ids) }
+    }
+
+    /// Takes the texts out of the clipboard tray, with an undo step that puts them back.
+    private func dismissClips(_ ids: [UUID]) {
+        let entries = ids.compactMap { model.clipboard.dismiss($0) }
+        guard !entries.isEmpty else { return }
+        undoManager.registerUndo(withTarget: self) { today in today.restoreClips(entries) }
+    }
+
+    private func restoreClips(_ entries: [ClipboardEntry]) {
+        entries.forEach(model.clipboard.restore)
+        undoManager.registerUndo(withTarget: self) { today in today.dismissClips(entries.map(\.id)) }
     }
 
     /// The text of a new file for one item.
