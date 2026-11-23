@@ -52,10 +52,7 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
             .onChange(of: notes) { old, new in
                 if new > old { flash() }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-            .accessibilityValue(lifted ? "On the desk" : "")
-            .accessibilityAction(.default, action)
+            .accessibilityElement(children: .contain)
     }
 
     private var flashID: UUID? {
@@ -63,13 +60,27 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
         return marks.flashes(item)
     }
 
+    /// The mark, the text, and the time are one element for VoiceOver. The
+    /// actions stay separate buttons, so that VoiceOver and Full Keyboard
+    /// Access reach each one.
     private var line: some View {
         HStack(alignment: .top, spacing: Metrics.rowSpacing) {
-            mark().frame(width: Metrics.markColumn, height: Metrics.rowLineHeight)
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .environment(\.rowLifted, lifted)
-            trailing
+            HStack(alignment: .top, spacing: Metrics.rowSpacing) {
+                mark().frame(width: Metrics.markColumn, height: Metrics.rowLineHeight)
+                content()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .environment(\.rowLifted, lifted)
+                if !actionsShown { timeLabel }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+            .accessibilityValue(lifted ? "On the desk" : "")
+            .accessibilityAction(.default, action)
+            if actionsShown {
+                HStack(spacing: 2) { actions() }
+                    .frame(minHeight: Metrics.rowLineHeight)
+                    .transition(.opacity)
+            }
         }
         .padding(Metrics.listRowPadding)
     }
@@ -100,16 +111,8 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
         }
     }
 
-    /// The time, or the actions while the pointer is over the row.
-    @ViewBuilder private var trailing: some View {
-        if showsActions && (!lifted || actionsOnSelection) {
-            HStack(spacing: 2) { actions() }
-                .frame(minHeight: Metrics.rowLineHeight)
-                .transition(.opacity)
-        } else {
-            timeLabel
-        }
-    }
+    /// True when the actions take the place of the time.
+    private var actionsShown: Bool { showsActions && (!lifted || actionsOnSelection) }
 
     private var timeLabel: some View {
         let text: String = lifted ? "on the desk" : time

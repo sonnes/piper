@@ -138,6 +138,18 @@ final class TodayModelTests: XCTestCase {
         XCTAssertEqual(model.feeds.article("two")?.read, true)
     }
 
+    func testFileADigestIntoASectionKeepsEachArticleThere() throws {
+        model.store.chooseSection("Harbor")
+        model.store.chooseSection("Inbox")
+        let feed = try XCTUnwrap(model.feeds.feed("https://f.example/feed"))
+        let digest = StreamItem.digest(model.feeds.articles(.allUnread), feed: feed, day: Date())
+        XCTAssertTrue(today.file([digest], to: .section("Harbor")))
+        let links = model.store.notes.filter { $0.text.hasPrefix("https://f.example/") }
+        XCTAssertEqual(links.map(\.section), ["Harbor", "Harbor"])
+        XCTAssertTrue(links.allSatisfy(\.isKept))
+        XCTAssertTrue(model.feeds.articles(.allUnread).isEmpty)
+    }
+
     func testFileIntoAFolderSavesANewFileAndMarksTheNoteDone() throws {
         let item = try note("Tide tables list heights, not currents.")
         XCTAssertTrue(today.file([item], to: .folder(root: root.path, folder: "Talks")))

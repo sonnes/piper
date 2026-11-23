@@ -646,18 +646,10 @@ struct SelectionBar: View {
     let cancel: () -> Void
 
     var body: some View {
-        HStack(spacing: AppDefaults.Today.barSpacing) {
-            Text("\(count) selected").foregroundStyle(PiperTheme.paperMuted).padding(.horizontal, 8)
-            bar("Keep", key: "K", action: verbs.keep)
-            bar("Done", key: "E", action: verbs.done)
-            bar("File", key: "F", action: verbs.file)
-            Menu { SendItems(model: model, verbs: verbs) } label: { label("Send", key: "S") }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .accessibilityLabel("Send")
-            bar("Merge", key: "M", action: verbs.merge ?? {}).disabled(!canMerge)
-            bar("Copy", key: "⌘C", action: verbs.copy)
-            Button(action: cancel) { Image(systemName: "xmark").foregroundStyle(PiperTheme.paperMuted).frame(width: 24, height: 24) }
-                .buttonStyle(.plain).help("Clear the selection · Escape").accessibilityLabel("Clear the selection")
+        // The keys show beside the labels when the paper is wide enough.
+        ViewThatFits(in: .horizontal) {
+            items(keys: true)
+            items(keys: false)
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
         .padding(.horizontal, 8)
@@ -667,19 +659,37 @@ struct SelectionBar: View {
         .shadow(color: PiperTheme.lensShadow, radius: 8, y: 2)
     }
 
-    private func bar(_ title: String, key: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { label(title, key: key) }
+    private func items(keys: Bool) -> some View {
+        HStack(spacing: AppDefaults.Today.barSpacing) {
+            Text("\(count) selected").foregroundStyle(PiperTheme.paperMuted).padding(.horizontal, 8).fixedSize()
+            bar("Keep", key: "K", keys: keys, action: verbs.keep)
+            bar("Done", key: "E", keys: keys, action: verbs.done)
+            bar("File", key: "F", keys: keys, action: verbs.file)
+            Menu { SendItems(model: model, verbs: verbs) } label: { label("Send", key: "S", keys: keys) }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .help("Send · S")
+                .accessibilityLabel("Send")
+            bar("Merge", key: "M", keys: keys, action: verbs.merge ?? {}).disabled(!canMerge)
+            bar("Copy", key: "⌘C", keys: keys, action: verbs.copy)
+            Button(action: cancel) { Image(systemName: "xmark").foregroundStyle(PiperTheme.paperMuted).frame(width: 24, height: 24) }
+                .buttonStyle(.plain).help("Clear the selection · Escape").accessibilityLabel("Clear the selection")
+        }
+    }
+
+    private func bar(_ title: String, key: String, keys: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) { label(title, key: key, keys: keys) }
             .buttonStyle(.plain)
             .help("\(title) · \(key)")
             .accessibilityLabel(title)
     }
 
-    private func label(_ title: String, key: String) -> some View {
+    private func label(_ title: String, key: String, keys: Bool) -> some View {
         HStack(spacing: 5) {
             Text(title).foregroundStyle(PiperTheme.paperInk)
-            Text(key).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
+            if keys { Text(key).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint) }
         }
-        .padding(.horizontal, 8)
+        .fixedSize()
+        .padding(.horizontal, keys ? 8 : 6)
         .frame(height: AppDefaults.Today.verbButton)
         .contentShape(Capsule())
     }

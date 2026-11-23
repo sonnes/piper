@@ -139,7 +139,7 @@ struct TodayRow: View {
         if session != nil || !parts.isEmpty || item.state == .kept {
             PaperRowMeta {
                 if let session { RunBadge(session: session) { verbs.open() } }
-                if item.note?.isKept == true {
+                if item.state == .kept {
                     Image(systemName: "star.fill").foregroundStyle(PiperTheme.brand).accessibilityLabel("Kept")
                 }
                 Text(parts.joined(separator: " · ")).monospacedDigit()

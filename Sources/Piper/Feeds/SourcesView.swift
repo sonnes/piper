@@ -267,26 +267,20 @@ private struct SourceRow: View {
     let open: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title, index: index, side: AppDefaults.Feeds.sourceIcon)
-            Button(action: open) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(feed.title).font(PiperTheme.paperUI(.row, weight: .semibold)).foregroundStyle(PiperTheme.paperInk)
-                        .lineLimit(1)
-                    Text(SourcesView.rate(stats)).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
-                        .monospacedDigit().lineLimit(1)
+        // The mode goes under the title when the paper is too narrow for both.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                icon
+                title
+                mode
+            }
+            HStack(alignment: .top, spacing: 10) {
+                icon
+                VStack(alignment: .leading, spacing: 6) {
+                    title
+                    mode
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .help("Show the posts of \(feed.title)")
-            SegmentedCapsule(values: FeedMode.allCases, selection: feed.mode, title: \.title,
-                             help: { "Show \($0.title.lowercased()) of \(feed.title) in Today" }, fills: false) {
-                model.feeds.setMode($0, of: feed.id)
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("How \(feed.title) reaches Today")
         }
         .padding(.vertical, AppDefaults.Feeds.sourceRowPadding)
         .overlay(alignment: .bottom) { Rule() }
@@ -299,5 +293,33 @@ private struct SourceRow: View {
             Divider()
             Button("Remove Source", role: .destructive) { model.feeds.unsubscribe(feed.id) }
         }
+    }
+
+    private var icon: some View {
+        SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title, index: index, side: AppDefaults.Feeds.sourceIcon)
+    }
+
+    private var title: some View {
+        Button(action: open) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(feed.title).font(PiperTheme.paperUI(.row, weight: .semibold)).foregroundStyle(PiperTheme.paperInk)
+                    .lineLimit(1)
+                Text(SourcesView.rate(stats)).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
+                    .monospacedDigit().lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Show the posts of \(feed.title)")
+    }
+
+    private var mode: some View {
+        SegmentedCapsule(values: FeedMode.allCases, selection: feed.mode, title: \.title,
+                         help: { "Show \($0.title.lowercased()) of \(feed.title) in Today" }, fills: false) {
+            model.feeds.setMode($0, of: feed.id)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("How \(feed.title) reaches Today")
     }
 }
