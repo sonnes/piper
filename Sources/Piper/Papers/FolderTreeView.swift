@@ -144,7 +144,7 @@ private struct TreeRow: View {
             Text(row.name).font(PiperTheme.paperUI(.row, weight: .medium)).foregroundStyle(color)
                 .lineLimit(1).truncationMode(.middle)
         } else {
-            Text(row.name).font(PiperTheme.paperSerif(Metrics.treeFileSize)).foregroundStyle(color)
+            Text(row.name).font(PiperTheme.listTitle()).foregroundStyle(color)
                 .lineLimit(1).truncationMode(.middle)
         }
     }

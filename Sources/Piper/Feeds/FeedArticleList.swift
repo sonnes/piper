@@ -34,7 +34,7 @@ struct FeedArticleList: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(articles) { article in
-                                FeedArticleRow(article: article, feed: feeds.feed(article.feedID),
+                                FeedArticleRow(article: article, feed: feeds.feed(article.feedID), favicons: model.favicons,
                                                showsFeed: !isOneFeed, selected: article.id == selectedID,
                                                toggleRead: { feeds.setRead(!article.read, [article]) }) {
                                     open(article)
@@ -177,10 +177,11 @@ struct FeedArticleList: View {
     }
 }
 
-/// One article in the list: the unread dot, the title in serif, and the feed.
+/// One article in the list: the icon of the site with the unread dot, the title, and the feed.
 private struct FeedArticleRow: View {
     let article: Article
     let feed: Feed?
+    let favicons: FaviconStore
     let showsFeed: Bool
     let selected: Bool
     let toggleRead: () -> Void
@@ -188,10 +189,13 @@ private struct FeedArticleRow: View {
 
     var body: some View {
         PaperRow(item: .article(article.id), selected: selected, time: RowTime.text(article.date), action: action) {
-            UnreadDot(unread: !article.read)
+            ZStack(alignment: .topTrailing) {
+                SiteIcon(favicons: favicons, host: feed?.host ?? "", title: feed?.title ?? "", index: 0)
+                if !article.read { UnreadDot(unread: true).offset(x: 3, y: -3) }
+            }
         } content: {
             VStack(alignment: .leading, spacing: 0) {
-                PaperRowTitle(text: Text(article.title), read: true, bold: !article.read)
+                PaperRowTitle(text: Text(article.title), bold: !article.read)
                 PaperRowMeta {
                     Text(showsFeed ? feed?.title ?? "" : feed?.host ?? "")
                 }

@@ -175,11 +175,9 @@ struct RowAction: View {
     }
 }
 
-/// The title of a row. Text that the reader wrote is sans serif. Text that
-/// the reader reads, such as an article or a file, is serif.
+/// The title of a row, in the one list title style of `PiperTheme.listTitle`.
 struct PaperRowTitle: View {
     let text: Text
-    var read = false
     var bold = false
     var done = false
     var lines = 2
@@ -190,8 +188,7 @@ struct PaperRowTitle: View {
     var body: some View {
         let heavy = bold && !lifted
         text
-            .font(read ? PiperTheme.paperSerif(Metrics.serifRowSize, weight: heavy ? .semibold : .regular)
-                       : PiperTheme.paperUI(.row, weight: heavy ? .semibold : .regular))
+            .font(PiperTheme.listTitle(bold: heavy))
             .foregroundStyle(done || lifted ? PiperTheme.paperFaint : PiperTheme.paperInk)
             .strikethrough(done, color: PiperTheme.paperFaint)
             .lineSpacing(Metrics.rowLineSpacing)

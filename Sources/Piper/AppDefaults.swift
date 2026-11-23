@@ -169,7 +169,6 @@ final class AppDefaults {
         static let treeGuide: CGFloat = 23
         static let treeChevron: CGFloat = 16
         static let treeChevronGlyph: CGFloat = 10
-        static let treeFileSize: CGFloat = 17
         /// The row of swatches under the title of a folder tab.
         static let subPadding = EdgeInsets(top: 8, leading: 32, bottom: 0, trailing: 32)
         static let swatchSize: CGFloat = 22
@@ -204,8 +203,6 @@ final class AppDefaults {
         /// The space between the lines of a title, for a line height of 26.
         static let rowLineSpacing: CGFloat = 4
         static let rowSpacing: CGFloat = 10
-        /// The serif title of an article or a file in a list.
-        static let serifRowSize: CGFloat = 17.5
         /// The quote of a note under a row.
         static let quoteSize: CGFloat = 15.5
         static let tickSize: CGFloat = 18

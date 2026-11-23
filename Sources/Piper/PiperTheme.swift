@@ -376,8 +376,14 @@ enum PiperTheme {
         Font(paperUINS(size, weight: weight) as CTFont)
     }
 
-    /// Iowan Old Style, the serif of text that the reader reads: the title of
-    /// an article or a file in a list, a quote, and the body of an article.
+    /// The title of a row in every list of the papers: Noto Sans at the row
+    /// size, semibold for a new item. Titles never use the serif.
+    static func listTitle(bold: Bool = false) -> Font {
+        paperUI(.row, weight: bold ? .semibold : .regular)
+    }
+
+    /// Iowan Old Style, the serif of text that the reader reads: a quote and
+    /// the body of an article.
     static func paperSerifNS(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
         let descriptor = NSFontDescriptor(fontAttributes: [
             .family: "Iowan Old Style",
