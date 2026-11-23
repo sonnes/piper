@@ -120,15 +120,15 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 
 ## Paper Checks
 
-1. Add a disposable folder with Add Folder on the Folders index.
+1. Add a disposable folder with Add Folder in the Folders tab.
 2. Add, rename, and delete a file in Finder. Make sure that the tree updates.
 3. Press Command-K and type a part of a file name. Make sure that Return opens the file on the file paper.
-4. Select the arrow of a folder on the Folders index. Make sure that it opens or closes. Select the folder. Make sure that the list shows its files.
-5. Select each tab. Select the active tab, then press Escape. Make sure that the paper moves between the index and the list.
+4. Select a folder in the folder tree. Make sure that it opens or closes. Press Right Arrow, Left Arrow, and Return on the tree. Make sure that they open, close, and step as in the browse guide.
+5. Select each tab. Make sure that the tab comes to the front and joins the paper. Select the active tab of Inbox, Feeds, or Agents, then press Escape. Make sure that the paper moves between the index and the list. Turn on Reduce Motion. Make sure that the active tab does not slide.
 6. Open a capture, an article, and a file. Make sure that each paper opens right of the feed paper, 24 points lower than the last one. Close the first paper and open another item. Make sure that the new paper takes the free place. Open the capture again. Make sure that its paper comes to the front.
 7. Press Command-` several times. Make sure that the focus moves through every paper. Press Escape on a reader paper. Make sure that it closes.
-8. Pin a folder. Make sure that its tab shows its files. Pin more folders than the column holds. Make sure that the others show at the top of the Folders index.
-9. Quit Piper and open it again. Make sure that the feed paper restores its frame, its tab, its scope, and its pins.
+8. Press P on a folder in the folder tree. Make sure that its tab shows the tree of the folder. Select a swatch. Make sure that the tab takes the color. Pin folders until the column holds 8 tabs, then press P on another folder. Make sure that the line under the title says that the edge holds 8 tabs. Make the feed paper as short as the screen permits on a small screen. Make sure that the pinned tabs show one letter.
+9. Quit Piper and open it again. Make sure that the feed paper restores its frame, its tab, its scope, its pins, its tab colors, and its open folders.
 10. Follow a Wiki link, then use Command-[ and Command-].
 11. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the paper. Make sure that Source shows their text, and that long lines wrap.
 12. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.

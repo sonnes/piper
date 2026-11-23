@@ -81,7 +81,7 @@ final class AppDefaults {
         /// The number of tabs on the edge of the feed paper. Pinned folders past this number show on the Folders index.
         static let tabLimit = 8
         static let feedSize = NSSize(width: 520, height: 760)
-        static let feedMinimumSize = NSSize(width: 420, height: 440)
+        static let feedMinimumSize = NSSize(width: 420, height: 560)
         static let readerSize = NSSize(width: 712, height: 860)
         static let noteSize = NSSize(width: 440, height: 420)
         static let sessionSize = NSSize(width: 480, height: 680)
@@ -116,22 +116,66 @@ final class AppDefaults {
         /// The cross-fade between the index and the list.
         static let fade: Double = 0.22
 
-        static let tabWidth: CGFloat = 150
-        static let activeTabWidth: CGFloat = 164
-        static let tabHeight: CGFloat = 40
-        static let tabSpacing: CGFloat = 6
-        /// The part of a tab that lies under the paper.
-        static let tabOverlap: CGFloat = 14
-        static let tabCornerRadius: CGFloat = 14
+        /// The vertical tabs on the left edge of the feed paper, as in variant
+        /// C of `mocks/vertical-tabs.html`. A tab is 50 points wide. 40 points
+        /// show, and 10 points lie under the paper.
+        static let tabWidth: CGFloat = 50
+        static let tabVisible: CGFloat = 40
+        /// The height of the curve at each end of a tab. Each tab lies this far
+        /// under the tab above it, so that one curve shows between two tabs.
+        static let tabShoulder: CGFloat = 24
+        /// The space above and below the label of a tab.
+        static let tabLabelPadding: CGFloat = 20
+        static let tabLabelLeading: CGFloat = 4
+        static let tabLabelSpacing: CGFloat = 6
+        /// The letter spacing of a tab label: -0.01 em at 14 points.
+        static let tabLabelTracking: CGFloat = -0.14
         /// The space between the top of the paper and the first tab.
-        static let tabsTop: CGFloat = 74
-        /// The extra space over the first pinned folder.
-        static let pinGap: CGFloat = 10
-        static let tabShadowRadius: CGFloat = 2
-        static let activeTabShadowRadius: CGFloat = 2.5
-        /// The dashed + Folder tab at the end of the column.
-        static let addTabWidth: CGFloat = 132
-        static let tabShadowOffset: CGFloat = 1
+        static let tabsTop: CGFloat = 20
+        /// The space that the column of tabs leaves free at the foot of the paper.
+        static let tabRoom: CGFloat = 40
+        static let tabHairline: CGFloat = 0.75
+        /// The line on the outer edge of the active tab.
+        static let tabEdgeLine: CGFloat = 3
+        static let tabEdgeInset: CGFloat = 3.5
+        static let tabFocusLine: CGFloat = 3
+        /// The active tab covers the paper by 1 point, so no seam shows. Its
+        /// shadow stops 9 points from the inner edge of the tab.
+        static let activeTabClip: CGFloat = 9
+        /// The distance that a tab moves out under the pointer.
+        static let tabHoverLift: CGFloat = 1
+        /// The active tab springs out from this distance under the paper.
+        static let tabSpringOffset: CGFloat = 5
+        static let tabSpring: Double = 0.25
+        /// `drop-shadow(0 .5px .5px)`: the tight shadow at the outline of a tab.
+        static let tabContactShadow = (radius: CGFloat(0.25), y: CGFloat(0.5))
+        /// `drop-shadow(-2px 3px 6px)`, or 8 points of blur in the dark: the wide soft shadow of a tab.
+        static let tabDiffuseShadow = (x: CGFloat(-2), y: CGFloat(3), radius: CGFloat(3), darkRadius: CGFloat(4))
+        /// `drop-shadow(-3px 4px 10px)`: the soft shadow of a tab under the pointer.
+        static let hoverTabShadow = (x: CGFloat(-3), y: CGFloat(4), radius: CGFloat(5))
+        /// `drop-shadow(-4px 3px 10px)`: the soft shadow of the active tab.
+        static let activeTabShadow = (x: CGFloat(-4), y: CGFloat(3), radius: CGFloat(5))
+        /// The dashed tab at the end of the column, which pins a folder.
+        static let addTabHeight: CGFloat = 40
+        static let addTabGap: CGFloat = 8
+        static let addTabRadius: CGFloat = 12
+        static let addTabSize: CGFloat = 18
+
+        /// The folder tree of the Folders tab and of a pinned folder tab.
+        static let treeRowHeight: CGFloat = 40
+        static let treeRowPadding = EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 14)
+        static let treePadding = EdgeInsets(top: 10, leading: 12, bottom: 8, trailing: 12)
+        static let treeIndent: CGFloat = 22
+        static let treeSpacing: CGFloat = 8
+        /// The guide line of a nested row lies at this distance from the left of its row, at level 1.
+        static let treeGuide: CGFloat = 23
+        static let treeChevron: CGFloat = 16
+        static let treeChevronGlyph: CGFloat = 10
+        static let treeFileSize: CGFloat = 17
+        /// The line under the title: the summary of the Folders tab, or the swatches of a pinned folder.
+        static let subPadding = EdgeInsets(top: 8, leading: 32, bottom: 0, trailing: 32)
+        static let swatchSize: CGFloat = 22
+        static let swatchBorder: CGFloat = 2
 
         /// The smallest scale of the title of the feed paper before it truncates.
         static let titleMinimumScale: CGFloat = 0.7
@@ -139,12 +183,11 @@ final class AppDefaults {
         static let indexPadding = EdgeInsets(top: 16, leading: 20, bottom: 20, trailing: 20)
         /// A group header of an index, such as Sections.
         static let indexHeaderPadding = EdgeInsets(top: 12, leading: 12, bottom: 4, trailing: 12)
-        /// The folder outline of a row of an index.
-        static let folderMark = CGSize(width: 15, height: 11)
+        /// The folder outline of a row of an index and of the folder tree.
+        static let folderMark = CGSize(width: 16, height: 12)
         static let rowHeight: CGFloat = 48
         static let rowRadius: CGFloat = 12
         static let rowPadding: CGFloat = 12
-        static let indent: CGFloat = 18
         static let iconSize: CGFloat = 18
         static let readerHeaderHeight: CGFloat = 48
         /// The grip of a reader paper. Its text starts at the side margin of the article.

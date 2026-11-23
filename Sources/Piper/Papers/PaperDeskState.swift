@@ -1,10 +1,25 @@
 import AppKit
 import Feeds
 
+/// The color of a tab on the edge of the feed paper. `PiperTheme` holds the
+/// fill and the edge of each color.
+enum TabColor: String, Codable, CaseIterable, Identifiable {
+    case indigo, zinc, sky, emerald, plum, teal, rose, clay
+
+    var id: String { rawValue }
+
+    /// The name of the color, for its swatch.
+    var name: String { rawValue.capitalized }
+
+    /// The colors that a new pin takes, in order. A pin takes the first color
+    /// that no other pin has.
+    static let pinOrder: [TabColor] = [.teal, .rose, .clay, .sky, .emerald, .plum]
+}
+
 /// One tab on the left edge of the feed paper.
 ///
-/// The five fixed tabs come first. A pinned folder follows them, as a paler
-/// tab that goes straight to the folder.
+/// The five fixed tabs come first. A pinned folder follows them. Each tab
+/// has its own color.
 enum PaperTab: Codable, Hashable {
     case inbox
     case clipboard
@@ -30,11 +45,33 @@ enum PaperTab: Codable, Hashable {
         }
     }
 
-    /// True for a tab that has an index. Clipboard and a pinned folder go straight to their list.
+    /// True for a tab that has an index. Clipboard goes straight to its list.
+    /// Folders and a pinned folder show their tree.
     var hasIndex: Bool {
         switch self {
-        case .clipboard, .pinned: return false
-        case .inbox, .feeds, .folders, .agents: return true
+        case .clipboard, .folders, .pinned: return false
+        case .inbox, .feeds, .agents: return true
+        }
+    }
+
+    /// True for Folders and a pinned folder, which show a tree of folders and files.
+    var showsTree: Bool {
+        switch self {
+        case .folders, .pinned: return true
+        case .inbox, .clipboard, .feeds, .agents: return false
+        }
+    }
+
+    /// The color of the tab. A pinned folder has the color that the reader
+    /// chose, or teal.
+    func color(pins: [String: TabColor]) -> TabColor {
+        switch self {
+        case .inbox: return .indigo
+        case .clipboard: return .zinc
+        case .feeds: return .sky
+        case .folders: return .emerald
+        case .agents: return .plum
+        case .pinned(let path): return pins[path] ?? .teal
         }
     }
 
@@ -80,7 +117,7 @@ enum PaperScope: Codable, Equatable {
 /// What the feed paper restores when it opens again.
 ///
 /// One type covers the feed paper: its tab, its scope, the open folders of
-/// the Folders index, the pinned folders, and its frame.
+/// the folder tree, the pinned folders and their colors, and its frame.
 struct PaperDeskState: Codable, Equatable {
 
     // MARK: - Properties
@@ -89,11 +126,13 @@ struct PaperDeskState: Codable, Equatable {
     var tab = PaperTab.inbox
     /// What the list shows.
     var scope = PaperScope.inbox(section: nil)
-    /// The open folders of the Folders index, as paths from the root of the
-    /// active folder. The empty path is the root.
+    /// The open folders of the folder tree, by their absolute paths. Folders
+    /// and the pinned folder tabs share them.
     var expandedFolders: [String] = []
     /// The pinned folders, by their absolute paths, in the order of the tabs.
     var pinnedFolders: [String] = []
+    /// The tab color of each pinned folder, by its absolute path.
+    var pinColors: [String: TabColor] = [:]
     /// The frame of the feed paper window, from `NSStringFromRect`.
     var feedFrame: String?
     /// The file of the file paper, as a path from the root of the active folder.
@@ -113,21 +152,47 @@ struct PaperDeskState: Codable, Equatable {
         }
     }
 
-    /// Pins a folder, or removes its pin.
-    mutating func togglePin(_ path: String) {
-        if let index = pinnedFolders.firstIndex(of: path) {
-            pinnedFolders.remove(at: index)
-            if tab == .pinned(path) { tab = .folders }
-        } else {
-            pinnedFolders.append(path)
-        }
+    /// What a pin or an unpin did.
+    enum PinChange: Equatable {
+        case pinned
+        case unpinned
+        /// The column has no room. The folder has no pin.
+        case full
     }
 
-    /// Forgets the state that belongs to the previous folder. The pins stay.
+    /// Pins a folder, or removes its pin.
+    ///
+    /// The column holds `limit` tabs. A pin that does not fit changes nothing.
+    /// A new pin takes the first color of `TabColor.pinOrder` that no other
+    /// pin has, or zinc.
+    ///
+    /// - Parameter fixedTabs: The number of fixed tabs in the column.
+    @discardableResult
+    mutating func togglePin(_ path: String, fixedTabs: Int, limit: Int = AppDefaults.Papers.tabLimit) -> PinChange {
+        if let index = pinnedFolders.firstIndex(of: path) {
+            pinnedFolders.remove(at: index)
+            pinColors[path] = nil
+            if tab == .pinned(path) { tab = .folders }
+            return .unpinned
+        }
+        guard fixedTabs + pinnedFolders.count < limit else { return .full }
+        let used = Set(pinnedFolders.compactMap { pinColors[$0] })
+        pinColors[path] = TabColor.pinOrder.first { !used.contains($0) } ?? .zinc
+        pinnedFolders.append(path)
+        return .pinned
+    }
+
+    /// Sets the tab color of a pinned folder.
+    mutating func setColor(_ color: TabColor, of path: String) {
+        guard pinnedFolders.contains(path) else { return }
+        pinColors[path] = color
+    }
+
+    /// Forgets the state that belongs to the previous folder. The pins and
+    /// the open folders stay, because they hold absolute paths.
     mutating func resetForVault() {
         if case .folder = scope { scope = .folder("") }
         if case .pinned = tab { tab = .folders }
-        expandedFolders = []
         selectedFile = nil
     }
 
@@ -154,5 +219,25 @@ struct PaperDeskState: Codable, Equatable {
     func save(to defaults: UserDefaults = .standard) {
         guard let data = try? JSONEncoder().encode(self) else { return }
         defaults.set(data, forKey: AppDefaults.Key.paperDeskState)
+    }
+}
+
+// MARK: - Decodable
+
+extension PaperDeskState {
+    private enum CodingKeys: String, CodingKey {
+        case tab, scope, expandedFolders, pinnedFolders, pinColors, feedFrame, selectedFile
+    }
+
+    /// Reads a saved state. A key that an older version did not save takes its default.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        tab = try container.decodeIfPresent(PaperTab.self, forKey: .tab) ?? .inbox
+        scope = try container.decodeIfPresent(PaperScope.self, forKey: .scope) ?? .inbox(section: nil)
+        expandedFolders = try container.decodeIfPresent([String].self, forKey: .expandedFolders) ?? []
+        pinnedFolders = try container.decodeIfPresent([String].self, forKey: .pinnedFolders) ?? []
+        pinColors = try container.decodeIfPresent([String: TabColor].self, forKey: .pinColors) ?? [:]
+        feedFrame = try container.decodeIfPresent(String.self, forKey: .feedFrame)
+        selectedFile = try container.decodeIfPresent(String.self, forKey: .selectedFile)
     }
 }

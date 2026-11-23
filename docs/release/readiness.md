@@ -40,10 +40,10 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Import a real NetNewsWire `Subscriptions.opml`, and make sure that each feed refreshes.
 - [ ] Run Discover in the built app with Safari history, and make sure that Settings > Feeds shows Open Privacy Settings while Piper has no Full Disk Access.
 - [ ] Measure if agent sessions get the Full Disk Access of Piper.
-- [ ] Make a link from the editor show the new file on the Folders index.
+- [ ] Make a link from the editor show the new file in the folder tree.
 - [ ] Do the Editing Checks in [validate.md](validate.md) that are not done in the built app: Japanese input, Command-F, and Reload in the conflict bar.
 - [ ] Decide whether Piper turns off text replacement and smart quotes in the editor page. Today a macOS text replacement changes the Markdown that you type.
-- [ ] Hide `<note>.assets` folders on the Folders index.
+- [ ] Hide `<note>.assets` folders in the folder tree.
 - [x] Edit footnotes in Preview. `web/test/footnote.test.ts` and `EditorPageTests.testAnEditKeepsTheFootnotesOfAFile` cover the round trip and the save.
 - [x] Stop a save from adding a blank line at the end of a file that ends with a list, a quote, a code block, a table, or a footnote. `web/test/trailingParagraph.test.ts` covers it.
 - [ ] Decide whether the editor escapes Markdown characters in plain text. Today a literal `*` that you type can become emphasis when the file opens again.

@@ -6,15 +6,8 @@ import XCTest
 @MainActor
 final class PaperKeysTests: XCTestCase {
 
-    private func row(_ path: String, folder: Bool, depth: Int = 1) -> FolderIndexRow {
-        FolderIndexRow(path: path, name: path, isFolder: folder, depth: depth, hasChildren: folder, expanded: false)
-    }
-
     private func entries(_ tab: PaperTab) -> [IndexEntry] {
-        IndexEntry.entries(tab: tab, sections: ["Inbox", "Work"], feeds: ["a", "b"], overflow: ["/pins/Talks"],
-                           roots: ["/notes", "/other"], activeRoot: "/notes",
-                           tree: [row("Field", folder: true), row("todo.md", folder: false)],
-                           sessionFolders: ["/notes"])
+        IndexEntry.entries(tab: tab, sections: ["Inbox", "Work"], feeds: ["a", "b"], sessionFolders: ["/notes"])
     }
 
     // MARK: - Index
@@ -26,15 +19,14 @@ final class PaperKeysTests: XCTestCase {
         ])
     }
 
-    func testTheFoldersIndexListsThePinsThenEachRootWithTheTreeOfTheActiveRoot() {
-        XCTAssertEqual(entries(.folders), [
-            .pinned("/pins/Talks"), .scope(.folder("")), .scope(.folder("Field")), .file("todo.md"), .root("/other")
-        ])
-    }
-
-    func testClipboardAndAPinnedTabHaveNoIndex() {
+    func testClipboardFoldersAndAPinnedTabHaveNoIndex() {
         XCTAssertEqual(entries(.clipboard), [])
+        XCTAssertEqual(entries(.folders), [])
         XCTAssertEqual(entries(.pinned("/pins/Talks")), [])
+        XCTAssertFalse(PaperTab.folders.hasIndex)
+        XCTAssertTrue(PaperTab.folders.showsTree)
+        XCTAssertTrue(PaperTab.pinned("/pins/Talks").showsTree)
+        XCTAssertFalse(PaperTab.feeds.showsTree)
     }
 
     func testTheCursorStartsAtAnEndAndStopsAtTheLastRow() {
@@ -56,8 +48,9 @@ final class PaperKeysTests: XCTestCase {
         let rows = entries(.feeds)
         XCTAssertEqual(IndexEntry.cycle(.feed(.allUnread), by: 1, in: rows), .feed(.starred))
         XCTAssertEqual(IndexEntry.cycle(.feed(.discover), by: -1, in: rows), .feed(.feed("b")))
-        // A file, a pin, and another root are not scopes, so the cycle skips them.
-        XCTAssertEqual(IndexEntry.cycle(.folder("Field"), by: 1, in: entries(.folders)), .folder(""))
+        // A Show row is not a scope, so the cycle skips it.
+        XCTAssertEqual(IndexEntry.cycle(.inbox(section: nil), by: 1, in: entries(.inbox)), .inbox(section: "Inbox"))
+        XCTAssertNil(IndexEntry.cycle(.folder(""), by: 1, in: entries(.folders)))
     }
 
     // MARK: - Number Keys
@@ -93,12 +86,24 @@ final class PaperKeysTests: XCTestCase {
         XCTAssertEqual(article, ["highlight", "note", "next paper", "put back", "tidy"])
         let file = Hint.hints(index: false, paper: .file, article: false, papersOpen: true, tabs: 5).map(\.label)
         XCTAssertEqual(file, ["next paper", "put back", "tidy"])
+        let tree = Hint.hints(index: false, tree: true, paper: nil, article: false, papersOpen: false, tabs: 8)
+        XCTAssertEqual(tree.map(\.label), ["move", "open folder", "close folder", "open file", "pin as tab", "tab"])
+        XCTAssertEqual(tree.last?.keys, ["1–8"])
     }
 
-    func testAFolderListStepStopsAtTheEnds() {
-        XCTAssertEqual(FolderListView.step(from: nil, by: 1, in: ["a", "b"]), "a")
-        XCTAssertEqual(FolderListView.step(from: "a", by: 1, in: ["a", "b"]), "b")
-        XCTAssertEqual(FolderListView.step(from: "b", by: 1, in: ["a", "b"]), "b")
-        XCTAssertNil(FolderListView.step(from: "a", by: 1, in: []))
+    func testTheFoldersTabShowsItsTreeWithNoIndexStep() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("piper-keys-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let suite = "piper-tree-keys-tests"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
+        let paper = FeedPaperModel(model: model, defaults: defaults)
+        paper.choose(.folders)
+        XCTAssertEqual(paper.state.tab, .folders)
+        XCTAssertFalse(paper.showsIndex)
+        XCTAssertEqual(paper.state.scope, .folder(""))
     }
 }

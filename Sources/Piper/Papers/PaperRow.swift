@@ -163,7 +163,7 @@ struct TickMark: View {
         let metrics = AppDefaults.Papers.self
         ZStack {
             if done {
-                Circle().fill(PiperTheme.tabActive)
+                Circle().fill(PiperTheme.indigo)
                 Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(PiperTheme.onAccent)
             } else {
                 Circle().strokeBorder(PiperTheme.paperFaint, lineWidth: metrics.markLine)

@@ -166,15 +166,8 @@ enum PiperTheme {
     static let markInkNS = color(light: 0x18181B, dark: 0xFFFFFF)
     /// Indigo 500 at 26 percent. Selected text on a paper.
     static let paperSelectionNS = NSColor(srgbRed: 0x63 / 255, green: 0x66 / 255, blue: 0xF1 / 255, alpha: 0.26)
-    /// Indigo 500. A tab on the edge of the feed paper.
-    static let tabNS = hex(0x6366F1)
-    /// Indigo 600. The active tab.
-    static let tabActiveNS = hex(0x4F46E5)
-    /// Indigo 100, and indigo 200 when active. The tab of a pinned folder.
-    static let pinTabNS = hex(0xE0E7FF)
-    static let pinTabActiveNS = hex(0xC7D2FE)
-    /// Indigo 800. The text of a pinned folder tab.
-    static let pinTabInkNS = hex(0x3730A3)
+    /// Indigo 600 in both appearances. The check of a done capture, and the fill of a pill.
+    static let indigoNS = hex(0x4F46E5)
 
     /// Zinc 300 and 600. The dashed slot of a row whose item is open as a paper.
     static let paperSlotNS = color(light: 0xD4D4D8, dark: 0x52525B)
@@ -197,14 +190,9 @@ enum PiperTheme {
     static let brand = Color(nsColor: brandNS)
     static let currentRow = Color(nsColor: currentRowNS)
     static let markInk = Color(nsColor: markInkNS)
-    static let tab = Color(nsColor: tabNS)
-    static let tabActive = Color(nsColor: tabActiveNS)
-    static let pinTab = Color(nsColor: pinTabNS)
-    static let pinTabActive = Color(nsColor: pinTabActiveNS)
-    static let pinTabInk = Color(nsColor: pinTabInkNS)
-    /// The shadow of a tab: 12 percent black, and 18 percent for the active tab.
+    static let indigo = Color(nsColor: indigoNS)
+    /// The shadow of the tabs of a reader paper: 12 percent black.
     static let tabShadowColor = Color.black.opacity(0.12)
-    static let activeTabShadowColor = Color.black.opacity(0.18)
     /// `Tokens.writeCardShadow` of September: the shadow of the paper with the
     /// keyboard focus. Black at 18 percent, and 55 percent in the dark.
     static let paperShadowNS = shade(light: 0.18, dark: 0.55)
@@ -215,6 +203,69 @@ enum PiperTheme {
     static let paperShadow = Color(nsColor: paperShadowNS)
     static let paperRestShadow = Color(nsColor: paperRestShadowNS)
     static let paperEdgeShadow = Color(nsColor: paperEdgeShadowNS)
+
+    // MARK: Folder Tabs
+
+    // The tabs on the edge of the feed paper are pastel file-folder tabs, as
+    // in variant C of `mocks/vertical-tabs.html`. In the light, a fill is the
+    // 100 shade of its color. In the dark, a fill is its 600 shade at 42
+    // percent on the zinc 900 desk, and the label is white.
+
+    /// The fill of a tab that is not active.
+    static func tabFill(_ color: TabColor) -> Color {
+        let (light, dark) = tabFills[color] ?? (0xE4E4E7, 0x525257)
+        return Color(nsColor: Self.color(light: light, dark: dark))
+    }
+
+    /// The line on the outer edge of the active tab, and the folder mark of a
+    /// pinned folder: the 600 or 700 shade in the light, and the 400 shade in the dark.
+    static func tabEdge(_ color: TabColor) -> Color {
+        let (light, dark) = tabEdges[color] ?? (0x52525B, 0xD4D4D8)
+        return Color(nsColor: Self.color(light: light, dark: dark))
+    }
+
+    /// Zinc 900, and white. The label of a tab that is not active.
+    static let tabInk = Color(nsColor: color(light: 0x18181B, dark: 0xFFFFFF))
+    /// Zinc 600, and white at 78 percent. The count of a tab that is not active.
+    static let tabCount = Color(nsColor: NSColor(name: nil) { appearance in
+        isDark(appearance) ? NSColor.white.withAlphaComponent(0.78) : hex(0x52525B)
+    })
+    /// The hairline at the outline of a tab: black at 10 percent, and white at 14 percent in the dark.
+    static let tabHairline = Color(nsColor: NSColor(name: nil) { appearance in
+        isDark(appearance) ? NSColor.white.withAlphaComponent(0.14) : NSColor.black.withAlphaComponent(0.10)
+    })
+    /// The focus ring of a tab: indigo 600 at 70 percent, and indigo 400 at 80 percent in the dark.
+    static let tabFocus = Color(nsColor: NSColor(name: nil) { appearance in
+        isDark(appearance) ? hex(0x818CF8).withAlphaComponent(0.8) : hex(0x4F46E5).withAlphaComponent(0.7)
+    })
+    /// The darker fill of a pressed tab: black at 6 percent, and 10 percent in the dark.
+    static let tabPressed = Color(nsColor: shade(light: 0.06, dark: 0.10))
+    /// Zinc 400. The dashed outline of the tab that pins a folder.
+    static let tabDash = Color(nsColor: hex(0xA1A1AA))
+
+    /// The tight contact shadow of a tab. Black at 12 percent, 14 percent
+    /// under the pointer, 10 percent for the active tab, and 40 percent in the dark.
+    static func tabContactShadow(hovered: Bool, active: Bool) -> Color {
+        Color(nsColor: shade(light: active ? 0.10 : hovered ? 0.14 : 0.12, dark: 0.40))
+    }
+
+    /// The wide soft shadow of a tab. Black at 6 percent, 10 percent under the
+    /// pointer and for the active tab, and 30 or 40 percent in the dark.
+    static func tabDiffuseShadow(hovered: Bool, active: Bool) -> Color {
+        Color(nsColor: shade(light: active || hovered ? 0.10 : 0.06, dark: active ? 0.40 : 0.30))
+    }
+
+    private static let tabFills: [TabColor: (UInt32, UInt32)] = [
+        .indigo: (0xE0E7FF, 0x2F2B70), .zinc: (0xE4E4E7, 0x525257), .sky: (0xE0F2FE, 0x0F4563),
+        .emerald: (0xD1FAE5, 0x104D3C), .plum: (0xFAE8FF, 0x5F1E68), .teal: (0xCCFBF1, 0x134C49),
+        .rose: (0xFFE4E6, 0x6C1A2E), .clay: (0xFFEDD5, 0x703315)
+    ]
+
+    private static let tabEdges: [TabColor: (UInt32, UInt32)] = [
+        .indigo: (0x4F46E5, 0x818CF8), .zinc: (0x52525B, 0xD4D4D8), .sky: (0x0369A1, 0x38BDF8),
+        .emerald: (0x047857, 0x34D399), .plum: (0x86198F, 0xE879F9), .teal: (0x0F766E, 0x2DD4BF),
+        .rose: (0xBE123C, 0xFB7185), .clay: (0xC2410C, 0xFB923C)
+    ]
 
     // MARK: Shapes
 
@@ -330,6 +381,10 @@ enum PiperTheme {
 
     static func ui(_ size: TextSize, weight: Font.Weight = .regular) -> Font {
         .system(size: size.rawValue, weight: weight)
+    }
+
+    private static func isDark(_ appearance: NSAppearance) -> Bool {
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     }
 
     private static func color(light: UInt32, dark: UInt32) -> NSColor {

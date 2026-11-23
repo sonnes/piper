@@ -62,15 +62,17 @@ The panel is a non-activating `NSPanel` on every Space. Its initial size is 600 
 
 `PaperDesk` owns the feed paper and the reader papers. A paper is a `PaperWindow`: a titled window with a full-size content view, a transparent title bar, and no title bar buttons. Its background is clear, and the content clips to a rounded rectangle of 20 points. The window is larger than its paper by `AppDefaults.Papers.shadowMargin`, and the paper draws its own shadow in that margin. The system shadow is off. A drag on the background or on the header moves the paper. `PaperWindow.cancelOperation` calls its `escape` closure, so Escape reaches the paper after the views in it.
 
-`FeedPaperController` owns the feed paper. `FeedPaperView` draws the column of tabs on the left edge, and the sheet with the index or the list. `FeedPaperModel` holds the state of the paper:
+`FeedPaperController` owns the feed paper. `FeedPaperView` draws the column of tabs on the left edge, and the sheet with the index, the list, or the folder tree. `FeedPaperModel` holds the state of the paper:
 
-- `PaperDeskState` holds the tab, the scope, the open folders of the Folders index, the pinned folders, the frame, and the open file. Each change saves it to `paperDeskState` in the preferences.
+- `PaperDeskState` holds the tab, the scope, the open folders of the folder tree, the pinned folders and their `TabColor`, the frame, and the open file. Each change saves it to `paperDeskState` in the preferences. A key that an older version did not save takes its default.
 - `showsIndex` is true while the sheet shows the index of the active tab.
 - `choose(_:)` handles a click on a tab. `pick(_:)` handles a pick on an index. `showList()` handles Escape and Back to the List.
 
-`PaperTab.column(pins:showsAgents:limit:)` gives the tabs and the pinned folders that do not fit. The column holds `AppDefaults.Papers.tabLimit` tabs. The fixed tabs come first: Inbox, Clipboard, Feeds, Folders, and Agents. Agents shows only while a folder has sessions. A pinned folder that does not fit shows at the top of the Folders index.
+`PaperTab.column(pins:showsAgents:limit:)` gives the tabs and the pinned folders that do not fit. The column holds `AppDefaults.Papers.tabLimit` tabs. The fixed tabs come first: Inbox, Clipboard, Feeds, Folders, and Agents. Agents shows only while a folder has sessions. `PaperDeskState.togglePin(_:fixedTabs:limit:)` refuses a pin when the column is full, so a pinned folder has no tab only when the Agents tab appears after the pin.
 
-`PaperScope` is what the list shows: an Inbox section, Done, the clipboard, a `FeedFilter`, a folder, or the sessions of a folder. `FeedPaperIndex` draws the index of each tab. `FolderIndex.rows` flattens the tree of the active folder into rows, and it shows the rows of the open folders only. `FolderListView` groups the files of a folder by their folder. `SessionList` lists the sessions of a folder under a New Session row.
+`PaperTabs` draws the column as file-folder tabs, as in variant C of the mock. `FolderTabShape` is the outline of a tab. The feed paper draws the column twice: the tabs that are not active lie under the sheet, and the active tab lies over it, so it joins the paper. `TabColumn` measures the labels. The feed paper grows to hold the column when the screen has room. On a shorter paper, the pinned tabs show one letter. `PiperTheme.tabFill(_:)` and `PiperTheme.tabEdge(_:)` give the colors of each `TabColor`.
+
+`PaperScope` is what the list shows: an Inbox section, Done, the clipboard, a `FeedFilter`, a folder, or the sessions of a folder. `FeedPaperIndex` draws the index of Inbox, Feeds, and Agents. Folders and a pinned folder have no index. They show `FolderTreeView`. `FolderTree.rows` flattens the tree of the active folder into rows, and it shows the rows of the open folders only. A pinned folder tab shows the rows in its folder. When the folder list has more than one folder, each folder is a row at the top. `FolderTree.action(_:cursor:rows:)` maps the arrow keys and Return to a move, an open, a close, or a file to open. `SessionList` lists the sessions of a folder under a New Session row.
 
 The index and the list fade into each other in 0.22 seconds. When Reduce Motion is on, the change has no animation.
 

@@ -8,26 +8,14 @@ enum IndexEntry: Equatable {
     case scope(PaperScope)
     /// A Show row of the Inbox index: every section, with only notes or only links.
     case inboxFilter(InboxStream.Filter)
-    /// A pinned folder that has no tab, by its absolute path.
-    case pinned(String)
-    /// A folder of the folder list that is not the active folder, by its absolute path.
-    case root(String)
-    /// A file of the tree of the active folder, by its path from the root.
-    case file(String)
 
     /// The rows of the index of a tab, from the top.
     ///
     /// - Parameters:
     ///   - sections: The capture sections, for the Inbox index.
     ///   - feeds: The ids of the feeds, for the Feeds index.
-    ///   - overflow: The pinned folders that have no tab.
-    ///   - roots: The folders of the folder list, by their absolute paths.
-    ///   - activeRoot: The active folder, which shows its tree.
-    ///   - tree: The visible rows of the tree of the active folder.
     ///   - sessionFolders: The folders that have agent sessions.
-    static func entries(tab: PaperTab, sections: [String], feeds: [String], overflow: [String],
-                        roots: [String], activeRoot: String, tree: [FolderIndexRow],
-                        sessionFolders: [String]) -> [IndexEntry] {
+    static func entries(tab: PaperTab, sections: [String], feeds: [String], sessionFolders: [String]) -> [IndexEntry] {
         switch tab {
         case .inbox:
             return [.scope(.inbox(section: nil)), .inboxFilter(.notes), .inboxFilter(.reading)]
@@ -36,20 +24,9 @@ enum IndexEntry: Equatable {
         case .feeds:
             return [.scope(.feed(.discover)), .scope(.feed(.allUnread)), .scope(.feed(.starred))]
                 + feeds.map { .scope(.feed(.feed($0))) }
-        case .folders:
-            var rows = overflow.map(IndexEntry.pinned)
-            for root in roots {
-                guard root == activeRoot else {
-                    rows.append(.root(root))
-                    continue
-                }
-                rows.append(.scope(.folder("")))
-                rows += tree.map { $0.isFolder ? .scope(.folder($0.path)) : .file($0.path) }
-            }
-            return rows
         case .agents:
             return sessionFolders.map { .scope(.sessions($0)) }
-        case .clipboard, .pinned:
+        case .clipboard, .folders, .pinned:
             return []
         }
     }

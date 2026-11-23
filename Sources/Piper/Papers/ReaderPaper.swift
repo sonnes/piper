@@ -49,7 +49,7 @@ struct ReaderPaper: View {
                 .font(PiperTheme.paperUI(.body, weight: .medium))
                 .foregroundStyle(PiperTheme.onAccent)
                 .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(PiperTheme.tabActive, in: Capsule())
+                .background(PiperTheme.indigo, in: Capsule())
                 .help(note.isDone ? "Open the note again" : "Mark the note as done")
         }
         .font(PiperTheme.paperUI(.body))

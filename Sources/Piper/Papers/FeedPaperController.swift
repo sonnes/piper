@@ -17,7 +17,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     var focusChanged: () -> Void = {}
 
     /// The width of the column of tabs beside the paper.
-    static let tabColumn = AppDefaults.Papers.activeTabWidth - AppDefaults.Papers.tabOverlap
+    static let tabColumn = AppDefaults.Papers.tabVisible
 
     // MARK: - Initialization
 
@@ -32,6 +32,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.escape = { [weak paper] in paper?.showList() }
+        paper.fitTabs = { [weak self] height in self?.fitTabs(paperHeight: height) }
         window.focusChanged = { [weak self, weak paper] focused in
             paper?.marks.feedFocused = focused
             self?.focusChanged()
@@ -95,12 +96,14 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     // MARK: - Keyboard
 
     /// Reads a key on the feed paper. A list of captures reads its own Up
-    /// Arrow, Down Arrow, and Return.
+    /// Arrow, Down Arrow, and Return. The folder tree reads the arrow keys,
+    /// Return, and P.
     ///
     /// - Returns: True when the paper used the key.
     func handle(_ key: PaperKey, in eventWindow: NSWindow?) -> Bool {
         guard let window, PaperKey.focusedWindow === window, eventWindow == nil || eventWindow === window,
               !PaperKey.editsText(window) else { return false }
+        if paper.state.tab.showsTree, !paper.showsIndex, handleTree(key) { return true }
         switch key {
         case .number(let number):
             paper.numberKey(number)
@@ -131,7 +134,39 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         return true
     }
 
+    private func handleTree(_ key: PaperKey) -> Bool {
+        switch key {
+        case .up: paper.treeKey(.up)
+        case .down: paper.treeKey(.down)
+        case .left: paper.treeKey(.left)
+        case .right: paper.treeKey(.right)
+        case .enter: paper.treeKey(.enter)
+        case .letter("p"): paper.pinTreeCursor()
+        default: return false
+        }
+        return true
+    }
+
     // MARK: - Private
+
+    /// Makes the paper at least as tall as its column of tabs. The top edge
+    /// stays. A screen without the room keeps the paper on the screen, and
+    /// the pinned tabs then show one letter.
+    private func fitTabs(paperHeight needed: CGFloat) {
+        guard let window = window as? PaperWindow, let screen = window.screen ?? NSScreen.main else { return }
+        let margin = AppDefaults.Papers.shadowMargin
+        let visible = screen.visibleFrame
+        let room = visible.height - margin.top - margin.bottom
+        let minimum = max(AppDefaults.Papers.feedMinimumSize.height, min(needed, room))
+        window.minSize.height = minimum + margin.top + margin.bottom
+        var frame = window.paperFrame
+        let height = TabColumn.fittedHeight(current: frame.height, needed: needed, screen: room)
+        guard height > frame.height else { return }
+        frame.origin.y -= height - frame.height
+        frame.size.height = height
+        frame.origin.y = max(frame.origin.y, visible.minY + margin.bottom)
+        window.setPaperFrame(frame, display: true)
+    }
 
     /// Saves the frame of the paper, with its column of tabs.
     private func saveFrame() {

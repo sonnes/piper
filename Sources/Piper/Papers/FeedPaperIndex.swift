@@ -6,9 +6,7 @@ import SwiftUI
 /// The index of the active tab, in place of the list of the feed paper.
 ///
 /// Inbox shows its sections and Done. Feeds shows Discover, All Unread,
-/// Starred, and each feed. Folders shows the pinned folders that have no tab,
-/// then the folders and the tree of the active folder. Agents shows the
-/// folders that have sessions.
+/// Starred, and each feed. Agents shows the folders that have sessions.
 struct FeedPaperIndex: View {
     @Bindable var paper: FeedPaperModel
     @Bindable var model: AppModel
@@ -28,9 +26,8 @@ struct FeedPaperIndex: View {
                 switch paper.state.tab {
                 case .inbox: inbox
                 case .feeds: feedRows
-                case .folders: folderRows
                 case .agents: agentRows
-                case .clipboard, .pinned: EmptyView()
+                case .clipboard, .folders, .pinned: EmptyView()
                 }
             }
             .padding(AppDefaults.Papers.indexPadding)
@@ -138,82 +135,6 @@ struct FeedPaperIndex: View {
         }
     }
 
-    // MARK: - Folders
-
-    @ViewBuilder private var folderRows: some View {
-        let overflow = paper.column.overflow
-        if !overflow.isEmpty {
-            IndexHeader(title: "Pinned, With No Tab")
-            ForEach(overflow, id: \.self) { path in
-                row(.pinned(path), title: URL(fileURLWithPath: path).lastPathComponent,
-                    leading: AnyView(FolderMark()), count: 0)
-                    .contextMenu { folderMenu(path, root: nil) }
-            }
-            IndexHeader(title: "Folders")
-        }
-        ForEach(model.wikiPaths, id: \.self) { root in
-            let name = URL(fileURLWithPath: root).lastPathComponent
-            if root == model.wikiPath {
-                row(.scope(.folder("")), title: name, leading: AnyView(FolderMark()), count: 0,
-                    current: paper.state.tab == .folders && scope == .folder(""))
-                    .contextMenu { folderMenu(model.vault.root.path, root: root) }
-                tree
-            } else {
-                row(.root(root), title: name, leading: AnyView(FolderMark()), count: 0)
-                    .contextMenu { folderMenu(root, root: root) }
-            }
-        }
-        IndexAction(title: "Add Folder…") { model.chooseWiki() }
-        if !model.wikiProblems.isEmpty {
-            DisclosureGroup("\(model.wikiProblems.count) file warnings") {
-                Text(model.wikiProblems.joined(separator: "\n"))
-                    .textSelection(.enabled).padding(.top, 5)
-            }
-            .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.warning)
-            .padding(.horizontal, AppDefaults.Papers.rowPadding).padding(.top, 12)
-        }
-    }
-
-    @ViewBuilder private var tree: some View {
-        let expanded = Set(paper.state.expandedFolders)
-        let rows = FolderIndex.rows(paths: model.files.map(\.relativePath), folders: model.folders, expanded: expanded)
-        ForEach(rows) { row in
-            if row.isFolder {
-                IndexRow(title: row.name, leading: AnyView(FolderMark()), count: 0,
-                         depth: row.depth, disclosure: row.hasChildren ? row.expanded : nil,
-                         current: paper.state.tab == .folders && scope == .folder(row.path),
-                         cursor: paper.indexCursor == .scope(.folder(row.path)),
-                         toggle: { toggle(row.path) }) { paper.pick(.folder(row.path)) }
-                    .contextMenu { folderMenu(model.vault.root.appendingPathComponent(row.path).path, root: nil) }
-            } else {
-                IndexRow(title: row.name, leading: AnyView(SheetMark()), count: 0,
-                         depth: row.depth, weight: .regular, current: false,
-                         cursor: paper.indexCursor == .file(row.path)) {
-                    model.openDocument(row.path)
-                    paper.open(.file)
-                }
-                .help(row.path)
-            }
-        }
-    }
-
-    @ViewBuilder private func folderMenu(_ path: String, root: String?) -> some View {
-        Button(paper.state.pinnedFolders.contains(path) ? "Unpin from Tabs" : "Pin to Tabs") { paper.togglePin(path) }
-        Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
-        if let root, model.wikiPaths.count > 1 {
-            Divider()
-            Button("Remove Folder") { model.removeWikiFolder(root) }
-        }
-    }
-
-    private func toggle(_ path: String) {
-        if let index = paper.state.expandedFolders.firstIndex(of: path) {
-            paper.state.expandedFolders.remove(at: index)
-        } else {
-            paper.state.expandedFolders.append(path)
-        }
-    }
-
     // MARK: - Agents
 
     @ViewBuilder private var agentRows: some View {
@@ -242,8 +163,8 @@ struct IndexHeader: View {
     }
 }
 
-/// An action at the end of an index, such as Add Feed.
-private struct IndexAction: View {
+/// An action at the end of an index or of the folder tree, such as Add Feed.
+struct IndexAction: View {
     let title: String
     let action: () -> Void
 
@@ -258,59 +179,23 @@ private struct IndexAction: View {
     }
 }
 
-/// One row of an index: an icon, a title, and a count. A folder row has a
-/// disclosure button that opens or closes the folder.
+/// One row of an index: an icon, a title, and a count.
 struct IndexRow: View {
     let title: String
     var leading: AnyView?
     var icon: RowIcon?
     let count: Int
-    var depth = 0
-    /// Nil for a row with nothing under it. True for an open folder.
-    var disclosure: Bool?
-    var weight: NSFont.Weight = .medium
     let current: Bool
     /// True for the row that Return picks.
     var cursor = false
-    var toggle: () -> Void = {}
     let action: () -> Void
 
     @Environment(DeskMarks.self) private var marks: DeskMarks?
     @State private var hovered = false
     private typealias Metrics = AppDefaults.Papers
 
-    init(title: String, leading: AnyView? = nil, icon: RowIcon? = nil, count: Int, depth: Int = 0,
-         disclosure: Bool? = nil, weight: NSFont.Weight = .medium, current: Bool, cursor: Bool = false,
-         toggle: @escaping () -> Void = {}, action: @escaping () -> Void) {
-        self.cursor = cursor
-        self.title = title
-        self.leading = leading
-        self.icon = icon
-        self.count = count
-        self.depth = depth
-        self.disclosure = disclosure
-        self.weight = weight
-        self.current = current
-        self.toggle = toggle
-        self.action = action
-    }
-
     var body: some View {
         HStack(spacing: 10) {
-            if depth > 0 {
-                Button(action: toggle) {
-                    Image(systemName: disclosure == true ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(PiperTheme.paperFaint)
-                        .frame(width: 12)
-                        .opacity(disclosure == nil ? 0 : 1)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(disclosure == nil)
-                .accessibilityLabel(disclosure == true ? "Close \(title)" : "Open \(title)")
-                .accessibilityHidden(disclosure == nil)
-            }
             if let leading { leading } else if let icon { RowIconView(icon: icon) }
             Text(title).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
@@ -319,10 +204,9 @@ struct IndexRow: View {
                     .foregroundStyle(current ? PiperTheme.markInk : PiperTheme.paperFaint)
             }
         }
-        .font(PiperTheme.paperUI(.row, weight: weight))
+        .font(PiperTheme.paperUI(.row, weight: .medium))
         .foregroundStyle(current ? PiperTheme.markInk : PiperTheme.paperInk)
-        .padding(.leading, Metrics.rowPadding + CGFloat(max(0, depth - 1)) * Metrics.indent)
-        .padding(.trailing, Metrics.rowPadding)
+        .padding(.horizontal, Metrics.rowPadding)
         .frame(minHeight: Metrics.rowHeight)
         .background(background, in: RoundedRectangle(cornerRadius: Metrics.rowRadius, style: .continuous))
         .overlay(alignment: .leading) {
@@ -334,16 +218,11 @@ struct IndexRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .onHover { hovered = $0 }
-        // The row is one element. A press picks the row. The disclosure is a named action.
+        // The row is one element. A press picks the row.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(count > 0 ? "\(title), \(count)" : title)
         .accessibilityAddTraits(current ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction(.default, action)
-        .accessibilityActions {
-            if disclosure != nil {
-                Button(disclosure == true ? "Close \(title)" : "Open \(title)", action: toggle)
-            }
-        }
     }
 }
 
@@ -358,16 +237,19 @@ extension IndexRow {
     }
 }
 
-/// The folder of a row of an index: a folder outline in the color of the faint text.
+/// The folder of a row: a folder outline, in the color of the faint text or
+/// in the color of the tab of a pinned folder.
 struct FolderMark: View {
+    var color = PiperTheme.paperFaint
+
     var body: some View {
         let metrics = AppDefaults.Papers.self
         RoundedRectangle(cornerRadius: 2)
-            .strokeBorder(PiperTheme.paperFaint, lineWidth: metrics.markLine)
+            .strokeBorder(color, lineWidth: metrics.markLine)
             .frame(width: metrics.folderMark.width, height: metrics.folderMark.height)
             .overlay(alignment: .topLeading) {
                 UnevenRoundedRectangle(topLeadingRadius: 2, topTrailingRadius: 2)
-                    .stroke(PiperTheme.paperFaint, lineWidth: metrics.markLine)
+                    .stroke(color, lineWidth: metrics.markLine)
                     .frame(width: 7, height: 3)
                     .offset(x: 0, y: -3)
             }

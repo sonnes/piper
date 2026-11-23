@@ -129,7 +129,7 @@ UserDefaults holds these keys:
 | Key | Content |
 | --- | --- |
 | `wikiPath` | The active Wiki folder |
-| `wikiPaths` | The Wiki folders on the Folders index |
+| `wikiPaths` | The Wiki folders at the top of the folder tree |
 | `captureShortcut` | `Shift, Shift` or `Control-Option-Space` |
 | `captureFloating` | True by default. Keeps the capture panel above other apps. |
 | `composerDraft` | The unsaved composer text |

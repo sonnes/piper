@@ -16,13 +16,17 @@ struct FeedPaperView: View {
     private typealias Metrics = AppDefaults.Papers
 
     var body: some View {
-        HStack(alignment: .top, spacing: -Metrics.tabOverlap) {
-            PaperTabs(tabs: paper.column.tabs, active: paper.state.tab, count: count, choose: paper.choose,
-                      addFolder: paper.showFoldersIndex)
-                .padding(.top, Metrics.tabsTop)
-            sheet.zIndex(1)
+        // The active tab lies over the paper. The other tabs lie under it.
+        ZStack(alignment: .topLeading) {
+            tabs(.under)
+            sheet
+                .padding(.leading, Metrics.tabVisible)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { paper.paperHeight = $0 }
+            tabs(.over)
         }
         .padding(Metrics.shadowInsets)
+        // The title bar is hidden, so the paper starts at the top margin of the window.
+        .ignoresSafeArea(.container, edges: .top)
         .environment(paper.marks)
         .sheet(isPresented: $model.addingFeed) {
             AddFeedSheet(feeds: model.feeds) { added in
@@ -48,6 +52,20 @@ struct FeedPaperView: View {
 
     // MARK: - Parts
 
+    private func tabs(_ layer: PaperTabs.Layer) -> some View {
+        let tabs = paper.column.tabs
+        let showsAdd = tabs.count + paper.column.overflow.count < Metrics.tabLimit
+        let lengths = tabs.map { TabColumn.labelLength(title: $0.title, count: count($0)) }
+        let needed = TabColumn.paperHeight(of: lengths, add: showsAdd)
+        return PaperTabs(layer: layer, tabs: tabs, active: paper.state.tab, color: paper.color(of:), count: count,
+                         stubs: TabColumn.usesStubs(lengths: lengths, add: showsAdd, paperHeight: paper.paperHeight),
+                         showsAdd: showsAdd, choose: paper.choose, addFolder: paper.showPinHint, unpin: paper.togglePin)
+            .padding(.top, Metrics.tabsTop)
+            .onChange(of: needed, initial: true) { _, height in
+                if layer == .under { paper.fitTabs(height) }
+            }
+    }
+
     private var sheet: some View {
         VStack(spacing: 0) {
             header
@@ -60,7 +78,8 @@ struct FeedPaperView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(reduceMotion ? nil : .easeInOut(duration: Metrics.fade), value: paper.showsIndex)
-            if !paper.showsIndex, paper.state.scope != .clipboard, let entry = model.clipboard.entries.first {
+            if !paper.showsIndex, !paper.state.tab.showsTree, paper.state.scope != .clipboard,
+               let entry = model.clipboard.entries.first {
                 clipboardFoot(entry)
             }
         }
@@ -92,18 +111,10 @@ struct FeedPaperView: View {
                 .buttonStyle(.plain)
                 .help("Show the list · Escape")
             } else {
-                if case .folder(let path) = paper.state.scope {
-                    let folder = path.isEmpty ? model.vault.root.path : model.vault.root.appendingPathComponent(path).path
-                    let pinned = paper.state.pinnedFolders.contains(folder)
-                    PaperButton(title: pinned ? "Unpin" : "Pin", symbol: pinned ? "pin.fill" : "pin", active: pinned,
-                                help: pinned ? "Remove the tab of this folder" : "Add a tab for this folder") {
-                        paper.togglePin(folder)
-                    }
-                    .font(PiperTheme.paperUI(.body, weight: .medium))
-                }
                 // The date leaves the header when the title needs its room.
                 ViewThatFits {
-                    Text(Date().formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                    Text(paper.state.tab.isPinned ? "Pinned folder"
+                         : Date().formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
                         .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                         .fixedSize()
                     Color.clear.frame(width: 0, height: 0)
@@ -163,11 +174,8 @@ struct FeedPaperView: View {
                             select: { paper.selectedArticle = $0?.id },
                             openPaper: { paper.open(.article($0.id)) },
                             setKeys: { paper.listKeys = $0 })
-        case .folder(let path):
-            FolderListView(model: model, folder: path, open: { file in
-                model.openDocument(file)
-                paper.open(.file)
-            }, setKeys: { paper.listKeys = $0 })
+        case .folder:
+            FolderTreeView(paper: paper, model: model)
         case .sessions(let folder):
             SessionList(model: model, folder: folder, open: paper.open, setKeys: { paper.listKeys = $0 })
         }
@@ -207,10 +215,8 @@ struct FeedPaperView: View {
             case .starred: return "Feeds › Starred"
             case .feed(let id): return "Feeds › " + (model.feeds.feed(id)?.title ?? "Feed")
             }
-        case .folder(let path):
-            let name = path.isEmpty ? model.vault.root.lastPathComponent : (path as NSString).lastPathComponent
-            if case .pinned = tab { return name }
-            return "Folders › " + name
+        case .folder:
+            return tab.title
         case .sessions(let folder): return "Agents › " + URL(fileURLWithPath: folder).lastPathComponent
         }
     }
@@ -219,9 +225,11 @@ struct FeedPaperView: View {
     private func count(_ tab: PaperTab) -> Int {
         switch tab {
         case .inbox: return model.store.notes.filter { $0.parent == nil && !$0.isDone }.count
-        case .clipboard: return model.clipboard.entries.count
+        case .clipboard: return 0
         case .feeds: return model.feeds.totalUnread
-        case .folders: return model.files.count
+        case .folders:
+            if model.wikiPaths.count > 1 { return model.wikiPaths.count }
+            return FolderTree.topFolderCount(paths: model.files.map(\.relativePath), folders: model.folders)
         case .agents:
             let runner = model.agents.runner
             return runner.folders().reduce(0) { total, folder in
@@ -229,7 +237,7 @@ struct FeedPaperView: View {
             }
         case .pinned(let path):
             guard let folder = PaperDeskState.relativePath(of: path, in: model.vault.root.path) else { return 0 }
-            return FolderListView.groups(model.files, in: folder).reduce(0) { $0 + $1.files.count }
+            return FolderTree.fileCount(paths: model.files.map(\.relativePath), in: folder)
         }
     }
 }

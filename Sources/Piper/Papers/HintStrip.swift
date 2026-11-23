@@ -50,15 +50,22 @@ struct Hint: Equatable {
     ///
     /// - Parameters:
     ///   - index: True while the feed paper shows the index of its tab.
+    ///   - tree: True while the feed paper shows the folder tree.
     ///   - paper: The item of the reader paper with the focus, or nil for the feed paper.
     ///   - article: True when that paper shows an article, which takes H and N.
     ///   - papersOpen: True while a reader paper is open.
     ///   - tabs: The number of tabs in the column.
-    static func hints(index: Bool, paper: PaperItem?, article: Bool, papersOpen: Bool, tabs: Int) -> [Hint] {
+    static func hints(index: Bool, tree: Bool = false, paper: PaperItem?, article: Bool, papersOpen: Bool, tabs: Int) -> [Hint] {
         let tabKeys = "1–\(tabs)"
         if paper != nil {
             return (article ? [Hint(keys: ["H"], label: "highlight"), Hint(keys: ["N"], label: "note")] : [])
                 + [Hint(keys: ["⌘`"], label: "next paper"), Hint(keys: ["esc"], label: "put back"), Hint(keys: ["T"], label: "tidy")]
+        }
+        if tree {
+            return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["→"], label: "open folder"),
+                    Hint(keys: ["←"], label: "close folder"), Hint(keys: ["↵"], label: "open file"),
+                    Hint(keys: ["P"], label: "pin as tab"), Hint(keys: [tabKeys], label: "tab")]
+                + (papersOpen ? [Hint(keys: ["⌘`"], label: "next paper")] : [])
         }
         if index {
             return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["↵"], label: "pick"),
@@ -76,7 +83,8 @@ private struct HintStripView: View {
 
     var body: some View {
         let focused = marks.focusedPaper
-        let hints = Hint.hints(index: paper.showsIndex && focused == nil, paper: focused,
+        let hints = Hint.hints(index: paper.showsIndex && focused == nil,
+                               tree: paper.state.tab.showsTree && !paper.showsIndex && focused == nil, paper: focused,
                                article: focused.map { paper.model.isArticle($0) } ?? false,
                                papersOpen: !marks.open.isEmpty, tabs: paper.column.tabs.count)
         HStack(spacing: 20) {
