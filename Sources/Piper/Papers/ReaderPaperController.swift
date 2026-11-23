@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import WebKit
 
 /// What a reader paper reports to the desk.
 @MainActor
@@ -60,6 +61,7 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
             guard let self, let key = PaperKey(event), self.handle(key, in: event.window) else { return event }
             return nil
         }
+        NotificationCenter.default.addObserver(self, selector: #selector(pageKey(_:)), name: .readerPageKey, object: window)
     }
 
     @available(*, unavailable)
@@ -127,6 +129,20 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     func handle(_ key: PaperKey, in eventWindow: NSWindow?) -> Bool {
         guard let window, PaperKey.focusedWindow === window, eventWindow == nil || eventWindow === window,
               !PaperKey.editsText(window) else { return false }
+        // A reader page with the focus reads its own keys, and sends back the letters that it does not use.
+        if let responder = window.firstResponder as? NSView, responder is WKWebView || responder.enclosingWebView != nil {
+            return false
+        }
+        return perform(key, in: window)
+    }
+
+    @objc private func pageKey(_ notification: Notification) {
+        guard let window, let name = notification.userInfo?["key"] as? String, let character = name.first,
+              let key = PaperKey(keyCode: 0, characters: String(character), shift: false) else { return }
+        _ = perform(key, in: window)
+    }
+
+    private func perform(_ key: PaperKey, in window: NSWindow) -> Bool {
         switch key {
         case .up, .down:
             return model.scrollReader(down: key == .down, in: window)
@@ -330,4 +346,16 @@ final class PaperLayout {
 
     var cardBottomInset: CGFloat { stacksControls ? AppDefaults.TabIsland.clearance : 0 }
     var tabsTrailingInset: CGFloat { stacksControls ? 0 : AppDefaults.SessionCard.width + AppDefaults.SessionCard.margin }
+}
+
+private extension NSView {
+    /// The web view that holds this view, if any.
+    var enclosingWebView: WKWebView? {
+        var view = superview
+        while let current = view {
+            if let web = current as? WKWebView { return web }
+            view = current.superview
+        }
+        return nil
+    }
 }

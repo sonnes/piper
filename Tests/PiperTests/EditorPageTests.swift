@@ -225,10 +225,10 @@ final class EditorPageTests: XCTestCase {
         try await wait("The selection bar shows.") {
             try await self.evaluate(page, "!!document.querySelector('.piper-selbar')") as? Bool == true
         }
-        _ = try await evaluate(page, "document.querySelector('.piper-selbar button.sw.green').click()")
+        _ = try await evaluate(page, "[...document.querySelectorAll('.piper-selbar button')].find(b => b.textContent === 'Highlight').click()")
         try await wait("The highlight reaches the file.") {
             (try String(contentsOf: self.root.appendingPathComponent("Tea.md"), encoding: .utf8))
-                .contains("<mark class=\"green\">less caffeine</mark>")
+                .contains("==less caffeine==")
         }
 
         _ = try await evaluate(page, select)

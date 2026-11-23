@@ -124,7 +124,7 @@ struct SessionComposer: View {
                 Spacer(minLength: 4)
                 Text(completionCount > 0 ? (commands.isEmpty ? "Tab adds · ↑↓ choose" : "Tab completes · ↑↓ choose")
                                          : "/ commands · @ adds")
-                    .font(PiperTheme.ui(.caption))
+                    .font(PiperTheme.paperUI(.body))
                     .foregroundStyle(PiperTheme.faint)
                     .layoutPriority(-1)
             }

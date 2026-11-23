@@ -20,16 +20,41 @@ struct ReaderPaper: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-                .padding(Metrics.readerHeaderPadding)
-                .frame(height: Metrics.readerHeaderHeight)
+                .padding(shortNote != nil ? Metrics.noteHeaderPadding : Metrics.readerHeaderPadding)
+                .frame(minHeight: Metrics.readerHeaderHeight)
                 .background(WindowDragArea())
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .opacity(layout.focused ? 1 : Metrics.restOpacity)
+            if let note = shortNote { noteFoot(note) }
         }
-        .background(PiperTheme.page)
+        .background(PiperTheme.paper)
         // The title bar is hidden, so the header starts at the top edge.
         .ignoresSafeArea(.container, edges: .top)
+    }
+
+    /// The note of a note paper. A link capture is an article and has no foot.
+    private var shortNote: Note? {
+        guard case .note(let id) = item, let note = model.store.notes.first(where: { $0.id == id }), !note.isArticle else { return nil }
+        return note
+    }
+
+    /// The foot of a note paper: the save state, and Mark as Done.
+    private func noteFoot(_ note: Note) -> some View {
+        HStack(spacing: 8) {
+            Text("Saved as you type").foregroundStyle(PiperTheme.paperFaint)
+            Spacer(minLength: 8)
+            Button(note.isDone ? "Open Again" : "Mark as Done") { model.store.toggleDone(note.id) }
+                .buttonStyle(.plain)
+                .font(PiperTheme.paperUI(.body, weight: .medium))
+                .foregroundStyle(PiperTheme.onAccent)
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .background(PiperTheme.tabActive, in: Capsule())
+                .help(note.isDone ? "Open the note again" : "Mark the note as done")
+        }
+        .font(PiperTheme.paperUI(.body))
+        .padding(Metrics.noteFootPadding)
+        .overlay(alignment: .top) { Rectangle().fill(PiperTheme.paperRule).frame(height: 1) }
     }
 
     // MARK: - Header
@@ -49,11 +74,14 @@ struct ReaderPaper: View {
     }
 
     @ViewBuilder private func noteHeader(_ note: Note?) -> some View {
-        if let note {
-            label(note.section + " · " + RowTime.text(note.modifiedAt))
-            PaperButton(title: note.isDone ? "Reopen" : "Mark as Done",
+        if let note, note.isArticle {
+            let host = note.articleURL.map(ArticleBadge.host) ?? note.section
+            label(([host] + (note.reading?.minutes.map { ["\($0) min"] } ?? [])).joined(separator: " · "))
+            PaperButton(title: note.isDone ? "Open Again" : "Mark as Done",
                         symbol: note.isDone ? "checkmark.circle.fill" : "checkmark.circle",
-                        help: note.isDone ? "Reopen" : "Mark as Done") { model.store.toggleDone(note.id) }
+                        help: note.isDone ? "Open the link again" : "Mark the link as done") { model.store.toggleDone(note.id) }
+        } else if let note {
+            label(([note.section] + note.sources.prefix(1) + [RowTime.text(note.modifiedAt)]).joined(separator: " · "))
         } else {
             label("")
         }
@@ -91,9 +119,7 @@ struct ReaderPaper: View {
 
     @ViewBuilder private var fileHeader: some View {
         if let document = model.currentDocument {
-            Image(nsImage: RowIcon.glyph(RowIcon.fileIcon(document.name)) ?? NSImage())
-                .renderingMode(.template).resizable().frame(width: 16, height: 16)
-                .foregroundStyle(PiperTheme.paperFaint)
+            SheetMark()
             label(([model.vault.root.lastPathComponent] + document.folder.split(separator: "/").map(String.init) + [document.name])
                 .joined(separator: " › "))
         } else {

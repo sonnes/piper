@@ -28,11 +28,6 @@ struct NoteDetail: View {
         _opensAsArticle = State(initialValue: note.isArticle)
     }
 
-    private var dateLine: String {
-        let date = note.modifiedAt.formatted(date: .long, time: .shortened)
-        return note.isDone ? date + " · Done" : date
-    }
-
     var body: some View {
         Group {
             if let articleURL {
@@ -51,7 +46,7 @@ struct NoteDetail: View {
                 page
             }
         }
-        .background(PiperTheme.page)
+        .background(PiperTheme.paper)
         .overlay(alignment: .bottom) {
             if let articleURL {
                 TabIsland(selection: Binding(get: { model.articleTab(for: note) }, set: { model.chooseArticleTab($0, for: note) }),
@@ -76,39 +71,28 @@ struct NoteDetail: View {
 
     // MARK: Parts
 
+    /// The text of a note on its paper, in the sans serif of the text that
+    /// the reader wrote. The grip over it names the section and the source.
     private var page: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(dateLine)
-                .font(PiperTheme.ui(.caption))
-                .foregroundStyle(PiperTheme.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.top, AppDefaults.Reader.topInset)
             if let session {
                 NoteTextEditor(text: Binding(get: { session.text }, set: { text in
                     session.text = text
                     scheduleSave()
                 }), font: CaptureText.looksLikeCode(note.text)
                     ? PiperTheme.manuscript(size: AppDefaults.Reader.codeFontSize)
-                    : PiperTheme.serifNS(AppDefaults.Reader.noteFontSize))
-                .padding(.top, 12)
+                    : PiperTheme.paperUINS(.reading), paper: true)
                 .padding(.horizontal, -5)
                 .accessibilityLabel("Note text")
             }
             if let error = model.store.errorMessage, session?.hasChanges == true {
-                Text(error).font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.danger)
+                Text(error).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.danger)
                     .textSelection(.enabled)
                     .padding(.vertical, 8)
             }
-            if !note.sources.isEmpty {
-                Text("From " + note.sources.joined(separator: ", "))
-                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary)
-                    .lineLimit(1).truncationMode(.middle)
-                    .padding(.vertical, 10)
-            }
         }
-        .frame(maxWidth: AppDefaults.Reader.columnWidth, alignment: .leading)
-        .padding(.horizontal, AppDefaults.Reader.horizontalInset)
-        .frame(maxWidth: .infinity)
+        .padding(AppDefaults.Papers.noteBodyPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     // MARK: Saving
@@ -140,6 +124,8 @@ struct NoteDetail: View {
 struct NoteTextEditor: NSViewRepresentable {
     @Binding var text: String
     let font: NSFont
+    /// True on a paper: zinc ink, an indigo caret, and an indigo selection, with the line height of the paper.
+    var paper = false
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -159,14 +145,17 @@ struct NoteTextEditor: NSViewRepresentable {
         editor.isAutomaticDashSubstitutionEnabled = false
         editor.isAutomaticTextReplacementEnabled = false
         editor.isAutomaticSpellingCorrectionEnabled = false
-        editor.textColor = PiperTheme.inkNS
-        editor.insertionPointColor = PiperTheme.accentNS
-        editor.selectedTextAttributes = [.backgroundColor: PiperTheme.selectionNS, .foregroundColor: PiperTheme.inkNS]
+        let ink = paper ? PiperTheme.paperInkNS : PiperTheme.inkNS
+        editor.textColor = ink
+        editor.insertionPointColor = paper ? PiperTheme.brandNS : PiperTheme.accentNS
+        editor.selectedTextAttributes = [.backgroundColor: paper ? PiperTheme.paperSelectionNS : PiperTheme.selectionNS,
+                                         .foregroundColor: ink]
         editor.defaultParagraphStyle = {
             let style = NSMutableParagraphStyle()
-            style.lineSpacing = 3
+            style.lineSpacing = paper ? AppDefaults.Papers.noteLineSpacing : 3
             return style
         }()
+        editor.typingAttributes[.paragraphStyle] = editor.defaultParagraphStyle
         editor.font = font
         editor.string = text
         editor.delegate = context.coordinator

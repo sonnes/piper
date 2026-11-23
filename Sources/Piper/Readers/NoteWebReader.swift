@@ -29,7 +29,7 @@ struct NoteWebReader: View {
                 .buttonStyle(.borderless)
                 HStack(spacing: 6) {
                     Image(systemName: page.isLoading ? "hourglass" : "globe")
-                        .font(.system(size: 11)).foregroundStyle(PiperTheme.faint)
+                        .font(.system(size: 14)).foregroundStyle(PiperTheme.faint)
                     Text(address)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -54,7 +54,7 @@ struct NoteWebReader: View {
                     .help("Open in Browser").accessibilityLabel("Open in Browser")
             }
             .controlSize(.small)
-            .font(PiperTheme.ui(.secondary))
+            .font(PiperTheme.paperUI(.body))
             .padding(.horizontal, 12)
             .frame(height: 38)
             .background(PiperTheme.panel)
@@ -63,8 +63,8 @@ struct NoteWebReader: View {
                 .overlay {
                     if let error = page.errorMessage {
                         VStack(spacing: 10) {
-                            Text("Cannot Open Page").font(PiperTheme.ui(.reading, weight: .semibold))
-                            Text(error).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
+                            Text("Cannot Open Page").font(PiperTheme.paperUI(.row, weight: .semibold))
+                            Text(error).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.secondary)
                                 .multilineTextAlignment(.center)
                             Button("Try Again") { page.reload() }
                         }
@@ -76,7 +76,7 @@ struct NoteWebReader: View {
                 .overlay(alignment: .bottom) {
                     if let captureMessage {
                         Text(captureMessage)
-                            .font(PiperTheme.ui(.secondary))
+                            .font(PiperTheme.paperUI(.body))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 12).padding(.vertical, 6)
                             .background(.regularMaterial, in: Capsule())

@@ -25,16 +25,11 @@ struct TabIsland<Tab: Hashable>: View {
                 let active = item.tab == selection
                 Button { selection = item.tab } label: {
                     Text(item.title)
-                        .font(PiperTheme.ui(metrics.fontSize, weight: active ? .semibold : .regular))
-                        .foregroundStyle(active ? PiperTheme.ink : PiperTheme.secondary)
+                        .font(PiperTheme.paperUI(.body, weight: .medium))
+                        .foregroundStyle(active ? PiperTheme.paperInk : PiperTheme.paperMuted)
                         .padding(.horizontal, metrics.segmentPadding)
                         .frame(height: metrics.segmentHeight)
-                        .background {
-                            if active {
-                                Capsule().fill(PiperTheme.card)
-                                    .shadow(color: PiperTheme.tabShadow, radius: metrics.segmentShadowRadius, y: metrics.segmentShadowOffset)
-                            }
-                        }
+                        .background(active ? PiperTheme.paperTint : .clear, in: Capsule())
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -43,9 +38,9 @@ struct TabIsland<Tab: Hashable>: View {
             }
         }
         .padding(metrics.inset)
-        .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(PiperTheme.rule, lineWidth: 0.5))
-        .shadow(color: PiperTheme.floatingShadow, radius: metrics.shadowRadius, y: metrics.shadowOffset)
+        .background(PiperTheme.paper, in: Capsule())
+        .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 1))
+        .shadow(color: PiperTheme.tabShadowColor, radius: metrics.shadowRadius, y: metrics.shadowOffset)
         .padding(.bottom, metrics.bottomMargin)
         .padding(.trailing, cardPresented ? layout.tabsTrailingInset : 0)
         .accessibilityElement(children: .contain)

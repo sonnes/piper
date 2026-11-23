@@ -34,7 +34,7 @@ struct FeedArticleDetail: View {
                     reader(url)
                 }
             }
-            .background(PiperTheme.page)
+            .background(PiperTheme.paper)
             .overlay(alignment: .bottom) {
                 TabIsland(selection: $tab, cardPresented: model.sessionPresentation == .card, showsNotes: false)
             }
@@ -44,26 +44,18 @@ struct FeedArticleDetail: View {
     }
 
     private func reader(_ url: URL) -> some View {
-        VStack(spacing: 0) {
-            ReaderAddressBar(url: url, detail: detail, progress: 0)
-            ReaderPageView(state: loader.state,
-                           placeholder: ReaderPlaceholder(site: ArticleBadge.host(url), title: article.title),
-                           notes: [], scroll: nil, perform: perform, scrolled: { _ in }, attach: { _ in })
-                .overlay(alignment: .bottom) {
-                    if case .failed = loader.state {
-                        Button("Show Web Page") { tab = .web }
-                            .padding(.bottom, AppDefaults.TabIsland.clearance + AppDefaults.ArticleReader.webPageButtonMargin)
-                    }
+        ReaderPageView(state: loader.state,
+                       placeholder: ReaderPlaceholder(site: ArticleBadge.host(url), title: article.title),
+                       notes: [], scroll: nil, perform: perform, scrolled: { _ in },
+                       attach: { model.readerPages.add($0) })
+            .overlay(alignment: .bottom) {
+                if case .failed = loader.state {
+                    Button("Show Web Page") { tab = .web }
+                        .padding(.bottom, AppDefaults.TabIsland.clearance + AppDefaults.ArticleReader.webPageButtonMargin)
                 }
-        }
-        .background(PiperTheme.reader)
-        .onAppear { loader.load(url, title: article.title, pageText: nil) }
-    }
-
-    /// The feed and the date of the article, at the right of the address bar.
-    private var detail: String {
-        let date = article.date.formatted(date: .abbreviated, time: .shortened)
-        return model.feeds.feed(article.feedID).map { "\($0.title) · \(date)" } ?? date
+            }
+            .background(PiperTheme.paper)
+            .onAppear { loader.load(url, title: article.title, pageText: nil) }
     }
 
     /// Runs an action of the reader page. A highlight or a question keeps the

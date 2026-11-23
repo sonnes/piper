@@ -6,7 +6,7 @@ enum WikiReadingTheme: String, CaseIterable {
 
     func background(dark: Bool) -> NSColor {
         switch self {
-        case .paper: return PiperTheme.readerNS
+        case .paper: return PiperTheme.paperNS
         case .sepia: return hex(dark ? 0x29231e : 0xf4edde)
         case .slate: return hex(dark ? 0x1e252d : 0xedf1f5)
         }

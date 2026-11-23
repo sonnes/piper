@@ -41,29 +41,28 @@ struct ArticleNotebook: View {
                 NoteTextEditor(text: Binding(get: { summary }, set: { text in
                     summary = text
                     scheduleSummarySave()
-                }), font: PiperTheme.uiNS(metrics.summaryFontSize))
+                }), font: PiperTheme.paperUINS(.row), paper: true)
                 .frame(minHeight: metrics.summaryMinimumHeight)
                 .padding(metrics.fieldPadding)
-                .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: metrics.fieldRadius))
-                .overlay(RoundedRectangle(cornerRadius: metrics.fieldRadius).strokeBorder(PiperTheme.rule, lineWidth: 1))
+                .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: metrics.fieldRadius, style: .continuous))
                 .accessibilityLabel("Summary")
                 HStack(alignment: .firstTextBaseline) {
                     label("Highlights")
                     Spacer()
                     if !highlights.isEmpty {
                         Button("Ask about all of them", action: review)
-                            .buttonStyle(.text)
+                            .buttonStyle(.plain)
+                            .font(PiperTheme.paperUI(.body, weight: .medium)).foregroundStyle(PiperTheme.brand)
                             .disabled(!loaded)
                             .help("Ask the margin agent what your highlights add up to")
                     }
                 }
                 if highlights.isEmpty {
                     Text("Select text in the Reader tab and choose a color or Note. On a web page, select text and press Shift twice.")
-                        .font(PiperTheme.ui(.body)).foregroundStyle(PiperTheme.secondary)
+                        .font(PiperTheme.paperUI(.row)).foregroundStyle(PiperTheme.paperMuted)
                 }
                 ForEach(highlights) { highlight in
                     HighlightEntry(highlight: highlight) { show(highlight.id) }
-                    Rule()
                 }
                 if !questions.isEmpty {
                     label("Questions")
@@ -78,7 +77,8 @@ struct ArticleNotebook: View {
             .padding(.bottom, AppDefaults.TabIsland.clearance)
             .frame(maxWidth: .infinity)
         }
-        .background(PiperTheme.reader)
+        .background(PiperTheme.paper)
+        .foregroundStyle(PiperTheme.paperInk)
         .onAppear {
             summary = ReadingList.summary(in: children)?.text ?? ""
             loader.load(url, title: reading.title, pageText: model.store.pageText(for: url))
@@ -91,16 +91,18 @@ struct ArticleNotebook: View {
     private func header(_ children: [Note]) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                Text(([host] + [kicker].compactMap { $0 }).joined(separator: " · ").uppercased())
-                    .font(PiperTheme.ui(.caption, weight: .semibold)).tracking(0.4)
-                    .foregroundStyle(PiperTheme.faint)
+                Text(([host] + [kicker].compactMap { $0 }).joined(separator: " · "))
+                    .font(PiperTheme.paperUI(.body))
+                    .foregroundStyle(PiperTheme.paperFaint)
                 Spacer()
                 if let file = reading.savedFile {
                     if changedCount > 0 {
-                        Button("Update File (\(changedCount) new)", action: update).buttonStyle(.text).help(file)
+                        Button("Update File (\(changedCount) new)", action: update)
+                            .buttonStyle(.plain).font(PiperTheme.paperUI(.body, weight: .medium)).foregroundStyle(PiperTheme.brand)
+                            .help(file)
                     } else {
                         Text("Saved to " + URL(fileURLWithPath: file).deletingLastPathComponent().lastPathComponent)
-                            .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.faint).help(file)
+                            .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint).help(file)
                     }
                     IconButton(title: "Show in Finder", icon: "folder") {
                         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: file)])
@@ -113,12 +115,14 @@ struct ArticleNotebook: View {
                 }
             }
             Text(title)
-                .font(.system(size: metrics.titleFontSize, weight: .semibold, design: .serif))
+                .font(PiperTheme.paperTitle(.title))
                 .textSelection(.enabled)
             HStack(spacing: 12) {
-                Button("Open in Reader") { model.chooseArticleTab(.reader, for: note) }.buttonStyle(.text)
-                Text(ReadingList.counts(of: children)).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
+                Button("Open in Reader") { model.chooseArticleTab(.reader, for: note) }
+                    .buttonStyle(.plain).fontWeight(.medium).foregroundStyle(PiperTheme.brand)
+                Text(ReadingList.counts(of: children)).foregroundStyle(PiperTheme.paperMuted)
             }
+            .font(PiperTheme.paperUI(.row))
         }
         .padding(.bottom, 4)
     }
@@ -129,9 +133,9 @@ struct ArticleNotebook: View {
     }
 
     private func label(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(PiperTheme.ui(.caption, weight: .semibold)).tracking(0.4)
-            .foregroundStyle(PiperTheme.faint)
+        Text(text)
+            .font(PiperTheme.paperUI(.body, weight: .medium))
+            .foregroundStyle(PiperTheme.paperFaint)
             .padding(.top, metrics.labelTopPadding).padding(.bottom, metrics.fieldPadding)
             .accessibilityAddTraits(.isHeader)
     }
@@ -201,25 +205,22 @@ private struct HighlightEntry: View {
     let highlight: Note
     let open: () -> Void
 
-    private var color: Color {
-        highlight.tags.lazy.compactMap(TagChip.markColor).first ?? PiperTheme.markYellow
-    }
-
     var body: some View {
         let comment = HighlightText.comment(of: highlight.text, quote: highlight.anchor?.quote)
         Button(action: open) {
-            HStack(alignment: .top, spacing: 12) {
-                RoundedRectangle(cornerRadius: 2).fill(color).frame(width: AppDefaults.Notebook.colorBarWidth)
+            HStack(alignment: .top, spacing: 16) {
+                Rectangle().fill(PiperTheme.quoteBar).frame(width: AppDefaults.Notebook.colorBarWidth)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(highlight.anchor?.quote ?? highlight.text.components(separatedBy: "\n\n")[0])
-                        .font(.system(size: AppDefaults.Notebook.quoteFontSize, design: .serif))
-                        .lineSpacing(2)
+                        .font(PiperTheme.paperSerif(AppDefaults.Notebook.quoteFontSize))
+                        .foregroundStyle(PiperTheme.paperMuted)
+                        .lineSpacing(AppDefaults.Notebook.quoteLineSpacing)
                     if !comment.isEmpty {
-                        Text(comment).font(PiperTheme.ui(.body)).lineSpacing(1.5)
+                        Text(comment).font(PiperTheme.paperUI(.row)).foregroundStyle(PiperTheme.paperInk).lineSpacing(3)
                     }
                     Text(([highlight.sources.first] + [highlight.createdAt.formatted(date: .omitted, time: .shortened)])
                         .compactMap { $0 }.joined(separator: " · "))
-                        .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
+                        .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -244,23 +245,22 @@ private struct QuestionEntry: View {
         Button(action: open) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text("✳ " + (parts.first ?? "Ask")).font(PiperTheme.ui(.body, weight: .semibold))
+                    Text("✳ " + (parts.first ?? "Ask")).font(PiperTheme.paperUI(.row, weight: .semibold))
                         .foregroundStyle(PiperTheme.claude)
-                    Text(parts.count > 1 ? parts[1] : "").font(PiperTheme.ui(.body)).lineLimit(1)
+                    Text(parts.count > 1 ? parts[1] : "").font(PiperTheme.paperUI(.row)).lineLimit(1)
                     Spacer(minLength: 8)
                     if waiting {
                         ProgressView().controlSize(.mini)
                     } else if answers > 0 {
                         Text("\(answers) answer" + (answers == 1 ? "" : "s"))
-                            .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.faint)
+                            .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                     }
                 }
-                if let failure { Text(failure).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary) }
+                if let failure { Text(failure).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted) }
             }
-            .padding(.horizontal, 12).padding(.vertical, 9)
+            .padding(.horizontal, 14).padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(PiperTheme.page, in: RoundedRectangle(cornerRadius: AppDefaults.Notebook.fieldRadius))
-            .overlay(RoundedRectangle(cornerRadius: AppDefaults.Notebook.fieldRadius).strokeBorder(PiperTheme.rule, lineWidth: 1))
+            .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: AppDefaults.Notebook.fieldRadius, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

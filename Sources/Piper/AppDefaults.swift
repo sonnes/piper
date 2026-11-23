@@ -83,7 +83,7 @@ final class AppDefaults {
         static let feedSize = NSSize(width: 520, height: 760)
         static let feedMinimumSize = NSSize(width: 420, height: 440)
         static let readerSize = NSSize(width: 712, height: 860)
-        static let noteSize = NSSize(width: 600, height: 560)
+        static let noteSize = NSSize(width: 440, height: 420)
         static let sessionSize = NSSize(width: 480, height: 680)
         static let readerMinimumSize = NSSize(width: 380, height: 320)
         static let cornerRadius: CGFloat = 20
@@ -147,7 +147,14 @@ final class AppDefaults {
         static let indent: CGFloat = 18
         static let iconSize: CGFloat = 18
         static let readerHeaderHeight: CGFloat = 48
-        static let readerHeaderPadding = EdgeInsets(top: 8, leading: 20, bottom: 0, trailing: 12)
+        /// The grip of a reader paper. Its text starts at the side margin of the article.
+        static let readerHeaderPadding = EdgeInsets(top: 14, leading: 56, bottom: 0, trailing: 16)
+        /// The grip of a note paper, which has narrower margins.
+        static let noteHeaderPadding = EdgeInsets(top: 14, leading: 28, bottom: 0, trailing: 16)
+        static let noteBodyPadding = EdgeInsets(top: 4, leading: 28, bottom: 24, trailing: 28)
+        /// The extra space between the lines of a note, for a line height of 1.6 at 18 points.
+        static let noteLineSpacing: CGFloat = 4.5
+        static let noteFootPadding = EdgeInsets(top: 10, leading: 28, bottom: 14, trailing: 20)
         /// A row of a list: a column for the mark, then the text and the time.
         static let listRowPadding = EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 20)
         static let listPadding = EdgeInsets(top: 4, leading: 12, bottom: 8, trailing: 12)
@@ -240,7 +247,6 @@ final class AppDefaults {
         /// Seconds after a Piper session wrote a file during which a change on
         /// disk names the session as its source.
         static let sessionWriteWindow: TimeInterval = 600
-        static let bannerFontSize = PiperTheme.TextSize.body
     }
 
     enum Reader {
@@ -257,26 +263,22 @@ final class AppDefaults {
         static let footnoteBaselineOffset: CGFloat = 6
 
         static let columnWidth: CGFloat = 640
-        static let noteFontSize = PiperTheme.TextSize.reading
         static let codeFontSize: CGFloat = 13
     }
 
     /// The Reader tab of a link capture.
     enum ArticleReader {
-        static let addressHeight: CGFloat = 28
         /// The distance that Up Arrow or Down Arrow scrolls the Reader tab.
         static let arrowScrollStep: CGFloat = 40
-        static let addressFontSize = PiperTheme.TextSize.secondary
         /// Seconds before Piper reads a page that has not finished loading.
         static let loadTimeout: Double = 20
         /// The wait after a load, for a page that draws its text with a script.
         static let settleMilliseconds = 300
         static let wordsPerMinute: Double = 230
         static let horizontalInset: CGFloat = 16
-        static let progressHeight: CGFloat = 2
         /// The line over the article that says where it opened.
-        static let resumeFontSize = PiperTheme.TextSize.secondary
-        static let resumeVerticalPadding: CGFloat = 7
+        static let resumeVerticalPadding: CGFloat = 10
+        static let resumeMargin: CGFloat = 40
         /// The space between the Show Web Page button and the tabs under it.
         static let webPageButtonMargin: CGFloat = 16
         /// The size of the hidden web view that loads a page.
@@ -315,16 +317,13 @@ final class AppDefaults {
 
     /// The tabs that float over the bottom of a reader paper.
     enum TabIsland {
-        static let segmentHeight: CGFloat = 26
-        static let fontSize = PiperTheme.TextSize.body
-        static let segmentPadding: CGFloat = 12
+        static let segmentHeight: CGFloat = 32
+        static let segmentPadding: CGFloat = 14
         /// The space between the capsule and the segments.
         static let inset: CGFloat = 3
-        static let segmentShadowRadius: CGFloat = 1
-        static let segmentShadowOffset: CGFloat = 0.5
-        static let shadowRadius: CGFloat = 12
-        static let shadowOffset: CGFloat = 4
-        static let bottomMargin: CGFloat = 16
+        static let shadowRadius: CGFloat = 5
+        static let shadowOffset: CGFloat = 2
+        static let bottomMargin: CGFloat = 14
         /// The space that content leaves free under its last line for the tabs.
         static let clearance: CGFloat = 64
     }
@@ -355,17 +354,17 @@ final class AppDefaults {
 
     /// The Notes tab of a link capture, and its Save as File popover.
     enum Notebook {
-        static let horizontalPadding: CGFloat = 30
-        static let topPadding: CGFloat = 26
-        static let titleFontSize: CGFloat = 24
-        static let summaryFontSize = PiperTheme.TextSize.reading
+        static let horizontalPadding: CGFloat = 56
+        static let topPadding: CGFloat = 8
         static let summaryMinimumHeight: CGFloat = 70
-        static let quoteFontSize: CGFloat = 15
+        /// The serif of a quote: 17 points, with a line height of 1.55.
+        static let quoteFontSize: CGFloat = 17
+        static let quoteLineSpacing: CGFloat = 5
         /// The padding and the corner radius of the summary field, a question, and the file preview.
-        static let fieldPadding: CGFloat = 8
-        static let fieldRadius: CGFloat = 8
+        static let fieldPadding: CGFloat = 10
+        static let fieldRadius: CGFloat = 12
         static let labelTopPadding: CGFloat = 22
-        static let colorBarWidth: CGFloat = 4
+        static let colorBarWidth: CGFloat = 2
         static let formWidth: CGFloat = 360
         static let formPadding: CGFloat = 14
         static let previewHeight: CGFloat = 140
@@ -541,7 +540,6 @@ final class AppDefaults {
         /// The agent, model, and mode menus in the composer footer.
         static let footerMenuSpacing: CGFloat = 2
         static let footerAgentSpacing: CGFloat = 3
-        static let footerFontSize = PiperTheme.TextSize.caption
     }
 
     // MARK: Stored values

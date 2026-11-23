@@ -79,7 +79,7 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
         super.init()
         configuration.userContentController.addScriptMessageHandler(WeakMessageHandler(self), contentWorld: .page, name: "editor")
         webView.navigationDelegate = self
-        webView.underPageBackgroundColor = PiperTheme.readerNS
+        webView.underPageBackgroundColor = PiperTheme.paperNS
         webView.setAccessibilityLabel("Page")
         load()
     }
@@ -380,7 +380,7 @@ struct EditorBanner: View {
             Spacer(minLength: 12)
             actions()
         }
-        .font(PiperTheme.ui(AppDefaults.Editor.bannerFontSize))
+        .font(PiperTheme.paperUI(.body))
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(PiperTheme.warningFill)

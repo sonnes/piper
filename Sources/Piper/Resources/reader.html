@@ -2,102 +2,111 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src https: http: data:; media-src https: http:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src file:; script-src 'unsafe-inline'; img-src https: http: data:; media-src https: http:">
 <title>Reader</title>
 <!--
 The Reader tab of a link capture. Piper loads this page into a WKWebView and
 calls window.piper with the article and its child notes. The page sends each
-action to Piper through the "piper" message handler. The colors match
-PiperTheme: the accent, the Claude orange, and the Tailwind marks.
+action to Piper through the "piper" message handler. The page has the
+metrics of the September Write paper: Iowan Old Style at 18 points, a line
+height of 1.65, and a column of 600 points. The colors match the zinc and
+indigo of PiperTheme.
 -->
 <style>
 :root {
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  --serif: "New York", ui-serif, "Iowan Old Style", Georgia, serif;
-  --label: rgba(0,0,0,.85);
-  --secondary: rgba(0,0,0,.5);
-  --tertiary: rgba(0,0,0,.3);
-  --accent: #086AEE;
+  --font: "Noto Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --serif: "Iowan Old Style", "Palatino", Georgia, serif;
+  --heading: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --label: #18181B;
+  --secondary: #52525B;
+  --tertiary: #71717A;
+  --accent: #4F46E5;
   --claude: #F97316;
-  --reader: #FBFAF7;
-  --card: #fff;
-  --sep: rgba(0,0,0,.09);
-  --hover: rgba(0,0,0,.045);
-  --textsel: rgba(8,106,238,.2);
-  --mark-yellow: rgba(250,204,21,.38);
+  --reader: #FFFFFF;
+  --card: #FFFFFF;
+  --sep: #E4E4E7;
+  --hover: #F4F4F5;
+  --textsel: rgba(99,102,241,.26);
+  --mark: #E0E7FF;
+  --mark-ink: #18181B;
+  --quote-bar: #A5B4FC;
   --mark-green: rgba(74,222,128,.32);
   --mark-pink: rgba(244,114,182,.28);
-  --card-shadow: 0 0 0 .5px rgba(0,0,0,.1), 0 4px 16px rgba(0,0,0,.08);
-  --bar: #1F1F21;
-  --shine: rgba(0,0,0,.09);
+  --bar: #18181B;
+  --bar-hover: #3F3F46;
+  --bar-key: #52525B;
+  --bar-key-ink: #D4D4D8;
+  --shine: rgba(0,0,0,.06);
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --label: rgba(255,255,255,.88);
-    --secondary: rgba(255,255,255,.55);
-    --tertiary: rgba(255,255,255,.3);
-    --accent: #5E9EF4;
+    --label: #F4F4F5;
+    --secondary: #D4D4D8;
+    --tertiary: #A1A1AA;
+    --accent: #818CF8;
     --claude: #FB923C;
-    --reader: #1B1B1C;
-    --card: #2C2C2E;
-    --sep: rgba(255,255,255,.1);
-    --hover: rgba(255,255,255,.06);
-    --textsel: rgba(94,158,244,.3);
-    --mark-yellow: rgba(250,204,21,.28);
+    --reader: #27272A;
+    --card: #27272A;
+    --sep: #3F3F46;
+    --hover: #3F3F46;
+    --mark: #312E81;
+    --mark-ink: #FFFFFF;
     --mark-green: rgba(74,222,128,.22);
     --mark-pink: rgba(244,114,182,.24);
-    --card-shadow: 0 0 0 .5px rgba(255,255,255,.1), 0 6px 20px rgba(0,0,0,.4);
-    --bar: #3A3A3C;
-    --shine: rgba(255,255,255,.12);
+    --shine: rgba(255,255,255,.1);
   }
 }
+@font-face { font-family: "Noto Sans"; font-weight: 400; src: url("NotoSans-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Noto Sans"; font-weight: 500; src: url("NotoSans-Medium.woff2") format("woff2"); }
+@font-face { font-family: "Noto Sans"; font-weight: 600 650; src: url("NotoSans-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "Noto Sans"; font-weight: 700; src: url("NotoSans-Bold.woff2") format("woff2"); }
+@font-face { font-family: "Fraunces"; font-weight: 100 900; src: url("Fraunces.woff2") format("woff2"); }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--reader); }
-body { font: 13px/1.4 var(--font); color: var(--label); -webkit-font-smoothing: antialiased; }
-.page { display: grid; grid-template-columns: minmax(0, 560px) 250px; gap: 36px; padding: 36px 40px 80px 56px; position: relative; max-width: 942px; margin: 0 auto; }
-.article { font: 16.5px/1.6 var(--serif); position: relative; min-width: 0; }
+body { font: 16px/1.5 var(--font); color: var(--label); -webkit-font-smoothing: antialiased; }
+.page { padding: 8px 56px 96px; position: relative; max-width: 712px; margin: 0 auto; }
+.article { font: 18px/1.65 var(--serif); position: relative; min-width: 0; text-rendering: optimizeLegibility; hanging-punctuation: first; }
 .article ::selection { background: var(--textsel); }
-.kicker { font: 600 11px var(--font); letter-spacing: .04em; text-transform: uppercase; color: var(--tertiary); }
-.article h1 { font: 600 30px/1.15 var(--serif); margin: 6px 0 8px; letter-spacing: -.01em; }
-.article h2 { font: 600 21px/1.25 var(--serif); margin: 28px 0 10px; }
-.article h3 { font: 600 18px/1.3 var(--serif); margin: 24px 0 8px; }
-.byline { font: 12.5px var(--font); color: var(--secondary); margin-bottom: 20px; display: flex; gap: 12px; }
-.article p, .article li, .article blockquote, .article pre { margin: 0 0 18px; }
-.article li { margin: 0 0 6px 22px; display: list-item; list-style: disc; }
-.article li + :not(li) { margin-top: 18px; }
-.article blockquote { border-left: 2px solid var(--sep); padding-left: 16px; color: var(--secondary); font-style: italic; }
-.article pre { font: 13px/1.5 ui-monospace, "IBM Plex Mono", monospace; white-space: pre-wrap; background: var(--hover); padding: 10px 12px; border-radius: 6px; }
-.article figure { margin: 4px 0 22px; }
-.article figure img, .article figure video { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 6px; }
+.article h1 { font-family: var(--heading); font-weight: 600; font-size: 1.9em; line-height: 1.15; letter-spacing: -.022em; margin: 0 0 .3em; }
+.article h2 { font-family: var(--font); font-weight: 650; font-size: 1.35em; line-height: 1.25; letter-spacing: -.01em; margin: 1.6em 0 .42em; }
+.article h3 { font-family: var(--font); font-weight: 600; font-size: 1.1em; line-height: 1.3; margin: 1.4em 0 .4em; }
+.byline { font: 14px var(--font); color: var(--tertiary); margin-bottom: 2em; display: flex; flex-wrap: wrap; gap: 0 12px; }
+.article p, .article li, .article blockquote, .article pre { margin: 0 0 .85em; }
+.article li { margin: 0 0 .3em 1.2em; display: list-item; list-style: disc; }
+.article li + :not(li) { margin-top: .85em; }
+.article blockquote { border-left: 2px solid var(--quote-bar); padding-left: 16px; color: var(--secondary); }
+.article pre { font: 14px/1.5 "IBM Plex Mono", ui-monospace, monospace; white-space: pre-wrap; background: var(--hover); padding: 10px 12px; border-radius: 12px; }
+.article figure { margin: 4px 0 1.2em; }
+.article figure img, .article figure video { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 12px; }
 .article figure.broken { display: none; }
-.article figcaption { font: 12.5px/1.45 var(--font); color: var(--secondary); margin-top: 6px; text-align: center; }
-.article .embed { display: block; position: relative; width: 100%; aspect-ratio: 16 / 9; padding: 0; border: 0; border-radius: 6px; overflow: hidden; background: var(--hover); cursor: pointer; }
+.article figcaption { font: 14px/1.45 var(--font); color: var(--tertiary); margin-top: 6px; text-align: center; }
+.article .embed { display: block; position: relative; width: 100%; aspect-ratio: 16 / 9; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: var(--hover); cursor: pointer; }
 .article .embed img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
-.article .embed::after { content: attr(data-label); position: absolute; left: 12px; bottom: 12px; font: 600 12px var(--font); color: #fff; background: rgba(0,0,0,.65); padding: 5px 10px; border-radius: 999px; }
+.article .embed::after { content: attr(data-label); position: absolute; left: 12px; bottom: 12px; font: 600 14px var(--font); color: #fff; background: rgba(0,0,0,.65); padding: 5px 10px; border-radius: 999px; }
 .article .table { overflow-x: auto; margin: 0 0 18px; }
-.article table { border-collapse: collapse; font: 13px/1.45 var(--font); }
+.article table { border-collapse: collapse; font: 14px/1.45 var(--font); }
 .article th, .article td { border-bottom: .5px solid var(--sep); padding: 6px 14px 6px 0; text-align: left; vertical-align: top; }
 .article th { font-weight: 600; }
-mark { color: inherit; border-radius: 2px; padding: 1px 0; background: none; }
-mark.yellow { background: var(--mark-yellow); }
+mark { color: inherit; border-radius: 3px; padding: .08em 0; background: none; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+mark.yellow, mark.pending { background: var(--mark); color: var(--mark-ink); }
 mark.green { background: var(--mark-green); }
 mark.pink { background: var(--mark-pink); }
-mark.now { box-shadow: 0 0 0 3px rgba(250,204,21,.35); }
+mark.now { box-shadow: 0 0 0 3px var(--accent); }
 .article [data-b] { transition: opacity .6s ease; }
 .article .above { opacity: .4; }
 mark { transition: box-shadow .6s ease; }
 mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-decoration-thickness: 2px; text-underline-offset: 3px; cursor: pointer; }
-.message { font: 13px var(--font); color: var(--secondary); padding-top: 120px; text-align: center; grid-column: 1 / -1; animation: fade .3s ease both; }
+.message { font: 16px var(--font); color: var(--secondary); padding-top: 120px; text-align: center; grid-column: 1 / -1; animation: fade .3s ease both; }
 
 /* loading: the known site and title, and lines that shimmer until the text arrives */
 .sk { height: 13px; margin: 0 0 11px; border-radius: 4px; background: linear-gradient(90deg, var(--hover) 25%, var(--shine) 50%, var(--hover) 75%); background-size: 300% 100%; animation: shimmer 1.6s ease-in-out infinite; }
-.sk.title { height: 28px; width: 78%; margin: 8px 0 10px; }
+.sk.title { height: 32px; width: 78%; margin: 8px 0 10px; }
 .sk.title + .sk.title { width: 46%; }
 .sk.byline { height: 11px; width: 28%; margin: 4px 0 30px; }
 .skeleton .para { margin-bottom: 26px; }
 .skeleton h1 { animation: breathe 2.4s ease-in-out infinite; }
-.slow { font: 12.5px var(--font); color: var(--tertiary); opacity: 0; transition: opacity .6s ease; }
+.slow { font: 14px var(--font); color: var(--tertiary); opacity: 0; transition: opacity .6s ease; }
 .slow.on { opacity: 1; }
 .enter > * { animation: rise .45s cubic-bezier(.2, .7, .2, 1) both; }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
@@ -107,64 +116,58 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
 @media (prefers-reduced-motion: reduce) {
   .sk, .skeleton h1, .enter > *, .message { animation: none !important; }
 }
-.message b { display: block; font-size: 15px; color: var(--label); margin-bottom: 4px; font-weight: 600; }
+.message b { display: block; font-size: 18px; color: var(--label); margin-bottom: 4px; font-weight: 600; }
 
 /* selection bar */
-.selbar { position: absolute; display: none; align-items: center; flex-wrap: wrap; max-width: 100%; gap: 2px; padding: 4px; border-radius: 9px; background: var(--bar); color: #fff; font: 12.5px var(--font); box-shadow: 0 8px 24px rgba(0,0,0,.25); white-space: nowrap; z-index: 5; -webkit-user-select: none; user-select: none; }
-.selbar span { padding: 4px 9px; border-radius: 6px; cursor: default; }
-.selbar span:hover { background: rgba(255,255,255,.12); }
-.selbar span.ask { background: rgba(255,255,255,.14); display: inline-flex; gap: 5px; align-items: center; }
-.selbar .div { width: 1px; height: 16px; background: rgba(255,255,255,.18); margin: 0 3px; padding: 0; }
-.selbar .div:hover { background: rgba(255,255,255,.18); }
-.selbar .sw { width: 14px; height: 14px; border-radius: 50%; padding: 0; margin: 0 3px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
-.selbar .sw.yellow { background: #FACC15; } .selbar .sw.green { background: #4ADE80; } .selbar .sw.pink { background: #F472B6; }
-.selbar .kb { opacity: .45; font-size: 11px; }
-.askline { position: absolute; display: none; align-items: center; gap: 8px; width: 380px; max-width: 100%; padding: 6px 6px 6px 12px; border-radius: 10px; background: var(--bar); color: #fff; font: 13px var(--font); box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 6; }
-.askline input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: #fff; font: inherit; }
-.askline input::placeholder { color: rgba(255,255,255,.45); }
-.askline kbd { font: 11px var(--font); padding: 3px 7px; border-radius: 5px; background: var(--claude); color: #fff; }
+.selbar { position: absolute; display: none; align-items: center; flex-wrap: wrap; max-width: 100%; gap: 2px; padding: 4px; border-radius: 14px; background: var(--bar); color: #fff; font: 500 14px var(--font); box-shadow: 0 6px 20px rgba(0,0,0,.3); white-space: nowrap; z-index: 5; -webkit-user-select: none; user-select: none; }
+.selbar span { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 10px; cursor: default; }
+.selbar span:hover { background: var(--bar-hover); }
+.selbar .div { width: 1px; height: 20px; background: var(--bar-key); margin: 0 4px; padding: 0; }
+.selbar .div:hover { background: var(--bar-key); }
+.selbar kbd { font: 500 14px var(--font); line-height: 1; padding: 3px 6px; border: 1px solid var(--bar-key); border-bottom-width: 2px; border-radius: 7px; color: var(--bar-key-ink); }
+.askline { position: absolute; display: none; align-items: center; gap: 8px; width: 420px; max-width: 100%; padding: 6px 6px 6px 14px; border-radius: 14px; background: var(--bar); color: #fff; font: 16px var(--font); box-shadow: 0 6px 20px rgba(0,0,0,.3); z-index: 6; }
+.askline input { flex: 1; min-width: 0; height: 32px; background: none; border: 0; outline: 0; color: #fff; font: inherit; }
+.askline input::placeholder { color: rgba(255,255,255,.55); }
+.askline kbd { font: 500 14px var(--font); padding: 4px 8px; border-radius: 7px; background: var(--claude); color: #fff; }
 .askline .star { color: var(--claude); }
 
-/* margin cards */
-.margin { position: relative; }
-.card { position: absolute; left: 0; width: 250px; background: var(--card); border-radius: 10px; box-shadow: var(--card-shadow); font: 12.5px/1.5 var(--font); padding: 10px 12px 10px; }
-.card::before { content: ""; position: absolute; left: -36px; top: 15px; width: 30px; border-top: 1.5px dashed var(--claude); opacity: .6; }
-.card .ch { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--secondary); margin-bottom: 6px; }
+/* the note slip under a passage */
+.slip { font: 16px/1.5 var(--font); margin: -.2em 0 1.1em; padding: 2px 0 2px 16px; border-left: 2px solid var(--accent); color: var(--label); }
+.slip input { width: 100%; height: 44px; border: 0; background: var(--hover); border-radius: 12px; padding: 0 12px; font: 16px var(--font); color: var(--label); caret-color: var(--accent); outline: 0; }
+.slip input:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
+.slip small { display: block; margin-top: 6px; font-size: 14px; color: var(--tertiary); }
+
+/* the notes and the questions, each under its passage */
+.margin { display: none; }
+.card { margin: -.2em 0 1.1em; padding: 2px 0 2px 16px; border-left: 2px solid var(--quote-bar); font: 16px/1.5 var(--font); }
+.card .ch { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--tertiary); margin-bottom: 4px; }
 .card .ch b { color: var(--claude); font-weight: 600; }
-.card button { background: none; border: 0; margin: 0; padding: 0; font: inherit; color: inherit; cursor: default; border-radius: 3px; }
-.card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.card.min:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.card .ch .x { margin-left: auto; color: var(--tertiary); padding: 0 2px; }
-.card .quote { font: italic 12px/1.4 var(--serif); color: var(--secondary); border-left: 2px solid var(--sep); padding-left: 8px; margin-bottom: 8px; }
+.card button { background: none; border: 0; margin: 0; padding: 0; font: inherit; color: inherit; cursor: default; border-radius: 4px; }
+.card button:focus-visible, .card.min:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.card .ch .x { margin-left: auto; color: var(--tertiary); padding: 0 4px; }
+.card .quote { display: none; }
 .card p { margin: 0 0 8px; white-space: pre-line; overflow-wrap: anywhere; }
-.card code { font: 11.5px ui-monospace, "IBM Plex Mono", monospace; background: var(--hover); padding: 0 3px; border-radius: 3px; }
+.card code { font: 14px "IBM Plex Mono", ui-monospace, monospace; background: var(--hover); padding: 0 3px; border-radius: 4px; }
 .card .q { font-weight: 600; margin: 10px 0 4px; }
-.card .quote + .q { margin-top: 0; }
+.card .ch + .q { margin-top: 0; }
 .card .failure { color: var(--secondary); }
-.card .tools { font-size: 11px; color: var(--tertiary); margin: -2px 0 6px; }
-.card .acts { display: flex; gap: 12px; align-items: center; border-top: 1px solid var(--sep); padding-top: 8px; margin-top: 4px; font-size: 11.5px; color: var(--accent); }
+.card .tools { font-size: 14px; color: var(--tertiary); margin: -2px 0 6px; }
+.card .acts { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding-top: 4px; font-size: 14px; font-weight: 500; color: var(--accent); }
 .card .acts button, .card .acts span { white-space: nowrap; }
-.card .acts .muted { color: var(--tertiary); margin-left: auto; }
-.card .follow { margin-top: 8px; width: 100%; height: 28px; border-radius: 7px; background: var(--hover); border: 0; outline: 0; padding: 0 8px; color: var(--label); font: 12.5px var(--font); }
+.card .acts .muted { color: var(--tertiary); font-weight: 400; margin-left: auto; }
+.card .follow { margin-top: 8px; width: 100%; height: 44px; border-radius: 12px; background: var(--hover); border: 0; outline: 0; padding: 0 12px; color: var(--label); font: 16px var(--font); }
+.card .follow:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
 .card .follow::placeholder { color: var(--tertiary); }
-.card.mine::before { border-color: var(--tertiary); opacity: 1; }
+.card.mine { border-left-color: var(--accent); }
 .card.mine .ch b { color: var(--label); }
 .card.mine .ch .when { margin-left: auto; color: var(--tertiary); }
 .card.mine p:last-child { margin-bottom: 0; }
-.askline.note kbd { background: var(--accent); }
-.askline.note .star { color: var(--accent); }
-.card.min { padding: 7px 12px; color: var(--secondary); cursor: default; }
-.card.min::before { top: 14px; border-color: var(--tertiary); }
+.card.min { color: var(--tertiary); cursor: default; }
 .card.min .ch { margin: 0; }
 .typing { margin: 0 0 4px; }
-.typing i { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--tertiary); margin-right: 3px; animation: blink 1s infinite; }
+.typing i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--tertiary); margin-right: 3px; animation: blink 1s infinite; }
 .typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
 @keyframes blink { 50% { opacity: .2; } }
-@media (max-width: 899px) {
-  .page { grid-template-columns: minmax(0, 640px); gap: 24px; padding: 30px clamp(24px, 6vw, 48px) 80px; max-width: 736px; }
-  .margin { display: flex; flex-direction: column; gap: 12px; }
-  .card { position: relative; top: auto !important; width: 100%; }
-}
 </style>
 </head>
 <body>
@@ -172,20 +175,17 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
   <div class="article" id="article"></div>
   <div class="margin" id="margin"></div>
 </div>
-<div class="selbar" id="selbar">
-  <span class="ask" data-act="ask">&#10035; Ask <span class="kb">&#8984;K</span></span>
+<div class="selbar" id="selbar" role="toolbar" aria-label="Selected text">
+  <span data-act="highlight" data-color="yellow">Highlight <kbd>H</kbd></span>
+  <span data-act="note">Note <kbd>N</kbd></span>
+  <span class="div"></span>
+  <span data-act="ask">Ask <kbd>&#8984;K</kbd></span>
   <span data-act="explain">Explain</span>
   <span data-act="define">Define</span>
-  <span class="div"></span>
-  <span class="sw yellow" data-act="highlight" data-color="yellow" title="Yellow"></span>
-  <span class="sw green" data-act="highlight" data-color="green" title="Green"></span>
-  <span class="sw pink" data-act="highlight" data-color="pink" title="Pink"></span>
-  <span class="div"></span>
-  <span data-act="note">Note <span class="kb">N</span></span>
   <span data-act="capture">Capture</span>
 </div>
 <div class="askline" id="askline"><span class="star">&#10035;</span><input id="askinput" placeholder="Ask about the selected text"><kbd>&#8617;</kbd></div>
-<div class="askline note" id="noteline"><span class="star">&#9998;</span><input id="noteinput" placeholder="Add a note to the selected text"><kbd>&#8617;</kbd></div>
+<div class="slip" id="noteline"><input id="noteinput" placeholder="Add a note" aria-label="Note on the highlight"><small>Return saves the note. Escape keeps the highlight only.</small></div>
 <script>
 (() => {
   const $ = s => document.querySelector(s);
@@ -215,13 +215,13 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     article.classList.remove('skeleton');
     article.removeAttribute('aria-busy');
     article.replaceChildren();
+    closeSlip();
     const box = document.createElement('div');
     box.className = 'message';
     const b = document.createElement('b');
     b.textContent = title;
     box.append(b, detail);
     article.append(box);
-    margin.replaceChildren();
     blocks = [];
     marksKey = '';
   }
@@ -241,10 +241,6 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     fresh.className = 'article skeleton';
     fresh.id = 'article';
     fresh.setAttribute('aria-busy', 'true');
-    const kicker = document.createElement('div');
-    kicker.className = 'kicker';
-    kicker.textContent = info.site;
-    fresh.append(kicker);
     knownTitle = !!info.title;
     if (knownTitle) {
       const title = document.createElement('h1');
@@ -253,7 +249,10 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     } else {
       fresh.append(placeholderLine('title'), placeholderLine('title'));
     }
-    fresh.append(placeholderLine('byline'));
+    const site = document.createElement('div');
+    site.className = 'byline';
+    site.textContent = info.site;
+    fresh.append(site);
     for (const widths of [[100, 97, 99, 64], [100, 95, 72], [100, 98, 96, 99, 41]]) {
       const para = document.createElement('div');
       para.className = 'para';
@@ -266,7 +265,6 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     fresh.append(slow);
     article.replaceWith(fresh);
     article = fresh;
-    margin.replaceChildren();
     blocks = [];
     marksKey = '';
     waiting = true;
@@ -278,7 +276,7 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
   function enter(el) {
     el.classList.add('enter');
     [...el.children].forEach((child, index) => {
-      if (knownTitle && index < 2) { child.style.animation = 'none'; return; }
+      if (knownTitle && index < 1) { child.style.animation = 'none'; return; }
       child.style.animationDelay = Math.min(index * 40, 320) + 'ms';
     });
     setTimeout(() => {
@@ -291,19 +289,16 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     const fresh = document.createElement('div');
     fresh.className = 'article';
     fresh.id = 'article';
-    const kicker = document.createElement('div');
-    kicker.className = 'kicker';
-    kicker.textContent = data.site;
     const title = document.createElement('h1');
     title.textContent = data.title;
     const byline = document.createElement('div');
     byline.className = 'byline';
-    for (const part of data.byline) {
+    for (const part of [data.site, ...data.byline]) {
       const span = document.createElement('span');
       span.textContent = part;
       byline.append(span);
     }
-    fresh.append(kicker, title, byline);
+    fresh.append(title, byline);
     data.blocks.forEach((block, index) => {
       const el = drawBlock(block);
       el.dataset.b = index;
@@ -511,10 +506,7 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     close.title = 'Hide';
     close.setAttribute('aria-label', 'Hide');
     head.append(close);
-    const quote = document.createElement('div');
-    quote.className = 'quote';
-    quote.textContent = note.quote.length > 90 ? note.quote.slice(0, 90) + '…' : note.quote;
-    c.append(head, quote);
+    c.append(head);
     note.turns.forEach((turn, index) => {
       if (turn.question) {
         const q = document.createElement('div');
@@ -565,32 +557,23 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     return c;
   }
 
+  // Each note and each question sits under the block of its passage. A
+  // note whose passage is not in the article goes at the end.
   function renderCards() {
     const focused = document.activeElement?.matches?.('.follow') ? document.activeElement.closest('.card')?.dataset.id : null;
-    margin.replaceChildren(...notes.filter(n => n.kind === 'question' || n.kind === 'note').map(card));
-    if (focused) margin.querySelector(`[data-id="${focused}"] .follow`)?.focus();
-    placeCards();
-  }
-
-  // Each card sits beside its mark. A card never overlaps the card above it.
-  function placeCards() {
-    if (matchMedia('(max-width: 899px)').matches) {
-      margin.style.minHeight = '';
-      for (const c of margin.children) c.style.top = '';
-      return;
+    article.querySelectorAll(':scope > .card').forEach(c => c.remove());
+    for (const note of notes.filter(n => n.kind === 'question' || n.kind === 'note')) {
+      const block = article.querySelector(`[data-b="${note.block}"]`);
+      const c = card(note);
+      if (block && note.block >= 0) {
+        let after = block;
+        while (after.nextElementSibling?.classList.contains('card')) after = after.nextElementSibling;
+        after.after(c);
+      } else {
+        article.append(c);
+      }
     }
-    const top = margin.getBoundingClientRect().top;
-    let floor = 0;
-    const cards = [...margin.children].map(c => {
-      const mark = article.querySelector(`mark[data-n="${c.dataset.id}"]`);
-      return [c, mark ? mark.getBoundingClientRect().top - top - 10 : null];
-    }).sort((a, b) => (a[1] ?? Infinity) - (b[1] ?? Infinity));
-    for (const [c, want] of cards) {
-      const y = Math.max(want ?? floor, floor);
-      c.style.top = y + 'px';
-      floor = y + c.offsetHeight + 12;
-    }
-    margin.style.minHeight = floor + 'px';
+    if (focused) article.querySelector(`.card[data-id="${focused}"] .follow`)?.focus();
   }
 
   // ---------- selection ----------
@@ -620,7 +603,13 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
   function hideBar() {
     bar.style.display = 'none';
     askline.style.display = 'none';
+    closeSlip();
+  }
+
+  // Removes the note slip and the mark of its passage.
+  function closeSlip() {
     noteline.style.display = 'none';
+    article.querySelectorAll('mark.pending').forEach(m => m.replaceWith(...m.childNodes));
   }
 
   function placeBar() {
@@ -646,22 +635,39 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     askinput.focus();
   }
 
+  // Marks the passage and opens the note slip under its block. Return saves
+  // the note. Escape keeps the highlight only.
   function openNote() {
     pendingAnchor = selectedAnchor();
     if (!pendingAnchor) return;
-    if (bar.style.display !== 'flex') placeBar();
-    noteline.style.display = 'flex';
-    noteline.style.left = Math.min(parseFloat(bar.style.left) || 0, Math.max(0, article.offsetWidth - 380)) + 'px';
-    noteline.style.top = bar.style.top;
+    const block = article.querySelector(`[data-b="${pendingAnchor.block}"]`);
+    if (!block) return;
     bar.style.display = 'none';
+    getSelection().removeAllRanges();
+    markRange(block, pendingAnchor.offset, pendingAnchor.quote.length, 'pending', '');
+    let after = block;
+    while (after.nextElementSibling?.classList.contains('card')) after = after.nextElementSibling;
+    after.after(noteline);
+    noteline.style.display = 'block';
     noteinput.value = '';
     noteinput.focus();
+    noteline.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+
+  // Highlights the selected text, after H or a click on Highlight.
+  function highlightSelection() {
+    const anchor = selectedAnchor();
+    if (!anchor) return false;
+    hideBar();
+    getSelection().removeAllRanges();
+    post({ action: 'highlight', color: 'yellow', anchor });
+    return true;
   }
 
   document.addEventListener('mouseup', e => {
-    if (bar.contains(e.target) || askline.contains(e.target) || noteline.contains(e.target) || margin.contains(e.target)) return;
+    if (bar.contains(e.target) || askline.contains(e.target) || noteline.contains(e.target) || e.target.closest?.('.card')) return;
     setTimeout(() => {
-      if (selectedAnchor()) { askline.style.display = 'none'; noteline.style.display = 'none'; placeBar(); } else { hideBar(); }
+      if (selectedAnchor()) { askline.style.display = 'none'; placeBar(); } else if (noteline.style.display !== 'block') { hideBar(); }
     });
   });
 
@@ -693,13 +699,19 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
   });
 
   noteinput.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { hideBar(); return; }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (pendingAnchor) post({ action: 'highlight', color: 'yellow', anchor: pendingAnchor });
+      pendingAnchor = null;
+      hideBar();
+      return;
+    }
     if (e.key !== 'Enter' || e.isComposing) return;
     const text = noteinput.value.trim();
-    if (!text || !pendingAnchor) return;
-    post({ action: 'note', anchor: pendingAnchor, text });
+    if (!pendingAnchor) return;
+    if (text) post({ action: 'note', anchor: pendingAnchor, text });
+    else post({ action: 'highlight', color: 'yellow', anchor: pendingAnchor });
     pendingAnchor = null;
-    getSelection().removeAllRanges();
     hideBar();
   });
 
@@ -714,13 +726,24 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     if (next) next[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
+  // H highlights the selected text and N adds a note to it. The paper
+  // takes the other letters, such as T to tidy the desk.
+  function key(name) {
+    if (name === 'h') return highlightSelection();
+    if (name === 'n' && selectedAnchor()) { openNote(); return true; }
+    return false;
+  }
+
   document.addEventListener('keydown', e => {
     const typing = e.target.closest?.('input, textarea');
+    const plain = !e.metaKey && !e.ctrlKey && !e.altKey;
     if (e.metaKey && e.key.toLowerCase() === 'k' && selectedAnchor()) { e.preventDefault(); openAsk(); }
-    else if (!typing && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.toLowerCase() === 'n' && selectedAnchor()) { e.preventDefault(); openNote(); }
+    else if (!typing && plain && !e.shiftKey && key(e.key.toLowerCase())) { e.preventDefault(); }
+    else if (!typing && plain && !e.shiftKey && /^[a-z ]$/.test(e.key)) { e.preventDefault(); post({ action: 'key', key: e.key }); }
     else if (!typing && e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); jump(e.key === 'ArrowDown' ? 1 : -1); }
-    else if (e.key === 'Escape') hideBar();
+    else if (e.key === 'Escape' && (bar.style.display === 'flex' || askline.style.display === 'flex')) { e.preventDefault(); hideBar(); }
   });
+  window.piperKey = key;
 
   // Reports the first block on the screen and the part of the page above it,
   // after the scroll stops.
@@ -745,7 +768,6 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     renderCards();
   });
 
-  window.addEventListener('resize', placeCards);
 
   // ---------- focus ----------
 
@@ -777,7 +799,6 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
       marksKey = '';
       notes = [];
       renderArticle(data);
-      margin.replaceChildren();
     },
     setNotes(list) {
       if (!current) return;

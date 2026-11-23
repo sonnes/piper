@@ -290,23 +290,16 @@ function SelectionBar({ editor, viewport, editable }: { editor: Editor; viewport
 			style={{ left: place.left, top: place.top }}
 			onMouseDown={(event) => event.preventDefault()}
 		>
-			<button type="button" className="ask" onClick={() => act("ask")}>✳ Ask</button>
+			{editable && (
+				<button type="button" onClick={() => highlight(COLORS[0])}>
+					Highlight
+				</button>
+			)}
+			<button type="button" onClick={() => act("note")}>Note</button>
+			<span className="div" />
+			<button type="button" onClick={() => act("ask")}>Ask</button>
 			<button type="button" onClick={() => act("explain")}>Explain</button>
 			<button type="button" onClick={() => act("define")}>Define</button>
-			<span className="div" />
-			{editable &&
-				COLORS.map((color) => (
-					<button
-						key={color}
-						type="button"
-						className={`sw ${color}`}
-						title={color[0].toUpperCase() + color.slice(1)}
-						aria-label={`Highlight ${color}`}
-						onClick={() => highlight(color)}
-					/>
-				))}
-			{editable && <span className="div" />}
-			<button type="button" onClick={() => act("note")}>Note</button>
 			<button type="button" onClick={() => act("capture")}>Capture</button>
 			{editable && (
 				<>

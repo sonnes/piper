@@ -125,7 +125,7 @@ struct SessionCard: View {
     private func header(_ session: AgentSession?, folder: String) -> some View {
         HStack(spacing: 6) {
             AgentMark(agentID: session?.agentID ?? model.agents.sessionAgentID)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .accessibilityHidden(true)
             sessionMenu(session, folder: folder)
             Spacer(minLength: 4)
@@ -157,7 +157,7 @@ struct SessionCard: View {
             }
         } label: {
             Text(session?.title ?? "New Session in \(URL(fileURLWithPath: folder).lastPathComponent)")
-                .font(PiperTheme.ui(.body, weight: .semibold))
+                .font(PiperTheme.paperUI(.body, weight: .semibold))
         }
         .menuStyle(.borderlessButton)
         .fixedSize(horizontal: false, vertical: true)
@@ -232,10 +232,10 @@ struct SessionPill: View {
                 icon(session)
                 Text(text(session)).lineLimit(1)
                 if session?.isActive != true {
-                    Text("⌥⌘C").font(PiperTheme.ui(.caption)).foregroundStyle(needsYou ? PiperTheme.onAccentSecondary : PiperTheme.faint)
+                    Text("⌥⌘C").font(PiperTheme.paperUI(.body)).foregroundStyle(needsYou ? PiperTheme.onAccentSecondary : PiperTheme.faint)
                 }
             }
-            .font(PiperTheme.ui(.body))
+            .font(PiperTheme.paperUI(.body))
             .foregroundStyle(needsYou ? PiperTheme.onAccent : PiperTheme.ink)
             .padding(AppDefaults.SessionCard.pillPadding)
             .frame(height: AppDefaults.SessionCard.pillHeight)
@@ -266,7 +266,7 @@ struct SessionPill: View {
         case .needsYou?:
             Image(systemName: "exclamationmark.bubble.fill").font(.system(size: 12)).foregroundStyle(PiperTheme.onAccent)
         default:
-            AgentMark(agentID: session?.agentID ?? model.agents.sessionAgentID).font(.system(size: 13, weight: .semibold))
+            AgentMark(agentID: session?.agentID ?? model.agents.sessionAgentID).font(.system(size: 14, weight: .semibold))
         }
     }
 

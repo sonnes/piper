@@ -32,8 +32,6 @@ enum PiperTheme {
     /// The selection of a row without keyboard focus.
     static let selectionNS = NSColor.unemphasizedSelectedContentBackgroundColor
     static let ruleNS = NSColor.separatorColor
-    /// The paper of the Reader tab. The reader page uses the same colors.
-    static let readerNS = color(light: 0xFBFAF7, dark: 0x1B1B1C)
     /// Selected text on the reader page and in a Markdown file: the accent at 20 percent, and 30 percent in the dark.
     static let readerSelectionNS = NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -108,7 +106,6 @@ enum PiperTheme {
     static let accent = Color(nsColor: accentNS)
     static let selection = Color(nsColor: selectionNS)
     static let rule = Color(nsColor: ruleNS)
-    static let reader = Color(nsColor: readerNS)
     static let warning = Color(nsColor: warningNS)
     /// The fill of the bar over the editor when Piper stopped saving.
     static let warningFill = warning.opacity(0.14)
@@ -143,7 +140,6 @@ enum PiperTheme {
     /// The shadow of a control that floats over content, such as the tabs of a reader paper.
     static let floatingShadow = Color.black.opacity(0.14)
     /// The line over an article that says where it opened.
-    static let resumeFill = accent.opacity(0.1)
 
     // MARK: Papers
 
@@ -168,6 +164,8 @@ enum PiperTheme {
     static let currentRowNS = color(light: 0xE0E7FF, dark: 0x312E81)
     /// Zinc 900 and white. The text of the current row of an index, and of a highlight.
     static let markInkNS = color(light: 0x18181B, dark: 0xFFFFFF)
+    /// Indigo 500 at 26 percent. Selected text on a paper.
+    static let paperSelectionNS = NSColor(srgbRed: 0x63 / 255, green: 0x66 / 255, blue: 0xF1 / 255, alpha: 0.26)
     /// Indigo 500. A tab on the edge of the feed paper.
     static let tabNS = hex(0x6366F1)
     /// Indigo 600. The active tab.

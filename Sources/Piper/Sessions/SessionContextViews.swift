@@ -167,7 +167,7 @@ struct MentionCompletions: View {
             ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
                 if index == 0 || options[index - 1].group != option.group {
                     Text(option.group.title)
-                        .font(PiperTheme.ui(.caption, weight: .semibold))
+                        .font(PiperTheme.paperUI(.body, weight: .semibold))
                         .foregroundStyle(PiperTheme.faint)
                         .padding(.horizontal, 8).padding(.top, index == 0 ? 4 : 8).padding(.bottom, 3)
                 }
@@ -189,11 +189,11 @@ struct MentionCompletions: View {
                 Text(option.title).lineLimit(1).truncationMode(.tail)
                 Spacer(minLength: 4)
                 Text(option.detail)
-                    .font(PiperTheme.ui(.caption))
+                    .font(PiperTheme.paperUI(.body))
                     .foregroundStyle(active ? Color.white.opacity(0.8) : PiperTheme.faint)
                     .lineLimit(1).truncationMode(.head)
             }
-            .font(PiperTheme.ui(.secondary))
+            .font(PiperTheme.paperUI(.body))
             .foregroundStyle(active ? Color.white : PiperTheme.ink)
             .padding(.horizontal, 8)
             .frame(height: 24)
@@ -226,7 +226,7 @@ struct ContextChip: View {
                     .accessibilityLabel("Remove \(item.label)")
             }
         }
-        .font(PiperTheme.ui(.caption))
+        .font(PiperTheme.paperUI(.body))
         .foregroundStyle(pending ? PiperTheme.accent : PiperTheme.faint)
         .padding(.horizontal, 7).frame(height: 20)
         .background {

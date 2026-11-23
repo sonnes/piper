@@ -38,7 +38,7 @@ struct DiscoverView: View {
                         }
                         if withFeed.isEmpty {
                             Text("No new feeds. Each site with a feed has a subscription or an answer.")
-                                .font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary)
+                                .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.secondary)
                                 .padding(12)
                         }
                         if !noFeed.isEmpty {
@@ -47,7 +47,7 @@ struct DiscoverView: View {
                                     Image(systemName: showsNoFeed ? "chevron.down" : "chevron.right")
                                     Text("\(noFeed.count) \(noFeed.count == 1 ? "Site" : "Sites") with No Feed")
                                 }
-                                .font(PiperTheme.ui(.caption, weight: .semibold))
+                                .font(PiperTheme.paperUI(.body, weight: .semibold))
                                 .foregroundStyle(PiperTheme.secondary)
                                 .contentShape(Rectangle())
                             }
@@ -73,8 +73,8 @@ struct DiscoverView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text("Discover").font(PiperTheme.ui(.body, weight: .semibold))
-            Text(subtitle).font(PiperTheme.ui(.secondary)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+            Text("Discover").font(PiperTheme.paperUI(.body, weight: .semibold))
+            Text(subtitle).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
             Spacer(minLength: 8)
             if scan.state == .scanning {
                 ProgressView().controlSize(.small)
@@ -116,9 +116,9 @@ private struct SuggestionRow: View {
             SiteIcon(favicons: favicons, host: suggestion.host, title: title, index: index)
                 .opacity(subscribe == nil ? 0.5 : 1)
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(PiperTheme.ui(.body, weight: subscribe == nil ? .regular : .semibold)).lineLimit(1)
+                Text(title).font(PiperTheme.paperUI(.body, weight: subscribe == nil ? .regular : .semibold)).lineLimit(1)
                 Text("\(suggestion.host) · \(suggestion.visits) \(suggestion.visits == 1 ? "visit" : "visits")")
-                    .font(PiperTheme.ui(.caption)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
+                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.secondary).lineLimit(1)
             }
             Spacer(minLength: 8)
             if let subscribe {

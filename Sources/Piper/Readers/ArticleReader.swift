@@ -30,28 +30,24 @@ struct ArticleReader: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ReaderAddressBar(url: url, detail: reading.minutesLeft.map { "\($0) min left" }
-                             ?? "Captured " + note.createdAt.formatted(date: .omitted, time: .shortened),
-                             progress: reading.progress)
             if let resume {
-                HStack(spacing: 10) {
-                    Image(systemName: "book").foregroundStyle(PiperTheme.accent)
-                    Text(resume)
+                HStack(spacing: 12) {
+                    Text(resume).foregroundStyle(PiperTheme.paperMuted)
                     Spacer(minLength: 8)
                     Button("Start from the top") {
                         model.readerScroll = ReaderScroll(block: 0, in: note.id)
                         self.resume = nil
                     }
-                    .buttonStyle(.text)
+                    .buttonStyle(.plain).fontWeight(.medium).foregroundStyle(PiperTheme.brand)
                     Button { self.resume = nil } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain).foregroundStyle(PiperTheme.faint)
+                        .buttonStyle(.plain).foregroundStyle(PiperTheme.paperFaint)
                         .accessibilityLabel("Close")
                 }
-                .font(PiperTheme.ui(AppDefaults.ArticleReader.resumeFontSize))
+                .font(PiperTheme.paperUI(.body))
                 .padding(.horizontal, AppDefaults.ArticleReader.horizontalInset)
                 .padding(.vertical, AppDefaults.ArticleReader.resumeVerticalPadding)
-                .background(PiperTheme.resumeFill)
-                .overlay(alignment: .bottom) { Rule() }
+                .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: AppDefaults.Papers.rowRadius, style: .continuous))
+                .padding(.horizontal, AppDefaults.ArticleReader.resumeMargin)
             }
             ReaderPageView(state: loader.state, placeholder: ReaderPlaceholder(site: ArticleBadge.host(url), title: reading.title),
                            notes: payload, scroll: scroll, perform: perform, scrolled: scrolled,
@@ -63,7 +59,7 @@ struct ArticleReader: View {
                     }
                 }
         }
-        .background(PiperTheme.reader)
+        .background(PiperTheme.paper)
         .onAppear { load(url) }
         .onChange(of: url) { _, url in load(url) }
         .onChange(of: loader.state) { _, state in
@@ -536,6 +532,11 @@ extension ArticleLoader: WKNavigationDelegate {
 
 // MARK: - Page
 
+extension Notification.Name {
+    /// A letter key that the reader page did not use. The object is the window of the page.
+    static let readerPageKey = Notification.Name("PiperReaderPageKey")
+}
+
 /// The reader page in a web view. Piper draws the article and the notes, and
 /// the page reports each action of the reader.
 struct ReaderPageView: NSViewRepresentable {
@@ -557,7 +558,7 @@ struct ReaderPageView: NSViewRepresentable {
         configuration.websiteDataStore = .nonPersistent()
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator
-        view.underPageBackgroundColor = PiperTheme.readerNS
+        view.underPageBackgroundColor = PiperTheme.paperNS
         view.setAccessibilityLabel("Article")
         context.coordinator.view = view
         attach(view)
@@ -633,7 +634,9 @@ struct ReaderPageView: NSViewRepresentable {
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.frameInfo.isMainFrame, message.frameInfo.request.url == page,
                   let body = message.body as? [String: Any] else { return }
-            if body["action"] as? String == "ready" {
+            if body["action"] as? String == "key", let key = body["key"] as? String {
+                NotificationCenter.default.post(name: .readerPageKey, object: view?.window, userInfo: ["key": key])
+            } else if body["action"] as? String == "ready" {
                 ready = true
                 shownState = nil
                 if let wanted { show(wanted.0, notes: wanted.1, scroll: wanted.2) }
@@ -661,39 +664,3 @@ struct ReaderPageView: NSViewRepresentable {
     }
 }
 
-/// The line over an article in the Reader tab: the host, the path, a detail at
-/// the right, and the reading progress under it.
-struct ReaderAddressBar: View {
-    let url: URL
-    let detail: String
-    /// From 0 to 1.
-    let progress: Double
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Text(url.host() ?? url.absoluteString).foregroundStyle(PiperTheme.ink)
-                Text(url.path()).foregroundStyle(PiperTheme.secondary)
-                    .lineLimit(1).truncationMode(.middle)
-                Spacer(minLength: 8)
-                Text(detail)
-                    .foregroundStyle(PiperTheme.secondary)
-                    .monospacedDigit()
-            }
-            .font(PiperTheme.ui(AppDefaults.ArticleReader.addressFontSize))
-            .lineLimit(1)
-            .padding(.horizontal, AppDefaults.ArticleReader.horizontalInset)
-            .frame(height: AppDefaults.ArticleReader.addressHeight)
-            ZStack(alignment: .leading) {
-                Rule()
-                GeometryReader { proxy in
-                    Rectangle().fill(PiperTheme.accent)
-                        .frame(width: proxy.size.width * min(max(progress, 0), 1), height: AppDefaults.ArticleReader.progressHeight)
-                }
-                .frame(height: AppDefaults.ArticleReader.progressHeight)
-            }
-            .frame(height: AppDefaults.ArticleReader.progressHeight)
-            .accessibilityHidden(true)
-        }
-    }
-}
