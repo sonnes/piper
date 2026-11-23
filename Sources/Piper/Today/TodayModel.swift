@@ -188,8 +188,7 @@ final class TodayModel {
         if !captures.isEmpty { store.setKept(true, Set(captures.map(\.id))) }
         let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles)
         if !articles.isEmpty {
-            store.keep(links: links(articles))
-            feeds.setRead(true, articles)
+            model.keep(articles)
         }
         for clip in items.compactMap(\.clip) { model.clipboard.save(clip.id) }
         store.status = "Kept"
@@ -237,7 +236,7 @@ final class TodayModel {
             if !ids.isEmpty, !store.move(ids, to: section) { return false }
             let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles)
             if !articles.isEmpty {
-                store.keep(links: links(articles), to: section)
+                store.keep(links: model.keptLinks(articles), to: section)
                 feeds.setRead(true, articles)
             }
             for clip in items.compactMap(\.clip) {
@@ -370,12 +369,6 @@ final class TodayModel {
     }
 
     // MARK: - Private
-
-    private func links(_ articles: [Article]) -> [KeptLink] {
-        articles.compactMap { article in
-            URL(string: article.url).map { KeptLink(url: $0, title: article.title, source: feeds.feed(article.feedID)?.title) }
-        }
-    }
 
     /// A note that a skill can take: the capture, or a note that is not
     /// saved and holds the link of an article or the links of a digest.

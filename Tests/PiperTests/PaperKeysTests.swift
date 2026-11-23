@@ -80,7 +80,7 @@ final class PaperKeysTests: XCTestCase {
         XCTAssertEqual(open.last, Hint(keys: ["⌘`"], label: "next paper"))
         XCTAssertEqual(Hint.hints(index: true, paper: nil, article: false, papersOpen: false, tabs: 4)[2].keys, ["⌘1–4"])
         let article = Hint.hints(index: false, paper: .article("a"), article: true, papersOpen: true, tabs: 5).map(\.label)
-        XCTAssertEqual(article, ["highlight", "note", "next paper", "put back", "tidy"])
+        XCTAssertEqual(article, ["keep", "highlight", "note", "next paper", "put back", "tidy"])
         let file = Hint.hints(index: false, paper: .file, article: false, papersOpen: true, tabs: 5).map(\.label)
         XCTAssertEqual(file, ["next paper", "put back", "tidy"])
         let tree = Hint.hints(index: false, tree: true, paper: nil, article: false, papersOpen: false, tabs: 8)

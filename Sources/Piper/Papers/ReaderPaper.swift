@@ -112,24 +112,16 @@ struct ReaderPaper: View {
     @ViewBuilder private func articleHeader(_ article: Article?) -> some View {
         if let article {
             let feed = model.feeds.feed(article.feedID)
-            let kept = URL(string: article.url).flatMap(model.store.article(for:)) != nil
+            let kept = model.isKept(article)
             if let feed {
                 SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title,
                          index: model.feeds.feeds.firstIndex { $0.id == feed.id } ?? 0)
             }
             label([feed?.title, RowTime.text(article.date)].compactMap { $0 }.joined(separator: " · "))
             PaperToolbar {
-                PaperButton(title: article.read ? "Mark as Unread" : "Mark as Read",
-                            symbol: article.read ? "envelope.open" : "envelope.badge",
-                            help: article.read ? "Mark as Unread (R)" : "Mark as Read (R)") {
-                    model.feeds.setRead(!article.read, [article])
-                }
-                PaperButton(title: kept ? "Kept in Inbox" : "Keep in Inbox",
-                            symbol: kept ? "tray.full.fill" : "tray.and.arrow.down",
-                            help: kept ? "Kept in Inbox" : "Keep in Inbox (I)") {
-                    guard let url = URL(string: article.url) else { return }
-                    model.store.saveArticle(url, title: article.title, source: feed?.title)
-                    model.feeds.setRead(true, [article])
+                PaperButton(title: kept ? "Kept" : "Keep", symbol: kept ? "star.fill" : "star",
+                            help: kept ? "Kept" : "Keep · K") {
+                    model.keep([article])
                 }
                 .disabled(kept)
                 PaperToolbarDivider()

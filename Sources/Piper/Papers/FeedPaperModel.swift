@@ -189,7 +189,7 @@ final class FeedPaperModel {
     struct ListKeys {
         let move: (Int) -> Void
         let open: () -> Void
-        /// A letter key, such as R to mark an article as read. Returns true when the list used it.
+        /// A letter key, such as K to keep an article. Returns true when the list used it.
         var letter: (Character) -> Bool = { _ in false }
     }
 

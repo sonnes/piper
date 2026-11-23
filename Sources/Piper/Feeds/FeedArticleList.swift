@@ -91,7 +91,7 @@ struct FeedArticleList: View {
     private func menu(for article: Article) -> some View {
         Button(article.read ? "Mark as Unread" : "Mark as Read") { feeds.setRead(!article.read, [article]) }
         Divider()
-        Button("Keep in Inbox") { keep(article) }
+        Button("Keep") { model.keep([article]) }.disabled(model.isKept(article))
         Button("Open in Browser") { openInBrowser(article) }
         Button("Copy Link") {
             NSPasteboard.general.clearContents()
@@ -144,7 +144,6 @@ struct FeedArticleList: View {
         if let article, !article.read { feeds.setRead(true, [article]) }
     }
 
-    private func keep(_ article: Article) { model.keep(article) }
 
     private func openInBrowser(_ article: Article) { model.openInBrowser(article) }
 
@@ -198,18 +197,29 @@ private struct FeedArticleRow: View {
                 }
             }
         } actions: {
-            RowAction(symbol: article.read ? "circle.fill" : "circle", title: article.read ? "Mark as Unread (R)" : "Mark as Read (R)",
+            RowAction(symbol: article.read ? "circle.fill" : "circle", title: article.read ? "Mark as Unread" : "Mark as Read",
                       action: toggleRead)
         }
     }
 }
 
 extension AppModel {
-    /// Saves an article to Inbox as a link capture, and marks it as read.
-    func keep(_ article: Article) {
-        guard let url = URL(string: article.url) else { return }
-        store.saveArticle(url, title: article.title, source: feeds.feed(article.feedID)?.title)
-        feeds.setRead(true, [article])
+    /// The links of articles, with the title of each feed as the source.
+    func keptLinks(_ articles: [Article]) -> [KeptLink] {
+        articles.compactMap { article in
+            URL(string: article.url).map { KeptLink(url: $0, title: article.title, source: feeds.feed(article.feedID)?.title) }
+        }
+    }
+
+    /// Keeps articles as kept link captures, and marks them as read.
+    func keep(_ articles: [Article]) {
+        store.keep(links: keptLinks(articles))
+        feeds.setRead(true, articles)
+    }
+
+    /// True when a kept capture holds the link of the article.
+    func isKept(_ article: Article) -> Bool {
+        URL(string: article.url).flatMap(store.article(for:))?.isKept == true
     }
 
     func openInBrowser(_ article: Article) {
@@ -218,15 +228,13 @@ extension AppModel {
         feeds.setRead(true, [article])
     }
 
-    /// The letter keys of an article, on its row or on its paper: R marks it
-    /// as read or unread, I keeps it in Inbox, and B opens it in
-    /// the browser.
+    /// The letter keys of an article, on its row or on its paper: K keeps it,
+    /// and B opens it in the browser.
     ///
     /// - Returns: True when the key is one of these.
     func articleKey(_ key: Character, on article: Article) -> Bool {
         switch key {
-        case "r": feeds.setRead(!article.read, [article])
-        case "i": keep(article)
+        case "k": keep([article])
         case "b": openInBrowser(article)
         default: return false
         }

@@ -74,6 +74,17 @@ final class TodayModelTests: XCTestCase {
         XCTAssertTrue(model.clipboard.entries.isEmpty)
     }
 
+    func testKOnAnArticlePaperKeepsItAndRAndIDoNothing() throws {
+        let article = try XCTUnwrap(model.feeds.article("two"))
+        XCTAssertFalse(model.articleKey("r", on: article))
+        XCTAssertFalse(model.articleKey("i", on: article))
+        XCTAssertFalse(model.articleKey("s", on: article))
+        XCTAssertEqual(model.feeds.article("two")?.read, false)
+        XCTAssertTrue(model.articleKey("k", on: article))
+        XCTAssertTrue(model.isKept(article))
+        XCTAssertEqual(model.feeds.article("two")?.read, true)
+    }
+
     // MARK: - Done
 
     func testDoneOffersUndoForEachKind() throws {

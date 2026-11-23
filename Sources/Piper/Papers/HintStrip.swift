@@ -59,8 +59,10 @@ struct Hint: Equatable {
     static func hints(index: Bool, tree: Bool = false, today: Bool = false, paper: PaperItem?, article: Bool,
                       papersOpen: Bool, tabs: Int) -> [Hint] {
         let tabKeys = "⌘1–\(min(tabs, 9))"
-        if paper != nil {
-            return (article ? [Hint(keys: ["H"], label: "highlight"), Hint(keys: ["N"], label: "note")] : [])
+        if let paper {
+            var keep: [Hint] = []
+            if case .article = paper { keep = [Hint(keys: ["K"], label: "keep")] }
+            return keep + (article ? [Hint(keys: ["H"], label: "highlight"), Hint(keys: ["N"], label: "note")] : [])
                 + [Hint(keys: ["⌘`"], label: "next paper"), Hint(keys: ["esc"], label: "put back"), Hint(keys: ["T"], label: "tidy")]
         }
         if tree {
