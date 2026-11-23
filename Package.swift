@@ -18,7 +18,7 @@ let package = Package(
         // Middle modules.
         .target(name: "Captures", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Captures"),
         .target(name: "Vault", dependencies: ["PiperCore", "Yams"], path: "Sources/Modules/Vault"),
-        .target(name: "Agents", dependencies: ["PiperCore", "CapturesDatabase"], path: "Sources/Modules/Agents"),
+        .target(name: "Agents", dependencies: ["PiperCore"], path: "Sources/Modules/Agents"),
         .target(name: "History", dependencies: ["PiperCore", "CSQLite"], path: "Sources/Modules/History"),
         .target(name: "Feeds", dependencies: ["PiperCore", "CSQLite"], path: "Sources/Modules/Feeds", exclude: ["RSParser/README.md"]),
         .target(name: "Stream", dependencies: ["PiperCore", "Captures", "Feeds"], path: "Sources/Modules/Stream"),

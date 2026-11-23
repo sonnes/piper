@@ -1,7 +1,7 @@
 import CoreServices
 import Foundation
 
-/// Reports changes below the vault root.
+/// Reports changes below the root of a vault.
 ///
 /// The file system event stream runs on a private background queue. The handler
 /// runs on the main queue. The stream groups the events of about half a second
@@ -13,7 +13,7 @@ public final class VaultWatcher {
     // MARK: Properties
 
     /// The folder that the watcher observes.
-    public let root: URL
+    public let vault: Vault
 
     private let handler: () -> Void
     private let latency: CFTimeInterval = 0.5
@@ -23,8 +23,8 @@ public final class VaultWatcher {
 
     // MARK: Lifecycle
 
-    public init(root: URL, handler: @escaping () -> Void) {
-        self.root = root.standardizedFileURL.resolvingSymlinksInPath()
+    public init(vault: Vault, handler: @escaping () -> Void) {
+        self.vault = vault
         self.handler = handler
     }
 
@@ -49,7 +49,7 @@ public final class VaultWatcher {
             kCFAllocatorDefault,
             vaultWatcherCallback,
             &context,
-            [root.path] as CFArray,
+            [vault.root.path] as CFArray,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
             latency,
             flags

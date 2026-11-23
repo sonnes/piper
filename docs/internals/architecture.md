@@ -32,10 +32,10 @@ flowchart LR
 | --- | --- | --- |
 | `CSQLite` | System SQLite, through `pkg-config` | nothing |
 | `PiperCore` | `PiperError`, the frontmatter parser, `PaletteSearch`, `Site`, `URL.isWeb`, and `DataFolder` | Yams |
-| `CapturesDatabase` | One versioned blob in SQLite, with compare-and-swap | `CSQLite` |
+| `CapturesDatabase` | One versioned blob in SQLite, with compare-and-swap, and the `clipboard`, `sessions`, and `pages` tables | `CSQLite` |
 | `Captures` | `Note`, `NoteTag`, `CaptureStore`, `ClipboardInbox`, `Clipboard`, `CaptureLinks`, `ReadingTime`, and edit sessions | `PiperCore`, `CapturesDatabase` |
 | `Vault` | One folder: scan, read, write, and watch | `PiperCore`, Yams |
-| `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, and `PermissionRule` | `PiperCore`, `CapturesDatabase` |
+| `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, `PermissionRule`, and the `SessionStorage` protocol | `PiperCore` |
 | `History` | `BrowserCatalog`, `HistoryReader`, `DatabaseCopy`, `HistoryDigest`, `Decay`, and `BlockedSites` | `PiperCore`, `CSQLite` |
 | `Feeds` | The RSParser port of NetNewsWire, `FeedStore`, `FeedDatabase`, `FeedFetch`, `FeedDiscovery`, `FeedMode`, and `OPMLImport` | `PiperCore`, `CSQLite` |
 | `Stream` | `UnifiedStream`, `StreamItem`, `FeedRows`, `Relevance`, `FeedStats`, and `StarMigration` | `PiperCore`, `Captures`, `Feeds` |
@@ -219,11 +219,15 @@ The session composer handles Return, Tab, the arrows, and Escape in `textView(_:
 
 `SkillTarget` names what the reader paper with the focus shows: `page(path)`, `text(text, noteID)`, or `folder`. `PaperDesk` sets `AppModel.actionTarget` when a reader paper becomes key, and the session card takes a page as context. A Send action opens a session draft with the skill command and note text. The composer sends the edited draft when the reader presses Return.
 
-The `sessions` table stores each session at each change of state. Quit asks before it stops sessions in a turn. `AppDelegate` also stops them on SIGTERM, because a child process keeps running after its parent exits.
+`SessionRunner` stores each session at each change of state through a `SessionStorage`. The app makes `Database` conform, so the sessions go in the `sessions` table of the note database. Quit asks before it stops sessions in a turn. `AppDelegate` also stops them on SIGTERM, because a child process keeps running after its parent exits.
 
 ## Vault
 
-`Vault` lists every file and folder under the root and applies no rule about structure. `VaultFile` holds the path, size, modification date, text, and parsed frontmatter. `VaultWatcher` wraps `FSEventStream` on a private queue and calls back on the main queue.
+`Vault` lists every file and folder under the root and applies no rule about structure. `VaultFile` holds the path, size, modification date, text, and parsed frontmatter. `VaultWatcher` takes a `Vault`, wraps `FSEventStream` on a private queue, and calls back on the main queue.
+
+`Vault(path:)` is the one place that turns a folder path into a root. It expands a tilde, standardizes the path, and resolves symbolic links. Two paths to the same folder give the same root. `Vault.defaultPath` is the folder that Piper uses when the reader has chosen none.
+
+Each read and write of a folder file goes through `Vault`: `read` and `write` for bytes or text, `file` for a `VaultFile`, and `freeName` for a new file name that no file has. `VaultFile.isMarkdown` is the one test for a Markdown file.
 
 `AppModel` stores the folder list and the active root in preferences. `removeWikiFolder` moves the active root to another folder before it removes a root.
 

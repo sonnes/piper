@@ -164,7 +164,7 @@ final class AppModel {
     var wikiPath: String {
         didSet {
             preferences.set(wikiPath, forKey: AppDefaults.Key.vaultPath)
-            if let vaultWatcher, vaultWatcher.root != vault.root { reload() }
+            if let vaultWatcher, vaultWatcher.vault.root != vault.root { reload() }
         }
     }
     var captureShortcut: String {
@@ -198,8 +198,7 @@ final class AppModel {
         self.store = store
         clipboard = ClipboardInbox(store: store)
         agents = FolderAgents(store: store, preferences: preferences)
-        let activePath = wikiPath ?? defaults.string(forKey: AppDefaults.Key.vaultPath)
-            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Wiki").path
+        let activePath = wikiPath ?? defaults.string(forKey: AppDefaults.Key.vaultPath) ?? Vault.defaultPath
         self.wikiPath = activePath
         var savedPaths = wikiPath == nil ? defaults.stringArray(forKey: AppDefaults.Key.wikiPaths) ?? [] : []
         if !savedPaths.contains(activePath) { savedPaths.append(activePath) }
@@ -242,14 +241,14 @@ final class AppModel {
         return true
     }
 
-    var vault: Vault { Vault(root: URL(fileURLWithPath: (wikiPath as NSString).expandingTildeInPath).standardizedFileURL) }
+    var vault: Vault { Vault(path: wikiPath) }
 
     func reload() {
         agents.refresh(paths: wikiPaths)
         let repo = vault
-        if vaultWatcher?.root != repo.root {
+        if vaultWatcher?.vault.root != repo.root {
             vaultWatcher?.stop()
-            let watcher = VaultWatcher(root: repo.root) { [weak self] in self?.reload() }
+            let watcher = VaultWatcher(vault: repo) { [weak self] in self?.reload() }
             vaultWatcher = watcher
             watcher.start()
         }
@@ -318,7 +317,7 @@ final class AppModel {
         panel.prompt = "Add"
         panel.message = "Choose folders. Each folder gets a tab."
         guard panel.runModal() == .OK else { return }
-        addWikiFolders(panel.urls)
+        addWikiFolders(panel.urls.map(\.path))
     }
 
     /// Takes a folder off the folder list and its tab off the feed paper. The folder on disk does not change.
@@ -329,32 +328,30 @@ final class AppModel {
         guard wikiPaths.count > 1, let index = wikiPaths.firstIndex(of: path) else { return }
         if path == wikiPath {
             let next = wikiPaths[index == 0 ? 1 : index - 1]
-            changeWiki(to: URL(fileURLWithPath: (next as NSString).expandingTildeInPath))
+            changeWiki(to: next)
             guard wikiPath == next else { return }
         }
         wikiPaths.removeAll { $0 == path }
     }
 
-    func addWikiFolders(_ urls: [URL]) {
-        guard let first = urls.first, settleEditors() else { return }
-        for url in urls { registerWikiFolder(url) }
+    func addWikiFolders(_ paths: [String]) {
+        guard let first = paths.first, settleEditors() else { return }
+        for path in paths { registerWikiFolder(path) }
         changeWiki(to: first)
     }
 
-    @discardableResult private func registerWikiFolder(_ url: URL) -> String {
-        let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
-        if let existing = wikiPaths.first(where: {
-            URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath)
-                .standardizedFileURL.resolvingSymlinksInPath() == resolved
-        }) { return existing }
-        let path = url.standardizedFileURL.path
+    /// Returns the listed path of the folder, and adds the folder when the list
+    /// does not have it. Two paths to the same folder are one folder.
+    @discardableResult private func registerWikiFolder(_ path: String) -> String {
+        let root = Vault(path: path).root
+        if let existing = wikiPaths.first(where: { Vault(path: $0).root == root }) { return existing }
         wikiPaths.append(path)
         return path
     }
 
-    func changeWiki(to url: URL) {
+    func changeWiki(to path: String) {
         guard settleEditors() else { return }
-        wikiPath = registerWikiFolder(url)
+        wikiPath = registerWikiFolder(path)
         workspace = WikiWorkspace()
         initialDocument = nil
         files = []
@@ -368,9 +365,9 @@ final class AppModel {
     /// The file can be newer than the last scan. The model then opens it when
     /// the next scan finds it.
     func openRunFile(_ path: String, in folder: String) {
-        let root = URL(fileURLWithPath: folder).standardizedFileURL
+        let root = Vault(path: folder).root
         if root != vault.root {
-            changeWiki(to: root)
+            changeWiki(to: folder)
             guard vault.root == root else { return }
         }
         if files.contains(where: { $0.id == path }) {
@@ -491,7 +488,7 @@ final class AppModel {
     }
 
     private func refreshFile(of session: EditorSession) {
-        guard !session.hasChanges, session.status == .saved, let file = try? vault.read(session.path) else { return }
+        guard !session.hasChanges, session.status == .saved, let file = try? vault.file(session.path) else { return }
         session.document = file
         if let index = files.firstIndex(where: { $0.id == file.id }) { files[index] = file }
     }
@@ -551,9 +548,7 @@ final class AppModel {
         let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined().prefix(12)
         let stem = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
         let name = "\(stem).assets/\(hash).\(Self.imageExtension(for: type))"
-        let url = try vault.containedURL(name, relativeTo: path)
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if !FileManager.default.fileExists(atPath: url.path) { try data.write(to: url, options: .atomic) }
+        try vault.write(data, to: ((path as NSString).deletingLastPathComponent as NSString).appendingPathComponent(name))
         return name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
     }
 

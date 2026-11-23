@@ -29,7 +29,7 @@ final class EditorPageTests: XCTestCase {
             try Data(raw.utf8).write(to: root.appendingPathComponent(path))
         }
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = try files.map { try model.vault.read($0.0) }
+        model.files = try files.map { try model.vault.file($0.0) }
         return model
     }
 

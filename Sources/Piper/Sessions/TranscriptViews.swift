@@ -1,6 +1,7 @@
 import Agents
 import AppKit
 import SwiftUI
+import Vault
 
 /// One block of a transcript.
 struct TranscriptBlockView: View {
@@ -125,7 +126,7 @@ struct ToolCallRow: View {
                 .foregroundStyle(PiperTheme.secondary)
                 .lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 4)
-            if let path = call.path, path.lowercased().hasSuffix(".md"), !call.isError {
+            if let path = call.path, VaultFile.isMarkdown(path), !call.isError {
                 Button("Open") { open(path) }.buttonStyle(.link).font(PiperTheme.paperUI(.body))
             }
         }

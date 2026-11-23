@@ -186,13 +186,16 @@ struct ArticleNotebook: View {
         guard let file = reading.savedFile, let saved = reading.savedAt,
               let addition = ArticleMarkdown.update(children: children, after: saved, date: Date()) else { return }
         do {
-            let url = URL(fileURLWithPath: file)
             guard FileManager.default.fileExists(atPath: file) else {
                 model.store.updateReading(note.id) { $0.savedFile = nil; $0.savedAt = nil }
                 throw PiperError("The saved file is gone. Choose Save as File again.")
             }
-            let text = try String(contentsOf: url, encoding: .utf8)
-            try Data((text.hasSuffix("\n") ? text : text + "\n").appending(addition).utf8).write(to: url, options: .atomic)
+            let vault = Vault(path: (file as NSString).deletingLastPathComponent)
+            let name = (file as NSString).lastPathComponent
+            guard let text = String(data: try vault.read(name), encoding: .utf8) else {
+                throw PiperError("The saved file is not UTF-8 text.")
+            }
+            try vault.write((text.hasSuffix("\n") ? text : text + "\n").appending(addition), to: name)
             model.store.updateReading(note.id) { $0.savedAt = Date() }
             model.reload()
         } catch { model.store.report(error) }
@@ -360,14 +363,9 @@ private struct SaveArticleForm: View {
     /// gets a number.
     private func save() {
         guard let destination else { return }
-        let vault = Vault(root: URL(fileURLWithPath: (destination.root as NSString).expandingTildeInPath))
-        let stem = (fileName as NSString).deletingPathExtension
-        var path = (destination.folder as NSString).appendingPathComponent(fileName)
-        var number = 2
-        while FileManager.default.fileExists(atPath: vault.root.appendingPathComponent(path).path) {
-            path = (destination.folder as NSString).appendingPathComponent("\(stem)-\(number).md")
-            number += 1
-        }
+        let vault = Vault(path: destination.root)
+        let path = vault.freeName((fileName as NSString).deletingPathExtension, ext: (fileName as NSString).pathExtension,
+                                  in: destination.folder)
         do {
             try vault.write(text, to: path)
             let file = vault.root.appendingPathComponent(path).path

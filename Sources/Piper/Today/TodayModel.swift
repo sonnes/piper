@@ -40,14 +40,14 @@ enum FileTarget: Hashable, Identifiable {
 
     /// The targets that match a search: the sections first, then the folders,
     /// then the Markdown files of the active folder.
-    static func targets(sections: [String], roots: [String], active: String, folders: [String], files: [String],
+    static func targets(sections: [String], roots: [String], active: String, folders: [String], files: [VaultFile],
                         query: String) -> [FileTarget] {
         let all = sections.map(FileTarget.section)
             + roots.flatMap { root in
                 [FileTarget.folder(root: root, folder: "")]
                     + (root == active ? folders.sorted().map { .folder(root: root, folder: $0) } : [])
             }
-            + files.filter { $0.lowercased().hasSuffix(".md") }.sorted().map(FileTarget.file)
+            + files.filter(\.isMarkdown).map(\.relativePath).sorted().map(FileTarget.file)
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return all }
         return all.filter { $0.title.localizedCaseInsensitiveContains(query) }
@@ -221,7 +221,7 @@ final class TodayModel {
     /// The places that the File picker offers for a search.
     func fileTargets(query: String) -> [FileTarget] {
         FileTarget.targets(sections: store.sections, roots: model.wikiPaths, active: model.wikiPath,
-                           folders: model.folders, files: model.files.map(\.relativePath), query: query)
+                           folders: model.folders, files: model.files, query: query)
     }
 
     /// Files the items. A section takes the captures, and keeps an article or
@@ -244,10 +244,11 @@ final class TodayModel {
             }
             store.status = "Filed in \(section)"
         case .folder(let root, let folder):
-            let vault = Vault(root: URL(fileURLWithPath: (root as NSString).expandingTildeInPath).standardizedFileURL)
+            let vault = Vault(path: root)
             let title = items.count == 1 ? Self.fileTitle(items[0]) : "Notes \(CaptureText.day(now))"
             let text = items.count == 1 ? fileText(items[0], now: now) : items.map { appendText($0) }.joined(separator: "\n")
-            let path = Self.freePath(folder: folder, name: ArticleMarkdown.fileName(for: title), in: vault.root)
+            let name = ArticleMarkdown.fileName(for: title)
+            let path = vault.freeName((name as NSString).deletingPathExtension, ext: (name as NSString).pathExtension, in: folder)
             do { try vault.write(text, to: path) } catch { store.report(error); return false }
             finishFiling(items, savedFile: vault.root.appendingPathComponent(path).path)
             store.status = "Saved to " + target.title
@@ -255,7 +256,7 @@ final class TodayModel {
         case .file(let path):
             let vault = model.vault
             do {
-                let current = (try? vault.read(path).text) ?? ""
+                let current = (try? vault.read(path)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
                 let block = items.map { appendText($0) }.joined(separator: "\n")
                 let joined = current.isEmpty || current.hasSuffix("\n\n") ? current
                     : current.hasSuffix("\n") ? current + "\n" : current + "\n\n"
@@ -434,18 +435,6 @@ final class TodayModel {
 
     private static func linkTitle(_ title: String) -> String {
         CaptureText.firstLine(title).replacingOccurrences(of: "]", with: "\\]")
-    }
-
-    /// A path in the folder that no file has: the name, or the name with a number.
-    private static func freePath(folder: String, name: String, in root: URL) -> String {
-        let stem = (name as NSString).deletingPathExtension
-        var path = (folder as NSString).appendingPathComponent(name)
-        var number = 2
-        while FileManager.default.fileExists(atPath: root.appendingPathComponent(path).path) {
-            path = (folder as NSString).appendingPathComponent("\(stem)-\(number).md")
-            number += 1
-        }
-        return path
     }
 
     static func count(_ value: Int) -> String {

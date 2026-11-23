@@ -3,6 +3,7 @@ import Agents
 import Captures
 import Observation
 import PiperCore
+import Vault
 
 /// The agents that Piper runs, the folders of the Folders index that offer Claude skills,
 /// and every action that sends a note to one of them.
@@ -120,7 +121,7 @@ final class FolderAgents {
         sessionAgentID = preferences.string(forKey: AppDefaults.Key.sessionAgent) ?? AgentDefinition.claudeCodeID
         marginAgentID = preferences.string(forKey: AppDefaults.Key.marginAgent) ?? AgentDefinition.claudeCodeID
         marginModel = preferences.string(forKey: AppDefaults.Key.marginModel) ?? AppDefaults.Agents.marginModel
-        runner = SessionRunner(database: store.database) { [weak store] error in store?.report(error) }
+        runner = SessionRunner(storage: store.database) { [weak store] error in store?.report(error) }
         runner.executable = Self.executable(chosen: claudePath)
         runner.permissionMode = permissionMode
         runner.model = model
@@ -203,7 +204,7 @@ final class FolderAgents {
     /// Reads the skills of each folder again. A skill file is small, so this is cheap.
     func refresh(paths: [String]) {
         let folders = paths.map { path -> Folder in
-            let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath).standardizedFileURL
+            let url = Vault(path: path).root
             return Folder(path: url.path, skills: FolderSkill.load(from: url))
         }
         let updated = folders.filter { !$0.skills.isEmpty }

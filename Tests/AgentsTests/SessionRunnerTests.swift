@@ -1,4 +1,3 @@
-import CapturesDatabase
 import Foundation
 import XCTest
 @testable import Agents
@@ -43,8 +42,8 @@ final class SessionRunnerTests: XCTestCase {
 
     private static let result = #"echo '{"type":"result","subtype":"success","is_error":false,"result":"ok","duration_ms":1200,"total_cost_usd":0.01}'"#
 
-    private func runner(_ executable: URL?, database: Database? = nil) -> SessionRunner {
-        let runner = SessionRunner(database: database)
+    private func runner(_ executable: URL?, storage: SessionStorage? = nil) -> SessionRunner {
+        let runner = SessionRunner(storage: storage)
         runner.executable = executable
         runner.usesLoginShell = false
         return runner
@@ -294,8 +293,8 @@ final class SessionRunnerTests: XCTestCase {
     }
 
     func testSessionsSurviveARestartAndActiveOnesBecomeIdle() async throws {
-        let url = folder.appendingPathComponent("notes.sqlite")
-        let runner = runner(try fakeClaude(turn: Self.result), database: try Database(url: url))
+        let storage = MemorySessionStorage()
+        let runner = runner(try fakeClaude(turn: Self.result), storage: storage)
         let note = UUID()
         let done = runner.newSession(in: folder.path, noteID: note, command: SlashCommand(name: "capture", arguments: "x"))
         runner.send("/capture x", to: done)
@@ -304,7 +303,7 @@ final class SessionRunnerTests: XCTestCase {
         let active = start(runner, "Slow")
         _ = runner.newSession(in: folder.path)
 
-        let reopened = SessionRunner(database: try Database(url: url))
+        let reopened = SessionRunner(storage: storage)
 
         XCTAssertEqual(reopened.sessions.map(\.id), [active.id, done.id])
         XCTAssertEqual(reopened.latestSession(for: note)?.state, .idle)
@@ -315,7 +314,28 @@ final class SessionRunnerTests: XCTestCase {
         XCTAssertEqual(reopened.sessions(in: folder.path).first?.id, active.id)
 
         reopened.delete(try XCTUnwrap(reopened.session(done.id)))
-        XCTAssertEqual(SessionRunner(database: try Database(url: url)).sessions.map(\.id), [active.id])
+        XCTAssertEqual(SessionRunner(storage: storage).sessions.map(\.id), [active.id])
         runner.stopAll()
+    }
+}
+
+/// Keeps the sessions in memory, so that a second runner reads what the first stored.
+private final class MemorySessionStorage: SessionStorage {
+
+    private var rows: [UUID: (updatedAt: Date, data: Data)] = [:]
+
+    func loadSessions() throws -> [Data] {
+        rows.values.sorted { $0.updatedAt > $1.updatedAt }.map(\.data)
+    }
+
+    func saveSession(id: UUID, folder: String, updatedAt: Date, data: Data) throws {
+        rows[id] = (updatedAt, data)
+    }
+
+    func deleteSession(id: UUID) throws { rows[id] = nil }
+
+    func keepNewestSessions(_ count: Int) throws {
+        let kept = rows.sorted { $0.value.updatedAt > $1.value.updatedAt }.prefix(count).map(\.key)
+        rows = rows.filter { kept.contains($0.key) }
     }
 }

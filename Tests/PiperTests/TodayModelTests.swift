@@ -2,6 +2,7 @@ import AppKit
 import Captures
 import Feeds
 import Stream
+import Vault
 import XCTest
 @testable import Piper
 
@@ -168,15 +169,18 @@ final class TodayModelTests: XCTestCase {
     }
 
     func testFileTargetsListSectionsThenFoldersThenFiles() {
+        let files = ["Harbor/talk.md", "image.png", "Harbor/plan.markdown"]
+            .map { VaultFile(relativePath: $0, size: 0, modifiedAt: Date(), text: "") }
         let targets = FileTarget.targets(sections: ["Inbox", "Harbor"], roots: ["/n/Field Notes", "/n/Talks"], active: "/n/Talks",
-                                         folders: ["Harbor"], files: ["Harbor/talk.md", "image.png"], query: "")
+                                         folders: ["Harbor"], files: files, query: "")
         XCTAssertEqual(targets, [.section("Inbox"), .section("Harbor"), .folder(root: "/n/Field Notes", folder: ""),
                                  .folder(root: "/n/Talks", folder: ""), .folder(root: "/n/Talks", folder: "Harbor"),
-                                 .file("Harbor/talk.md")])
+                                 .file("Harbor/plan.markdown"), .file("Harbor/talk.md")])
         XCTAssertEqual(targets[4].title, "Talks / Harbor")
         let search = FileTarget.targets(sections: ["Inbox", "Harbor"], roots: ["/n/Talks"], active: "/n/Talks",
-                                        folders: ["Harbor"], files: ["Harbor/talk.md"], query: "harb")
-        XCTAssertEqual(search, [.section("Harbor"), .folder(root: "/n/Talks", folder: "Harbor"), .file("Harbor/talk.md")])
+                                        folders: ["Harbor"], files: files, query: "harb")
+        XCTAssertEqual(search, [.section("Harbor"), .folder(root: "/n/Talks", folder: "Harbor"),
+                                .file("Harbor/plan.markdown"), .file("Harbor/talk.md")])
     }
 
     // MARK: - Selection

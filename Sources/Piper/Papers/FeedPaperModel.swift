@@ -352,7 +352,7 @@ final class FeedPaperModel {
     /// active folder, because Piper scans one folder at a time.
     private func enter(_ tab: PaperTab) -> Bool {
         guard case .folder(let path) = tab, path != model.wikiPath else { return true }
-        model.changeWiki(to: URL(fileURLWithPath: (path as NSString).expandingTildeInPath))
+        model.changeWiki(to: path)
         return model.wikiPath == path
     }
 }

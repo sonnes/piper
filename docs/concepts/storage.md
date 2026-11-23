@@ -61,7 +61,7 @@ Piper writes a new snapshot before the UI shows the change. A save compares the 
 
 If the database is locked, Piper waits three seconds. Then the save fails, the current notes stay, and you can try again.
 
-The schema is version 2. Version 2 adds the parent, the tags, the anchor, and the reading state of a note. Piper opens a version 1 or a version 2 snapshot, and each save writes version 2. Piper 0.3 and earlier refuse a version 2 snapshot, so they cannot remove these fields. Piper refuses to open a snapshot with an unknown version, and it does not overwrite that snapshot. Piper adds the `clipboard`, `sessions`, and `pages` tables the first time it opens the database or uses the table. Piper has no general schema migration. The database uses the default SQLite journal mode.
+The schema is version 2. Version 2 adds the parent, the tags, the anchor, and the reading state of a note. Piper opens a version 1 or a version 2 snapshot, and each save writes version 2. Piper 0.3 and earlier refuse a version 2 snapshot, so they cannot remove these fields. Piper refuses to open a snapshot with an unknown version, and it does not overwrite that snapshot. Each time Piper opens a database with a version that it reads, it adds the `clipboard`, `sessions`, and `pages` tables if they do not exist. Piper has no general schema migration. The database uses the default SQLite journal mode.
 
 ### Page Text
 

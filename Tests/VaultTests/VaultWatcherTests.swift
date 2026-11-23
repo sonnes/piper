@@ -35,7 +35,7 @@ final class VaultWatcherTests: XCTestCase {
     func testWatcherCallsTheHandlerOnTheMainQueueAfterAWrite() throws {
         var pending: XCTestExpectation?
         var onMainQueue = false
-        let watcher = VaultWatcher(root: root) {
+        let watcher = VaultWatcher(vault: Vault(path: root.path)) {
             onMainQueue = Thread.isMainThread
             pending?.fulfill()
             pending = nil
@@ -54,7 +54,7 @@ final class VaultWatcherTests: XCTestCase {
 
     func testStopEndsTheHandlerCalls() throws {
         var pending: XCTestExpectation?
-        let watcher = VaultWatcher(root: root) { pending?.fulfill() }
+        let watcher = VaultWatcher(vault: Vault(path: root.path)) { pending?.fulfill() }
         watcher.start()
         settle(1.5)
 
@@ -68,7 +68,7 @@ final class VaultWatcherTests: XCTestCase {
 
     func testDeinitWithARunningStreamIsSafe() throws {
         autoreleasepool {
-            let watcher = VaultWatcher(root: root) {}
+            let watcher = VaultWatcher(vault: Vault(path: root.path)) {}
             watcher.start()
             watcher.start()
         }

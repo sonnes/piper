@@ -21,7 +21,7 @@ public final class CaptureStore {
     public var selection: Set<UUID> = []
     public var status = "Local notes"
     public var errorMessage: String?
-    /// The note database. Other stores add their own tables to it.
+    /// The note database. The app also keeps the agent sessions in it.
     public private(set) var database: Database?
     private var undoState: SavedState?
     public var notes: [Note] { state.notes }

@@ -52,7 +52,7 @@ final class WikiWorkspaceTests: XCTestCase {
 
     func testMarkdownAndWikiLinksResolvePathsTitlesAndAnchors() throws {
         let docs = [document("Start Here.md"), document("Topics/Reading.md", title: "Reading rhythm"), document("Research/Journal.md")]
-        let vault = Vault(root: root)
+        let vault = Vault(path: root.path)
         XCTAssertEqual(try WikiLinks.resolve("../Topics/Reading.md#A%20comfortable%20measure", from: docs[2], files: docs, vault: vault), WikiLocation(path: "Topics/Reading.md", anchor: "A comfortable measure"))
         XCTAssertEqual(try WikiLinks.resolve("/Start%20Here.md", from: docs[1], files: docs, vault: vault).path, "Start Here.md")
         XCTAssertEqual(try WikiLinks.resolve("Reading rhythm", from: docs[0], files: docs, vault: vault, wikiStyle: true).path, "Topics/Reading.md")
@@ -62,7 +62,7 @@ final class WikiWorkspaceTests: XCTestCase {
 
     func testAmbiguousMissingAndUnsafeLinksFail() throws {
         let docs = [document("Home.md"), document("One/Note.md"), document("Two/Note.md")]
-        let vault = Vault(root: root)
+        let vault = Vault(path: root.path)
         for path in ["Note", "Missing", "../../outside.md", "%2e%2e/outside.md"] {
             XCTAssertThrowsError(try WikiLinks.resolve(path, from: docs[0], files: docs, vault: vault, wikiStyle: true))
         }
@@ -87,7 +87,7 @@ final class WikiWorkspaceTests: XCTestCase {
         try Data("---\nokf_version: \"0.2\"\n---\n# Wiki\n".utf8).write(to: root.appendingPathComponent("index.md"))
         try Data("# Log\n".utf8).write(to: root.appendingPathComponent("log.md"))
         try Data("Plain text.\n".utf8).write(to: root.appendingPathComponent("notes.txt"))
-        let scan = try Vault(root: root).scan()
+        let scan = try Vault(path: root.path).scan()
         XCTAssertEqual(scan.files.map(\.id).sorted(), ["index.md", "log.md", "notes.txt"])
         XCTAssertTrue(scan.problems.isEmpty, "A file with no frontmatter is not a problem")
     }

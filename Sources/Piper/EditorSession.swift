@@ -137,7 +137,7 @@ final class EditorSession {
     }
 
     static func read(_ path: String, in vault: Vault) -> String? {
-        guard let url = try? vault.containedURL(path), let data = try? Data(contentsOf: url) else { return nil }
+        guard let data = try? vault.read(path) else { return nil }
         return String(data: data, encoding: .utf8)
     }
 }

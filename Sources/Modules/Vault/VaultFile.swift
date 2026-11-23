@@ -27,9 +27,14 @@ public struct VaultFile: Identifiable {
     private let frontmatter: Frontmatter?
 
     public var id: String { relativePath }
-    public var isMarkdown: Bool { Self.markdownExtensions.contains((name as NSString).pathExtension.lowercased()) }
+    public var isMarkdown: Bool { Self.isMarkdown(name) }
 
     private static let markdownExtensions: Set<String> = ["md", "markdown", "mdown", "mkd", "mkdn"]
+
+    /// True when the extension of the path is a Markdown extension, in any case.
+    public static func isMarkdown(_ path: String) -> Bool {
+        markdownExtensions.contains((path as NSString).pathExtension.lowercased())
+    }
 
     /// The text after the frontmatter block, or the whole text when no block exists.
     public var body: String { frontmatter?.body ?? text ?? "" }

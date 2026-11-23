@@ -1,6 +1,7 @@
 import AppKit
 import Agents
 import Captures
+import Vault
 import XCTest
 @testable import Piper
 
@@ -345,7 +346,7 @@ final class FolderAgentsTests: XCTestCase {
         for _ in 0..<400 where model.selectedDocument != "sources/new.md" {
             try await Task.sleep(for: .milliseconds(20))
         }
-        XCTAssertEqual(model.vault.root, wiki.standardizedFileURL)
+        XCTAssertEqual(model.vault.root, Vault(path: wiki.path).root)
         XCTAssertEqual(model.selectedDocument, "sources/new.md")
         XCTAssertEqual(shown, ["sources/new.md"])
     }

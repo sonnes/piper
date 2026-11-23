@@ -1,4 +1,3 @@
-import CapturesDatabase
 import Foundation
 import XCTest
 @testable import Agents
@@ -177,27 +176,6 @@ final class SessionHelperTests: XCTestCase {
         let session = AgentSession(folder: "/w")
         session.append(.user(id: "u1", text: "Hi", context: items))
         XCTAssertEqual(session.sharedContext, Set(items))
-    }
-}
-
-final class SessionsTableTests: XCTestCase {
-
-    func testSavesLoadsDeletesAndTrims() throws {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("sessions-\(UUID().uuidString).sqlite")
-        defer { try? FileManager.default.removeItem(at: url) }
-        let database = try Database(url: url)
-        let ids = (0..<3).map { _ in UUID() }
-        for (index, id) in ids.enumerated() {
-            try database.saveSession(id: id, folder: "/w", updatedAt: Date(timeIntervalSince1970: Double(index)), data: Data([UInt8(index)]))
-        }
-        try database.saveSession(id: ids[0], folder: "/w", updatedAt: Date(timeIntervalSince1970: 10), data: Data([9]))
-        XCTAssertEqual(try database.loadSessions(), [Data([9]), Data([2]), Data([1])])
-
-        try database.deleteSession(id: ids[2])
-        XCTAssertEqual(try database.loadSessions(), [Data([9]), Data([1])])
-
-        try database.keepNewestSessions(1)
-        XCTAssertEqual(try Database(url: url).loadSessions(), [Data([9])])
     }
 }
 

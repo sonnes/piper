@@ -1,4 +1,5 @@
 import Foundation
+import Vault
 
 /// One visible row of the folder tree of a folder tab.
 struct FolderTreeRow: Equatable, Identifiable {
@@ -48,7 +49,7 @@ enum FolderTree {
     ///   - root: The active folder, by its absolute path.
     ///   - expanded: The open folders, by their absolute paths.
     static func rows(paths: [String], folders: [String], root: String, expanded: Set<String>) -> [FolderTreeRow] {
-        let base = URL(fileURLWithPath: (root as NSString).expandingTildeInPath)
+        let base = Vault(path: root).root
         var rows: [FolderTreeRow] = []
 
         func visit(_ nodes: [PathNode], depth: Int, parent: String?) {

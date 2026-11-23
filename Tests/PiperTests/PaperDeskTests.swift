@@ -602,7 +602,7 @@ final class PaperDeskTests: XCTestCase {
         defer { preferences.removePersistentDomain(forName: suite) }
         preferences.set(roots[0].path, forKey: AppDefaults.Key.vaultPath)
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), preferences: preferences)
-        model.addWikiFolders(Array(roots.dropFirst()))
+        model.addWikiFolders(roots.dropFirst().map(\.path))
         let paper = FeedPaperModel(model: model, defaults: preferences)
         paper.syncFolders()
         XCTAssertEqual(paper.tabs.filter(\.isFolder), roots.map { .folder($0.path) })

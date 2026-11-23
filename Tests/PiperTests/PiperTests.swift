@@ -80,7 +80,7 @@ final class PiperTests: XCTestCase {
     }
 
     func testAPathThatLeavesTheVaultThrows() throws {
-        let vault = Vault(root: folder)
+        let vault = Vault(path: folder.path)
         XCTAssertThrowsError(try vault.containedURL("../../outside.md"))
     }
 }

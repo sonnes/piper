@@ -182,7 +182,7 @@ final class ACPAgentTests: XCTestCase {
     }
 
     private func runner(_ agent: AgentDefinition) -> SessionRunner {
-        let runner = SessionRunner(database: nil)
+        let runner = SessionRunner(storage: nil)
         runner.agents = [agent]
         runner.usesLoginShell = false
         return runner
@@ -403,7 +403,7 @@ final class ACPAgentTests: XCTestCase {
               say '{"jsonrpc":"2.0","id":'$id',"error":{"code":-32603,"message":"No such mode"}}' ;;
         """#)
         var errors: [String] = []
-        let runner = SessionRunner(database: nil) { errors.append($0.localizedDescription) }
+        let runner = SessionRunner(storage: nil) { errors.append($0.localizedDescription) }
         runner.agents = [agent]
         runner.usesLoginShell = false
         defer { runner.stopAll() }
@@ -486,7 +486,7 @@ final class ACPAgentTests: XCTestCase {
     }
 
     func testUnknownAgentFailsTheTurn() {
-        let runner = SessionRunner(database: nil)
+        let runner = SessionRunner(storage: nil)
         let session = runner.newSession(in: folder.path, agentID: "removed")
         runner.send("Hello", to: session)
         XCTAssertEqual(session.state, .failed)

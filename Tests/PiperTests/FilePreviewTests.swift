@@ -48,7 +48,7 @@ final class FilePreviewTests: XCTestCase {
         ] {
             let url = root.appendingPathComponent(path)
             try bytes.write(to: url)
-            let file = try model.vault.read(path)
+            let file = try model.vault.file(path)
             model.files.append(file)
             model.openDocument(path)
             XCTAssertEqual(model.currentDocument?.id, path)

@@ -12,7 +12,7 @@ final class VaultTests: XCTestCase {
             .appendingPathComponent("VaultTests-" + UUID().uuidString, isDirectory: true)
             .resolvingSymlinksInPath()
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        vault = Vault(root: root)
+        vault = Vault(path: root.path)
     }
 
     override func tearDownWithError() throws {
@@ -71,14 +71,14 @@ final class VaultTests: XCTestCase {
         let text = "---\ntitle: Metadata-like text\n---\n# Literal heading\n"
         for name in ["literal.txt", "literal.json", "literal.html"] {
             try write(text, to: name)
-            let document = try vault.read(name)
+            let document = try vault.file(name)
             XCTAssertFalse(document.isMarkdown)
             XCTAssertEqual(document.title, name)
             XCTAssertEqual(document.body, text)
         }
         try write(text, to: "Note.MARKDOWN")
-        XCTAssertTrue(try vault.read("Note.MARKDOWN").isMarkdown)
-        XCTAssertEqual(try vault.read("Note.MARKDOWN").title, "Metadata-like text")
+        XCTAssertTrue(try vault.file("Note.MARKDOWN").isMarkdown)
+        XCTAssertEqual(try vault.file("Note.MARKDOWN").title, "Metadata-like text")
     }
 
     func testIndexAndLogGetNoSpecialTreatment() throws {
@@ -147,13 +147,13 @@ final class VaultTests: XCTestCase {
     }
 
     func testMissingRootThrows() throws {
-        let absent = Vault(root: root.appendingPathComponent("absent", isDirectory: true))
+        let absent = Vault(path: root.appendingPathComponent("absent", isDirectory: true).path)
         XCTAssertThrowsError(try absent.scan())
     }
 
     func testFileRootThrows() throws {
         try write("not a folder\n", to: "file.md")
-        let vault = Vault(root: root.appendingPathComponent("file.md"))
+        let vault = Vault(path: root.appendingPathComponent("file.md").path)
         XCTAssertThrowsError(try vault.scan())
     }
 
@@ -223,7 +223,7 @@ final class VaultTests: XCTestCase {
 
     func testWriteThenReadReturnsTheFile() throws {
         try vault.write("---\ntitle: Written\n---\n\n# Written\n", to: "drafts/new.md")
-        let file = try vault.read("drafts/new.md")
+        let file = try vault.file("drafts/new.md")
         XCTAssertEqual(file.relativePath, "drafts/new.md")
         XCTAssertEqual(file.title, "Written")
         XCTAssertEqual(file.body, "\n# Written\n")
@@ -233,5 +233,39 @@ final class VaultTests: XCTestCase {
     func testWriteRefusesAPathOutsideTheVault() throws {
         XCTAssertThrowsError(try vault.write("bad", to: "../escape.md"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.deletingLastPathComponent().appendingPathComponent("escape.md").path))
+    }
+
+    func testWriteDataThenReadReturnsTheSameBytes() throws {
+        let bytes = Data([0x89, 0x50, 0x4E, 0x47, 0x00, 0xFF])
+        try vault.write(bytes, to: "note.assets/image.png")
+        XCTAssertEqual(try vault.read("note.assets/image.png"), bytes)
+    }
+
+    func testFreeNameAddsANumberWhileTheNameIsTaken() throws {
+        XCTAssertEqual(vault.freeName("talk", ext: "md", in: "notes"), "notes/talk.md")
+        try write("one", to: "notes/talk.md")
+        try write("two", to: "notes/talk-2.md")
+        XCTAssertEqual(vault.freeName("talk", ext: "md", in: "notes"), "notes/talk-3.md")
+        XCTAssertEqual(vault.freeName("talk", ext: "md", in: ""), "talk.md")
+    }
+
+    // MARK: Roots
+
+    func testPathsToOneFolderGiveOneRoot() throws {
+        let link = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("VaultLink-" + UUID().uuidString)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: root)
+        defer { try? FileManager.default.removeItem(at: link) }
+        XCTAssertEqual(Vault(path: link.path).root, vault.root)
+        XCTAssertEqual(Vault(path: root.path + "/notes/..").root, vault.root)
+        XCTAssertEqual(Vault(path: root.path + "/").root, vault.root)
+        let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.resolvingSymlinksInPath()
+        XCTAssertEqual(Vault(path: "~").root.path, home.path)
+    }
+
+    func testContainsOnlyPathsBelowTheRoot() {
+        XCTAssertTrue(vault.contains(root.appendingPathComponent("notes/one.md")))
+        XCTAssertFalse(vault.contains(root))
+        XCTAssertFalse(vault.contains(root.deletingLastPathComponent().appendingPathComponent("other.md")))
     }
 }

@@ -44,11 +44,11 @@ final class WikiFoldersTests: XCTestCase {
         preferences.set(first.path, forKey: AppDefaults.Key.vaultPath)
         let model = makeModel()
         XCTAssertEqual(model.wikiPaths, [first.path])
-        model.addWikiFolders([second, third, second])
+        model.addWikiFolders([second.path, third.path, second.path])
         try await waitForScan(model)
         XCTAssertEqual(model.wikiPaths, [first.path, second.path, third.path])
         XCTAssertEqual(model.currentDocument?.raw, "second")
-        model.changeWiki(to: first)
+        model.changeWiki(to: first.path)
         try await waitForScan(model)
         XCTAssertEqual(model.currentDocument?.raw, "first")
         let restored = makeModel()
@@ -65,7 +65,7 @@ final class WikiFoldersTests: XCTestCase {
         }
         preferences.set(first.path, forKey: AppDefaults.Key.vaultPath)
         let model = makeModel()
-        model.addWikiFolders([second])
+        model.addWikiFolders([second.path])
         try await waitForScan(model)
         XCTAssertEqual(model.wikiPath, second.path)
 
@@ -86,10 +86,30 @@ final class WikiFoldersTests: XCTestCase {
         let alias = root.appendingPathComponent("alias")
         try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: root)
         let model = makeModel()
-        model.addWikiFolders([alias, root])
+        model.addWikiFolders([alias.path, root.path])
         try await waitForScan(model)
         XCTAssertEqual(model.wikiPaths, [root.path])
         XCTAssertEqual(model.wikiPath, root.path)
+    }
+
+    func testOpeningARunFileWorksInAFolderBehindASymbolicLink() async throws {
+        let target = root.appendingPathComponent("target")
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        try Data("# Run\n".utf8).write(to: target.appendingPathComponent("run.md"))
+        let folder = root.appendingPathComponent("link")
+        try FileManager.default.createSymbolicLink(at: folder, withDestinationURL: target)
+        preferences.set(root.path, forKey: AppDefaults.Key.vaultPath)
+        let model = makeModel()
+        var shown: [String] = []
+        model.showFile = { shown.append($0) }
+
+        model.openRunFile("run.md", in: folder.path)
+        for _ in 0..<400 where model.selectedDocument != "run.md" {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(model.wikiPath, folder.path)
+        XCTAssertEqual(model.selectedDocument, "run.md")
+        XCTAssertEqual(shown, ["run.md"])
     }
 
     func testAConflictKeepsTheDraftAndFolderList() async throws {
@@ -102,7 +122,7 @@ final class WikiFoldersTests: XCTestCase {
         let edit = try XCTUnwrap(model.editor)
         edit.text = "# Unsaved"
         try Data("# Agent edit".utf8).write(to: root.appendingPathComponent("note.md"))
-        model.addWikiFolders([root.appendingPathComponent("next")])
+        model.addWikiFolders([root.appendingPathComponent("next").path])
         XCTAssertEqual(model.wikiPaths, [root.path])
         XCTAssertEqual(model.wikiPath, root.path)
         XCTAssertTrue(model.editor === edit)

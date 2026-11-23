@@ -1,4 +1,3 @@
-import CapturesDatabase
 import Foundation
 import Observation
 import PiperCore
@@ -71,7 +70,7 @@ public final class SessionRunner {
     public var turnTimeout: TimeInterval = 10 * 60
     /// The number of turns that run at the same time.
     public var concurrency = 2
-    /// The number of sessions the database keeps.
+    /// The number of sessions the storage keeps.
     public static let storedSessionLimit = 500
     static let quitMessage = "Piper quit before the turn finished."
     static let stopMessage = "Stopped."
@@ -84,7 +83,7 @@ public final class SessionRunner {
         let context: [ContextItem]
     }
 
-    @ObservationIgnored private let database: Database?
+    @ObservationIgnored private let storage: SessionStorage?
     @ObservationIgnored private let report: (Error) -> Void
     @ObservationIgnored private var connections: [UUID: AgentConnection] = [:]
     /// The messages that wait for the next turn of a session.
@@ -105,20 +104,20 @@ public final class SessionRunner {
 
     /// Loads the stored sessions. A session that was active when Piper quit
     /// becomes idle, with a result block that says so.
-    public init(database: Database?, report: @escaping (Error) -> Void = { _ in }) {
-        self.database = database
+    public init(storage: SessionStorage?, report: @escaping (Error) -> Void = { _ in }) {
+        self.storage = storage
         self.report = report
-        guard let database else { return }
+        guard let storage else { return }
         do {
             let decoder = JSONDecoder()
-            sessions = try database.loadSessions()
+            sessions = try storage.loadSessions()
                 .compactMap { try? decoder.decode(AgentSession.Snapshot.self, from: $0) }
                 .map(AgentSession.init)
                 .sorted { $0.createdAt > $1.createdAt }
             for session in sessions where session.isActive {
                 endTurn(session, TurnResult(failure: Self.quitMessage), state: .idle)
             }
-            try database.keepNewestSessions(Self.storedSessionLimit)
+            try storage.keepNewestSessions(Self.storedSessionLimit)
         } catch { report(error) }
     }
 
@@ -148,7 +147,7 @@ public final class SessionRunner {
 
     // MARK: - Sessions
 
-    /// Makes an empty session. The database stores it after the first message.
+    /// Makes an empty session. The storage keeps it after the first message.
     @discardableResult
     public func newSession(in folder: String, noteID: UUID? = nil, command: SlashCommand? = nil,
                            agentID: String = AgentDefinition.claudeCodeID,
@@ -279,7 +278,7 @@ public final class SessionRunner {
         }
     }
 
-    /// Stops a session and removes it from the list and the database.
+    /// Stops a session and removes it from the list and the storage.
     public func delete(_ session: AgentSession) {
         stop(session)
         connections.removeValue(forKey: session.id)?.terminate()
@@ -291,7 +290,7 @@ public final class SessionRunner {
         relaunches.remove(session.id)
         queued.removeValue(forKey: session.id)
         sessions.removeAll { $0.id == session.id }
-        do { try database?.deleteSession(id: session.id) } catch { report(error) }
+        do { try storage?.deleteSession(id: session.id) } catch { report(error) }
     }
 
     public func markRead(_ session: AgentSession) {
@@ -581,7 +580,7 @@ public final class SessionRunner {
     /// Stores a session. A change of state stores it at once. Text and tool
     /// calls wait a short time, so a fast stream writes less often.
     private func persist(_ session: AgentSession, now: Bool = false) {
-        guard database != nil, !session.blocks.isEmpty else { return }
+        guard storage != nil, !session.blocks.isEmpty else { return }
         saves.removeValue(forKey: session.id)?.cancel()
         guard !now else { return save(session) }
         saves[session.id] = Task { [weak self, weak session] in
@@ -594,8 +593,8 @@ public final class SessionRunner {
 
     private func save(_ session: AgentSession) {
         do {
-            try database?.saveSession(id: session.id, folder: session.folder, updatedAt: session.updatedAt,
-                                      data: JSONEncoder().encode(session.snapshot))
+            try storage?.saveSession(id: session.id, folder: session.folder, updatedAt: session.updatedAt,
+                                     data: JSONEncoder().encode(session.snapshot))
         } catch { report(error) }
     }
 

@@ -41,7 +41,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Settings > AI: agent health, Add ACP Agent, and the defaults of sessions and margin answers | Implemented | `AgentProbeTests`. The tab has no automated UI test. |
 | Tool calls of a finished turn in one line, by tool kind | Implemented | `TranscriptFoldTests` |
 | The JSON stream parser, allow rules, the diff, and `@` mentions | Implemented | `SessionEventTests`, `SessionHelperTests` |
-| Sessions stored across restarts | Implemented | `SessionsTableTests`, `SessionRunnerTests` |
+| Sessions stored across restarts | Implemented | `DatabaseTests`, `SessionRunnerTests` |
 | The session card, its pill and detached panel, the Agents tab, and the session list | Implemented | `SessionCardTests`. The views have no automated UI test. |
 | Send from a row of Today, the selection bar, and Command-Shift-Return | Implemented | `FolderAgentsTests`. The buttons have no automated UI test. |
 | Slash commands in the composer | Implemented | `SlashCommandTests`, `FolderAgentsTests`. The skill list has no automated UI test. |

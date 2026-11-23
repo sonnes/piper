@@ -27,6 +27,10 @@ public struct Vault {
 
     // MARK: Properties
 
+    /// The folder that Piper uses when the reader has chosen none.
+    public static let defaultPath = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Desktop/Wiki").path
+
     /// The root folder, with symbolic links in the path resolved.
     public let root: URL
 
@@ -41,8 +45,16 @@ public struct Vault {
 
     // MARK: Lifecycle
 
-    public init(root: URL) {
-        self.root = root.standardizedFileURL.resolvingSymlinksInPath()
+    /// Makes a vault for a folder path. The path can start with a tilde and
+    /// can pass through symbolic links.
+    public init(path: String) {
+        root = URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
+            .standardizedFileURL.resolvingSymlinksInPath()
+    }
+
+    /// True when the URL names a file or folder below the root.
+    public func contains(_ url: URL) -> Bool {
+        url.standardizedFileURL.resolvingSymlinksInPath().path.hasPrefix(root.path + "/")
     }
 
     /// Returns the URL for a path inside the vault.
@@ -123,8 +135,13 @@ public struct Vault {
         return VaultScan(files: sorted, folders: sortedFolders, problems: problems)
     }
 
-    /// Reads one file at a path inside the vault.
-    public func read(_ path: String) throws -> VaultFile {
+    /// Reads the bytes of one file at a path inside the vault.
+    public func read(_ path: String) throws -> Data {
+        try Data(contentsOf: containedURL(path))
+    }
+
+    /// Reads one file at a path inside the vault, with its text and metadata.
+    public func file(_ path: String) throws -> VaultFile {
         let url = try containedURL(path)
         let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey, .contentModificationDateKey]
         let values = try url.resourceValues(forKeys: Set(keys))
@@ -132,16 +149,33 @@ public struct Vault {
         return try file(at: url, path: relativePath(of: url), values: values)
     }
 
-    /// Writes text to a path inside the vault.
+    /// Writes data to a path inside the vault.
     ///
     /// The write is atomic. Piper creates the parent folders that are missing.
-    public func write(_ text: String, to path: String) throws {
+    public func write(_ data: Data, to path: String) throws {
         let url = try containedURL(path)
         let folder = url.deletingLastPathComponent()
         if !FileManager.default.fileExists(atPath: folder.path) {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         }
-        try Data(text.utf8).write(to: url, options: .atomic)
+        try data.write(to: url, options: .atomic)
+    }
+
+    /// Writes UTF-8 text to a path inside the vault.
+    public func write(_ text: String, to path: String) throws {
+        try write(Data(text.utf8), to: path)
+    }
+
+    /// Returns a path in `folder` that no file has: `base.ext`, or else
+    /// `base-2.ext`, `base-3.ext`, and so on.
+    public func freeName(_ base: String, ext: String, in folder: String) -> String {
+        var path = (folder as NSString).appendingPathComponent("\(base).\(ext)")
+        var number = 2
+        while FileManager.default.fileExists(atPath: root.appendingPathComponent(path).path) {
+            path = (folder as NSString).appendingPathComponent("\(base)-\(number).\(ext)")
+            number += 1
+        }
+        return path
     }
 }
 
@@ -150,9 +184,8 @@ public struct Vault {
 private extension Vault {
 
     func relativePath(of url: URL) -> String {
-        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
-        guard path.hasPrefix(root.path + "/") else { return url.lastPathComponent }
-        return String(path.dropFirst(root.path.count + 1))
+        guard contains(url) else { return url.lastPathComponent }
+        return String(url.standardizedFileURL.resolvingSymlinksInPath().path.dropFirst(root.path.count + 1))
     }
 
     func file(at url: URL, path: String, values: URLResourceValues) throws -> VaultFile {

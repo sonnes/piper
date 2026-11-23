@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Vault
 
 /// The column of file-folder tabs on the left edge of the feed paper.
 ///
@@ -197,7 +198,7 @@ private struct FolderTab: View {
             .contextMenu {
                 if case .folder(let path) = tab {
                     Button("Show in Finder") {
-                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: (path as NSString).expandingTildeInPath)])
+                        NSWorkspace.shared.activateFileViewerSelecting([Vault(path: path).root])
                     }
                     if let removeFolder {
                         Divider()

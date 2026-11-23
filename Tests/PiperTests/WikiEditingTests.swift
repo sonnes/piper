@@ -197,7 +197,7 @@ final class WikiEditingTests: XCTestCase {
         try FileManager.default.createDirectory(at: root.appendingPathComponent("img"), withIntermediateDirectories: true)
         try Data("png".utf8).write(to: root.appendingPathComponent("img/a b.png"))
         try Data("<p>app</p>".utf8).write(to: root.appendingPathComponent("app.html"))
-        let vault = Vault(root: root)
+        let vault = Vault(path: root.path)
         let (data, type) = try AssetSchemeHandler.load(URL(string: "piper-asset://folder/img/a%20b.png")!, from: vault)
         XCTAssertEqual(data, Data("png".utf8))
         XCTAssertEqual(type, "image/png")

@@ -137,7 +137,7 @@ final class WikiRefreshTests: XCTestCase {
         model.openDocument("old.md")
         model.initialDocument = "old.md"
         let changed = expectation(forNotification: .vaultPathDidChange, object: model)
-        model.changeWiki(to: folder)
+        model.changeWiki(to: folder.path)
         await fulfillment(of: [changed], timeout: 1)
         try await waitFor("The new folder scan finishes.") { !model.loading }
         XCTAssertEqual(model.selectedDocument, "new.md")
@@ -152,7 +152,7 @@ final class WikiRefreshTests: XCTestCase {
         model.reload()
         try await waitFor("The initial scan finishes.") { !model.loading }
         model.editor?.text += "QA draft"
-        model.changeWiki(to: root.appendingPathComponent("next"))
+        model.changeWiki(to: root.appendingPathComponent("next").path)
         XCTAssertEqual(model.wikiPath, root.appendingPathComponent("next").path)
         XCTAssertEqual(try String(contentsOf: url), "# Old\nQA draft")
     }
@@ -166,7 +166,7 @@ final class WikiRefreshTests: XCTestCase {
         let session = try XCTUnwrap(model.editor)
         session.text += "QA draft"
         try Data("# Agent edit\n".utf8).write(to: url)
-        model.changeWiki(to: root.appendingPathComponent("next"))
+        model.changeWiki(to: root.appendingPathComponent("next").path)
         XCTAssertEqual(model.wikiPath, root.path)
         XCTAssertTrue(model.editor === session)
         XCTAssertTrue(session.hasChanges)
