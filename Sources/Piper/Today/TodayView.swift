@@ -217,33 +217,10 @@ struct TodayView: View {
 
     /// All, Notes, Reading, and Kept, as a segmented capsule. Keys 1 to 4 pick a lens.
     private func lenses(_ counts: [UnifiedStream.Lens: Int]) -> some View {
-        let metrics = AppDefaults.Today.self
-        return HStack(spacing: 0) {
-            ForEach(Array(UnifiedStream.Lens.allCases.enumerated()), id: \.element) { index, lens in
-                let on = paper.state.lens == lens
-                Button { setLens(lens) } label: {
-                    HStack(spacing: 5) {
-                        Text(lens.title)
-                        if let count = counts[lens], count > 0 {
-                            Text("\(count)").monospacedDigit().foregroundStyle(on ? PiperTheme.paperMuted : PiperTheme.paperFaint)
-                        }
-                    }
-                    .font(PiperTheme.paperUI(.body, weight: on ? .semibold : .regular))
-                    .foregroundStyle(on ? PiperTheme.paperInk : PiperTheme.paperMuted)
-                    .frame(maxWidth: .infinity, minHeight: metrics.lensHeight - metrics.lensInset * 2)
-                    .background(on ? PiperTheme.paper : .clear, in: Capsule())
-                    .shadow(color: on ? PiperTheme.lensShadow : .clear, radius: 1, y: 0.5)
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .help("\(lens.title) · \(index + 1)")
-                .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
-            }
-        }
-        .padding(metrics.lensInset)
-        .background(PiperTheme.paperTint, in: Capsule())
-        .padding(metrics.lensPadding)
-        .animation(motion, value: paper.state.lens)
+        let lenses = UnifiedStream.Lens.allCases
+        return SegmentedCapsule(values: lenses, selection: paper.state.lens, title: \.title, count: { counts[$0] },
+                                help: { "\($0.title) · \((lenses.firstIndex(of: $0) ?? 0) + 1)" }, pick: setLens)
+            .padding(AppDefaults.Today.lensPadding)
     }
 
     private func setLens(_ lens: UnifiedStream.Lens) {
@@ -499,7 +476,7 @@ struct TodayView: View {
         let target = section ?? (store.sections.contains(RowIcon.inboxSection) ? RowIcon.inboxSection : store.activeSection)
         switch CaptureDraft(model.composerDraft) {
         case .source(let url) where !readLater:
-            paper.subscribe(url.absoluteString)
+            paper.showSources(address: url.absoluteString)
             clearComposer()
         case .link(let url), .source(let url):
             if !store.keep(links: [KeptLink(url: url, source: "Piper")], to: target).isEmpty { clearComposer() }

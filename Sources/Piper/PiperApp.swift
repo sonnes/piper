@@ -251,6 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var paletteCommands: [PaletteCommand] {
         [
             PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.newCapture() },
+            PaletteCommand(title: "Sources", shortcut: "") { [weak self] in self?.desk.showSources() },
             PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.loadedEditorPage?.command("find") },
             PaletteCommand(title: model.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
                 self?.model.showsFileSource.toggle()

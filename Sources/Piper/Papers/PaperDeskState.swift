@@ -78,6 +78,8 @@ enum PaperScope: Codable, Equatable {
     case done
     /// The articles of one feed, by its feed address.
     case feed(String)
+    /// The feeds, their settings, and the sites of browser history that have a feed.
+    case sources
     /// The tree of the active folder.
     case folder
     /// The sessions of one folder, by its absolute path.
@@ -87,7 +89,7 @@ enum PaperScope: Codable, Equatable {
     var showsCaptures: Bool {
         switch self {
         case .today, .done: return true
-        case .feed, .folder, .sessions: return false
+        case .feed, .sources, .folder, .sessions: return false
         }
     }
 }

@@ -68,7 +68,6 @@ public struct Article: Equatable, Hashable, Identifiable, Sendable {
 
 /// The articles that a list reads: the unread articles of every feed, or each article of one feed.
 public enum FeedFilter: Codable, Equatable, Hashable, Sendable {
-    case discover
     case allUnread
     case feed(String)
 }

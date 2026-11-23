@@ -28,14 +28,6 @@ struct FeedPaperView: View {
         // The title bar is hidden, so the paper starts at the top margin of the window.
         .ignoresSafeArea(.container, edges: .top)
         .environment(paper.marks)
-        .sheet(isPresented: $model.addingFeed) {
-            AddFeedSheet(feeds: model.feeds, initial: paper.subscribeAddress) { added in
-                model.addingFeed = false
-                paper.subscribeAddress = nil
-                guard let added else { return }
-                paper.pick(.feed(added))
-            }
-        }
         .sheet(isPresented: $namingSection) {
             NewSectionSheet(sections: model.store.sections) { name in
                 guard model.store.chooseSection(name) else { return }
@@ -126,7 +118,7 @@ struct FeedPaperView: View {
             Button("New Capture") { paper.newCapture() }
             Button("New Section…") { namingSection = true }
             Button("Add Folder…") { paper.addFolder() }
-            Button("Add Feed…") { model.addingFeed = true }
+            Button("Sources…") { paper.showSources() }
             Divider()
             Button("Show in Finder") { NSWorkspace.shared.open(model.vault.root) }
             if case .folder(let path) = paper.state.tab, model.wikiPaths.count > 1 {
@@ -150,6 +142,8 @@ struct FeedPaperView: View {
                             select: { paper.selectedArticle = $0?.id },
                             openPaper: { paper.open(.article($0.id)) },
                             setKeys: { paper.listKeys = $0 })
+        case .sources:
+            SourcesView(paper: paper, model: model)
         case .folder:
             FolderTreeView(paper: paper, model: model)
         case .sessions(let folder):
@@ -167,6 +161,7 @@ struct FeedPaperView: View {
         case .today(let section?): return "Today › " + section
         case .done: return "Today › Done"
         case .feed(let id): return "Today › " + (model.feeds.feed(id)?.title ?? "Feed")
+        case .sources: return "Today › Sources"
         case .folder:
             return tab.title
         case .sessions(let folder): return "Agents › " + URL(fileURLWithPath: folder).lastPathComponent

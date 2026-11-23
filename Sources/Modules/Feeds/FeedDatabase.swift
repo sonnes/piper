@@ -1,7 +1,7 @@
 import CSQLite
 import Foundation
 
-/// The subscriptions, their articles, and the Discover suggestions, in one
+/// The subscriptions, their articles, and the sites of browser history, in one
 /// SQLite file. Each call runs on the thread of the caller. `FeedStore` calls
 /// it on the main thread.
 public final class FeedDatabase {
@@ -138,7 +138,6 @@ public final class FeedDatabase {
         var condition: String
         var arguments: [String] = []
         switch filter {
-        case .discover: return []
         case .allUnread: condition = "read = 0"
         case .feed(let id):
             condition = "feed_id = ?"

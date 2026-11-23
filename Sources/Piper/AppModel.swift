@@ -19,12 +19,10 @@ final class AppModel {
     let reader: ReaderAssistant
     /// The subscriptions and their articles.
     let feeds: FeedStore
-    /// The icon of each site, for the feeds and Discover.
+    /// The icon of each site, for the rows of Today and Sources.
     let favicons: FaviconStore
     /// The sites of browser history and their feeds.
-    let discover: DiscoverScan
-    /// True while the Add Feed sheet shows.
-    var addingFeed = false
+    let siteScan: SiteScan
     /// The tab that each open link capture shows, by the id of the capture:
     /// the article, the web page, or the notes. Each reader paper has its own tab.
     private(set) var articleTabs: [UUID: ArticleTab] = [:]
@@ -217,7 +215,7 @@ final class AppModel {
         let stored = UserDefaults.standard.string(forKey: "captureShortcut") ?? "Shift, Shift"
         captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
         reader = ReaderAssistant(store: store, agents: agents)
-        discover = DiscoverScan(feeds: self.feeds, preferences: preferences)
+        siteScan = SiteScan(feeds: self.feeds, preferences: preferences)
         archiveFinishedReading()
         StarMigration.run(feeds: self.feeds, captures: store)
         agents.refresh(paths: wikiPaths)

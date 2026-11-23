@@ -51,7 +51,7 @@ final class AppDefaults {
         static let siteTabs = "articleSiteTabs"
         static let blockedSites = "blockedSites"
         static let disabledHistorySources = "disabledHistorySources"
-        static let discoverLastScan = "discoverLastScan"
+        static let siteScanDate = "siteScanDate"
         /// The tab, the scope, the pins, and the frame of the feed paper. See `PaperDeskState`.
         static let paperDeskState = "paperDeskState"
         /// The frame of each reader paper, by its item.
@@ -264,6 +264,8 @@ final class AppDefaults {
         static let lensHeight: CGFloat = 30
         static let lensPadding = EdgeInsets(top: 4, leading: 20, bottom: 8, trailing: 20)
         static let lensInset: CGFloat = 3
+        /// The side padding of a segment that fits its title.
+        static let segmentPadding: CGFloat = 10
         /// The clipboard texts that the tray at the foot shows at most.
         static let trayLimit = 3
         /// The floating bar of a selection of several rows.
@@ -293,16 +295,18 @@ final class AppDefaults {
         static let tileSymbolFraction: CGFloat = 0.62
     }
 
-    /// The Feeds index, the article list, and Discover.
+    /// The article list of a feed and Sources.
     enum Feeds {
         static let headerHeight: CGFloat = 38
         static let unreadDot: CGFloat = 7
         static let articleIconSize: CGFloat = 12
-        static let addSheetWidth: CGFloat = 460
-        static let discoverRowSpacing: CGFloat = 2
-        /// Discover scans again when it opens, if the last scan is older than this.
-        static let discoverInterval: TimeInterval = 86_400
-        static let discoverParallelSites = 4
+        /// Sources scans the history again when it opens, if the last scan is older than this.
+        static let siteScanInterval: TimeInterval = 86_400
+        static let siteScanParallel = 4
+        /// The number of sites that Sites You Read Often shows.
+        static let siteLimit = 8
+        static let sourceIcon: CGFloat = 22
+        static let sourceRowPadding: CGFloat = 10
         static let settingsSize = NSSize(width: 600, height: 560)
     }
 

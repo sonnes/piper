@@ -6,7 +6,7 @@ import SwiftUI
 
 /// The index of the active tab, in place of the list of the feed paper.
 ///
-/// Today shows its lenses, its sections, and Done. Agents shows the folders
+/// Today shows its lenses, its sections, Done, and Sources. Agents shows the folders
 /// that have sessions.
 struct FeedPaperIndex: View {
     @Bindable var paper: FeedPaperModel
@@ -87,6 +87,7 @@ struct FeedPaperIndex: View {
         }
         IndexHeader(title: "Finished")
         row(.scope(.done), title: "Done", count: 0)
+        row(.scope(.sources), title: "Sources", count: model.feeds.feeds.count)
         IndexAction(title: "New Section…") { namingSection = true }
     }
 

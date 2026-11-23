@@ -43,7 +43,7 @@ public struct FeedStats: Equatable, Sendable {
         return stats
     }
 
-    static func bare(_ host: String) -> String {
+    public static func bare(_ host: String) -> String {
         let host = host.lowercased()
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }

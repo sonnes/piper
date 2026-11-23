@@ -503,6 +503,29 @@ final class PaperDeskTests: XCTestCase {
         XCTAssertEqual(desk.paper.state.selectedFile, "notes/journal.md")
     }
 
+    /// The More menu, the command palette, and a pasted feed address open
+    /// Sources on Today. A pasted address waits for Sources to look it up.
+    func testShowSourcesOpensSourcesOnTodayWithTheAddress() async throws {
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
+        let suite = "piper-paper-desk-sources-tests"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let desk = PaperDesk(model: model, defaults: defaults)
+        defer { desk.hide() }
+        desk.paper.state.tab = .agents
+        desk.showSources()
+        XCTAssertTrue(desk.isVisible)
+        XCTAssertEqual(desk.paper.state.tab, .today)
+        XCTAssertEqual(desk.paper.state.scope, .sources)
+        XCTAssertNil(desk.paper.sourcesAddress)
+
+        desk.paper.pick(.today(section: nil))
+        desk.paper.showSources(address: "https://tides.example/feed.xml")
+        XCTAssertEqual(desk.paper.state.scope, .sources)
+        XCTAssertEqual(desk.paper.sourcesAddress, "https://tides.example/feed.xml")
+    }
+
     /// New Capture, Window > Today, and the menu bar item show the feed paper
     /// on Today with an empty search and a request for the capture field.
     func testNewCaptureShowsTodayWithTheCaptureField() async throws {

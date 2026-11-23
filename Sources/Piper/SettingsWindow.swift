@@ -23,7 +23,7 @@ final class SettingsWindowController: NSWindowController {
         tabs.addTab("AI", symbol: "sparkles", size: NSSize(width: 600, height: 640),
                     content: AISettings(model: model))
         tabs.addTab("Feeds", symbol: "dot.radiowaves.up.forward", size: AppDefaults.Feeds.settingsSize,
-                    content: FeedsSettings(discover: model.discover))
+                    content: FeedsSettings(scan: model.siteScan))
 
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: NSSize(width: 560, height: 330)),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)

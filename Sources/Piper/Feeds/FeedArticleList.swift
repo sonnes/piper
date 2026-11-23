@@ -113,7 +113,6 @@ struct FeedArticleList: View {
 
     private var title: String {
         switch filter {
-        case .discover: return "Discover"
         case .allUnread: return "All Unread"
         case .feed: return oneFeed?.title ?? "Feed"
         }
@@ -127,7 +126,7 @@ struct FeedArticleList: View {
     }
 
     private var emptyDetail: String? {
-        if feeds.feeds.isEmpty { return "Select + next to Feeds to add a feed." }
+        if feeds.feeds.isEmpty { return "Choose Sources in the More menu to add a feed." }
         if let error = oneFeed?.error { return error }
         return nil
     }

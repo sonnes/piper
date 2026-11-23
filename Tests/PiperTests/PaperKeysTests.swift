@@ -12,10 +12,10 @@ final class PaperKeysTests: XCTestCase {
 
     // MARK: - Index
 
-    func testTheTodayIndexListsTheLensesThenTheSectionsThenDone() {
+    func testTheTodayIndexListsTheLensesTheSectionsDoneAndSources() {
         XCTAssertEqual(entries(.today), [
             .lens(.all), .lens(.notes), .lens(.reading), .lens(.kept),
-            .scope(.today(section: "Inbox")), .scope(.today(section: "Work")), .scope(.done)
+            .scope(.today(section: "Inbox")), .scope(.today(section: "Work")), .scope(.done), .scope(.sources)
         ])
     }
 
@@ -44,7 +44,7 @@ final class PaperKeysTests: XCTestCase {
     func testTheBracketKeysGoRoundTheRowsOfTheIndex() {
         let rows = entries(.today)
         XCTAssertEqual(IndexEntry.cycle(.lens(.kept), by: 1, in: rows), .scope(.today(section: "Inbox")))
-        XCTAssertEqual(IndexEntry.cycle(.lens(.all), by: -1, in: rows), .scope(.done))
+        XCTAssertEqual(IndexEntry.cycle(.lens(.all), by: -1, in: rows), .scope(.sources))
         XCTAssertEqual(IndexEntry.cycle(.scope(.sessions("/notes")), by: 1, in: entries(.agents)), .scope(.sessions("/talks")))
         XCTAssertNil(IndexEntry.cycle(.scope(.folder), by: 1, in: entries(.folder("/notes/Talks"))))
     }

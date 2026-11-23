@@ -1,6 +1,6 @@
 import Foundation
 
-/// The sites that Discover never reads.
+/// The sites that the history scan of Sources never reads.
 public enum BlockedSites {
 
     public static let defaults = [

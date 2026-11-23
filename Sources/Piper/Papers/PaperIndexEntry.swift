@@ -18,7 +18,7 @@ enum IndexEntry: Equatable {
         case .today:
             return UnifiedStream.Lens.allCases.map(IndexEntry.lens)
                 + sections.map { .scope(.today(section: $0)) }
-                + [.scope(.done)]
+                + [.scope(.done), .scope(.sources)]
         case .agents:
             return sessionFolders.map { .scope(.sessions($0)) }
         case .folder:

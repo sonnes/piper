@@ -137,6 +137,12 @@ final class PaperDesk {
         paper.newCapture()
     }
 
+    /// Shows the feed paper with Sources.
+    func showSources() {
+        show()
+        paper.showSources()
+    }
+
     /// Opens the session card of the focused reader paper, or collapses it.
     /// With no reader paper focused, the newest one comes to the front with
     /// its card open. Returns false when no reader paper is open.

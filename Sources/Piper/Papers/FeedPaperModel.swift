@@ -74,8 +74,8 @@ final class FeedPaperModel {
     var composerRequest: UUID?
     /// The selection, the search, and the verbs of Today.
     let today: TodayModel
-    /// The address that the Add Feed sheet starts with, after a paste of a feed address.
-    var subscribeAddress: String?
+    /// The address that Sources looks up when it opens, after a paste of a feed or site address.
+    var sourcesAddress: String?
     /// The selected article of the list of a feed.
     var selectedArticle: String?
     /// The row under the cursor of the folder tree, by its absolute path, for each folder tab.
@@ -161,7 +161,10 @@ final class FeedPaperModel {
 
     /// A pick on the index: the paper shows the list of the scope.
     func pick(_ scope: PaperScope) {
-        if case .feed = scope, !state.tab.isFolder { state.tab = .today }
+        switch scope {
+        case .feed, .sources: if !state.tab.isFolder { state.tab = .today }
+        default: break
+        }
         setScope(scope)
         showsIndex = false
     }
@@ -174,10 +177,10 @@ final class FeedPaperModel {
         showsIndex = false
     }
 
-    /// Opens the Add Feed sheet with an address, after a paste of a feed or site address.
-    func subscribe(_ address: String) {
-        subscribeAddress = address
-        model.addingFeed = true
+    /// Shows Sources. An address, from a paste of a feed or site address, goes in its add field.
+    func showSources(address: String? = nil) {
+        sourcesAddress = address
+        pick(.sources)
     }
 
     // MARK: - Keyboard

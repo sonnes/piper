@@ -3,13 +3,14 @@ import Foundation
 import History
 import Observation
 
-/// Finds the sites of recent browser history and the feed of each one, for Discover.
+/// Finds the sites of recent browser history and the feed of each one, for
+/// Sites You Read Often on Sources.
 ///
 /// History stays on the Mac. The scan sends one request to the home page of
 /// each site, and a few more to confirm the feeds that the page names.
 @MainActor
 @Observable
-final class DiscoverScan {
+final class SiteScan {
 
     enum State: Equatable {
         case idle
@@ -40,7 +41,7 @@ final class DiscoverScan {
         self.preferences = preferences
         blockedSites = preferences.stringArray(forKey: AppDefaults.Key.blockedSites) ?? BlockedSites.defaults
         disabledSources = Set(preferences.stringArray(forKey: AppDefaults.Key.disabledHistorySources) ?? [])
-        lastScan = preferences.object(forKey: AppDefaults.Key.discoverLastScan) as? Date
+        lastScan = preferences.object(forKey: AppDefaults.Key.siteScanDate) as? Date
     }
 
     // MARK: - Scanning
@@ -51,10 +52,10 @@ final class DiscoverScan {
         }
     }
 
-    /// Scans if the last scan is older than one day. Discover calls it when it opens.
+    /// Scans if the last scan is older than one day. Sources calls it when it opens.
     func scanIfStale(now: Date = Date()) {
         guard let lastScan else { return scan() }
-        if now.timeIntervalSince(lastScan) > AppDefaults.Feeds.discoverInterval { scan() }
+        if now.timeIntervalSince(lastScan) > AppDefaults.Feeds.siteScanInterval { scan() }
     }
 
     func scan() {
@@ -75,7 +76,7 @@ final class DiscoverScan {
             feeds.replaceSuggestions(await Self.suggestions(for: digest.sites))
             let now = Date()
             lastScan = now
-            preferences.set(now, forKey: AppDefaults.Key.discoverLastScan)
+            preferences.set(now, forKey: AppDefaults.Key.siteScanDate)
             state = .idle
         }
     }
@@ -108,7 +109,7 @@ final class DiscoverScan {
                                       visits: site.visits, score: site.score)
                 }
             }
-            for _ in 0..<AppDefaults.Feeds.discoverParallelSites { next() }
+            for _ in 0..<AppDefaults.Feeds.siteScanParallel { next() }
             for await suggestion in group {
                 results.append(suggestion)
                 next()
