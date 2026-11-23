@@ -77,7 +77,7 @@ final class PaperDesk {
     /// Opens a capture. A link capture opens in the opening tab of its site.
     func openNote(_ id: UUID, asArticle: Bool = false) {
         guard let note = model.store.notes.first(where: { $0.id == id }) else { return }
-        if asArticle { model.articleTab = model.openingTab(for: note) }
+        if asArticle { model.chooseArticleTab(model.openingTab(for: note), for: note) }
         open(.note(id))
     }
 

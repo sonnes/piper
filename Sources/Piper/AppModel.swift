@@ -24,8 +24,9 @@ final class AppModel {
     let discover: DiscoverScan
     /// True while the Add Feed sheet shows.
     var addingFeed = false
-    /// The tab that a link capture shows: the article, the web page, or the notes.
-    var articleTab = ArticleTab.web
+    /// The tab that each open link capture shows, by the id of the capture:
+    /// the article, the web page, or the notes. Each reader paper has its own tab.
+    private(set) var articleTabs: [UUID: ArticleTab] = [:]
     /// The tab, Reader or Web, that the reader last chose for each site, by `siteKey`.
     /// Preferences keep it.
     private(set) var siteTabs: [String: ArticleTab] = [:]
@@ -34,13 +35,13 @@ final class AppModel {
     var inboxFilters: [String: InboxStream.Filter] = [:]
     /// The child note that the Reader tab scrolls to.
     var readerScroll: ReaderScroll?
-    /// The page of the Reader tab, while the tab shows.
-    @ObservationIgnored weak var readerPage: WKWebView?
+    /// The pages of the Reader tabs that show, one for each reader paper.
+    @ObservationIgnored let readerPages = NSHashTable<WKWebView>.weakObjects()
 
     /// Scrolls the Reader tab of a window by one arrow step. Returns false if
     /// the window shows no Reader tab.
     func scrollReader(down: Bool, in window: NSWindow) -> Bool {
-        guard articleTab == .reader, let page = readerPage, page.window === window else { return false }
+        guard let page = readerPages.allObjects.first(where: { $0.window === window }) else { return false }
         let step = AppDefaults.ArticleReader.arrowScrollStep * (down ? 1 : -1)
         page.evaluateJavaScript("window.scrollBy(0, \(step))")
         return true
@@ -54,11 +55,23 @@ final class AppModel {
         return note.articleURL.flatMap(Self.siteKey).flatMap { siteTabs[$0] } ?? .web
     }
 
+    /// The tab that a link capture shows: the tab that the reader chose for
+    /// it, or else its opening tab.
+    func articleTab(for note: Note) -> ArticleTab {
+        articleTabs[note.id] ?? openingTab(for: note)
+    }
+
+    /// Keeps the tab of a link capture as it opens, so that a later change of
+    /// the opening tab of its site does not change it.
+    func keepArticleTab(for note: Note) {
+        articleTabs[note.id] = articleTab(for: note)
+    }
+
     /// Shows a tab of a link capture that the reader chose. A choice of Reader
     /// or Web becomes the opening tab of the site of the link.
-    func chooseArticleTab(_ tab: ArticleTab, for url: URL) {
-        articleTab = tab
-        guard tab != .notes, let site = Self.siteKey(url), siteTabs[site] != tab else { return }
+    func chooseArticleTab(_ tab: ArticleTab, for note: Note) {
+        articleTabs[note.id] = tab
+        guard tab != .notes, let url = note.articleURL, let site = Self.siteKey(url), siteTabs[site] != tab else { return }
         siteTabs[site] = tab
         preferences.set(siteTabs.mapValues(\.rawValue), forKey: AppDefaults.Key.siteTabs)
     }
@@ -71,7 +84,7 @@ final class AppModel {
 
     /// Shows a highlight or a question of a link capture in the Reader tab.
     func showHighlight(_ note: UUID, in article: UUID) {
-        articleTab = .reader
+        articleTabs[article] = .reader
         readerScroll = ReaderScroll(note: note, in: article)
     }
     var files: [VaultFile] = []

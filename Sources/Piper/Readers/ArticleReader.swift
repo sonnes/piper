@@ -55,7 +55,7 @@ struct ArticleReader: View {
             }
             ReaderPageView(state: loader.state, placeholder: ReaderPlaceholder(site: ArticleBadge.host(url), title: reading.title),
                            notes: payload, scroll: scroll, perform: perform, scrolled: scrolled,
-                           attach: { model.readerPage = $0 })
+                           attach: { model.readerPages.add($0) })
                 .overlay(alignment: .bottom) {
                     if case .failed = loader.state {
                         Button("Show Web Page", action: showWebPage)

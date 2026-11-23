@@ -36,9 +36,9 @@ struct NoteDetail: View {
     var body: some View {
         Group {
             if let articleURL {
-                switch model.articleTab {
+                switch model.articleTab(for: note) {
                 case .reader:
-                    ArticleReader(model: model, note: note, url: articleURL, showWebPage: { model.chooseArticleTab(.web, for: articleURL) })
+                    ArticleReader(model: model, note: note, url: articleURL, showWebPage: { model.chooseArticleTab(.web, for: note) })
                 case .web:
                     NoteWebReader(url: articleURL) { text, title, url in
                         model.store.add(text, source: title, sourceURL: url.absoluteString,
@@ -54,7 +54,7 @@ struct NoteDetail: View {
         .background(PiperTheme.page)
         .overlay(alignment: .bottom) {
             if let articleURL {
-                TabIsland(selection: Binding(get: { model.articleTab }, set: { model.chooseArticleTab($0, for: articleURL) }),
+                TabIsland(selection: Binding(get: { model.articleTab(for: note) }, set: { model.chooseArticleTab($0, for: note) }),
                           cardPresented: model.sessionPresentation == .card)
             }
         }
@@ -62,7 +62,7 @@ struct NoteDetail: View {
             if articleURL == nil {
                 session = model.editCapture(note)
             } else {
-                model.articleTab = model.openingTab(for: note)
+                model.keepArticleTab(for: note)
             }
         }
         .onDisappear(perform: finish)
