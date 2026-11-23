@@ -4,7 +4,18 @@ import AppKit
 /// opens again comes back to its last size and place.
 ///
 /// The store keeps the newest `AppDefaults.Papers.savedFrameLimit` frames.
-/// A paper without a saved frame takes its place in the cascade.
+/// A paper without a saved frame takes its place in the cascade, at the last
+/// size of a paper of its kind.
+/// The kinds of reader paper. Each kind keeps its own last size.
+enum PaperKind: String {
+    /// An article, a link capture, or a file.
+    case reader
+    /// A note that is not a link.
+    case note
+    /// An agent session.
+    case session
+}
+
 struct PaperFrames: Codable, Equatable {
 
     struct Entry: Codable, Equatable {
@@ -14,6 +25,8 @@ struct PaperFrames: Codable, Equatable {
 
     /// The frames, the newest last.
     private(set) var entries: [Entry] = []
+    /// The last size of a paper of each kind, by `PaperKind.rawValue`.
+    private(set) var lastSizes: [String: String]? = nil
 
     // MARK: - API
 
@@ -23,8 +36,17 @@ struct PaperFrames: Codable, Equatable {
         return entries.last { $0.key == key }.map { NSRectFromString($0.frame) }
     }
 
-    /// Saves the frame of the paper of an item. The oldest frame goes when the store is full.
-    mutating func set(_ frame: NSRect, of item: PaperItem) {
+    /// The last size of a paper of a kind.
+    func lastSize(of kind: PaperKind) -> NSSize? {
+        lastSizes?[kind.rawValue].map(NSSizeFromString)
+    }
+
+    /// Saves the frame of the paper of an item, and its size as the last size
+    /// of its kind. The oldest frame goes when the store is full.
+    mutating func set(_ frame: NSRect, of item: PaperItem, kind: PaperKind) {
+        var sizes = lastSizes ?? [:]
+        sizes[kind.rawValue] = NSStringFromSize(frame.size)
+        lastSizes = sizes
         let key = Self.key(of: item)
         entries.removeAll { $0.key == key }
         entries.append(Entry(key: key, frame: NSStringFromRect(frame)))

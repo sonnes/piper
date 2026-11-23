@@ -80,7 +80,8 @@ final class PaperDesk {
             open.focus()
             return
         }
-        let size = Self.size(of: item, model: model)
+        let kind = Self.kind(of: item, model: model)
+        let size = frames.lastSize(of: kind) ?? Self.size(of: kind)
         let screen = feed?.window?.screen ?? NSScreen.main
         let frame = Self.frame(of: item, saved: frames, screens: NSScreen.screens.map(\.visibleFrame)) ??
             Self.frame(size: size, feed: feedPaperFrame,
@@ -218,15 +219,24 @@ final class PaperDesk {
 
     /// The size of a new paper for an item. An article and a file take the
     /// size of the Write paper. A short note and a session take less.
-    static func size(of item: PaperItem, model: AppModel) -> NSSize {
+    static func kind(of item: PaperItem, model: AppModel) -> PaperKind {
         switch item {
         case .note(let id):
             let note = model.store.notes.first { $0.id == id }
-            return note?.isArticle == true ? AppDefaults.Papers.readerSize : AppDefaults.Papers.noteSize
+            return note?.isArticle == true ? .reader : .note
         case .article, .file:
-            return AppDefaults.Papers.readerSize
+            return .reader
         case .session, .newSession:
-            return AppDefaults.Papers.sessionSize
+            return .session
+        }
+    }
+
+    /// The size of a new paper of a kind, before the reader resizes one.
+    nonisolated static func size(of kind: PaperKind) -> NSSize {
+        switch kind {
+        case .reader: return AppDefaults.Papers.readerSize
+        case .note: return AppDefaults.Papers.noteSize
+        case .session: return AppDefaults.Papers.sessionSize
         }
     }
 
@@ -304,7 +314,7 @@ extension PaperDesk: ReaderPaperControllerDelegate {
 
     func readerPaperDidMove(_ controller: ReaderPaperController) {
         guard let frame = controller.paperFrame else { return }
-        frames.set(frame, of: controller.item)
+        frames.set(frame, of: controller.item, kind: Self.kind(of: controller.item, model: model))
         frames.save(to: defaults)
     }
 }

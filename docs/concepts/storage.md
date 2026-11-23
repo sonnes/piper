@@ -145,7 +145,7 @@ UserDefaults holds these keys:
 | `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |
 | `articleSiteTabs` | The tab, Reader or Web, that each site of a link capture opens in |
 | `paperDeskState` | The tab and the scope of the feed paper, its frame, the open folders, the tab color and the last file count of each folder, and the open file |
-| `readerFrames` | The frame of each reader paper that you moved or resized, by its item. Piper keeps the 200 newest frames. |
+| `readerFrames` | The frame of each reader paper that you moved or resized, by its item. Piper keeps the 200 newest frames. It also keeps the last size of each kind of paper, for the next new paper of that kind. |
 | `NSWindow Frame PiperCapturePanel`, `NSWindow Frame PiperLibrary` | Window frames |
 
 ### Bundle ID Migration

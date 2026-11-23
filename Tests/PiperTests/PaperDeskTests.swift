@@ -207,9 +207,9 @@ final class PaperDeskStateTests: XCTestCase {
     func testAReaderPaperFrameRestoresForItsItem() {
         let note = UUID()
         var frames = PaperFrames()
-        frames.set(NSRect(x: 10, y: 20, width: 500, height: 400), of: .note(note))
-        frames.set(NSRect(x: 30, y: 40, width: 640, height: 700), of: .article("harbor-1"))
-        frames.set(NSRect(x: 50, y: 60, width: 520, height: 410), of: .note(note))
+        frames.set(NSRect(x: 10, y: 20, width: 500, height: 400), of: .note(note), kind: .note)
+        frames.set(NSRect(x: 30, y: 40, width: 640, height: 700), of: .article("harbor-1"), kind: .reader)
+        frames.set(NSRect(x: 50, y: 60, width: 520, height: 410), of: .note(note), kind: .note)
         frames.save(to: defaults)
 
         let restored = PaperFrames.restore(from: defaults)
@@ -219,11 +219,33 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertEqual(restored.entries.count, 2)
     }
 
+    func testANewPaperTakesTheLastSizeOfItsKind() {
+        var frames = PaperFrames()
+        XCTAssertNil(frames.lastSize(of: .reader))
+        frames.set(NSRect(x: 10, y: 20, width: 640, height: 720), of: .article("harbor-1"), kind: .reader)
+        frames.set(NSRect(x: 30, y: 40, width: 820, height: 900), of: .file, kind: .reader)
+        frames.set(NSRect(x: 50, y: 60, width: 480, height: 360), of: .note(UUID()), kind: .note)
+        frames.save(to: defaults)
+
+        let restored = PaperFrames.restore(from: defaults)
+        XCTAssertEqual(restored.lastSize(of: .reader), NSSize(width: 820, height: 900))
+        XCTAssertEqual(restored.lastSize(of: .note), NSSize(width: 480, height: 360))
+        XCTAssertNil(restored.lastSize(of: .session))
+    }
+
+    func testFramesSavedWithoutLastSizesStillRestore() throws {
+        let old = #"{"entries":[{"key":"file","frame":"{{1, 2}, {600, 700}}"}]}"#
+        defaults.set(Data(old.utf8), forKey: AppDefaults.Key.readerFrames)
+        let restored = PaperFrames.restore(from: defaults)
+        XCTAssertEqual(restored.frame(of: .file), NSRect(x: 1, y: 2, width: 600, height: 700))
+        XCTAssertNil(restored.lastSize(of: .reader))
+    }
+
     func testTheStoreOfFramesForgetsTheOldestFrameWhenItIsFull() {
         var frames = PaperFrames()
         let limit = AppDefaults.Papers.savedFrameLimit
         for index in 0...limit {
-            frames.set(NSRect(x: index, y: 0, width: 500, height: 400), of: .article("article-\(index)"))
+            frames.set(NSRect(x: index, y: 0, width: 500, height: 400), of: .article("article-\(index)"), kind: .reader)
         }
         XCTAssertEqual(frames.entries.count, limit)
         XCTAssertNil(frames.frame(of: .article("article-0")))
@@ -234,11 +256,11 @@ final class PaperDeskStateTests: XCTestCase {
         let screens = [NSRect(x: 0, y: 0, width: 2000, height: 1200)]
         var frames = PaperFrames()
         XCTAssertNil(PaperDesk.frame(of: .file, saved: frames, screens: screens))
-        frames.set(NSRect(x: 300, y: 200, width: 700, height: 800), of: .file)
+        frames.set(NSRect(x: 300, y: 200, width: 700, height: 800), of: .file, kind: .reader)
         XCTAssertEqual(PaperDesk.frame(of: .file, saved: frames, screens: screens),
                        NSRect(x: 300, y: 200, width: 700, height: 800))
         // A frame from a display that is gone comes back onto the screen.
-        frames.set(NSRect(x: 3000, y: 200, width: 700, height: 800), of: .file)
+        frames.set(NSRect(x: 3000, y: 200, width: 700, height: 800), of: .file, kind: .reader)
         XCTAssertEqual(PaperDesk.frame(of: .file, saved: frames, screens: screens),
                        NSRect(x: 1300, y: 200, width: 700, height: 800))
     }
