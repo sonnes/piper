@@ -22,7 +22,7 @@ enum IndexEntry: Equatable {
                 + sections.map { .scope(.inbox(section: $0)) }
                 + [.scope(.done)]
         case .feeds:
-            return [.scope(.feed(.discover)), .scope(.feed(.allUnread)), .scope(.feed(.starred))]
+            return [.scope(.feed(.discover)), .scope(.feed(.allUnread))]
                 + feeds.map { .scope(.feed(.feed($0))) }
         case .agents:
             return sessionFolders.map { .scope(.sessions($0)) }

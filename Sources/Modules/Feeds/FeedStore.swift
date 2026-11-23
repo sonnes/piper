@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// The subscriptions and their counts, for the Feeds index and the article list.
+/// The subscriptions and their counts, for Today, the Sources paper, and the list of a feed.
 /// It owns the database and the refresh of each feed.
 ///
 /// The database calls run on the main thread. A fetch and its parse run in a
@@ -12,13 +12,13 @@ public final class FeedStore {
     // MARK: - Properties
 
     public static let refreshInterval: TimeInterval = 30 * 60
-    /// Piper removes a read article that is not starred after this many days.
-    public static let keepDays = 30
+    /// Piper removes a read article after this many days. A kept article
+    /// lives on as a link capture.
+    nonisolated public static let keepDays = 30
     static let parallelFetches = 4
 
     public private(set) var feeds: [Feed] = []
     public private(set) var unreadCounts: [String: Int] = [:]
-    public private(set) var starredCount = 0
     public private(set) var suggestions: [Suggestion] = []
     /// The IDs of the feeds that a fetch holds now.
     public private(set) var fetching: Set<String> = []
@@ -85,6 +85,13 @@ public final class FeedStore {
         write { try $0.delete(feed: id) }
     }
 
+    /// Sets how the posts of the feed reach Today.
+    public func setMode(_ mode: FeedMode, of id: String) {
+        guard var feed = feed(id), feed.mode != mode else { return }
+        feed.mode = mode
+        write { try $0.save(feed) }
+    }
+
     public func rename(_ id: String, to title: String) {
         guard var feed = feed(id), let title = title.nilIfEmptyOrWhitespace else { return }
         feed.title = title
@@ -93,7 +100,7 @@ public final class FeedStore {
 
     // MARK: - Articles
 
-    /// The articles of a row of the Feeds index. See `FeedDatabase.articles`.
+    /// The articles of a filter. See `FeedDatabase.articles`.
     public func articles(_ filter: FeedFilter, keeping: Set<String> = []) -> [Article] {
         (try? database?.articles(filter, keeping: keeping)) ?? []
     }
@@ -109,8 +116,19 @@ public final class FeedStore {
         write { try $0.setRead(read, ids: ids) }
     }
 
-    public func setStarred(_ starred: Bool, _ article: Article) {
-        write { try $0.setStarred(starred, id: article.id) }
+    /// The count of articles of each feed in the days before now, by feed ID.
+    public func articleCounts(days: Int, now: Date = Date()) -> [String: Int] {
+        (try? database?.articleCounts(since: now.addingTimeInterval(-Double(days) * 86_400))) ?? [:]
+    }
+
+    /// The articles that an older version of Piper starred.
+    public func starredArticles() -> [Article] {
+        (try? database?.starredArticles()) ?? []
+    }
+
+    /// Removes each old star, after the copy to link captures.
+    public func clearStars() {
+        write { try $0.clearStars() }
     }
 
     /// Marks as read each article that the filter shows.
@@ -217,7 +235,6 @@ public final class FeedStore {
         guard let database else { return }
         feeds = (try? database.feeds()) ?? []
         unreadCounts = (try? database.unreadCounts()) ?? [:]
-        starredCount = (try? database.starredCount()) ?? 0
         suggestions = (try? database.suggestions()) ?? []
         revision += 1
     }

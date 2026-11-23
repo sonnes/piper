@@ -5,7 +5,7 @@ import SwiftUI
 /// The articles of a row of the Feeds index, in the list of the feed paper.
 ///
 /// The keys match NetNewsWire: Space goes to the next unread article, R marks
-/// as read or unread, S stars, B opens the article in the browser, and
+/// as read or unread, B opens the article in the browser, and
 /// Command-K marks every article as read. I keeps the article in Inbox.
 struct FeedArticleList: View {
     @Bindable var model: AppModel
@@ -36,8 +36,7 @@ struct FeedArticleList: View {
                             ForEach(articles) { article in
                                 FeedArticleRow(article: article, feed: feeds.feed(article.feedID),
                                                showsFeed: !isOneFeed, selected: article.id == selectedID,
-                                               toggleRead: { feeds.setRead(!article.read, [article]) },
-                                               toggleStar: { feeds.setStarred(!article.starred, article) }) {
+                                               toggleRead: { feeds.setRead(!article.read, [article]) }) {
                                     open(article)
                                     openPaper(article)
                                 }
@@ -91,7 +90,6 @@ struct FeedArticleList: View {
     @ViewBuilder
     private func menu(for article: Article) -> some View {
         Button(article.read ? "Mark as Unread" : "Mark as Read") { feeds.setRead(!article.read, [article]) }
-        Button(article.starred ? "Remove Star" : "Star") { feeds.setStarred(!article.starred, article) }
         Divider()
         Button("Keep in Inbox") { keep(article) }
         Button("Open in Browser") { openInBrowser(article) }
@@ -117,14 +115,12 @@ struct FeedArticleList: View {
         switch filter {
         case .discover: return "Discover"
         case .allUnread: return "All Unread"
-        case .starred: return "Starred"
         case .feed: return oneFeed?.title ?? "Feed"
         }
     }
 
     private var emptyTitle: String {
         switch filter {
-        case .starred: return "No Starred Articles"
         case .feed: return "No Articles"
         default: return feeds.feeds.isEmpty ? "No Feeds" : "All Read"
         }
@@ -132,7 +128,6 @@ struct FeedArticleList: View {
 
     private var emptyDetail: String? {
         if feeds.feeds.isEmpty { return "Select + next to Feeds to add a feed." }
-        if case .starred = filter { return "Press S to star the selected article." }
         if let error = oneFeed?.error { return error }
         return nil
     }
@@ -191,7 +186,6 @@ private struct FeedArticleRow: View {
     let showsFeed: Bool
     let selected: Bool
     let toggleRead: () -> Void
-    let toggleStar: () -> Void
     let action: () -> Void
 
     var body: some View {
@@ -201,15 +195,10 @@ private struct FeedArticleRow: View {
             VStack(alignment: .leading, spacing: 0) {
                 PaperRowTitle(text: Text(article.title), read: true, bold: !article.read)
                 PaperRowMeta {
-                    if article.starred {
-                        Text("★").foregroundStyle(PiperTheme.star).accessibilityLabel("Starred")
-                    }
                     Text(showsFeed ? feed?.title ?? "" : feed?.host ?? "")
                 }
             }
         } actions: {
-            RowAction(symbol: article.starred ? "star.fill" : "star", title: article.starred ? "Remove Star (S)" : "Star (S)",
-                      tint: article.starred ? PiperTheme.star : PiperTheme.secondaryLabel, action: toggleStar)
             RowAction(symbol: article.read ? "circle.fill" : "circle", title: article.read ? "Mark as Unread (R)" : "Mark as Read (R)",
                       action: toggleRead)
         }
@@ -231,14 +220,13 @@ extension AppModel {
     }
 
     /// The letter keys of an article, on its row or on its paper: R marks it
-    /// as read or unread, S stars it, I keeps it in Inbox, and B opens it in
+    /// as read or unread, I keeps it in Inbox, and B opens it in
     /// the browser.
     ///
     /// - Returns: True when the key is one of these.
     func articleKey(_ key: Character, on article: Article) -> Bool {
         switch key {
         case "r": feeds.setRead(!article.read, [article])
-        case "s": feeds.setStarred(!article.starred, article)
         case "i": keep(article)
         case "b": openInBrowser(article)
         default: return false

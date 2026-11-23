@@ -95,7 +95,8 @@ public final class CaptureStore {
 
     // MARK: - Changing Notes
 
-    @discardableResult public func add(_ text: String, source: String? = nil, sourceURL: String? = nil, to section: String? = nil, interpretSection: Bool = true) -> Bool {
+    @discardableResult public func add(_ text: String, source: String? = nil, sourceURL: String? = nil, to section: String? = nil,
+                                       interpretSection: Bool = true, tags: [String] = []) -> Bool {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         if interpretSection, text.hasPrefix("# "), !text.contains("\n") {
             let name = String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces)
@@ -109,7 +110,7 @@ public final class CaptureStore {
             guard let value, CaptureLinks.isWebURL(value) else { return nil }
             return value.absoluteString
         }).sorted()
-        let saved = change { $0.notes.append(Note(text: text, section: destination, sources: source.map { [$0] } ?? [], sourceURLs: urls)) }
+        let saved = change { $0.notes.append(Note(text: text, section: destination, sources: source.map { [$0] } ?? [], sourceURLs: urls, tags: tags)) }
         if saved { status = "Saved to \(destination)" }
         return saved
     }
@@ -230,6 +231,66 @@ public final class CaptureStore {
             guard let i = state.notes.firstIndex(where: { $0.id == id }) else { return }
             state.notes[i].isDone.toggle()
             state.notes[i].modifiedAt = Date()
+        }
+    }
+
+    /// Marks the captures as done, or as not done, with one undo step.
+    @discardableResult public func setDone(_ done: Bool, _ ids: Set<UUID>) -> Bool {
+        change { state in
+            for i in state.notes.indices where ids.contains(state.notes[i].id) && state.notes[i].isDone != done {
+                state.notes[i].isDone = done
+                state.notes[i].modifiedAt = Date()
+            }
+        }
+    }
+
+    /// Adds or removes the kept tag of the captures, with one undo step.
+    @discardableResult public func setKept(_ kept: Bool, _ ids: Set<UUID>) -> Bool {
+        change { state in
+            for i in state.notes.indices where ids.contains(state.notes[i].id) && state.notes[i].isKept != kept {
+                if kept { state.notes[i].tags.append(Note.keptTag) } else { state.notes[i].tags.removeAll { $0 == Note.keptTag } }
+            }
+        }
+    }
+
+    /// Adds a kept link capture for each web link that no capture holds, with
+    /// one undo step. A link that a capture holds already gets the kept tag.
+    /// Returns the captures of the links, in the order of the links.
+    ///
+    /// - Parameter recordUndo: False for a copy that Undo must not remove, such
+    ///   as `StarMigration`. The undo step before the copy goes too.
+    @discardableResult
+    public func keep(links: [KeptLink], to section: String? = nil, recordUndo: Bool = true) -> [Note] {
+        let destination = section.flatMap { sections.contains($0) ? $0 : nil } ?? activeSection
+        var seen: Set<String> = []
+        let fresh = links.filter { link in
+            CaptureLinks.isWebURL(link.url) && article(for: link.url) == nil && seen.insert(CaptureLinks.canonical(link.url)).inserted
+        }
+        let existing = Set(links.compactMap { article(for: $0.url)?.id })
+        let added = fresh.map { link in
+            Note(text: link.url.absoluteString, section: destination, sources: link.source.map { [$0] } ?? [],
+                 sourceURLs: [link.url.absoluteString], tags: [Note.keptTag], reading: Reading(title: link.title))
+        }
+        guard change(recordUndo: recordUndo, { state in
+            state.notes += added
+            for i in state.notes.indices where existing.contains(state.notes[i].id) && !state.notes[i].isKept {
+                state.notes[i].tags.append(Note.keptTag)
+            }
+        }) else { return [] }
+        // Undo restores a whole state. An older state has no copy, so it goes.
+        if !recordUndo { undoState = nil }
+        if !links.isEmpty { status = "Kept" }
+        return links.compactMap { article(for: $0.url) }
+    }
+
+    /// Moves the captures and their child notes to a section, with one undo step.
+    @discardableResult public func move(_ ids: Set<UUID>, to section: String) -> Bool {
+        guard sections.contains(section), !ids.isEmpty else { return false }
+        return change { state in
+            for i in state.notes.indices where ids.contains(state.notes[i].id) || state.notes[i].parent.map(ids.contains) == true {
+                state.notes[i].section = section
+                state.notes[i].modifiedAt = Date()
+            }
         }
     }
 
@@ -415,6 +476,19 @@ public final class CaptureStore {
     @discardableResult public func captureClipboard(from pasteboard: NSPasteboard = .general) -> Bool {
         guard let text = pasteboard.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { status = "The clipboard has no text"; return false }
         return add(text, source: "Clipboard", interpretSection: false)
+    }
+}
+
+/// A web link that Keep saves as a link capture.
+public struct KeptLink: Equatable, Sendable {
+    public let url: URL
+    public let title: String?
+    public let source: String?
+
+    public init(url: URL, title: String? = nil, source: String? = nil) {
+        self.url = url
+        self.title = title
+        self.source = source
     }
 }
 

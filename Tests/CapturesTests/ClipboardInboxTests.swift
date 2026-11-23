@@ -32,6 +32,20 @@ final class ClipboardInboxTests: XCTestCase {
         inbox.poll()
     }
 
+    func testKeepSavesAKeptCaptureAndDoneDismissesWithUndo() {
+        copy("first")
+        copy("second")
+        XCTAssertTrue(inbox.save(inbox.entries[0].id))
+        XCTAssertTrue(store.notes[0].isKept)
+        let entry = inbox.entries[0]
+        XCTAssertEqual(inbox.dismiss(entry.id), entry)
+        XCTAssertTrue(inbox.entries.isEmpty)
+        XCTAssertTrue(ClipboardInbox(store: store, pasteboard: pasteboard).entries.isEmpty)
+        inbox.restore(entry)
+        XCTAssertEqual(inbox.entries, [entry])
+        XCTAssertEqual(ClipboardInbox(store: store, pasteboard: pasteboard).entries.map(\.text), ["first"])
+    }
+
     func testClipboardStaysTemporaryUntilClickedAndSavesExactText() {
         let text = "  # A literal heading\n\t`code`\n"
         copy(text)

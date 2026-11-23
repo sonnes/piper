@@ -160,8 +160,7 @@ final class QAScripts: NSObject {
             }
             desk.openNote(note.id)
         case "article":
-            guard let article = model.feeds.articles(.allUnread).first(where: { $0.title.hasPrefix(words) })
-                ?? model.feeds.articles(.starred).first(where: { $0.title.hasPrefix(words) }) else {
+            guard let article = model.feeds.articles(.allUnread).first(where: { $0.title.hasPrefix(words) }) else {
                 return "error\nNo article starts with \(words)."
             }
             desk.open(.article(article.id))

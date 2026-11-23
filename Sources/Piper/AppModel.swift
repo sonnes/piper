@@ -6,6 +6,7 @@ import Observation
 import PiperCore
 import Captures
 import Feeds
+import Stream
 import Vault
 import WebKit
 
@@ -221,6 +222,7 @@ final class AppModel {
         reader = ReaderAssistant(store: store, agents: agents)
         discover = DiscoverScan(feeds: self.feeds, preferences: preferences)
         archiveFinishedReading()
+        StarMigration.run(feeds: self.feeds, captures: store)
         agents.refresh(paths: wikiPaths)
         agents.showDraft = { [weak self] id in self?.showSession?(id) }
         // A question goes to the folder of the Send buttons, or else to the open folder.

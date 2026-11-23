@@ -215,7 +215,6 @@ struct FeedPaperView: View {
             switch filter {
             case .discover: return "Feeds › Discover"
             case .allUnread: return "Feeds › All Unread"
-            case .starred: return "Feeds › Starred"
             case .feed(let id): return "Feeds › " + (model.feeds.feed(id)?.title ?? "Feed")
             }
         case .folder:

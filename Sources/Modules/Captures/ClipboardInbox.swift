@@ -138,10 +138,30 @@ public final class ClipboardInbox {
 
     // MARK: - Saving
 
+    /// Keeps a text as a kept capture in Inbox.
     @discardableResult public func save(_ id: UUID) -> Bool {
         guard let entry = entries.first(where: { $0.id == id }),
-              store.add(entry.text, source: "Clipboard", to: "Inbox", interpretSection: false) else { return false }
+              store.add(entry.text, source: "Clipboard", to: "Inbox", interpretSection: false,
+                        tags: [Note.keptTag]) else { return false }
         return true
+    }
+
+    /// Removes a text from the history, for Done. Returns the text, so that
+    /// Undo can put it back with `restore`.
+    @discardableResult public func dismiss(_ id: UUID) -> ClipboardEntry? {
+        guard let entry = items.first(where: { $0.id == id }) else { return nil }
+        let updated = items.filter { $0.id != id }
+        persist(updated, previous: items)
+        items = updated
+        return entry
+    }
+
+    /// Puts back a text that `dismiss` removed, in the order of its copy time.
+    public func restore(_ entry: ClipboardEntry) {
+        guard !items.contains(where: { $0.id == entry.id }) else { return }
+        let updated = (items + [entry]).sorted { $0.copiedAt > $1.copiedAt }
+        persist(updated, previous: items)
+        items = updated
     }
 
     // MARK: - Private

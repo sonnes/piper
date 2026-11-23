@@ -105,7 +105,6 @@ struct FeedPaperIndex: View {
         row(.scope(.feed(.discover)), title: "Discover", count: waiting)
         row(.scope(.feed(.allUnread)), title: "All Unread", count: feeds.totalUnread)
             .contextMenu { Button("Mark All as Read") { feeds.markAllRead(.allUnread) } }
-        row(.scope(.feed(.starred)), title: "Starred", count: feeds.starredCount)
         if !feeds.feeds.isEmpty { IndexHeader(title: "Feeds") }
         ForEach(Array(feeds.feeds.enumerated()), id: \.element.id) { index, feed in
             row(.scope(.feed(.feed(feed.id))), title: feed.title, leading: AnyView(feedIcon(feed, index: index)),

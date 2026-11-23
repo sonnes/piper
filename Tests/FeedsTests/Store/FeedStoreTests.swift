@@ -1,3 +1,4 @@
+import CSQLite
 import Foundation
 import Testing
 @testable import Feeds
@@ -108,17 +109,51 @@ private func temporaryDatabase() -> URL {
         #expect(try database.unreadCounts().isEmpty)
     }
 
-    @Test func pruneKeepsUnreadAndStarredArticles() throws {
+    @Test func pruneRemovesOnlyOldReadArticles() throws {
         let database = try FeedDatabase(url: temporaryDatabase())
         try database.save(Feed(id: "f", title: "F"))
-        let old = Date(timeIntervalSince1970: 0)
-        try database.insert(["read", "unread", "starred"].map {
-            Article(id: $0, feedID: "f", url: $0, title: $0, summary: "", published: nil, arrived: old)
+        let now = Date()
+        let old = now.addingTimeInterval(-31 * 86_400)
+        let recent = now.addingTimeInterval(-29 * 86_400)
+        try database.insert([("old-read", old), ("old-unread", old), ("recent-read", recent)].map {
+            Article(id: $0.0, feedID: "f", url: $0.0, title: $0.0, summary: "", published: nil, arrived: $0.1)
         })
-        try database.setRead(true, ids: ["read", "starred"])
-        try database.setStarred(true, id: "starred")
-        try database.prune(before: Date())
-        #expect(Set(try database.articles(.feed("f")).map(\.id)) == ["unread", "starred"])
+        try database.setRead(true, ids: ["old-read", "recent-read"])
+        try database.prune(before: now.addingTimeInterval(-Double(FeedStore.keepDays) * 86_400))
+        #expect(Set(try database.articles(.feed("f")).map(\.id)) == ["old-unread", "recent-read"])
+    }
+
+    @Test func feedModeSavesAndAnOldDatabaseGetsTheColumn() throws {
+        let url = temporaryDatabase()
+        do {
+            let database = try FeedDatabase(url: url)
+            try database.save(Feed(id: "f", title: "F", mode: .digest))
+            #expect(try database.feeds().first?.mode == .digest)
+        }
+        #expect(try FeedDatabase(url: url).feeds().first?.mode == .digest)
+
+        // A database of an older version has no mode column. Each feed takes Best.
+        let old = temporaryDatabase()
+        try FileManager.default.createDirectory(at: old.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var handle: OpaquePointer?
+        #expect(sqlite3_open(old.path, &handle) == SQLITE_OK)
+        sqlite3_exec(handle, """
+        CREATE TABLE feeds (id TEXT PRIMARY KEY, title TEXT NOT NULL, home TEXT, etag TEXT, last_modified TEXT,
+          failures INTEGER NOT NULL DEFAULT 0, next_fetch REAL NOT NULL, error TEXT);
+        INSERT INTO feeds (id, title, next_fetch) VALUES ('g', 'G', 0);
+        """, nil, nil, nil)
+        sqlite3_close(handle)
+        #expect(try FeedDatabase(url: old).feeds().map(\.mode) == [.best])
+    }
+
+    @Test func articleCountsCountRecentArticlesOfEachFeed() throws {
+        let database = try FeedDatabase(url: temporaryDatabase())
+        try database.save(Feed(id: "f", title: "F"))
+        let now = Date()
+        try database.insert([("a", now), ("b", now.addingTimeInterval(-3 * 86_400)), ("c", now.addingTimeInterval(-40 * 86_400))].map {
+            Article(id: $0.0, feedID: "f", url: $0.0, title: $0.0, summary: "", published: $0.1, arrived: now)
+        })
+        #expect(try database.articleCounts(since: now.addingTimeInterval(-28 * 86_400)) == ["f": 2])
     }
 
     @Test func replaceSuggestionsKeepsIgnoredHosts() throws {

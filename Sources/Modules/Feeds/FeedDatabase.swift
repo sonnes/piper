@@ -35,6 +35,9 @@ public final class FeedDatabase {
           read INTEGER NOT NULL DEFAULT 0, starred INTEGER NOT NULL DEFAULT 0)
         """)
         try execute("CREATE INDEX IF NOT EXISTS articles_feed ON articles(feed_id, read)")
+        if try !columns(of: "feeds").contains("mode") {
+            try execute("ALTER TABLE feeds ADD COLUMN mode TEXT NOT NULL DEFAULT 'best'")
+        }
         try execute("""
         CREATE TABLE IF NOT EXISTS suggestions (
           host TEXT PRIMARY KEY, feed_url TEXT, title TEXT, visits INTEGER NOT NULL, score REAL NOT NULL,
@@ -47,7 +50,7 @@ public final class FeedDatabase {
     // MARK: - Feeds
 
     public func feeds() throws -> [Feed] {
-        let statement = try prepare("SELECT id, title, home, etag, last_modified, failures, next_fetch, error FROM feeds ORDER BY title COLLATE NOCASE")
+        let statement = try prepare("SELECT id, title, home, etag, last_modified, failures, next_fetch, error, mode FROM feeds ORDER BY title COLLATE NOCASE")
         defer { sqlite3_finalize(statement) }
         var feeds: [Feed] = []
         while sqlite3_step(statement) == SQLITE_ROW {
@@ -55,7 +58,8 @@ public final class FeedDatabase {
                               etag: optionalText(statement, 3), lastModified: optionalText(statement, 4),
                               failures: Int(sqlite3_column_int(statement, 5)),
                               nextFetch: Date(timeIntervalSince1970: sqlite3_column_double(statement, 6)),
-                              error: optionalText(statement, 7)))
+                              error: optionalText(statement, 7),
+                              mode: FeedMode(rawValue: text(statement, 8)) ?? .best))
         }
         return feeds
     }
@@ -63,10 +67,11 @@ public final class FeedDatabase {
     /// Adds the feed, or replaces the stored fields of a feed with the same URL.
     public func save(_ feed: Feed) throws {
         let statement = try prepare("""
-        INSERT INTO feeds (id, title, home, etag, last_modified, failures, next_fetch, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO feeds (id, title, home, etag, last_modified, failures, next_fetch, error, mode)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET title = excluded.title, home = excluded.home, etag = excluded.etag,
           last_modified = excluded.last_modified, failures = excluded.failures, next_fetch = excluded.next_fetch,
-          error = excluded.error
+          error = excluded.error, mode = excluded.mode
         """)
         defer { sqlite3_finalize(statement) }
         bind(feed.id, at: 1, in: statement)
@@ -77,6 +82,7 @@ public final class FeedDatabase {
         sqlite3_bind_int(statement, 6, Int32(feed.failures))
         sqlite3_bind_double(statement, 7, feed.nextFetch.timeIntervalSince1970)
         bind(feed.error, at: 8, in: statement)
+        bind(feed.mode.rawValue, at: 9, in: statement)
         try step(statement)
     }
 
@@ -87,15 +93,15 @@ public final class FeedDatabase {
 
     // MARK: - Articles
 
-    /// Adds each article that the database does not hold. The read and
-    /// starred marks of a known article stay. Returns the count of new articles.
+    /// Adds each article that the database does not hold. The read mark of a
+    /// known article stays. Returns the count of new articles.
     @discardableResult
     public func insert(_ articles: [Article]) throws -> Int {
         try execute("BEGIN")
         do {
             let statement = try prepare("""
-            INSERT OR IGNORE INTO articles (id, feed_id, url, title, summary, published, arrived, read, starred)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR IGNORE INTO articles (id, feed_id, url, title, summary, published, arrived, read)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """)
             defer { sqlite3_finalize(statement) }
             var added = 0
@@ -113,7 +119,6 @@ public final class FeedDatabase {
                 }
                 sqlite3_bind_double(statement, 7, article.arrived.timeIntervalSince1970)
                 sqlite3_bind_int(statement, 8, article.read ? 1 : 0)
-                sqlite3_bind_int(statement, 9, article.starred ? 1 : 0)
                 try step(statement)
                 added += Int(sqlite3_changes(handle))
             }
@@ -125,7 +130,7 @@ public final class FeedDatabase {
         }
     }
 
-    /// The articles of a row of the Feeds index, the newest first.
+    /// The articles of a filter, the newest first.
     ///
     /// - Parameter keeping: Articles that the list shows already. They stay in
     ///   the result after the reader marks them as read, as in NetNewsWire.
@@ -135,7 +140,6 @@ public final class FeedDatabase {
         switch filter {
         case .discover: return []
         case .allUnread: condition = "read = 0"
-        case .starred: condition = "starred = 1"
         case .feed(let id):
             condition = "feed_id = ?"
             arguments = [id]
@@ -145,7 +149,7 @@ public final class FeedDatabase {
             arguments += keeping.sorted()
         }
         let statement = try prepare("""
-        SELECT id, feed_id, url, title, summary, published, arrived, read, starred FROM articles
+        SELECT id, feed_id, url, title, summary, published, arrived, read FROM articles
         WHERE \(condition) ORDER BY COALESCE(published, arrived) DESC, rowid LIMIT \(limit)
         """)
         defer { sqlite3_finalize(statement) }
@@ -157,7 +161,7 @@ public final class FeedDatabase {
 
     public func article(_ id: String) throws -> Article? {
         let statement = try prepare("""
-        SELECT id, feed_id, url, title, summary, published, arrived, read, starred FROM articles WHERE id = ?
+        SELECT id, feed_id, url, title, summary, published, arrived, read FROM articles WHERE id = ?
         """)
         defer { sqlite3_finalize(statement) }
         bind(id, at: 1, in: statement)
@@ -175,10 +179,16 @@ public final class FeedDatabase {
         return counts
     }
 
-    public func starredCount() throws -> Int {
-        let statement = try prepare("SELECT COUNT(*) FROM articles WHERE starred = 1")
+    /// The count of articles of each feed that arrived after the date, by feed ID.
+    public func articleCounts(since date: Date) throws -> [String: Int] {
+        let statement = try prepare("SELECT feed_id, COUNT(*) FROM articles WHERE COALESCE(published, arrived) >= ? GROUP BY feed_id")
         defer { sqlite3_finalize(statement) }
-        return sqlite3_step(statement) == SQLITE_ROW ? Int(sqlite3_column_int(statement, 0)) : 0
+        sqlite3_bind_double(statement, 1, date.timeIntervalSince1970)
+        var counts: [String: Int] = [:]
+        while sqlite3_step(statement) == SQLITE_ROW {
+            counts[text(statement, 0)] = Int(sqlite3_column_int(statement, 1))
+        }
+        return counts
     }
 
     public func setRead(_ read: Bool, ids: [String]) throws {
@@ -192,11 +202,25 @@ public final class FeedDatabase {
         }
     }
 
-    public func setStarred(_ starred: Bool, id: String) throws {
-        try run("UPDATE articles SET starred = \(starred ? 1 : 0) WHERE id = ?", id)
+    /// The articles that an older version of Piper starred. `StarMigration`
+    /// copies them to link captures.
+    public func starredArticles() throws -> [Article] {
+        let statement = try prepare("""
+        SELECT id, feed_id, url, title, summary, published, arrived, read FROM articles WHERE starred = 1
+        """)
+        defer { sqlite3_finalize(statement) }
+        var articles: [Article] = []
+        while sqlite3_step(statement) == SQLITE_ROW { articles.append(row(statement)) }
+        return articles
     }
 
-    /// Removes the read articles that arrived before the date. Starred articles stay.
+    /// Removes the old star of each article, after `StarMigration` copied it.
+    public func clearStars() throws {
+        try execute("UPDATE articles SET starred = 0 WHERE starred = 1")
+    }
+
+    /// Removes the read articles that arrived before the date. An article
+    /// with an old star stays until `StarMigration` copies it.
     public func prune(before date: Date) throws {
         let statement = try prepare("DELETE FROM articles WHERE read = 1 AND starred = 0 AND arrived < ?")
         defer { sqlite3_finalize(statement) }
@@ -258,15 +282,22 @@ private extension FeedDatabase {
         return statement
     }
 
-    /// An article from the columns id, feed_id, url, title, summary, published, arrived, read, starred.
+    /// An article from the columns id, feed_id, url, title, summary, published, arrived, and read.
     func row(_ statement: OpaquePointer?) -> Article {
         Article(id: text(statement, 0), feedID: text(statement, 1), url: text(statement, 2),
                 title: text(statement, 3), summary: text(statement, 4),
                 published: sqlite3_column_type(statement, 5) == SQLITE_NULL
                     ? nil : Date(timeIntervalSince1970: sqlite3_column_double(statement, 5)),
                 arrived: Date(timeIntervalSince1970: sqlite3_column_double(statement, 6)),
-                read: sqlite3_column_int(statement, 7) == 1,
-                starred: sqlite3_column_int(statement, 8) == 1)
+                read: sqlite3_column_int(statement, 7) == 1)
+    }
+
+    func columns(of table: String) throws -> Set<String> {
+        let statement = try prepare("PRAGMA table_info(\(table))")
+        defer { sqlite3_finalize(statement) }
+        var names: Set<String> = []
+        while sqlite3_step(statement) == SQLITE_ROW { names.insert(text(statement, 1)) }
+        return names
     }
 
     func step(_ statement: OpaquePointer?) throws {

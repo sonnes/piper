@@ -33,7 +33,7 @@ final class PaperDeskStateTests: XCTestCase {
 
     func testEveryScopeRestores() {
         let scopes: [PaperScope] = [.inbox(section: nil), .inbox(section: "Work"), .done, .clipboard,
-                                    .feed(.discover), .feed(.allUnread), .feed(.starred), .feed(.feed("a")),
+                                    .feed(.discover), .feed(.allUnread), .feed(.feed("a")),
                                     .folder, .sessions("/tmp/a")]
         for scope in scopes {
             var state = PaperDeskState()
@@ -126,10 +126,10 @@ final class PaperDeskStateTests: XCTestCase {
 
         var feeds = PaperDeskState()
         feeds.tab = .feeds
-        feeds.scope = .feed(.starred)
+        feeds.scope = .feed(.feed("a"))
         feeds.resetForVault(root: "/tmp/b")
         XCTAssertEqual(feeds.tab, .feeds)
-        XCTAssertEqual(feeds.scope, .feed(.starred))
+        XCTAssertEqual(feeds.scope, .feed(.feed("a")))
     }
 
     func testRelativePathsStayInsideTheRoot() {

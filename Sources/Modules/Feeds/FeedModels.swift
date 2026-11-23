@@ -14,9 +14,11 @@ public struct Feed: Equatable, Hashable, Identifiable, Sendable {
     public var nextFetch: Date
     /// The reason of the last failure, for the row of the feed.
     public var error: String?
+    /// How the posts of the feed reach Today.
+    public var mode: FeedMode
 
     public init(id: String, title: String, home: String? = nil, etag: String? = nil, lastModified: String? = nil,
-                failures: Int = 0, nextFetch: Date = .distantPast, error: String? = nil) {
+                failures: Int = 0, nextFetch: Date = .distantPast, error: String? = nil, mode: FeedMode = .best) {
         self.id = id
         self.title = title
         self.home = home
@@ -25,6 +27,7 @@ public struct Feed: Equatable, Hashable, Identifiable, Sendable {
         self.failures = failures
         self.nextFetch = nextFetch
         self.error = error
+        self.mode = mode
     }
 
     /// The host of the site, or of the feed if the feed names no site.
@@ -46,10 +49,9 @@ public struct Article: Equatable, Hashable, Identifiable, Sendable {
     public let published: Date?
     public let arrived: Date
     public var read: Bool
-    public var starred: Bool
 
     public init(id: String, feedID: String, url: String, title: String, summary: String, published: Date?,
-                arrived: Date, read: Bool = false, starred: Bool = false) {
+                arrived: Date, read: Bool = false) {
         self.id = id
         self.feedID = feedID
         self.url = url
@@ -58,19 +60,38 @@ public struct Article: Equatable, Hashable, Identifiable, Sendable {
         self.published = published
         self.arrived = arrived
         self.read = read
-        self.starred = starred
     }
 
     /// The date that the list shows and sorts by.
     public var date: Date { published ?? arrived }
 }
 
-/// A row of the Feeds index.
+/// The articles that a list reads: the unread articles of every feed, or each article of one feed.
 public enum FeedFilter: Codable, Equatable, Hashable, Sendable {
     case discover
     case allUnread
-    case starred
     case feed(String)
+}
+
+/// How the posts of a feed reach Today. The reader sets it on the Sources paper.
+public enum FeedMode: String, Codable, CaseIterable, Sendable {
+    /// Each post has its own row.
+    case every
+    /// Posts that score high have their own row. A busy day goes into a digest row.
+    case best
+    /// One digest row for each day.
+    case digest
+    /// No row in Today. The posts show only in the list of the feed.
+    case off
+
+    public var title: String {
+        switch self {
+        case .every: return "Every post"
+        case .best: return "Best"
+        case .digest: return "Digest"
+        case .off: return "Off"
+        }
+    }
 }
 
 /// A site from browser history, with the feed that Piper found on it.

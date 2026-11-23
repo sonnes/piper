@@ -79,6 +79,12 @@ public struct Note: Identifiable, Equatable, Codable {
         return CaptureLinks(trimmed).standaloneURL != nil
     }
 
+    /// The tag of a capture that the reader kept with Keep.
+    public static let keptTag = "kept"
+
+    /// True when the reader kept the capture with Keep.
+    public var isKept: Bool { tags.contains(Self.keptTag) }
+
     /// The web link of a link capture.
     public var articleURL: URL? {
         CaptureLinks(text).standaloneURL ?? sourceURLs.first.flatMap(URL.init(string:))

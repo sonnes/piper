@@ -124,10 +124,6 @@ struct ReaderPaper: View {
                             help: article.read ? "Mark as Unread (R)" : "Mark as Read (R)") {
                     model.feeds.setRead(!article.read, [article])
                 }
-                PaperButton(title: article.starred ? "Remove Star" : "Star", symbol: article.starred ? "star.fill" : "star",
-                            active: article.starred, help: article.starred ? "Remove Star (S)" : "Star (S)") {
-                    model.feeds.setStarred(!article.starred, article)
-                }
                 PaperButton(title: kept ? "Kept in Inbox" : "Keep in Inbox",
                             symbol: kept ? "tray.full.fill" : "tray.and.arrow.down",
                             help: kept ? "Kept in Inbox" : "Keep in Inbox (I)") {

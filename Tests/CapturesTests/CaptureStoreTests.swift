@@ -23,6 +23,48 @@ final class CaptureStoreTests: XCTestCase {
 
     // MARK: - Tests
 
+    func testVerbsChangeSeveralCapturesWithOneUndoStep() throws {
+        let store = CaptureStore(url: url())
+        store.add("one")
+        store.add("two")
+        store.chooseSection("Harbor")
+        store.chooseSection("Inbox")
+        let ids = Set(store.notes.map(\.id))
+
+        XCTAssertTrue(store.setKept(true, ids))
+        XCTAssertTrue(store.notes.allSatisfy(\.isKept))
+        store.undo()
+        XCTAssertFalse(store.notes.contains(where: \.isKept))
+
+        XCTAssertTrue(store.setDone(true, ids))
+        XCTAssertTrue(store.notes.allSatisfy(\.isDone))
+        store.undo()
+        XCTAssertFalse(store.notes.contains(where: \.isDone))
+
+        XCTAssertTrue(store.move(ids, to: "Harbor"))
+        XCTAssertEqual(Set(store.notes.map(\.section)), ["Harbor"])
+        store.undo()
+        XCTAssertEqual(Set(store.notes.map(\.section)), ["Inbox"])
+        XCTAssertFalse(store.move(ids, to: "Missing"))
+    }
+
+    func testKeepLinksAddsKeptCapturesAndTagsKnownLinks() throws {
+        let store = CaptureStore(url: url())
+        store.add("https://a.example/known")
+        let kept = store.keep(links: [
+            KeptLink(url: URL(string: "https://www.a.example/known/")!),
+            KeptLink(url: URL(string: "https://a.example/new")!, title: "New", source: "A Feed"),
+            KeptLink(url: URL(string: "https://a.example/new#top")!)
+        ])
+        XCTAssertEqual(kept.map(\.text), ["https://a.example/known", "https://a.example/new", "https://a.example/new"])
+        XCTAssertEqual(store.notes.count, 2)
+        XCTAssertTrue(store.notes.allSatisfy(\.isKept))
+        XCTAssertEqual(store.notes.last?.reading?.title, "New")
+        store.undo()
+        XCTAssertEqual(store.notes.map(\.text), ["https://a.example/known"])
+        XCTAssertFalse(store.notes[0].isKept)
+    }
+
     func testPageNoteIsAddedOnceAndIsNotAnArticle() throws {
         let store = CaptureStore(url: url())
         let first = try XCTUnwrap(store.pageNote(for: "piper-file://reading/journal.md", title: "Reading journal", source: "Reader"))

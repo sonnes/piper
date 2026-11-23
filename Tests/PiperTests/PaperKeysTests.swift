@@ -44,7 +44,7 @@ final class PaperKeysTests: XCTestCase {
 
     func testTheBracketKeysGoRoundTheScopesOfTheTab() {
         let rows = entries(.feeds)
-        XCTAssertEqual(IndexEntry.cycle(.feed(.allUnread), by: 1, in: rows), .feed(.starred))
+        XCTAssertEqual(IndexEntry.cycle(.feed(.allUnread), by: 1, in: rows), .feed(.feed("a")))
         XCTAssertEqual(IndexEntry.cycle(.feed(.discover), by: -1, in: rows), .feed(.feed("b")))
         // A Show row is not a scope, so the cycle skips it.
         XCTAssertEqual(IndexEntry.cycle(.inbox(section: nil), by: 1, in: entries(.inbox)), .inbox(section: "Inbox"))
