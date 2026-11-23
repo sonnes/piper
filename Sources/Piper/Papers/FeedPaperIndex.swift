@@ -1,12 +1,13 @@
 import AppKit
 import Captures
 import Feeds
+import Stream
 import SwiftUI
 
 /// The index of the active tab, in place of the list of the feed paper.
 ///
-/// Inbox shows its sections and Done. Feeds shows Discover, All Unread,
-/// Starred, and each feed. Agents shows the folders that have sessions.
+/// Today shows its lenses, its sections, and Done. Agents shows the folders
+/// that have sessions.
 struct FeedPaperIndex: View {
     @Bindable var paper: FeedPaperModel
     @Bindable var model: AppModel
@@ -17,17 +18,15 @@ struct FeedPaperIndex: View {
     @State private var namingSection = false
 
     private var store: CaptureStore { model.store }
-    private var feeds: FeedStore { model.feeds }
     private var scope: PaperScope { paper.state.scope }
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 2) {
                 switch paper.state.tab {
-                case .inbox: inbox
-                case .feeds: feedRows
+                case .today: todayRows
                 case .agents: agentRows
-                case .clipboard, .folder: EmptyView()
+                case .folder: EmptyView()
                 }
             }
             .padding(AppDefaults.Papers.indexPadding)
@@ -36,7 +35,7 @@ struct FeedPaperIndex: View {
             NewSectionSheet(sections: store.sections) { name in
                 guard store.chooseSection(name) else { return }
                 namingSection = false
-                paper.pick(.inbox(section: store.activeSection))
+                paper.pick(.today(section: store.activeSection))
             }
         }
         .alert("Edit Section", isPresented: Binding(
@@ -47,8 +46,8 @@ struct FeedPaperIndex: View {
             Button("Cancel", role: .cancel) {}
             Button("Save") {
                 guard store.renameSection(section, to: sectionName) else { return }
-                if scope == .inbox(section: section) {
-                    paper.state.scope = .inbox(section: sectionName.trimmingCharacters(in: .whitespacesAndNewlines))
+                if scope == .today(section: section) {
+                    paper.state.scope = .today(section: sectionName.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
             }
             .disabled(sectionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -60,24 +59,24 @@ struct FeedPaperIndex: View {
             Button("Cancel", role: .cancel) {}
             Button("Delete Section", role: .destructive) {
                 guard store.deleteSection(section) else { return }
-                if scope == .inbox(section: section) { paper.state.scope = .inbox(section: nil) }
+                if scope == .today(section: section) { paper.state.scope = .today(section: nil) }
             }
         } message: { section in
             Text("Delete \"\(section)\" and move its notes to Inbox. You can undo this change.")
         }
     }
 
-    // MARK: - Inbox
+    // MARK: - Today
 
-    @ViewBuilder private var inbox: some View {
+    @ViewBuilder private var todayRows: some View {
+        let stream = UnifiedStream(paper.today.input(), lens: .all)
         let open = store.notes.filter { $0.parent == nil && !$0.isDone }
-        row(.scope(.inbox(section: nil)), title: "All Sections", count: open.count)
-        IndexHeader(title: "Show")
-        row(.inboxFilter(.notes), title: "Notes", count: open.filter { !$0.isArticle }.count)
-        row(.inboxFilter(.reading), title: "Reading", count: open.filter(\.isArticle).count)
+        ForEach(UnifiedStream.Lens.allCases, id: \.self) { lens in
+            row(.lens(lens), title: lens.title, count: stream.counts[lens] ?? 0)
+        }
         IndexHeader(title: "Sections")
         ForEach(store.sections, id: \.self) { section in
-            row(.scope(.inbox(section: section)), title: section, count: open.filter { $0.section == section }.count)
+            row(.scope(.today(section: section)), title: section, count: open.filter { $0.section == section }.count)
                 .contextMenu {
                     Button("Edit Section…") {
                         sectionName = section
@@ -96,42 +95,6 @@ struct FeedPaperIndex: View {
                      current: Bool? = nil) -> IndexRow {
         IndexRow(title: title, leading: leading, count: count, current: current ?? (paper.currentEntry == entry),
                  cursor: paper.indexCursor == entry) { paper.pick(entry) }
-    }
-
-    // MARK: - Feeds
-
-    @ViewBuilder private var feedRows: some View {
-        let waiting = feeds.suggestions.filter { !$0.ignored && $0.feedURL != nil && feeds.feed($0.feedURL!) == nil }.count
-        row(.scope(.feed(.discover)), title: "Discover", count: waiting)
-        row(.scope(.feed(.allUnread)), title: "All Unread", count: feeds.totalUnread)
-            .contextMenu { Button("Mark All as Read") { feeds.markAllRead(.allUnread) } }
-        if !feeds.feeds.isEmpty { IndexHeader(title: "Feeds") }
-        ForEach(Array(feeds.feeds.enumerated()), id: \.element.id) { index, feed in
-            row(.scope(.feed(.feed(feed.id))), title: feed.title, leading: AnyView(feedIcon(feed, index: index)),
-                count: feeds.unreadCounts[feed.id] ?? 0)
-                .help(feed.error ?? feed.title)
-                .contextMenu {
-                    Button("Mark All as Read") { feeds.markAllRead(.feed(feed.id)) }
-                    Divider()
-                    Button("Copy Feed Address") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(feed.id, forType: .string)
-                    }
-                    Button("Unsubscribe") {
-                        if scope == .feed(.feed(feed.id)) { paper.state.scope = .feed(.allUnread) }
-                        feeds.unsubscribe(feed.id)
-                    }
-                }
-        }
-        IndexAction(title: "Add Feed…") { model.addingFeed = true }
-    }
-
-    @ViewBuilder private func feedIcon(_ feed: Feed, index: Int) -> some View {
-        if feed.error != nil {
-            RowIconView(icon: .glyph("rss", PiperTheme.warningNS))
-        } else {
-            SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title, index: index)
-        }
     }
 
     // MARK: - Agents

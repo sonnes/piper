@@ -6,6 +6,8 @@ import UniformTypeIdentifiers
 /// Adds a feed from the address of a site or a feed, or every feed of an OPML file.
 struct AddFeedSheet: View {
     let feeds: FeedStore
+    /// An address to look up at once, after a paste in the capture field.
+    var initial: String?
     /// Closes the sheet. A new feed is the argument, if one was added.
     let done: (String?) -> Void
 
@@ -22,6 +24,11 @@ struct AddFeedSheet: View {
             TextField("Site or feed address", text: $address)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(find)
+                .onAppear {
+                    guard let initial, address.isEmpty else { return }
+                    address = initial
+                    DispatchQueue.main.async(execute: find)
+                }
                 .onChange(of: address) { _, _ in
                     found = []
                     chosen = nil

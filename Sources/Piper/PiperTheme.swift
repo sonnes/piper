@@ -238,6 +238,12 @@ enum PiperTheme {
         return hovered ? rowHover : .clear
     }
 
+    /// The soft shadow under the chosen lens and under a floating bar of Today.
+    static let lensShadow = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor.black.withAlphaComponent(0.4) : NSColor.black.withAlphaComponent(0.12)
+    })
+
     /// The thin line around a floating bar, such as the toolbar of a reader paper.
     static let barEdgeNS = NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua

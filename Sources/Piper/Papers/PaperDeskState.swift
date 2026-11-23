@@ -1,5 +1,5 @@
 import AppKit
-import Feeds
+import Stream
 
 /// The color of a tab on the edge of the feed paper. `PiperTheme` holds the
 /// fill and the edge of each color.
@@ -18,37 +18,33 @@ enum TabColor: String, Codable, CaseIterable, Identifiable {
 
 /// One tab on the left edge of the feed paper.
 ///
-/// The fixed tabs come first. Each folder of the folder list follows them,
-/// in the order that the reader added the folders. Each tab has its own color.
+/// Today comes first, then Agents. Each folder of the folder list follows
+/// them, in the order that the reader added the folders. Each tab has its own color.
 enum PaperTab: Codable, Hashable {
-    case inbox
-    case clipboard
-    case feeds
+    /// The stream of notes, links, and feed articles.
+    case today
     /// The folders that have agent sessions. The tab shows only while a session exists.
     case agents
     /// A folder of the folder list, by its path in the list.
     case folder(String)
 
     /// The fixed tabs, in the order of the column.
-    static let fixed: [PaperTab] = [.inbox, .clipboard, .feeds, .agents]
+    static let fixed: [PaperTab] = [.today, .agents]
 
     /// The name on the tab.
     var title: String {
         switch self {
-        case .inbox: return "Inbox"
-        case .clipboard: return "Clipboard"
-        case .feeds: return "Feeds"
+        case .today: return "Today"
         case .agents: return "Agents"
         case .folder(let path): return URL(fileURLWithPath: path).lastPathComponent
         }
     }
 
-    /// True for a tab that has an index. Clipboard goes straight to its list.
-    /// A folder shows its tree.
+    /// True for a tab that has an index. A folder shows its tree.
     var hasIndex: Bool {
         switch self {
-        case .clipboard, .folder: return false
-        case .inbox, .feeds, .agents: return true
+        case .folder: return false
+        case .today, .agents: return true
         }
     }
 
@@ -61,9 +57,7 @@ enum PaperTab: Codable, Hashable {
     /// The color of the tab. A folder has the color in `folders`, or teal.
     func color(folders: [String: TabColor]) -> TabColor {
         switch self {
-        case .inbox: return .indigo
-        case .clipboard: return .zinc
-        case .feeds: return .sky
+        case .today: return .indigo
         case .agents: return .plum
         case .folder(let path): return folders[path] ?? .teal
         }
@@ -78,23 +72,21 @@ enum PaperTab: Codable, Hashable {
 
 /// What the list of the feed paper shows.
 enum PaperScope: Codable, Equatable {
-    /// The Inbox stream: one capture section, or every section when the section is nil.
-    case inbox(section: String?)
+    /// Today: one capture section, or everything when the section is nil.
+    case today(section: String?)
     /// The captures that are done.
     case done
-    /// The clipboard texts that the reader has not saved.
-    case clipboard
-    /// Discover, All Unread, Starred, or one feed.
-    case feed(FeedFilter)
+    /// The articles of one feed, by its feed address.
+    case feed(String)
     /// The tree of the active folder.
     case folder
     /// The sessions of one folder, by its absolute path.
     case sessions(String)
 
-    /// True for the scopes that show captures or clipboard texts.
+    /// True for the scopes that show captures.
     var showsCaptures: Bool {
         switch self {
-        case .inbox, .done, .clipboard: return true
+        case .today, .done: return true
         case .feed, .folder, .sessions: return false
         }
     }
@@ -108,10 +100,12 @@ struct PaperDeskState: Codable, Equatable {
 
     // MARK: - Properties
 
-    /// The active tab. The paper opens on Inbox.
-    var tab = PaperTab.inbox
+    /// The active tab. The paper opens on Today.
+    var tab = PaperTab.today
     /// What the list shows.
-    var scope = PaperScope.inbox(section: nil)
+    var scope = PaperScope.today(section: nil)
+    /// The lens of Today: All, Notes, Reading, or Kept.
+    var lens = UnifiedStream.Lens.all
     /// The open folders of the folder tree, by their absolute paths.
     var expandedFolders: [String] = []
     /// The tab color of each folder, by its path in the folder list.
@@ -130,9 +124,7 @@ struct PaperDeskState: Codable, Equatable {
     /// The scope that a click on a tab shows.
     func defaultScope(for tab: PaperTab, root: String, sessionFolders: [String]) -> PaperScope {
         switch tab {
-        case .inbox: return .inbox(section: nil)
-        case .clipboard: return .clipboard
-        case .feeds: return .feed(.allUnread)
+        case .today: return .today(section: nil)
         case .agents: return .sessions(sessionFolders.first ?? root)
         case .folder: return .folder
         }
@@ -192,15 +184,16 @@ struct PaperDeskState: Codable, Equatable {
 
 extension PaperDeskState {
     private enum CodingKeys: String, CodingKey {
-        case tab, scope, expandedFolders, folderColors, folderCounts, feedFrame, selectedFile
+        case tab, scope, lens, expandedFolders, folderColors, folderCounts, feedFrame, selectedFile
     }
 
     /// Reads a saved state. A key that is missing or that this version cannot
     /// read takes its default, so the rest of the state stays.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        tab = (try? container.decodeIfPresent(PaperTab.self, forKey: .tab)) ?? .inbox
-        scope = (try? container.decodeIfPresent(PaperScope.self, forKey: .scope)) ?? .inbox(section: nil)
+        tab = (try? container.decodeIfPresent(PaperTab.self, forKey: .tab)) ?? .today
+        scope = (try? container.decodeIfPresent(PaperScope.self, forKey: .scope)) ?? .today(section: nil)
+        lens = (try? container.decodeIfPresent(UnifiedStream.Lens.self, forKey: .lens)) ?? .all
         expandedFolders = (try? container.decodeIfPresent([String].self, forKey: .expandedFolders)) ?? []
         folderColors = (try? container.decodeIfPresent([String: TabColor].self, forKey: .folderColors)) ?? [:]
         folderCounts = (try? container.decodeIfPresent([String: Int].self, forKey: .folderCounts)) ?? [:]

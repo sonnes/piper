@@ -53,7 +53,9 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(vaultChanged),
                                                name: .vaultPathDidChange, object: model)
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, let key = PaperKey(event), self.handle(key, in: event.window) else { return event }
+            guard let self else { return event }
+            if let number = PaperKey.tabNumber(event), self.handleTab(number, in: event.window) { return nil }
+            guard let key = PaperKey(event), self.handle(key, in: event.window) else { return event }
             return nil
         }
     }
@@ -94,9 +96,16 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Keyboard
 
-    /// Reads a key on the feed paper. A list of captures reads its own Up
-    /// Arrow, Down Arrow, and Return. The folder tree reads the arrow keys
-    /// and Return.
+    /// Command and a number shows a tab of the column, while the feed paper has the focus.
+    func handleTab(_ number: Int, in eventWindow: NSWindow?) -> Bool {
+        guard let window, PaperKey.focusedWindow === window, eventWindow == nil || eventWindow === window else { return false }
+        paper.numberKey(number)
+        return true
+    }
+
+    /// Reads a key on the feed paper. Today reads its own arrows, Return,
+    /// letters, and the numbers of its lenses. The folder tree reads the
+    /// arrow keys and Return.
     ///
     /// - Returns: True when the paper used the key.
     func handle(_ key: PaperKey, in eventWindow: NSWindow?) -> Bool {
@@ -104,8 +113,6 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
               !PaperKey.editsText(window) else { return false }
         if paper.state.tab.isFolder, !paper.showsIndex, handleTree(key) { return true }
         switch key {
-        case .number(let number):
-            paper.numberKey(number)
         case .previousScope:
             paper.cycleScope(-1)
         case .nextScope:

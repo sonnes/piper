@@ -31,9 +31,6 @@ final class AppModel {
     /// The tab, Reader or Web, that the reader last chose for each site, by `siteKey`.
     /// Preferences keep it.
     private(set) var siteTabs: [String: ArticleTab] = [:]
-    /// The chip of the Inbox list for each section. The empty key is Inbox
-    /// with every section.
-    var inboxFilters: [String: InboxStream.Filter] = [:]
     /// The child note that the Reader tab scrolls to.
     var readerScroll: ReaderScroll?
     /// The pages of the Reader tabs that show, one for each reader paper.
@@ -233,17 +230,6 @@ final class AppModel {
     /// Done. Launch runs it, and so does each return to the feed paper.
     func archiveFinishedReading(now: Date = Date()) {
         store.archiveFinishedReading(before: now.addingTimeInterval(-Double(ReadingList.finishedDays) * 86_400))
-    }
-
-    /// The chip of the Inbox list of a section, or of every section when the section is nil.
-    func inboxFilter(for section: String?) -> InboxStream.Filter {
-        inboxFilters[section ?? "", default: .all]
-    }
-
-    /// Changes the chip of Inbox when it hides the note, so that the note shows.
-    func showInInbox(_ note: Note) {
-        let filter = inboxFilter(for: nil)
-        if (filter == .notes && note.isArticle) || (filter == .reading && !note.isArticle) { inboxFilters[""] = .all }
     }
 
     func requestAccessibility() {

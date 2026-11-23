@@ -51,12 +51,14 @@ struct Hint: Equatable {
     /// - Parameters:
     ///   - index: True while the feed paper shows the index of its tab.
     ///   - tree: True while the feed paper shows the folder tree.
+    ///   - today: True while the feed paper shows Today, which takes the verb keys and the lens numbers.
     ///   - paper: The item of the reader paper with the focus, or nil for the feed paper.
     ///   - article: True when that paper shows an article, which takes H and N.
     ///   - papersOpen: True while a reader paper is open.
     ///   - tabs: The number of tabs in the column.
-    static func hints(index: Bool, tree: Bool = false, paper: PaperItem?, article: Bool, papersOpen: Bool, tabs: Int) -> [Hint] {
-        let tabKeys = "1–\(min(tabs, 9))"
+    static func hints(index: Bool, tree: Bool = false, today: Bool = false, paper: PaperItem?, article: Bool,
+                      papersOpen: Bool, tabs: Int) -> [Hint] {
+        let tabKeys = "⌘1–\(min(tabs, 9))"
         if paper != nil {
             return (article ? [Hint(keys: ["H"], label: "highlight"), Hint(keys: ["N"], label: "note")] : [])
                 + [Hint(keys: ["⌘`"], label: "next paper"), Hint(keys: ["esc"], label: "put back"), Hint(keys: ["T"], label: "tidy")]
@@ -71,8 +73,14 @@ struct Hint: Equatable {
             return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["↵"], label: "pick"),
                     Hint(keys: [tabKeys], label: "tab"), Hint(keys: ["esc"], label: "back to the list")]
         }
+        if today {
+            return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["↵"], label: "open as a paper"),
+                    Hint(keys: ["K"], label: "keep"), Hint(keys: ["E"], label: "done"), Hint(keys: ["F"], label: "file"),
+                    Hint(keys: ["S"], label: "send"), Hint(keys: ["1–4"], label: "lens"), Hint(keys: ["⌘N"], label: "write")]
+                + (papersOpen ? [Hint(keys: ["⌘`"], label: "next paper")] : [])
+        }
         return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["↵"], label: "open as a paper"),
-                Hint(keys: ["⌘N"], label: "capture"), Hint(keys: [tabKeys], label: "tab"), Hint(keys: ["←"], label: "index")]
+                Hint(keys: ["⌘N"], label: "write"), Hint(keys: [tabKeys], label: "tab"), Hint(keys: ["←"], label: "index")]
             + (papersOpen ? [Hint(keys: ["⌘`"], label: "next paper")] : [])
     }
 }
@@ -84,7 +92,8 @@ private struct HintStripView: View {
     var body: some View {
         let focused = marks.focusedPaper
         let hints = Hint.hints(index: paper.showsIndex && focused == nil,
-                               tree: paper.state.tab.isFolder && !paper.showsIndex && focused == nil, paper: focused,
+                               tree: paper.state.tab.isFolder && !paper.showsIndex && focused == nil,
+                               today: paper.state.scope.showsCaptures && !paper.showsIndex, paper: focused,
                                article: focused.map { paper.model.isArticle($0) } ?? false,
                                papersOpen: !marks.open.isEmpty, tabs: paper.tabs.count)
         HStack(spacing: 20) {

@@ -8,6 +8,7 @@ import SwiftUI
 /// column parts two rows. The selected row has a round fill, in indigo while
 /// the feed paper has the focus and in gray when it does not. A row under the
 /// pointer has a faint fill, and its actions take the place of its time. A
+/// row of Today also shows its actions while it is selected. A
 /// row whose item is open as a reader paper shows a dashed slot and "on the
 /// desk" in place of its time. The row flashes when its paper goes back, and
 /// when a note lands under it.
@@ -18,6 +19,9 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     /// The count of the notes under the row. The row flashes when it grows.
     var notes = 0
     let selected: Bool
+    /// True when the selected row shows its actions too, so that no action
+    /// needs the pointer.
+    var actionsOnSelection = false
     let time: String
     let action: () -> Void
     @ViewBuilder let mark: () -> Mark
@@ -32,7 +36,7 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     private typealias Metrics = AppDefaults.Papers
 
     private var lifted: Bool { openOnDesk || (item.map { marks?.isOpen($0) == true } ?? false) }
-    private var showsActions: Bool { hovered && Actions.self != EmptyView.self }
+    private var showsActions: Bool { (hovered || (actionsOnSelection && selected)) && Actions.self != EmptyView.self }
 
     var body: some View {
         decorated
@@ -98,7 +102,7 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
 
     /// The time, or the actions while the pointer is over the row.
     @ViewBuilder private var trailing: some View {
-        if showsActions && !lifted {
+        if showsActions && (!lifted || actionsOnSelection) {
             HStack(spacing: 2) { actions() }
                 .frame(minHeight: Metrics.rowLineHeight)
                 .transition(.opacity)
@@ -381,46 +385,5 @@ struct PaperEmpty: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
-    }
-}
-
-/// One copy in the clipboard list of the feed paper. Under the pointer, the
-/// row shows Keep, Read for a web link, and Copy in place of its time.
-struct PaperClipboardRow: View {
-    let entry: ClipboardEntry
-    let keep: () -> Void
-    let copy: () -> Void
-    /// Saves a copied web link to Reading and opens it. Nil for other text.
-    let read: (() -> Void)?
-    let agents: FolderAgents
-    let send: (FolderAgents.Action?) -> Void
-
-    var body: some View {
-        PaperRow(item: nil, selected: false, time: RowTime.text(entry.copiedAt), action: copy) {
-            Image(systemName: "doc.on.clipboard")
-                .font(.system(size: 14))
-                .foregroundStyle(PiperTheme.tertiaryLabel)
-        } content: {
-            VStack(alignment: .leading, spacing: 2) {
-                PaperRowTitle(text: Text(entry.text.replacingOccurrences(of: "\n", with: " ")), lines: 2)
-                if let source = entry.source {
-                    PaperRowMeta { Text(source) }
-                }
-            }
-        } actions: {
-            RowAction(symbol: "tray.and.arrow.down", title: "Keep in Inbox", tint: PiperTheme.brand, action: keep)
-            if let read { RowAction(symbol: "book", title: "Add to Reading", action: read) }
-            RowAction(symbol: "doc.on.doc", title: "Copy", action: copy)
-        }
-        .contextMenu {
-            Button("Copy", action: copy)
-            Button("Keep in Inbox", action: keep)
-            if let read { Button("Add to Reading", action: read) }
-            if !agents.folders.isEmpty {
-                Divider()
-                Menu("Send To") { SendMenuItems(agents: agents, send: send) }
-            }
-        }
-        .help("Click to copy it again")
     }
 }

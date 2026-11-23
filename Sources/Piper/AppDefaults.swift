@@ -252,6 +252,31 @@ final class AppDefaults {
         static let countLimit = 999
     }
 
+    /// Today: the verbs of a row, the lenses, the tray, and the floating bar.
+    enum Today {
+        /// The seconds that Undo shows after Done or Delete.
+        static let undoSeconds: TimeInterval = 5
+        /// The round button of a verb on the selected row and on the row under the pointer.
+        static let verbButton: CGFloat = 30
+        static let verbGlyph: CGFloat = 14
+        static let verbSpacing: CGFloat = 2
+        /// The segmented capsule of the lenses.
+        static let lensHeight: CGFloat = 30
+        static let lensPadding = EdgeInsets(top: 4, leading: 20, bottom: 8, trailing: 20)
+        static let lensInset: CGFloat = 3
+        /// The clipboard texts that the tray at the foot shows at most.
+        static let trayLimit = 3
+        /// The floating bar of a selection of several rows.
+        static let barHeight: CGFloat = 44
+        static let barBottom: CGFloat = 16
+        static let barSpacing: CGFloat = 4
+        /// The titles of a digest row: the first titles, then a count of the others.
+        static let digestTitles = 2
+        /// The File picker.
+        static let pickerSize = NSSize(width: 360, height: 380)
+        static let pickerRowHeight: CGFloat = 30
+    }
+
     enum ListSearch {
         static let horizontalInset: CGFloat = 12
         static let verticalInset: CGFloat = 8
@@ -424,16 +449,6 @@ final class AppDefaults {
         static let formPadding: CGFloat = 14
         static let previewHeight: CGFloat = 140
         static let previewFontSize: CGFloat = 11
-    }
-
-    /// The ring of a link that fills with the reading progress.
-    enum ProgressRing {
-        static let lineWidth: CGFloat = 1.25
-        static let progressLineWidth: CGFloat = 2.4
-        static let progressInset: CGFloat = 1.2
-        /// The smallest part of the ring that a started article fills, so the start shows.
-        static let minimumProgress = 0.04
-        static let checkFontSize: CGFloat = 8
     }
 
     /// A square with the first letter of a site.

@@ -29,26 +29,25 @@ struct FeedPaperView: View {
         .ignoresSafeArea(.container, edges: .top)
         .environment(paper.marks)
         .sheet(isPresented: $model.addingFeed) {
-            AddFeedSheet(feeds: model.feeds) { added in
+            AddFeedSheet(feeds: model.feeds, initial: paper.subscribeAddress) { added in
                 model.addingFeed = false
+                paper.subscribeAddress = nil
                 guard let added else { return }
-                paper.choose(.feeds)
-                paper.pick(.feed(.feed(added)))
+                paper.pick(.feed(added))
             }
         }
         .sheet(isPresented: $namingSection) {
             NewSectionSheet(sections: model.store.sections) { name in
                 guard model.store.chooseSection(name) else { return }
                 namingSection = false
-                paper.choose(.inbox)
-                paper.pick(.inbox(section: model.store.activeSection))
+                paper.pick(.today(section: model.store.activeSection))
             }
         }
         .onChange(of: model.wikiPaths, initial: true) { paper.syncFolders() }
         .onChange(of: model.loading) { paper.recordFileCount() }
         .onChange(of: model.files.count) { paper.recordFileCount() }
         .onChange(of: model.store.sections) { _, sections in
-            if case .inbox(let section?) = paper.state.scope, !sections.contains(section) { paper.pick(.inbox(section: nil)) }
+            if case .today(let section?) = paper.state.scope, !sections.contains(section) { paper.pick(.today(section: nil)) }
         }
         .routeSheets(model)
     }
@@ -79,10 +78,6 @@ struct FeedPaperView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(reduceMotion ? nil : .easeInOut(duration: Metrics.fade), value: paper.showsIndex)
-            if !paper.showsIndex, !paper.state.tab.isFolder, paper.state.scope != .clipboard,
-               let entry = model.clipboard.entries.first {
-                clipboardFoot(entry)
-            }
         }
         .background(PiperTheme.paper)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
@@ -126,26 +121,6 @@ struct FeedPaperView: View {
         .background(WindowDragArea())
     }
 
-    /// The last copy, at the foot of the paper. Keep saves it to Inbox.
-    private func clipboardFoot(_ entry: ClipboardEntry) -> some View {
-        HStack(spacing: 10) {
-            Text("Clipboard").foregroundStyle(PiperTheme.paperFaint)
-            Text(entry.text.replacingOccurrences(of: "\n", with: " "))
-                .foregroundStyle(PiperTheme.paperMuted)
-                .lineLimit(1).truncationMode(.tail)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button("Keep") { model.clipboard.save(entry.id) }
-                .buttonStyle(.plain)
-                .font(PiperTheme.paperUI(.body, weight: .medium))
-                .foregroundStyle(PiperTheme.brand)
-                .help("Save the copy to Inbox")
-        }
-        .font(PiperTheme.paperUI(.body))
-        .padding(Metrics.footPadding)
-        .overlay(alignment: .top) { Rectangle().fill(PiperTheme.paperRule).frame(height: 1) }
-        .padding(.horizontal, Metrics.footMargin)
-    }
-
     private var moreMenu: some View {
         Menu {
             Button("New Capture") { paper.newCapture() }
@@ -168,12 +143,10 @@ struct FeedPaperView: View {
 
     @ViewBuilder private var list: some View {
         switch paper.state.scope {
-        case .inbox(let section): captureView(.stream(section: section))
-        case .done: captureView(.archived)
-        case .clipboard: captureView(.clipboard)
-        case .feed(.discover): DiscoverView(model: model)
-        case .feed(let filter):
-            FeedArticleList(model: model, filter: filter, selectedID: paper.selectedArticle,
+        case .today, .done:
+            TodayView(today: paper.today, paper: paper, model: model, window: window)
+        case .feed(let feed):
+            FeedArticleList(model: model, filter: .feed(feed), selectedID: paper.selectedArticle,
                             select: { paper.selectedArticle = $0?.id },
                             openPaper: { paper.open(.article($0.id)) },
                             setKeys: { paper.listKeys = $0 })
@@ -184,39 +157,16 @@ struct FeedPaperView: View {
         }
     }
 
-    private func captureView(_ content: CaptureListContent) -> CaptureView {
-        CaptureView(
-            model: model, content: content,
-            composerRequest: paper.composerRequest,
-            acceptsKeyboard: { [paper] window in
-                window.windowController is FeedPaperController && !paper.showsIndex
-            },
-            focusNotes: { window()?.makeFirstResponder(nil) },
-            openCapture: { paper.open(.note($0)) }
-        )
-    }
-
     // MARK: - Text
 
-    /// The tab and the scope, for example "Feeds › Harbor Notes".
+    /// The tab and the scope, for example "Today › Harbor".
     private var title: String {
         let tab = paper.state.tab
         switch paper.state.scope {
-        case .inbox(nil):
-            switch paper.inboxFilter {
-            case .all: return "Inbox"
-            case .notes: return "Inbox › Notes"
-            case .reading: return "Inbox › Reading"
-            }
-        case .inbox(let section?): return "Inbox › " + section
-        case .done: return "Inbox › Done"
-        case .clipboard: return "Clipboard"
-        case .feed(let filter):
-            switch filter {
-            case .discover: return "Feeds › Discover"
-            case .allUnread: return "Feeds › All Unread"
-            case .feed(let id): return "Feeds › " + (model.feeds.feed(id)?.title ?? "Feed")
-            }
+        case .today(nil): return "Today"
+        case .today(let section?): return "Today › " + section
+        case .done: return "Today › Done"
+        case .feed(let id): return "Today › " + (model.feeds.feed(id)?.title ?? "Feed")
         case .folder:
             return tab.title
         case .sessions(let folder): return "Agents › " + URL(fileURLWithPath: folder).lastPathComponent
@@ -226,9 +176,7 @@ struct FeedPaperView: View {
     /// The count on a tab.
     private func count(_ tab: PaperTab) -> Int {
         switch tab {
-        case .inbox: return model.store.notes.filter { $0.parent == nil && !$0.isDone }.count
-        case .clipboard: return 0
-        case .feeds: return model.feeds.totalUnread
+        case .today: return model.store.notes.filter { $0.parent == nil && !$0.isDone }.count
         case .agents:
             let runner = model.agents.runner
             return runner.folders().reduce(0) { total, folder in

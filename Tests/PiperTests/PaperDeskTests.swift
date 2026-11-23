@@ -20,7 +20,8 @@ final class PaperDeskStateTests: XCTestCase {
     func testStateRestoresAfterASave() {
         var state = PaperDeskState()
         state.tab = .folder("/tmp/notes")
-        state.scope = .feed(.feed("harbor"))
+        state.scope = .feed("harbor")
+        state.lens = .kept
         state.expandedFolders = ["/tmp/notes/Field Notes", "/tmp/notes/Field Notes/Essays"]
         state.folderColors = ["/tmp/notes": .rose]
         state.folderCounts = ["/tmp/notes": 12]
@@ -32,8 +33,7 @@ final class PaperDeskStateTests: XCTestCase {
     }
 
     func testEveryScopeRestores() {
-        let scopes: [PaperScope] = [.inbox(section: nil), .inbox(section: "Work"), .done, .clipboard,
-                                    .feed(.discover), .feed(.allUnread), .feed(.feed("a")),
+        let scopes: [PaperScope] = [.today(section: nil), .today(section: "Work"), .done, .feed("a"),
                                     .folder, .sessions("/tmp/a")]
         for scope in scopes {
             var state = PaperDeskState()
@@ -43,23 +43,24 @@ final class PaperDeskStateTests: XCTestCase {
         }
     }
 
-    func testNoSavedStateOrABadStateOpensOnInbox() {
+    func testNoSavedStateOrABadStateOpensOnToday() {
         XCTAssertEqual(PaperDeskState.restore(from: defaults), PaperDeskState())
         defaults.set(Data("not json".utf8), forKey: AppDefaults.Key.paperDeskState)
         let state = PaperDeskState.restore(from: defaults)
-        XCTAssertEqual(state.tab, .inbox)
-        XCTAssertEqual(state.scope, .inbox(section: nil))
+        XCTAssertEqual(state.tab, .today)
+        XCTAssertEqual(state.scope, .today(section: nil))
+        XCTAssertEqual(state.lens, .all)
     }
 
     /// A key that this version cannot read takes its default, and the other keys stay.
-    func testAStateWithATabThatNoLongerExistsOpensOnInbox() throws {
-        let old = [#"{"tab":{"pinned":{"_0":"/n/a"}},"scope":{"clipboard":{}},"expandedFolders":["/n/a"]}"#,
-                   #"{"tab":{"folders":{}},"scope":{"clipboard":{}},"expandedFolders":["/n/a"]}"#]
+    func testAStateWithATabThatNoLongerExistsOpensOnToday() throws {
+        let old = [#"{"tab":{"inbox":{}},"scope":{"clipboard":{}},"expandedFolders":["/n/a"]}"#,
+                   #"{"tab":{"feeds":{}},"scope":{"inbox":{"section":"Work"}},"expandedFolders":["/n/a"]}"#]
         for json in old {
             defaults.set(Data(json.utf8), forKey: AppDefaults.Key.paperDeskState)
             let state = PaperDeskState.restore(from: defaults)
-            XCTAssertEqual(state.tab, .inbox)
-            XCTAssertEqual(state.scope, .clipboard)
+            XCTAssertEqual(state.tab, .today)
+            XCTAssertEqual(state.scope, .today(section: nil))
             XCTAssertEqual(state.expandedFolders, ["/n/a"])
             XCTAssertEqual(state.folderColors, [:])
         }
@@ -70,16 +71,17 @@ final class PaperDeskStateTests: XCTestCase {
     func testTheColumnHasTheFixedTabsThenOneTabForEachFolder() {
         let folders = ["/n/a", "/n/b", "/n/c"]
         XCTAssertEqual(PaperTab.column(folders: folders, showsAgents: true),
-                       [.inbox, .clipboard, .feeds, .agents, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
+                       [.today, .agents, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
         XCTAssertEqual(PaperTab.column(folders: folders, showsAgents: false),
-                       [.inbox, .clipboard, .feeds, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
+                       [.today, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
+        XCTAssertEqual(PaperTab.today.color(folders: [:]), .indigo)
         let many = (1...12).map { "/n/\($0)" }
-        XCTAssertEqual(PaperTab.column(folders: many, showsAgents: false).count, 15, "The column has no limit.")
+        XCTAssertEqual(PaperTab.column(folders: many, showsAgents: false).count, 13, "The column has no limit.")
         XCTAssertEqual(PaperTab.folder("/n/Field Notes").title, "Field Notes")
     }
 
     func testEachFixedTabHasItsColorAndNewFoldersTakeTheFolderColorsInOrder() {
-        XCTAssertEqual(PaperTab.fixed.map { $0.color(folders: [:]) }, [.indigo, .zinc, .sky, .plum])
+        XCTAssertEqual(PaperTab.fixed.map { $0.color(folders: [:]) }, [.indigo, .plum])
         var state = PaperDeskState()
         state.assignColors(to: ["/n/a", "/n/b", "/n/c"])
         XCTAssertEqual(state.folderColors, ["/n/a": .teal, "/n/b": .rose, "/n/c": .clay])
@@ -125,11 +127,11 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertNil(state.selectedFile)
 
         var feeds = PaperDeskState()
-        feeds.tab = .feeds
-        feeds.scope = .feed(.feed("a"))
+        feeds.tab = .today
+        feeds.scope = .feed("a")
         feeds.resetForVault(root: "/tmp/b")
-        XCTAssertEqual(feeds.tab, .feeds)
-        XCTAssertEqual(feeds.scope, .feed(.feed("a")))
+        XCTAssertEqual(feeds.tab, .today)
+        XCTAssertEqual(feeds.scope, .feed("a"))
     }
 
     func testRelativePathsStayInsideTheRoot() {
@@ -142,7 +144,7 @@ final class PaperDeskStateTests: XCTestCase {
     func testEachTabHasItsDefaultScope() {
         let state = PaperDeskState()
         XCTAssertEqual(state.defaultScope(for: .folder("/tmp/a"), root: "/tmp/root", sessionFolders: []), .folder)
-        XCTAssertEqual(state.defaultScope(for: .feeds, root: "/tmp/root", sessionFolders: []), .feed(.allUnread))
+        XCTAssertEqual(state.defaultScope(for: .today, root: "/tmp/root", sessionFolders: []), .today(section: nil))
         XCTAssertEqual(state.defaultScope(for: .agents, root: "/tmp/root", sessionFolders: ["/tmp/s"]), .sessions("/tmp/s"))
         XCTAssertEqual(state.defaultScope(for: .agents, root: "/tmp/root", sessionFolders: []), .sessions("/tmp/root"))
     }
@@ -501,9 +503,9 @@ final class PaperDeskTests: XCTestCase {
         XCTAssertEqual(desk.paper.state.selectedFile, "notes/journal.md")
     }
 
-    /// New Capture, Window > Inbox, and the menu bar item show the feed paper
-    /// on the Inbox list with an empty search and a request for the add field.
-    func testNewCaptureShowsTheInboxListWithTheAddField() async throws {
+    /// New Capture, Window > Today, and the menu bar item show the feed paper
+    /// on Today with an empty search and a request for the capture field.
+    func testNewCaptureShowsTodayWithTheCaptureField() async throws {
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
         let suite = "piper-paper-desk-capture-tests"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -512,18 +514,18 @@ final class PaperDeskTests: XCTestCase {
         let desk = PaperDesk(model: model, defaults: defaults)
         defer { desk.hide() }
         XCTAssertTrue(model.store.add("Fictional note"))
-        desk.paper.choose(.clipboard)
-        model.store.query = "fictional"
-        model.store.selection = Set(model.store.notes.map(\.id))
+        desk.paper.pick(.done)
+        desk.paper.today.query = "fictional"
+        desk.paper.today.selection = Set(model.store.notes.map { .note($0.id) })
         XCTAssertNil(desk.paper.composerRequest)
 
         desk.newCapture()
         XCTAssertTrue(desk.isVisible)
-        XCTAssertEqual(desk.paper.state.tab, .inbox)
-        XCTAssertEqual(desk.paper.state.scope, .inbox(section: nil))
+        XCTAssertEqual(desk.paper.state.tab, .today)
+        XCTAssertEqual(desk.paper.state.scope, .today(section: nil))
         XCTAssertFalse(desk.paper.showsIndex)
-        XCTAssertEqual(model.store.query, "")
-        XCTAssertTrue(model.store.selection.isEmpty)
+        XCTAssertEqual(desk.paper.today.query, "")
+        XCTAssertTrue(desk.paper.today.selection.isEmpty)
         let first = try XCTUnwrap(desk.paper.composerRequest)
 
         desk.newCapture()

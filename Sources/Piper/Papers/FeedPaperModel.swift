@@ -1,6 +1,7 @@
 import AppKit
 import Captures
 import Feeds
+import Stream
 
 /// One item that a reader paper shows.
 enum PaperItem: Hashable {
@@ -69,8 +70,12 @@ final class FeedPaperModel {
     var indexCursor: IndexEntry?
     /// The open papers and the flash of a row.
     let marks = DeskMarks()
-    /// A new value puts the cursor in the add field of the Inbox list.
+    /// A new value puts the cursor in the capture field of Today.
     var composerRequest: UUID?
+    /// The selection, the search, and the verbs of Today.
+    let today: TodayModel
+    /// The address that the Add Feed sheet starts with, after a paste of a feed address.
+    var subscribeAddress: String?
     /// The selected article of the list of a feed.
     var selectedArticle: String?
     /// The row under the cursor of the folder tree, by its absolute path, for each folder tab.
@@ -91,6 +96,7 @@ final class FeedPaperModel {
     init(model: AppModel, defaults: UserDefaults = .standard) {
         self.model = model
         self.defaults = defaults
+        today = TodayModel(model: model)
         state = PaperDeskState.restore(from: defaults)
         syncFolders()
     }
@@ -155,20 +161,24 @@ final class FeedPaperModel {
 
     /// A pick on the index: the paper shows the list of the scope.
     func pick(_ scope: PaperScope) {
-        if case .inbox(nil) = scope { model.inboxFilters[""] = .all }
+        if case .feed = scope, !state.tab.isFolder { state.tab = .today }
         setScope(scope)
         showsIndex = false
     }
 
-    /// A pick of a Show row on the Inbox index: every section, with only notes or only links.
-    func pickFilter(_ filter: InboxStream.Filter) {
-        setScope(.inbox(section: nil))
-        model.inboxFilters[""] = filter
+    /// A pick of a lens row on the Today index: everything, with one lens.
+    func pickLens(_ lens: UnifiedStream.Lens) {
+        if state.tab != .today { state.tab = .today }
+        setScope(.today(section: nil))
+        state.lens = lens
         showsIndex = false
     }
 
-    /// The filter of the list of every Inbox section.
-    var inboxFilter: InboxStream.Filter { model.inboxFilter(for: nil) }
+    /// Opens the Add Feed sheet with an address, after a paste of a feed or site address.
+    func subscribe(_ address: String) {
+        subscribeAddress = address
+        model.addingFeed = true
+    }
 
     // MARK: - Keyboard
 
@@ -176,19 +186,18 @@ final class FeedPaperModel {
     struct ListKeys {
         let move: (Int) -> Void
         let open: () -> Void
-        /// A letter key, such as S to star an article. Returns true when the list used it.
+        /// A letter key, such as R to mark an article as read. Returns true when the list used it.
         var letter: (Character) -> Bool = { _ in false }
     }
 
     /// The rows of the index of the active tab that the keyboard can pick.
     var indexEntries: [IndexEntry] {
-        IndexEntry.entries(tab: state.tab, sections: model.store.sections, feeds: model.feeds.feeds.map(\.id),
-                           sessionFolders: model.agents.runner.folders())
+        IndexEntry.entries(tab: state.tab, sections: model.store.sections, sessionFolders: model.agents.runner.folders())
     }
 
     /// The row of the index for the list that shows.
     var currentEntry: IndexEntry {
-        IndexEntry.current(scope: state.scope, filter: inboxFilter)
+        IndexEntry.current(scope: state.scope, lens: state.lens)
     }
 
     /// Moves the cursor of the index by one row.
@@ -206,7 +215,7 @@ final class FeedPaperModel {
     func pick(_ entry: IndexEntry) {
         switch entry {
         case .scope(let scope): pick(scope)
-        case .inboxFilter(let filter): pickFilter(filter)
+        case .lens(let lens): pickLens(lens)
         }
     }
 
@@ -216,25 +225,23 @@ final class FeedPaperModel {
         showsIndex = true
     }
 
-    /// Shows the scope before or after the scope of the list, after `[` or `]`.
+    /// Shows the row of the index before or after the list, after `[` or `]`.
     func cycleScope(_ delta: Int) {
-        guard let scope = IndexEntry.cycle(state.scope, by: delta, in: indexEntries) else { return }
-        pick(scope)
+        guard let entry = IndexEntry.cycle(currentEntry, by: delta, in: indexEntries) else { return }
+        pick(entry)
     }
 
-    /// A number key: 1 is the first tab of the column.
+    /// Command and a number key: Command-1 is the first tab of the column.
     func numberKey(_ number: Int) {
         let root = model.vault.root.path
         let folders = model.agents.runner.folders()
         let atDefault = state.scope == state.defaultScope(for: state.tab, root: root, sessionFolders: folders)
-            && (state.tab != .inbox || inboxFilter == .all)
         switch NumberKey.action(number, tabs: tabs, active: state.tab, showsIndex: showsIndex,
                                 atDefaultScope: atDefault) {
         case .toggleIndex: showsIndex.toggle()
         case .showTab(let tab):
             guard enter(tab) else { return }
             state.tab = tab
-            if tab == .inbox { model.inboxFilters[""] = .all }
             setScope(state.defaultScope(for: tab, root: model.vault.root.path, sessionFolders: folders))
             showsIndex = false
         case .none: break
@@ -246,15 +253,15 @@ final class FeedPaperModel {
         showsIndex = false
     }
 
-    /// Puts the cursor in the add field of the Inbox list.
+    /// Puts the cursor in the capture field of Today.
     func newCapture() {
-        if !state.scope.showsCaptures || state.scope == .clipboard || state.scope == .done {
-            state.tab = .inbox
-            setScope(.inbox(section: nil))
+        if state.tab != .today || state.scope == .done || !state.scope.showsCaptures {
+            state.tab = .today
+            setScope(.today(section: nil))
         }
         showsIndex = false
-        model.store.query = ""
-        model.store.selection.removeAll()
+        today.query = ""
+        today.clearSelection()
         composerRequest = UUID()
     }
 
@@ -326,23 +333,16 @@ final class FeedPaperModel {
 
     // MARK: - Private
 
-    /// Shows a scope. A move between two lists of captures clears the search
-    /// and the selection. The add field of an Inbox list adds to its section.
+    /// Shows a scope. A move to another scope clears the search and the selection.
     private func setScope(_ scope: PaperScope) {
         let old = state.scope
         if old != scope {
             selectedArticle = nil
             listKeys = nil
-            if old.showsCaptures != scope.showsCaptures || [old, scope].contains(.clipboard) || [old, scope].contains(.done) {
-                model.store.query = ""
-                model.store.selection.removeAll()
-            }
+            today.query = ""
+            today.clearSelection()
         }
         state.scope = scope
-        guard case .inbox(let section) = scope else { return }
-        let store = model.store
-        let target = section ?? (store.sections.contains(RowIcon.inboxSection) ? RowIcon.inboxSection : store.sections.first)
-        if let target, target != store.activeSection { store.chooseSection(target) }
     }
 
     /// Prepares a tab before it shows. The folder of a folder tab becomes the

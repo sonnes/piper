@@ -137,8 +137,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         main.addItem(goItem)
 
         let windowMenu = NSMenu(title: "Window")
-        windowMenu.addItem(withTitle: "Inbox", action: #selector(newCapture), keyEquivalent: "1").target = self
-        windowMenu.addItem(withTitle: "Feed Paper", action: #selector(showLibrary), keyEquivalent: "2").target = self
+        windowMenu.addItem(withTitle: "Today", action: #selector(newCapture), keyEquivalent: "1").target = self
+        windowMenu.addItem(withTitle: "Feed Paper", action: #selector(showLibrary), keyEquivalent: "0").target = self
         windowMenu.addItem(withTitle: "Next Paper", action: #selector(nextPaper), keyEquivalent: "`").target = self
         let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
         sessionCard.keyEquivalentModifierMask = [.command, .option]
@@ -191,7 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         desk.show()
     }
 
-    /// Shows the feed paper on Inbox, with the cursor in its add field.
+    /// Shows the feed paper on Today, with the cursor in its capture field.
     @objc private func newCapture() {
         desk.newCapture()
     }

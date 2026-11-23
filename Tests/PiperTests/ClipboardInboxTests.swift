@@ -130,7 +130,7 @@ final class ClipboardInboxTests: XCTestCase {
         let text = "  line one\n\tline two\n"
         pasteboard.clearContents()
         pasteboard.setString("earlier", forType: .string)
-        XCTAssertTrue(CaptureView.copy(text, to: pasteboard))
+        XCTAssertTrue(TodayModel.copy(text, to: pasteboard))
         XCTAssertEqual(pasteboard.string(forType: .string), text)
     }
 

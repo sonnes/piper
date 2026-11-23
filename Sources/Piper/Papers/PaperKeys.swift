@@ -3,7 +3,7 @@ import AppKit
 /// A key that the papers read, from a key-down event.
 ///
 /// The papers act on plain keys only. A key with Command, Option, or Control
-/// goes to the menus.
+/// goes to the menus, except Command and a number, which shows a tab.
 enum PaperKey: Equatable {
     case up, down, left, right, enter
     case number(Int)
@@ -34,6 +34,14 @@ enum PaperKey: Equatable {
             default: return nil
             }
         }
+    }
+
+    /// The number of Command and a number key, from 1 to 9. Command-1 is the first tab.
+    static func tabNumber(_ event: NSEvent) -> Int? {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.intersection([.command, .option, .control, .shift]) == .command,
+              let character = event.charactersIgnoringModifiers?.first, ("1"..."9").contains(character) else { return nil }
+        return Int(String(character))
     }
 
     /// The window that has the keyboard focus. In QA mode no window is key,
