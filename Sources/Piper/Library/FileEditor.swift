@@ -11,7 +11,11 @@ import Vault
 @MainActor @Observable
 final class FileEditor {
     let library: Library
-    var workspace = WikiWorkspace()
+    var workspace = WikiWorkspace() {
+        didSet {
+            if workspace.location?.path != oldValue.location?.path { desk?.fileChanged(to: selectedDocument) }
+        }
+    }
     /// The editor sessions by path: the open file, and each file with text that is not on disk.
     var editors: [String: EditorSession] = [:]
     /// The file the file paper had open when Piper last quit. The first scan
@@ -23,10 +27,8 @@ final class FileEditor {
     var showsFileSource: Bool {
         didSet { preferences.set(showsFileSource, forKey: AppDefaults.Key.showsFileSource) }
     }
-    /// Shows a file in the file paper.
-    @ObservationIgnored var showFile: ((String) -> Void)?
-    /// Shows a note in a reader paper.
-    @ObservationIgnored var showNote: ((UUID) -> Void)?
+    /// The desk, which shows the file paper and follows its file. `PaperDesk` sets it.
+    @ObservationIgnored weak var desk: PaperDesk?
     /// The web page of the editor. Piper creates it when the file paper first shows a Markdown file.
     @ObservationIgnored private(set) var loadedEditorPage: EditorPage?
     /// A file to open when the next scan finds it, because a run just wrote it.
@@ -76,7 +78,7 @@ final class FileEditor {
             pendingDocument = path
             library.reload()
         }
-        showFile?(path)
+        desk?.open(.file)
     }
 
     func openDocument(_ path: String, anchor: String? = nil) {
@@ -169,7 +171,7 @@ final class FileEditor {
         for session in editors.values where session.hasChanges { saveEditor(session) }
         if let blocked = editors.values.first(where: { $0.hasChanges || $0.status == .conflict }) {
             if blocked.path != selectedDocument { openDocument(blocked.path) }
-            showFile?(blocked.path)
+            desk?.open(.file)
             store.report(PiperError("“\(blocked.document.title)” changed on disk while you edited it. Choose Reload or Keep Mine first."))
             return false
         }
@@ -225,7 +227,7 @@ final class FileEditor {
         guard let document = editors[path]?.document ?? library.files.first(where: { $0.id == path }) else { return }
         let link = fileLink(path)
         ReaderMarks.perform(message, store: store, reader: reader, article: fileArticle(document),
-                            open: { [weak self] id in self?.showNote?(id) }) { [store] in
+                            open: { [weak self] item in self?.desk?.open(item) }) { [store] in
             store.pageNote(for: link, title: document.title, source: ReaderAssistant.source)?.id
         }
     }

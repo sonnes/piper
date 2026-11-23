@@ -9,12 +9,50 @@ enum PaperItem: Hashable {
     case note(UUID)
     /// A feed article, by its id.
     case article(String)
-    /// The open file of `AppModel`. Only one file paper exists, because the editor page is shared.
+    /// The open file of `FileEditor`. Only one file paper exists, because the editor page is shared.
     case file
     /// An agent session, by its id.
     case session(UUID)
     /// A new agent session in a folder, by the absolute path of the folder.
     case newSession(String)
+}
+
+@MainActor
+extension PaperItem {
+    /// The link capture of a feed article, once the reader keeps the article
+    /// or marks it. The capture holds the link of the article.
+    static func keptNote(of article: Article, in store: CaptureStore) -> Note? {
+        URL(string: article.url).flatMap(store.article(for:))
+    }
+
+    /// The capture that the paper of the item shows: a capture, or the link
+    /// capture of a kept feed article.
+    func note(in model: AppModel) -> Note? {
+        switch self {
+        case .note(let id):
+            return model.store.notes.first { $0.id == id }
+        case .article(let id):
+            return model.feeds.article(id).flatMap { Self.keptNote(of: $0, in: model.store) }
+        case .file, .session, .newSession:
+            return nil
+        }
+    }
+
+    /// The paper that the item opens. A kept feed article and its link
+    /// capture are one paper.
+    func identity(in model: AppModel) -> PaperItem {
+        guard case .article = self, let note = note(in: model) else { return self }
+        return .note(note.id)
+    }
+
+    /// True when the paper of the item shows an article, which takes H and N.
+    func isArticle(in model: AppModel) -> Bool {
+        switch self {
+        case .article: return true
+        case .note: return note(in: model)?.isArticle == true
+        case .file, .session, .newSession: return false
+        }
+    }
 }
 
 /// What the rows of the feed paper show about the papers on the desk.
@@ -40,12 +78,20 @@ final class DeskMarks {
     var feedFocused = false
     /// The item of the reader paper with the keyboard focus.
     var focusedPaper: PaperItem?
+    /// The paper that an item opens. `PaperDesk` sets it to `PaperItem.identity(in:)`.
+    @ObservationIgnored var identity: (PaperItem) -> PaperItem = { $0 }
 
-    func isOpen(_ item: PaperItem) -> Bool { open.contains(item) }
+    func isOpen(_ item: PaperItem) -> Bool {
+        let paper = identity(item)
+        return open.contains { identity($0) == paper }
+    }
 
     func isOpenFile(_ path: String) -> Bool { openFile == path && open.contains(.file) }
 
-    func flashes(_ item: PaperItem) -> UUID? { flash?.item == item ? flash?.id : nil }
+    func flashes(_ item: PaperItem) -> UUID? {
+        guard let flash, identity(flash.item) == identity(item) else { return nil }
+        return flash.id
+    }
 }
 
 /// The state of the feed paper that its views read and change.
@@ -82,8 +128,6 @@ final class FeedPaperModel {
     var selectedArticle: String?
     /// The row under the cursor of the folder tree, by its absolute path, for each folder tab.
     var treeCursors: [PaperTab: String] = [:]
-    /// Opens an item as a reader paper. `PaperDesk` sets it.
-    @ObservationIgnored var open: (PaperItem) -> Void = { _ in }
     /// Puts the reader papers back in their cascade. `PaperDesk` sets it.
     @ObservationIgnored var tidy: () -> Void = {}
     /// The height of the paper as it shows, for the rule that shortens the folder tabs.
@@ -100,8 +144,9 @@ final class FeedPaperModel {
         self.defaults = defaults
         today = TodayModel(model: model)
         state = PaperDeskState.restore(from: defaults)
-        syncFolders()
-        model.library.folderChanged = { [weak self] in self?.vaultChanged() }
+        assignColors()
+        followActiveFolder()
+        model.library.folderChanged = { [weak self] in self?.followActiveFolder() }
     }
 
     // MARK: - API
@@ -123,11 +168,9 @@ final class FeedPaperModel {
         return state.folderCounts[path] ?? 0
     }
 
-    /// Gives each new folder a color, and keeps the tab of a folder on the
-    /// active folder. The feed paper calls it when the folder list changes.
-    func syncFolders() {
+    /// Gives each new folder a color. The feed paper calls it when the folder list changes.
+    func assignColors() {
         state.assignColors(to: model.library.wikiPaths)
-        if state.tab.isFolder, state.tab != .folder(model.library.wikiPath) { state.tab = .folder(model.library.wikiPath) }
     }
 
     /// Saves the number of files of the active folder after a scan.
@@ -142,7 +185,7 @@ final class FeedPaperModel {
         let before = model.library.wikiPaths
         model.library.chooseWiki()
         guard model.library.wikiPaths != before else { return }
-        syncFolders()
+        assignColors()
         choose(.folder(model.library.wikiPath))
     }
 
@@ -329,8 +372,7 @@ final class FeedPaperModel {
             setExpanded(id, false)
         case .openFile(let id):
             guard let row = rows.first(where: { $0.id == id }) else { return }
-            model.files.openDocument(row.path)
-            open(.file)
+            model.desk?.openFile(row.path)
         case .none:
             break
         }
@@ -343,10 +385,9 @@ final class FeedPaperModel {
 
     // MARK: - Private
 
-    /// Forgets the state of the previous folder after a change of the active
-    /// folder. The tab of a folder moves to the new active folder.
-    private func vaultChanged() {
-        state.resetForVault(root: model.library.wikiPath)
+    /// Keeps the tab of a folder on the active folder, because Piper scans one folder at a time.
+    private func followActiveFolder() {
+        if state.tab.isFolder, state.tab != .folder(model.library.wikiPath) { state.tab = .folder(model.library.wikiPath) }
     }
 
     /// Shows a scope. A move to another scope clears the search and the selection.

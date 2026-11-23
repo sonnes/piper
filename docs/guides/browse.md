@@ -83,7 +83,7 @@ The title of the list names the tab and the scope, for example "Today › Source
 
 ### Open An Item On A Paper
 
-Select a row in a list to open the item on a reader paper. The paper opens to the right of the feed paper, in the first free place of a cascade. Each place of the cascade is 24 points to the right of and lower than the place before it. A new paper has the size of the last paper of its kind that you moved or resized. The three kinds are reader papers (articles, links, and files), notes, and agent sessions. If you moved or resized the paper of an item before, its paper opens in that frame. If the item is already open, Piper brings its paper to the front.
+Select a row in a list to open the item on a reader paper. If the session card is in the detached panel, a session opens in that panel. The paper opens to the right of the feed paper, in the first free place of a cascade. Each place of the cascade is 24 points to the right of and lower than the place before it. A new paper has the size of the last paper of its kind that you moved or resized. The three kinds are reader papers (articles, links, and files), notes, and agent sessions. If you moved or resized the paper of an item before, its paper opens in that frame. If the item is already open, Piper brings its paper to the front.
 
 A capture, an article, a file, and a session each open on a paper. One file paper shows all files: a second file replaces the first file on the same paper.
 

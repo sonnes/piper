@@ -15,9 +15,10 @@ struct FeedArticleDetail: View {
 
     @State private var loader = ArticleLoader()
     @State private var tab = ArticleTab.reader
+    @Environment(\.paperDesk) private var desk
 
     private var url: URL? { URL(string: article.url) }
-    private var kept: Note? { url.flatMap(model.store.article(for:)) }
+    private var kept: Note? { PaperItem.keptNote(of: article, in: model.store) }
 
     var body: some View {
         if let kept {
@@ -64,7 +65,7 @@ struct FeedArticleDetail: View {
     private func perform(_ message: [String: Any]) {
         guard case .loaded(let page) = loader.state, let url else { return }
         ReaderMarks.perform(message, store: model.store, reader: model.reader, article: page,
-                            open: { model.showNote?($0) }) {
+                            open: { desk?.open($0) }) {
             model.store.saveArticle(url, title: article.title, source: model.feeds.feed(article.feedID)?.title)?.id
         }
     }

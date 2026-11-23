@@ -35,8 +35,6 @@ final class FolderAgents {
     /// The stored value that means "run nothing by default".
     static let noSkill = "-"
 
-    var showDraft: ((UUID) -> Void)?
-
     let runner: SessionRunner
     /// Every folder of the Folders index with skills, including the folders that are off.
     private(set) var available: [Folder] = []
@@ -259,7 +257,7 @@ final class FolderAgents {
 
     // MARK: - Sending
 
-    /// Opens a draft for a note with the chosen skill or its default skill.
+    /// Makes a draft for a note with the chosen skill or its default skill.
     @discardableResult
     func send(_ note: Note, action: Action? = nil) -> AgentSession? {
         guard let action = action ?? defaultAction(for: note.text) else {
@@ -271,18 +269,18 @@ final class FolderAgents {
         let session = runner.newSession(in: action.folder.path, noteID: note.id, command: command)
         session.draft = command.prompt
         store.status = "Draft in \(action.folder.name)"
-        showDraft?(session.id)
         return session
     }
 
-    /// Saves clipboard text to Inbox, then opens its draft.
+    /// Saves clipboard text to Inbox, then makes its draft.
     @discardableResult
     func send(_ entry: ClipboardEntry, from clipboard: ClipboardInbox, action: Action? = nil) -> AgentSession? {
         guard clipboard.save(entry.id), let note = store.notes.last(where: { $0.text == entry.text }) else { return nil }
         return send(note, action: action)
     }
 
-    /// Saves the pasteboard text to Inbox, then opens its draft.
+    /// Saves the pasteboard text to Inbox, then makes its draft. A note
+    /// whose draft is not sent yet returns that draft.
     @discardableResult
     func sendPasteboard(_ pasteboard: NSPasteboard = .general) -> AgentSession? {
         guard defaultFolder != nil else {
@@ -296,10 +294,7 @@ final class FolderAgents {
         }
         if let note = store.notes.last(where: { $0.text == text }) {
             if let session = runner.latestSession(for: note.id), session.state != .failed {
-                if session.blocks.isEmpty {
-                    showDraft?(session.id)
-                    return session
-                }
+                if session.blocks.isEmpty { return session }
                 store.status = "Already sent to \(session.folderName)"
                 return nil
             }

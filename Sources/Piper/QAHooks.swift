@@ -158,7 +158,7 @@ final class QAScripts: NSObject {
             guard let note = model.store.notes.first(where: { $0.text.hasPrefix(words) || $0.reading?.title?.hasPrefix(words) == true }) else {
                 return "error\nNo note starts with \(words)."
             }
-            desk.openNote(note.id)
+            desk.open(.note(note.id))
         case "article":
             guard let article = model.feeds.articles(.allUnread).first(where: { $0.title.hasPrefix(words) }) else {
                 return "error\nNo article starts with \(words)."

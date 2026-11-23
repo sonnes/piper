@@ -36,8 +36,8 @@ struct ReaderPaper: View {
 
     /// The note of a note paper. A link capture is an article and has no foot.
     private var shortNote: Note? {
-        guard case .note(let id) = item, let note = model.store.notes.first(where: { $0.id == id }), !note.isArticle else { return nil }
-        return note
+        guard case .note = item, !item.isArticle(in: model) else { return nil }
+        return item.note(in: model)
     }
 
     /// The foot of a note paper: the save state, and Mark as Done.

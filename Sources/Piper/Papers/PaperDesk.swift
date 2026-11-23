@@ -1,8 +1,13 @@
 import AppKit
 import Agents
 import Captures
+import SwiftUI
 
-/// Owns the feed paper and the open reader papers.
+/// Owns the feed paper, the open reader papers, and the detached session panel.
+///
+/// `open(_:)` is the one way to open a paper. The desk follows the open file
+/// of `FileEditor`, so the "on the desk" mark and the file that the file
+/// paper restores at launch name the file that shows.
 ///
 /// A new reader paper opens to the right of the feed paper. Each next paper
 /// moves down and to the right by `AppDefaults.Papers.cascade`. An item that
@@ -10,8 +15,8 @@ import Captures
 /// because the editor page is shared, so a second file replaces the first.
 ///
 /// A paper that the reader moved or resized opens again in that frame, from
-/// `PaperFrames`. After a change of the displays, every paper moves back
-/// onto a screen.
+/// `PaperFrames`. The feed paper keeps its frame there too. After a change of
+/// the displays, every paper moves back onto a screen.
 @MainActor
 final class PaperDesk {
 
@@ -21,6 +26,7 @@ final class PaperDesk {
     private let model: AppModel
     private var feed: FeedPaperController?
     private var readers: [ReaderPaperController] = []
+    private var sessionPanel: SessionPanelController?
     /// The number of papers that opened, which picks the tilt of the next paper.
     private var opened = 0
     private var frames: PaperFrames
@@ -36,8 +42,13 @@ final class PaperDesk {
         paper = FeedPaperModel(model: model, defaults: defaults)
         // The first scan opens the file that the file paper had open when Piper last quit.
         model.files.initialDocument = paper.state.selectedFile
-        paper.open = { [weak self] item in self?.open(item) }
+        model.desk = self
+        model.files.desk = self
         paper.tidy = { [weak self] in self?.tidy() }
+        paper.marks.identity = { [weak model] item in model.map { item.identity(in: $0) } ?? item }
+        model.sessionPresentationChanged = { [weak self] presentation in
+            if presentation == .detached { self?.showSessionPanel() } else { self?.sessionPanel?.dismiss() }
+        }
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                                object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.keepOnScreen() }
@@ -57,8 +68,16 @@ final class PaperDesk {
     /// Shows the feed paper, with the reader papers that are open.
     func show() {
         if feed == nil {
-            feed = FeedPaperController(model: model, paper: paper)
-            feed?.focusChanged = { [weak self] in self?.updateHints() }
+            let frame = Self.feedFrame(saved: frames.feedFrame, screens: NSScreen.screens.map(\.visibleFrame),
+                                       main: NSScreen.main?.visibleFrame)
+            let feed = FeedPaperController(model: model, paper: paper, desk: self, frame: frame)
+            feed.focusChanged = { [weak self] in self?.updateHints() }
+            feed.moved = { [weak self] frame in
+                guard let self else { return }
+                frames.setFeedFrame(frame)
+                frames.save(to: defaults)
+            }
+            self.feed = feed
         }
         for reader in readers { reader.window?.orderFront(nil) }
         feed?.show()
@@ -72,32 +91,40 @@ final class PaperDesk {
     }
 
     /// Opens an item as a reader paper, or brings its open paper to the front.
+    /// A session goes to the detached panel while the reader keeps the
+    /// session card there.
     func open(_ item: PaperItem) {
-        if feed?.window?.isVisible != true { show() }
-        if item == .file {
-            paper.state.selectedFile = model.files.selectedDocument
-            paper.marks.openFile = model.files.selectedDocument
+        if case .session(let id) = item {
+            model.selectedSession = id
+            if model.sessionPresentation == .detached { return showSessionPanel() }
         }
-        if let open = readers.first(where: { $0.item == item }) {
+        if feed?.window?.isVisible != true { show() }
+        let identity = item.identity(in: model)
+        if let open = readers.first(where: { $0.item.identity(in: model) == identity }) {
             open.focus()
             return
         }
         let kind = Self.kind(of: item, model: model)
         let size = frames.lastSize(of: kind) ?? Self.size(of: kind)
         let screen = feed?.window?.screen ?? NSScreen.main
-        let frame = Self.frame(of: item, saved: frames, screens: NSScreen.screens.map(\.visibleFrame)) ??
+        let frame = Self.frame(of: identity, saved: frames, screens: NSScreen.screens.map(\.visibleFrame)) ??
             Self.frame(size: size, feed: feedPaperFrame,
                        screen: screen?.visibleFrame ?? NSRect(origin: .zero, size: size),
                        open: readers.compactMap(\.paperFrame))
         let tilts = AppDefaults.Papers.tilts
-        let reader = ReaderPaperController(item: item, model: model, frame: frame, tilt: tilts[opened % tilts.count])
+        let reader = ReaderPaperController(item: item, model: model, desk: self, frame: frame, tilt: tilts[opened % tilts.count])
         opened += 1
         reader.delegate = self
         reader.tidy = { [weak self] in self?.tidy() }
         reader.focusChanged = { [weak self] reader, focused in
             guard let self else { return }
-            if focused { paper.marks.focusedPaper = reader.item }
-            else if paper.marks.focusedPaper == reader.item { paper.marks.focusedPaper = nil }
+            if focused {
+                paper.marks.focusedPaper = reader.item
+                model.actionTarget = actionTarget(for: reader.item)
+                for other in readers { other.showsSessionCard(other === reader) }
+            } else if paper.marks.focusedPaper == reader.item {
+                paper.marks.focusedPaper = nil
+            }
             updateHints()
         }
         readers.append(reader)
@@ -120,17 +147,10 @@ final class PaperDesk {
         open(.file)
     }
 
-    /// Opens a capture. A link capture opens in the opening tab of its site.
-    func openNote(_ id: UUID, asArticle: Bool = false) {
-        guard let note = model.store.notes.first(where: { $0.id == id }) else { return }
-        if asArticle { model.chooseArticleTab(model.openingTab(for: note), for: note) }
-        open(.note(id))
-    }
-
-    /// Opens a session in a paper of its own.
-    func openSession(_ id: UUID) {
-        model.selectedSession = id
-        open(.session(id))
+    /// Keeps the open file of `FileEditor` for the "on the desk" mark and for the next launch.
+    func fileChanged(to path: String?) {
+        paper.state.selectedFile = path
+        paper.marks.openFile = path
     }
 
     /// Puts the cursor in the capture field of Today.
@@ -153,18 +173,25 @@ final class PaperDesk {
 
     /// Opens the session card of the focused reader paper, or collapses it.
     /// With no reader paper focused, the newest one comes to the front with
-    /// its card open. Returns false when no reader paper is open.
-    func toggleSessionCard() -> Bool {
+    /// its card open. With no reader paper open, or with a detached card,
+    /// the detached panel comes to the front.
+    func toggleSessionCard() {
+        if model.sessionPresentation == .detached { return showSessionPanel() }
         if let reader = readers.first(where: { $0.window?.isKeyWindow == true }) {
             model.sessionPresentation = model.sessionPresentation == .card ? .pill : .card
             reader.showsSessionCard(true)
-            return true
+            return
         }
-        guard let reader = readers.last else { return false }
+        guard let reader = readers.last else { return showSessionPanel() }
         if feed?.window?.isVisible != true { show() }
         reader.focus()
         model.sessionPresentation = .card
-        return true
+    }
+
+    /// Shows the detached session panel and gives it the keyboard.
+    func showSessionPanel() {
+        if sessionPanel == nil { sessionPanel = SessionPanelController(model: model) }
+        sessionPanel?.present()
     }
 
     /// Gives the keyboard focus to the next paper: the feed paper, then the
@@ -185,6 +212,16 @@ final class PaperDesk {
     }
 
     // MARK: - Placement
+
+    /// The frame of the feed paper: its saved frame moved onto a screen, or
+    /// else its default size at the left of the main screen.
+    nonisolated static func feedFrame(saved: NSRect?, screens: [NSRect], main: NSRect?) -> NSRect {
+        let size = FeedPaperController.paperSize
+        if let saved { return PaperPlacement.clamp(saved, to: screens, minimum: FeedPaperController.minimumPaperSize) }
+        guard let main else { return NSRect(origin: .zero, size: size) }
+        return NSRect(x: main.minX + AppDefaults.Papers.screenInset * 2, y: main.midY - size.height / 2,
+                      width: size.width, height: size.height)
+    }
 
     /// The frame of a new reader paper, on the screen coordinates of AppKit.
     ///
@@ -230,13 +267,9 @@ final class PaperDesk {
     /// a file take the size of the Write paper. A short note and a session take less.
     static func kind(of item: PaperItem, model: AppModel) -> PaperKind {
         switch item {
-        case .note(let id):
-            let note = model.store.notes.first { $0.id == id }
-            return note?.isArticle == true ? .reader : .note
-        case .article, .file:
-            return .reader
-        case .session, .newSession:
-            return .session
+        case .note, .article: return item.isArticle(in: model) ? .reader : .note
+        case .file: return .reader
+        case .session, .newSession: return .session
         }
     }
 
@@ -277,12 +310,8 @@ final class PaperDesk {
     /// What the session card takes as context for an item.
     private func actionTarget(for item: PaperItem) -> SkillTarget {
         switch item {
-        case .note(let id):
-            guard let note = model.store.notes.first(where: { $0.id == id }) else { return .folder }
-            return .text(note.text, noteID: note.id)
-        case .article(let id):
-            guard let article = model.feeds.article(id), let url = URL(string: article.url),
-                  let note = model.store.article(for: url) else { return .folder }
+        case .note, .article:
+            guard let note = item.note(in: model) else { return .folder }
             return .text(note.text, noteID: note.id)
         case .file:
             guard let document = model.files.currentDocument else { return .folder }
@@ -296,11 +325,6 @@ final class PaperDesk {
 // MARK: - ReaderPaperControllerDelegate
 
 extension PaperDesk: ReaderPaperControllerDelegate {
-
-    func readerPaperDidBecomeKey(_ controller: ReaderPaperController) {
-        model.actionTarget = actionTarget(for: controller.item)
-        for reader in readers { reader.showsSessionCard(reader === controller) }
-    }
 
     func readerPaperWillClose(_ controller: ReaderPaperController) {
         readers.removeAll { $0 === controller }
@@ -323,7 +347,12 @@ extension PaperDesk: ReaderPaperControllerDelegate {
 
     func readerPaperDidMove(_ controller: ReaderPaperController) {
         guard let frame = controller.paperFrame else { return }
-        frames.set(frame, of: controller.item, kind: Self.kind(of: controller.item, model: model))
+        frames.set(frame, of: controller.item.identity(in: model), kind: Self.kind(of: controller.item, model: model))
         frames.save(to: defaults)
     }
+}
+
+extension EnvironmentValues {
+    /// The desk, for the views of the papers that open a paper.
+    @Entry var paperDesk: PaperDesk? = nil
 }

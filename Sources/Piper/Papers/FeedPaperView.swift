@@ -12,6 +12,7 @@ struct FeedPaperView: View {
     let window: () -> NSWindow?
 
     @State private var namingSection = false
+    @Environment(\.paperDesk) private var desk
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private typealias Metrics = AppDefaults.Papers
 
@@ -35,7 +36,7 @@ struct FeedPaperView: View {
                 paper.pick(.today(section: model.store.activeSection))
             }
         }
-        .onChange(of: model.library.wikiPaths, initial: true) { paper.syncFolders() }
+        .onChange(of: model.library.wikiPaths) { paper.assignColors() }
         .onChange(of: model.library.loading) { paper.recordFileCount() }
         .onChange(of: model.library.files.count) { paper.recordFileCount() }
         .onChange(of: model.store.sections) { _, sections in
@@ -148,14 +149,14 @@ struct FeedPaperView: View {
         case .feed(let feed):
             FeedArticleList(model: model, feedID: feed, selectedID: paper.selectedArticle,
                             select: { paper.selectedArticle = $0?.id },
-                            openPaper: { paper.open(.article($0.id)) },
+                            openPaper: { desk?.open(.article($0.id)) },
                             setKeys: { paper.listKeys = $0 })
         case .sources:
             SourcesView(paper: paper, model: model)
         case .folder:
             FolderTreeView(paper: paper, library: model.library)
         case .sessions(let folder):
-            SessionList(model: model, folder: folder, open: paper.open, setKeys: { paper.listKeys = $0 })
+            SessionList(model: model, folder: folder, setKeys: { paper.listKeys = $0 })
         }
     }
 

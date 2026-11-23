@@ -1,4 +1,5 @@
 import AppKit
+import Agents
 import Captures
 import Feeds
 import Observation
@@ -277,11 +278,13 @@ final class TodayModel {
     /// text goes to Inbox first.
     func send(_ items: [StreamItem], action: FolderAgents.Action?) {
         for item in items {
+            var session: AgentSession?
             if let clip = item.clip {
-                model.agents.send(clip, from: model.clipboard, action: action)
+                session = model.agents.send(clip, from: model.clipboard, action: action)
             } else if let note = sendable(item) {
-                model.agents.send(note, action: action)
+                session = model.agents.send(note, action: action)
             }
+            if let session { model.desk?.open(.session(session.id)) }
         }
     }
 
@@ -294,7 +297,7 @@ final class TodayModel {
         }
         let session = model.agents.newSession(in: folder.path, noteID: note.id)
         session.draft = note.text + "\n\n"
-        model.agents.showDraft?(session.id)
+        model.desk?.open(.session(session.id))
     }
 
     // MARK: - Merge, Copy, and Delete

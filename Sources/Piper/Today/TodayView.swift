@@ -56,6 +56,7 @@ struct TodayView: View {
     @State private var showsDoneToday = false
     @State private var showsWholeTray = false
     @State private var editing: CaptureEditSession?
+    @Environment(\.paperDesk) private var desk
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var store: CaptureStore { model.store }
@@ -443,10 +444,10 @@ struct TodayView: View {
     /// clipboard text goes back on the clipboard.
     private func open(_ item: StreamItem) {
         switch item.id {
-        case .note(let id): paper.open(.note(id))
+        case .note(let id): desk?.open(.note(id))
         case .article(let id):
             today.keeping.insert(id)
-            paper.open(.article(id))
+            desk?.open(.article(id))
         case .digest(let feed, _): paper.pick(.feed(feed))
         case .clip:
             if let text = item.clip?.text, Clipboard.copy(text) { store.status = "Copied" }

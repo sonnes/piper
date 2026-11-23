@@ -1,5 +1,6 @@
 import AppKit
 import Captures
+import Feeds
 import Vault
 import XCTest
 @testable import Piper
@@ -25,7 +26,6 @@ final class PaperDeskStateTests: XCTestCase {
         state.expandedFolders = ["/tmp/notes/Field Notes", "/tmp/notes/Field Notes/Essays"]
         state.folderColors = ["/tmp/notes": .rose]
         state.folderCounts = ["/tmp/notes": 12]
-        state.feedFrame = NSStringFromRect(NSRect(x: 40, y: 80, width: 520, height: 760))
         state.selectedFile = "Field Notes/reading-journal.md"
         state.save(to: defaults)
 
@@ -133,26 +133,6 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertEqual(PaperTab.folder("/n/a").color(folders: restored.folderColors), .clay)
     }
 
-    func testAFolderChangeMovesTheFolderTabAndForgetsTheFile() {
-        var state = PaperDeskState()
-        state.tab = .folder("/tmp/a")
-        state.scope = .folder
-        state.expandedFolders = ["/tmp/a/x"]
-        state.selectedFile = "x/c.md"
-        state.resetForVault(root: "/tmp/b")
-        XCTAssertEqual(state.tab, .folder("/tmp/b"))
-        XCTAssertEqual(state.scope, .folder)
-        XCTAssertEqual(state.expandedFolders, ["/tmp/a/x"], "The open folders hold absolute paths, so they stay.")
-        XCTAssertNil(state.selectedFile)
-
-        var feeds = PaperDeskState()
-        feeds.tab = .feeds
-        feeds.scope = .feed("a")
-        feeds.resetForVault(root: "/tmp/b")
-        XCTAssertEqual(feeds.tab, .feeds)
-        XCTAssertEqual(feeds.scope, .feed("a"))
-    }
-
     func testEachTabHasItsDefaultScope() {
         let state = PaperDeskState()
         XCTAssertEqual(state.defaultScope(for: .folder("/tmp/a"), root: "/tmp/root", sessionFolders: []), .folder)
@@ -246,6 +226,30 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertEqual(restored.lastSize(of: .reader), NSSize(width: 820, height: 900))
         XCTAssertEqual(restored.lastSize(of: .note), NSSize(width: 480, height: 360))
         XCTAssertNil(restored.lastSize(of: .session))
+    }
+
+    func testTheFeedPaperFrameRestoresApartFromTheReaderFrames() {
+        var frames = PaperFrames()
+        XCTAssertNil(frames.feedFrame)
+        frames.setFeedFrame(NSRect(x: 40, y: 80, width: 560, height: 760))
+        for index in 0...AppDefaults.Papers.savedFrameLimit {
+            frames.set(NSRect(x: 1, y: 2, width: 600, height: 700), of: .article("article-\(index)"), kind: .reader)
+        }
+        frames.save(to: defaults)
+        XCTAssertEqual(PaperFrames.restore(from: defaults).feedFrame, NSRect(x: 40, y: 80, width: 560, height: 760))
+    }
+
+    /// A new feed paper lies at the left of the main screen. A saved frame
+    /// comes back, moved onto a screen.
+    func testTheFeedPaperOpensAtItsSavedFrameOrAtTheLeftOfTheScreen() {
+        let screen = NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let size = FeedPaperController.paperSize
+        XCTAssertEqual(PaperDesk.feedFrame(saved: nil, screens: [screen], main: screen),
+                       NSRect(x: AppDefaults.Papers.screenInset * 2, y: 450 - size.height / 2, width: size.width, height: size.height))
+        XCTAssertEqual(PaperDesk.feedFrame(saved: NSRect(x: 40, y: 80, width: 560, height: 760), screens: [screen], main: screen),
+                       NSRect(x: 40, y: 80, width: 560, height: 760))
+        XCTAssertEqual(PaperDesk.feedFrame(saved: NSRect(x: 3000, y: 80, width: 560, height: 760), screens: [screen], main: screen),
+                       NSRect(x: 880, y: 80, width: 560, height: 760))
     }
 
     func testFramesSavedWithoutLastSizesStillRestore() throws {
@@ -505,20 +509,64 @@ final class PaperDeskTests: XCTestCase {
 
     override func tearDown() async throws { try FileManager.default.removeItem(at: root) }
 
-    /// A file that opens from a list or the Folders index, and not only from
-    /// `openFile`, is the file that the feed paper restores.
-    func testEveryFilePaperSavesItsFile() async throws {
+    /// Back, Forward, and a link in the editor change the file of the file
+    /// paper. The "on the desk" mark and the file that the feed paper
+    /// restores follow each change.
+    func testTheDeskFollowsBackForwardAndLinks() async throws {
+        try Data("# Harbor\n".utf8).write(to: root.appendingPathComponent("notes/harbor.md"))
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
         model.library.reload()
-        for _ in 0..<400 where model.library.loading { try await Task.sleep(for: .milliseconds(20)) }
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: "piper-paper-desk-window-tests"))
-        defer { defaults.removePersistentDomain(forName: "piper-paper-desk-window-tests") }
+        for _ in 0..<400 where model.library.loading || model.library.files.count < 2 { try await Task.sleep(for: .milliseconds(20)) }
+        let suite = "piper-paper-desk-window-tests"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defaults.removePersistentDomain(forName: suite)
+        defer { defaults.removePersistentDomain(forName: suite) }
         let desk = PaperDesk(model: model, defaults: defaults)
         defer { desk.hide() }
 
-        model.files.openDocument("notes/journal.md")
-        desk.paper.open(.file)
+        desk.openFile("notes/journal.md")
+        desk.openFile("notes/harbor.md")
+        XCTAssertTrue(desk.paper.marks.isOpenFile("notes/harbor.md"))
+
+        model.files.navigate(-1)
         XCTAssertEqual(desk.paper.state.selectedFile, "notes/journal.md")
+        XCTAssertEqual(PaperDeskState.restore(from: defaults).selectedFile, "notes/journal.md")
+        XCTAssertTrue(desk.paper.marks.isOpenFile("notes/journal.md"))
+        XCTAssertFalse(desk.paper.marks.isOpenFile("notes/harbor.md"))
+
+        model.files.navigate(1)
+        XCTAssertEqual(desk.paper.state.selectedFile, "notes/harbor.md")
+        XCTAssertTrue(desk.paper.marks.isOpenFile("notes/harbor.md"))
+
+        model.files.openEditorLink(kind: "link", target: "journal.md")
+        XCTAssertEqual(model.files.selectedDocument, "notes/journal.md")
+        XCTAssertEqual(PaperDeskState.restore(from: defaults).selectedFile, "notes/journal.md")
+        XCTAssertTrue(desk.paper.marks.isOpenFile("notes/journal.md"))
+    }
+
+    /// A kept feed article and its link capture are one paper: they share
+    /// the "on the desk" mark and the saved frame.
+    func testAKeptArticleAndItsCaptureAreOnePaper() throws {
+        let feedsURL = root.appendingPathComponent(".feeds/Feeds.sqlite")
+        let database = try FeedDatabase(url: feedsURL)
+        try database.save(Feed(id: "https://example.com/feed", title: "Example", nextFetch: .distantFuture))
+        try database.insert([Article(id: "a1", feedID: "https://example.com/feed", url: "https://example.com/harbor",
+                                     title: "Harbor", summary: "", published: Date(), arrived: Date())])
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path,
+                             feeds: FeedStore(url: feedsURL))
+        let article = PaperItem.article("a1")
+        XCTAssertEqual(article.identity(in: model), article, "An article that nobody kept is its own paper.")
+
+        model.keep([try XCTUnwrap(model.feeds.article("a1"))])
+        let note = try XCTUnwrap(model.store.article(for: URL(string: "https://example.com/harbor")!))
+        XCTAssertEqual(article.identity(in: model), .note(note.id))
+        XCTAssertTrue(article.isArticle(in: model))
+        XCTAssertTrue(PaperItem.note(note.id).isArticle(in: model))
+
+        let marks = DeskMarks()
+        marks.identity = { $0.identity(in: model) }
+        marks.open = [article]
+        XCTAssertTrue(marks.isOpen(.note(note.id)))
     }
 
     /// Window > Feeds, the command palette, and a pasted feed address open
@@ -600,9 +648,9 @@ final class PaperDeskTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defaults.removePersistentDomain(forName: suite)
         defer { defaults.removePersistentDomain(forName: suite) }
-        let paper = FeedPaperModel(model: model, defaults: defaults)
-        var opened: [PaperItem] = []
-        paper.open = { opened.append($0) }
+        let desk = PaperDesk(model: model, defaults: defaults)
+        defer { desk.hide() }
+        let paper = desk.paper
         paper.choose(.folder(model.library.wikiPath))
         XCTAssertEqual(paper.state.scope, .folder)
         XCTAssertFalse(paper.showsIndex, "A folder tab has no index.")
@@ -614,7 +662,7 @@ final class PaperDeskTests: XCTestCase {
         paper.treeKey(.right)
         XCTAssertEqual(paper.treeCursor(in: paper.treeRows), a + "/x.md")
         paper.treeKey(.enter)
-        XCTAssertEqual(opened, [.file])
+        XCTAssertTrue(paper.marks.isOpen(.file))
         XCTAssertEqual(model.files.selectedDocument, "a/x.md")
         paper.treeKey(.left)
         paper.treeKey(.left)
@@ -637,7 +685,6 @@ final class PaperDeskTests: XCTestCase {
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), preferences: preferences)
         model.library.addWikiFolders(roots.dropFirst().map(\.path))
         let paper = FeedPaperModel(model: model, defaults: preferences)
-        paper.syncFolders()
         XCTAssertEqual(paper.tabs.filter(\.isFolder), roots.map { .folder($0.path) })
         XCTAssertEqual(roots.map { paper.color(of: .folder($0.path)) }, [.teal, .rose, .clay])
 
@@ -656,7 +703,7 @@ final class PaperDeskTests: XCTestCase {
         XCTAssertEqual(paper.color(of: .folder(roots[2].path)), .plum)
         XCTAssertEqual(paper.color(of: .folder(roots[0].path)), .teal)
         model.library.removeWikiFolder(roots[2].path)
-        paper.syncFolders()
+        paper.assignColors()
         XCTAssertEqual(paper.state.tab, .folder(model.library.wikiPath), "The tab moves to the next active folder.")
         XCTAssertNil(paper.state.folderColors[roots[2].path])
     }
@@ -670,7 +717,9 @@ final class PaperDeskTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
         defer { defaults.removePersistentDomain(forName: suite) }
         let paper = FeedPaperModel(model: model, defaults: defaults)
-        let controller = FeedPaperController(model: model, paper: paper)
+        let desk = PaperDesk(model: model, defaults: defaults)
+        let controller = FeedPaperController(model: model, paper: paper, desk: desk,
+                                             frame: NSRect(origin: .zero, size: FeedPaperController.paperSize))
         let window = try XCTUnwrap(controller.window as? PaperWindow)
         window.setPaperFrame(NSRect(x: 100, y: 100, width: 560, height: 700), display: true)
         window.contentView?.layoutSubtreeIfNeeded()

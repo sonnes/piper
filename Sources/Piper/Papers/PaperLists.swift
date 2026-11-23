@@ -5,11 +5,11 @@ import SwiftUI
 struct SessionList: View {
     @Bindable var model: AppModel
     let folder: String
-    let open: (PaperItem) -> Void
     /// Sets the keys of the list on the feed paper.
     var setKeys: (FeedPaperModel.ListKeys?) -> Void = { _ in }
 
     @State private var selected: PaperItem?
+    @Environment(\.paperDesk) private var desk
 
     var body: some View {
         let sessions = model.agents.runner.sessions(in: folder)
@@ -55,7 +55,7 @@ struct SessionList: View {
 
     private func pick(_ item: PaperItem) {
         selected = item
-        open(item)
+        desk?.open(item)
     }
 
     private func keys(_ items: [PaperItem]) -> FeedPaperModel.ListKeys {
@@ -67,7 +67,7 @@ struct SessionList: View {
                 if items.indices.contains(next) { selected = items[next] }
             },
             open: {
-                if let current, items.contains(current) { open(current) }
+                if let current, items.contains(current) { desk?.open(current) }
             })
     }
 

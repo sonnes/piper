@@ -220,18 +220,18 @@ final class ReaderAssistant {
         return [model, agent].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
-    /// Opens a draft session with the thread of a question and the page, with every tool.
-    func continueInSession(_ noteID: UUID, article: ReaderArticle) {
-        guard let note = store.notes.first(where: { $0.id == noteID }) else { return }
+    /// Makes a draft session with the thread of a question and the page, with every tool.
+    func continueInSession(_ noteID: UUID, article: ReaderArticle) -> AgentSession? {
+        guard let note = store.notes.first(where: { $0.id == noteID }) else { return nil }
         guard let folder = folder() else {
             store.report(PiperError("Add a folder on the Folders index. An agent works in a folder."))
-            return
+            return nil
         }
         let quote = note.anchor.map { "\n\n> " + Self.line($0.quote) } ?? ""
         let session = agents.newSession(in: folder)
         session.draft = "This continues my questions about \u{201C}\(article.title)\u{201D} (\(article.url.absoluteString))."
             + quote + "\n\n" + note.text + "\n\n"
-        agents.showDraft?(session.id)
+        return session
     }
 
     /// The margin session that answers the questions about a capture. A

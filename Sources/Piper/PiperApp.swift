@@ -22,7 +22,9 @@ struct PiperApp {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
-    private lazy var desk = PaperDesk(model: model)
+    private let model: AppModel
+    /// Opens every paper. It exists before the first scan, which opens the file that the file paper restores.
+    private let desk: PaperDesk
     private var settingsWindowController: SettingsWindowController?
     private var editors: [UUID: NSWindow] = [:]
     private var editorSessions: [ObjectIdentifier: CaptureEditSession] = [:]
@@ -31,9 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var toast: NSPanel?
     private var toastDismiss: DispatchWorkItem?
     private var readingToast: ReadingToast?
-    private var sessionPanel: SessionPanelController?
     private var palette: CommandPaletteController?
-    private let model = AppModel()
     private var capture: CaptureService?
     private let sendShortcut = SendShortcut()
     private var sendClipboardItem: NSMenuItem?
@@ -42,27 +42,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var qaScripts: QAScripts?
     #endif
 
+    override init() {
+        let model = AppModel()
+        self.model = model
+        desk = PaperDesk(model: model)
+        super.init()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.feeds.start()
         NSApp.setActivationPolicy(.regular)
         installMenus()
         model.openNoteEditor = { [weak self] note in self?.showEditor(note) }
         model.openSettings = { [weak self] in self?.settings() }
-        model.files.showFile = { [weak self] path in self?.desk.openFile(path) }
-        model.showNote = { [weak self] id in self?.desk.openNote(id) }
-        model.sessionPresentationChanged = { [weak self] presentation in self?.updateSessionPanel(presentation) }
-        if model.sessionPresentation == .detached { DispatchQueue.main.async { [weak self] in self?.showSessionPanel() } }
-        model.showSession = { [weak self] id in
-            guard let self else { return }
-            if model.sessionPresentation == .detached {
-                model.selectedSession = id
-                return showSessionPanel()
-            }
-            desk.openSession(id)
-        }
-        model.showArticle = { [weak self] id in self?.desk.openNote(id, asArticle: true) }
+        if model.sessionPresentation == .detached { DispatchQueue.main.async { [weak self] in self?.desk.showSessionPanel() } }
         let readingToast = ReadingToast(store: model.store)
-        readingToast.open = { [weak self] id in self?.model.showArticle?(id) }
+        readingToast.open = { [weak self] id in self?.showArticle(id) }
         self.readingToast = readingToast
         let capture = CaptureService(store: model.store, shortcut: { [weak model] in model?.captureShortcut ?? "" },
                                      accessibilityChanged: { [weak model] enabled in model?.accessibilityEnabled = enabled })
@@ -216,22 +211,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         desk.cycle()
     }
 
-    /// Opens or collapses the session card of the focused reader paper. With
-    /// no reader paper open, or with a detached card, the detached panel
-    /// comes to the front instead.
     @objc private func toggleSessionCard() {
-        if model.sessionPresentation == .detached || !desk.toggleSessionCard() { showSessionPanel() }
+        desk.toggleSessionCard()
     }
 
-    /// Shows the detached panel, or takes it off the screen when the card
-    /// goes back to the reader paper.
-    private func updateSessionPanel(_ presentation: SessionPresentation) {
-        if presentation == .detached { showSessionPanel() } else { sessionPanel?.dismiss() }
-    }
-
-    private func showSessionPanel() {
-        if sessionPanel == nil { sessionPanel = SessionPanelController(model: model) }
-        sessionPanel?.present()
+    /// Shows a link capture of the reading toast in the opening tab of its site.
+    private func showArticle(_ id: UUID) {
+        if let note = model.store.notes.first(where: { $0.id == id }) {
+            model.chooseArticleTab(model.openingTab(for: note), for: note)
+        }
+        desk.open(.note(id))
     }
 
     /// Saves the open file at once. The editor saves by itself 120 ms after an edit.
@@ -292,6 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             showToast(model.store.status)
             return
         }
+        desk.open(.session(run.id))
         showRunToast(run)
     }
 
@@ -320,13 +310,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         }
         showToast(text, action: ToastAction(title: "Send to " + action.folder.name) { [weak self] in
             guard let self, let session = model.agents.send(note, action: action) else { return }
+            desk.open(.session(session.id))
             showRunToast(session)
         })
     }
 
     private func showRunToast(_ session: AgentSession) {
         showToast(model.store.status, action: session.noteID.map { id in
-            ToastAction(title: "Show") { [weak self] in self?.model.showNote?(id) }
+            ToastAction(title: "Show") { [weak self] in self?.desk.open(.note(id)) }
         })
     }
 

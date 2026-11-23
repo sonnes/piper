@@ -5,7 +5,6 @@ import WebKit
 /// What a reader paper reports to the desk.
 @MainActor
 protocol ReaderPaperControllerDelegate: AnyObject {
-    func readerPaperDidBecomeKey(_ controller: ReaderPaperController)
     func readerPaperWillClose(_ controller: ReaderPaperController)
     /// The first message of a new session started the session.
     func readerPaper(_ controller: ReaderPaperController, didStart session: UUID)
@@ -31,6 +30,7 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     var focusChanged: (ReaderPaperController, Bool) -> Void = { _, _ in }
     private(set) var item: PaperItem
     private let model: AppModel
+    private weak var desk: PaperDesk?
     private let viewController: ReaderPaperViewController
     private var shown = false
     private var closing = false
@@ -42,9 +42,10 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
 
     /// Makes a paper with `frame` as the frame of its paper. `tilt` is the
     /// angle in degrees while the paper has no focus.
-    init(item: PaperItem, model: AppModel, frame: NSRect, tilt: CGFloat) {
+    init(item: PaperItem, model: AppModel, desk: PaperDesk, frame: NSRect, tilt: CGFloat) {
         self.item = item
         self.model = model
+        self.desk = desk
         viewController = ReaderPaperViewController(tilt: tilt)
         let window = PaperWindow(paperSize: frame.size, minimumPaperSize: AppDefaults.Papers.readerMinimumSize)
         window.title = "Paper"
@@ -180,10 +181,6 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
         return false
     }
 
-    func windowDidBecomeKey(_ notification: Notification) {
-        delegate?.readerPaperDidBecomeKey(self)
-    }
-
     func windowDidMove(_ notification: Notification) { frameChanged() }
     func windowDidEndLiveResize(_ notification: Notification) { frameChanged() }
 
@@ -209,7 +206,7 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
                 delegate?.readerPaper(self, didStart: session.id)
             },
             close: { [weak self] in self?.window?.performClose(nil) }
-        ))
+        ).environment(\.paperDesk, desk))
     }
 }
 

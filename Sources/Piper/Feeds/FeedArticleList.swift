@@ -184,7 +184,7 @@ extension AppModel {
 
     /// True when a kept capture holds the link of the article.
     func isKept(_ article: Article) -> Bool {
-        URL(string: article.url).flatMap(store.article(for:))?.isKept == true
+        PaperItem.keptNote(of: article, in: store)?.isKept == true
     }
 
     func openInBrowser(_ article: Article) {

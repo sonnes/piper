@@ -10,10 +10,11 @@ enum PaperKind: String {
     case session
 }
 
-/// The saved frame of each reader paper, by its item, so that a paper that
-/// opens again comes back to its last size and place.
+/// The saved frame of the feed paper and of each reader paper, by its item,
+/// so that a paper that opens again comes back to its last size and place.
 ///
-/// The store keeps the newest `AppDefaults.Papers.savedFrameLimit` frames.
+/// The store keeps the newest `AppDefaults.Papers.savedFrameLimit` frames of
+/// reader papers, and the frame of the feed paper apart from them.
 /// A paper without a saved frame takes its place in the cascade, at the last
 /// size of a paper of its kind.
 struct PaperFrames: Codable, Equatable {
@@ -27,6 +28,8 @@ struct PaperFrames: Codable, Equatable {
     private(set) var entries: [Entry] = []
     /// The last size of a paper of each kind, by `PaperKind.rawValue`.
     private(set) var lastSizes: [String: String]? = nil
+    /// The frame of the feed paper.
+    private(set) var feed: String? = nil
 
     // MARK: - API
 
@@ -34,6 +37,13 @@ struct PaperFrames: Codable, Equatable {
     func frame(of item: PaperItem) -> NSRect? {
         let key = Self.key(of: item)
         return entries.last { $0.key == key }.map { NSRectFromString($0.frame) }
+    }
+
+    /// The saved frame of the feed paper.
+    var feedFrame: NSRect? { feed.map(NSRectFromString) }
+
+    mutating func setFeedFrame(_ frame: NSRect) {
+        feed = NSStringFromRect(frame)
     }
 
     /// The last size of a paper of a kind.

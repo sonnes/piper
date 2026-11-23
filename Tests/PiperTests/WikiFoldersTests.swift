@@ -100,8 +100,8 @@ final class WikiFoldersTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: folder, withDestinationURL: target)
         preferences.set(root.path, forKey: AppDefaults.Key.vaultPath)
         let model = makeModel()
-        var shown: [String] = []
-        model.files.showFile = { shown.append($0) }
+        let desk = PaperDesk(model: model, defaults: preferences)
+        defer { desk.hide() }
 
         model.files.openRunFile("run.md", in: folder.path)
         for _ in 0..<400 where model.files.selectedDocument != "run.md" {
@@ -109,7 +109,7 @@ final class WikiFoldersTests: XCTestCase {
         }
         XCTAssertEqual(model.library.wikiPath, folder.path)
         XCTAssertEqual(model.files.selectedDocument, "run.md")
-        XCTAssertEqual(shown, ["run.md"])
+        XCTAssertTrue(desk.paper.marks.isOpenFile("run.md"))
     }
 
     func testAConflictKeepsTheDraftAndFolderList() async throws {

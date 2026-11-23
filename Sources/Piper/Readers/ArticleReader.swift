@@ -22,6 +22,7 @@ struct ArticleReader: View {
     /// The place that waits for the save delay.
     @State private var position: (block: Int, progress: Double)?
     @State private var places = NotePlaces()
+    @Environment(\.paperDesk) private var desk
 
     private var children: [Note] { model.store.children(of: note.id) }
     private var reading: Reading { note.reading ?? Reading() }
@@ -148,7 +149,7 @@ struct ArticleReader: View {
             savePosition(block: block, progress: progress)
         } else {
             ReaderMarks.perform(message, store: model.store, reader: model.reader, article: article,
-                                open: { model.showNote?($0) }) { note.id }
+                                open: { desk?.open($0) }) { note.id }
         }
     }
 }
@@ -193,10 +194,10 @@ enum ReaderMarks {
         }
     }
 
-    /// Runs an action of the reader. The open function shows a note in a reader
-    /// paper. The parent function adds the parent note when a page has none yet.
+    /// Runs an action of the reader. The open function opens a paper. The
+    /// parent function adds the parent note when a page has none yet.
     static func perform(_ message: [String: Any], store: CaptureStore, reader: ReaderAssistant, article: ReaderArticle,
-                        open: (UUID) -> Void, parent: () -> UUID?) {
+                        open: (PaperItem) -> Void, parent: () -> UUID?) {
         guard let action = message["action"] as? String else { return }
         switch action {
         case "highlight":
@@ -219,13 +220,13 @@ enum ReaderMarks {
             reader.followUp(question, on: id, in: parent, article: article)
         case "continue":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
-            reader.continueInSession(id, article: article)
+            if let session = reader.continueInSession(id, article: article) { open(.session(session.id)) }
         case "capture":
             guard let text = message["text"] as? String else { return }
             store.add(text, source: article.title, sourceURL: article.url.absoluteString, to: Note.inbox, interpretSection: false)
         case "open":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
-            open(id)
+            open(.note(id))
         case "copy":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
             store.copy(id)

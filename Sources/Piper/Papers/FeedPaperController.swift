@@ -3,8 +3,8 @@ import SwiftUI
 
 /// Owns the feed paper window.
 ///
-/// The window holds the column of tabs and the paper. Its frame, its tab,
-/// and its scope come back from `PaperDeskState`.
+/// The window holds the column of tabs and the paper. Its tab and its scope
+/// come back from `PaperDeskState`. `PaperDesk` places the window and saves its frame.
 @MainActor
 final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
@@ -15,41 +15,43 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     private var keyMonitor: Any?
     /// Called when the paper takes the keyboard focus or loses it.
     var focusChanged: () -> Void = {}
+    /// Called with the frame of the paper after the reader moves or resizes it.
+    var moved: (NSRect) -> Void = { _ in }
 
     /// The width of the column of tabs beside the paper.
     static let tabColumn = AppDefaults.Papers.tabVisible
+    /// The size of a new paper, with its column of tabs.
+    nonisolated static let paperSize = NSSize(width: AppDefaults.Papers.feedSize.width + AppDefaults.Papers.tabVisible,
+                                              height: AppDefaults.Papers.feedSize.height)
+    nonisolated static let minimumPaperSize = NSSize(width: AppDefaults.Papers.feedMinimumSize.width + AppDefaults.Papers.tabVisible,
+                                                     height: AppDefaults.Papers.feedMinimumSize.height)
 
     // MARK: - Initialization
 
-    init(model: AppModel, paper: FeedPaperModel) {
+    /// Makes the feed paper with `frame` as the frame of its paper.
+    init(model: AppModel, paper: FeedPaperModel, desk: PaperDesk, frame: NSRect) {
         self.model = model
         self.paper = paper
-        let size = NSSize(width: AppDefaults.Papers.feedSize.width + Self.tabColumn, height: AppDefaults.Papers.feedSize.height)
-        let minimum = NSSize(width: AppDefaults.Papers.feedMinimumSize.width + Self.tabColumn,
-                             height: AppDefaults.Papers.feedMinimumSize.height)
-        let window = PaperWindow(paperSize: size, minimumPaperSize: minimum)
+        let window = PaperWindow(paperSize: frame.size, minimumPaperSize: Self.minimumPaperSize)
         window.title = "Piper"
         super.init(window: window)
+        window.setPaperFrame(frame, display: false)
         window.delegate = self
         window.escape = { [weak paper] in paper?.showList() }
-        window.focusChanged = { [weak self, weak paper] focused in
+        window.focusChanged = { [weak self, weak paper, weak model] focused in
             paper?.marks.feedFocused = focused
+            // An article that the reader finished a week ago leaves Reading
+            // when the reader comes back to the paper.
+            if focused { model?.store.archiveFinishedReading() }
             self?.focusChanged()
         }
 
-        let hosting = NSHostingView(rootView: FeedPaperView(paper: paper, model: model, window: { [weak window] in window }))
+        let view = FeedPaperView(paper: paper, model: model, window: { [weak window] in window })
+            .environment(\.paperDesk, desk)
+        let hosting = NSHostingView(rootView: view)
         // The window sets its own size. The SwiftUI size would pin it to its content.
         hosting.sizingOptions = []
         window.contentView = hosting
-
-        if let saved = paper.state.feedFrame {
-            window.setPaperFrame(PaperPlacement.clamp(NSRectFromString(saved), to: NSScreen.screens.map(\.visibleFrame),
-                                                      minimum: minimum), display: false)
-        } else if let screen = NSScreen.main {
-            let frame = screen.visibleFrame
-            window.setPaperFrame(NSRect(x: frame.minX + AppDefaults.Papers.screenInset * 2, y: frame.midY - size.height / 2,
-                                        width: size.width, height: size.height), display: false)
-        }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
             if let number = PaperKey.tabNumber(event), self.handleTab(number, in: event.window) { return nil }
@@ -76,14 +78,8 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - NSWindowDelegate
 
-    func windowDidMove(_ notification: Notification) { saveFrame() }
-    func windowDidEndLiveResize(_ notification: Notification) { saveFrame() }
-
-    /// An article that the reader finished a week ago leaves Reading when the
-    /// reader comes back to the paper.
-    func windowDidBecomeKey(_ notification: Notification) {
-        model.store.archiveFinishedReading()
-    }
+    func windowDidMove(_ notification: Notification) { frameChanged() }
+    func windowDidEndLiveResize(_ notification: Notification) { frameChanged() }
 
     // MARK: - Keyboard
 
@@ -145,9 +141,9 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Private
 
-    /// Saves the frame of the paper, with its column of tabs.
-    private func saveFrame() {
+    /// Reports the frame of the paper, with its column of tabs.
+    private func frameChanged() {
         guard let frame = (window as? PaperWindow)?.paperFrame else { return }
-        paper.state.feedFrame = NSStringFromRect(frame)
+        moved(frame)
     }
 }

@@ -96,7 +96,7 @@ private struct HintStripView: View {
         let hints = Hint.hints(index: paper.showsIndex && focused == nil,
                                tree: paper.state.tab.isFolder && !paper.showsIndex && focused == nil,
                                today: paper.state.scope.showsCaptures && !paper.showsIndex, paper: focused,
-                               article: focused.map { paper.model.isArticle($0) } ?? false,
+                               article: focused.map { $0.isArticle(in: paper.model) } ?? false,
                                papersOpen: !marks.open.isEmpty, tabs: paper.tabs.count)
         HStack(spacing: 20) {
             ForEach(hints, id: \.label) { hint in
@@ -117,16 +117,5 @@ private struct HintStripView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Keyboard shortcuts")
-    }
-}
-
-extension AppModel {
-    /// True when the paper of an item shows an article, which takes H and N.
-    func isArticle(_ item: PaperItem) -> Bool {
-        switch item {
-        case .article: return true
-        case .note(let id): return store.notes.first { $0.id == id }?.isArticle == true
-        case .file, .session, .newSession: return false
-        }
     }
 }

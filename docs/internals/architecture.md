@@ -62,7 +62,7 @@ A view or a controller takes the part that it uses. For example, `FolderTreeView
 
 | Window | Owner |
 | --- | --- |
-| Feed paper and reader papers | `PaperDesk`, with `FeedPaperController` and one `ReaderPaperController` for each reader paper |
+| Feed paper, reader papers, and the detached session panel | `PaperDesk`, with `FeedPaperController`, one `ReaderPaperController` for each reader paper, and `SessionPanelController` |
 | Settings | `SettingsWindowController` |
 | Note editor windows | `AppDelegate`, one for each note |
 | Capture toast | `AppDelegate` |
@@ -72,7 +72,7 @@ The feed paper is the main window. Piper shows it at launch, and `showLibrary()`
 
 ### Papers
 
-`PaperDesk` owns the feed paper and the reader papers. A paper is a `PaperWindow`: a titled window with a full-size content view, a transparent title bar, and no title bar buttons. Its background is clear, and the content clips to a rounded rectangle of 20 points. The window is larger than its paper by `AppDefaults.Papers.shadowMargin`, and the paper draws its own shadow in that margin. The system shadow is off. A drag on the background or on the header moves the paper. `WindowDragArea` starts the drag. On a paper, its double click calls `PaperWindow.titleBarDoubleClick()`, which reads `AppleActionOnDoubleClick` through `TitleBarDoubleClick` and zooms, minimizes, or does nothing. `PaperWindow.zoom(_:)` fills the visible frame of the screen, less `screenInset`, and a second zoom restores the frame before it.
+`PaperDesk` owns the feed paper and the reader papers. `AppDelegate` makes the desk at launch, before the first scan. A paper is a `PaperWindow`: a titled window with a full-size content view, a transparent title bar, and no title bar buttons. Its background is clear, and the content clips to a rounded rectangle of 20 points. The window is larger than its paper by `AppDefaults.Papers.shadowMargin`, and the paper draws its own shadow in that margin. The system shadow is off. A drag on the background or on the header moves the paper. `WindowDragArea` starts the drag. On a paper, its double click calls `PaperWindow.titleBarDoubleClick()`, which reads `AppleActionOnDoubleClick` through `TitleBarDoubleClick` and zooms, minimizes, or does nothing. `PaperWindow.zoom(_:)` fills the visible frame of the screen, less `screenInset`, and a second zoom restores the frame before it.
 
 The system resize edges of the window lie at the outer edge of the shadow margin, away from the paper. So `PaperWindow` puts a `PaperResizeView` over the content, in the frame view of the window. The view takes a click only in a band on each edge of the paper, `resizeOutside` points outside it and `resizeInside` points inside it, with corners of `resizeCorner` points. The band outside the paper has a fill at an alpha of 1/255, because the window server sends no click to a clear pixel. Each part of the band sets the resize pointer of macOS. `PaperResize.frame(from:edges:delta:minimum:screen:)` gives the new frame, which keeps the minimum size and stays inside the visible frame of the screen.
 
@@ -80,13 +80,13 @@ The system resize edges of the window lie at the outer edge of the shadow margin
 
 `FeedPaperController` owns the feed paper. `FeedPaperView` draws the column of tabs on the left edge, and the sheet with the index, the list, or the folder tree. `FeedPaperModel` holds the state of the paper:
 
-- `PaperDeskState` holds the tab, the scope, the open folders of the folder tree, the `TabColor` and the last file count of each folder, the frame, and the open file. Each change saves it to `paperDeskState` in the preferences. A key that is missing or that this version cannot read takes its default, and the other keys stay.
+- `PaperDeskState` holds the tab, the scope, the open folders of the folder tree, the `TabColor` and the last file count of each folder, and the open file. Each change saves it to `paperDeskState` in the preferences. A key that is missing or that this version cannot read takes its default, and the other keys stay.
 - `showsIndex` is true while the sheet shows the index of the active tab.
 - `choose(_:)` handles a click on a tab. `pick(_:)` handles a pick on an index. `showList()` handles Escape and Back to the List.
 
-`PaperTab.column(folders:showsAgents:)` gives the tabs. The fixed tabs come first: Today, Feeds, and Agents. Agents shows only while a folder has sessions. Then each folder of `Library.wikiPaths` has a `.folder(path)` tab, in the order of the list. The column has no limit. `FeedPaperModel.syncFolders()` runs when the folder list changes. It calls `PaperDeskState.assignColors(to:)`, which gives a new folder the first free color of `TabColor.folderOrder` and forgets the colors of removed folders.
+`PaperTab.column(folders:showsAgents:)` gives the tabs. The fixed tabs come first: Today, Feeds, and Agents. Agents shows only while a folder has sessions. Then each folder of `Library.wikiPaths` has a `.folder(path)` tab, in the order of the list. The column has no limit. `FeedPaperModel.assignColors()` runs when the folder list changes. It calls `PaperDeskState.assignColors(to:)`, which gives a new folder the first free color of `TabColor.folderOrder` and forgets the colors of removed folders.
 
-A click on a folder tab calls `Library.changeWiki(to:)`, because Piper scans one folder at a time. After the change, `Library.folderChanged` calls `FeedPaperModel`, which resets the state of the previous folder. `FeedPaperModel.recordFileCount()` saves the file count of the active folder after each scan, so the other folder tabs show the count of their last scan.
+A click on a folder tab calls `Library.changeWiki(to:)`, because Piper scans one folder at a time. After the change, `Library.folderChanged` calls `FeedPaperModel`, which moves the folder tab to the new active folder. This is the one trigger that moves the folder tab. `FeedPaperModel.recordFileCount()` saves the file count of the active folder after each scan, so the other folder tabs show the count of their last scan.
 
 `PaperTabs` draws the column as file-folder tabs, as in variant C of the mock. `FolderTabShape` is the outline of a tab. The feed paper draws the column twice: the tabs that are not active lie under the sheet, and the active tab lies over it, so it joins the paper. `TabColumn` measures the labels and the dashed + Folder tab. When the column is taller than the paper, the folder tabs show one letter. The rule reads the height of the paper as it shows, so a resize changes the tabs at once. `PiperTheme.tabFill(_:)` and `PiperTheme.tabEdge(_:)` give the colors of each `TabColor`.
 
@@ -96,17 +96,23 @@ The index and the list fade into each other in 0.22 seconds. When Reduce Motion 
 
 ### Reader Papers
 
-A row of a list calls `FeedPaperModel.open`, which `PaperDesk.open(_:)` handles. A `PaperItem` names the item: a note, an article, the file, a session, or a new session in a folder. If a paper of the item is open, the desk brings it to the front. If not, `PaperDesk.frame(size:feed:screen:open:)` places a new `ReaderPaperController`. The first place is 24 points to the right of the feed paper, with its top at the top of the feed paper. Each next place of the cascade is 24 points to the right and down. A new paper takes the first place that no open paper has. After six places, the cascade starts again. The paper stays 24 points inside the screen.
+`PaperDesk.open(_:)` is the one way to open a paper. A `PaperItem` names the item: a note, an article, the file, a session, or a new session in a folder. A view finds the desk in the SwiftUI environment, as `paperDesk`. `FeedPaperController` and each `ReaderPaperController` put the desk there. A model reaches the desk through `AppModel.desk` or `FileEditor.desk`, which `PaperDesk` sets when the app makes it. `FolderAgents.send` and `ReaderAssistant.continueInSession` only make a draft session. The caller opens it with `open(.session(id))`.
 
-`EditorPage` holds one web view, so one file paper exists. A second file replaces the first file on the same paper. When the file paper closes, the desk flushes the editor, so the last edit saves.
+When the reader keeps the session card in the detached panel, `open(.session(id))` selects the session and shows the panel in place of a paper. A link capture that keeps a feed article and the article are one paper. `PaperItem.identity(in:)` gives the item of that paper, and the desk, `DeskMarks`, and `PaperFrames` compare items by it. `PaperItem.keptNote(of:in:)` finds the link capture of a feed article, and `PaperItem.isArticle(in:)` tells whether a paper shows an article.
+
+If a paper of the item is open, the desk brings it to the front. If not, `PaperDesk.frame(size:feed:screen:open:)` places a new `ReaderPaperController`. The first place is 24 points to the right of the feed paper, with its top at the top of the feed paper. Each next place of the cascade is 24 points to the right and down. A new paper takes the first place that no open paper has. After six places, the cascade starts again. The paper stays 24 points inside the screen.
+
+`EditorPage` holds one web view, so one file paper exists. A second file replaces the first file on the same paper. When the file paper closes, the desk flushes the editor, so the last edit saves. Each change of the open file of `FileEditor` calls `PaperDesk.fileChanged(to:)`, from a list, Back, Forward, or a link in the editor. The desk then updates the "on the desk" mark of the folder tree and `PaperDeskState.selectedFile`, which the first scan opens at the next launch.
 
 `ReaderPaper` draws a header with the actions of the item, and `NoteDetail`, `FeedArticleDetail`, `FilePaperContent`, or `SessionPane` under it. `ReaderPaperViewController` holds two hosting views: the content, and an overlay pinned to the bottom right corner. The overlay holds `SessionOverlay` only while the paper has the keyboard focus. The overlay takes the intrinsic size of `SessionPill` or `SessionCard`, so a click outside it reaches the content. A constraint keeps the overlay at most 85% of the paper height. `PaperLayout` shares the paper width between the card and the tabs. On a narrow paper, the card fits the width and sits above the tabs.
 
-`AppModel.sessionPresentation` is the pill, the card, or the detached panel, and preferences keep it. `SessionCard` hosts `SessionPane`, and `SessionTarget` picks its folder, its session, and its context page. `SessionPanelController` shows the same card in a non-activating `NSPanel` on every Space. Its close button returns the presentation to the pill. When a reader paper becomes key, the desk sets `AppModel.actionTarget` from its item.
+`AppModel.sessionPresentation` is the pill, the card, or the detached panel, and preferences keep it. `SessionCard` hosts `SessionPane`, and `SessionTarget` picks its folder, its session, and its context page. `SessionPanelController` shows the same card in a non-activating `NSPanel` on every Space. Its close button returns the presentation to the pill. `PaperDesk` owns the panel, and it shows or dismisses the panel when the presentation changes.
+
+`PaperWindow.focusChanged` is the one report of the focus. It runs when a paper becomes key or stops being key, and in QA mode when a paper comes to the front. When a reader paper takes the focus, the desk sets `AppModel.actionTarget` from its item and shows the session card on that paper only. When the feed paper takes the focus, the store moves the articles that the reader finished a week ago out of Reading.
 
 `PaperDesk.cycle()` moves the focus to the next visible paper, for Next Paper (Command-`). `PaperDesk.tidy()` moves each reader paper back to its place of the cascade.
 
-`PaperFrames` keeps the frame of each reader paper by its `PaperItem`, in `readerFrames`, with the newest 200 frames. `ReaderPaperController` reports each move and each resize to the desk after the paper is in its place. `PaperDesk.frame(of:saved:screens:)` gives the saved frame of a new paper, or nil, and a paper with no saved frame takes the cascade. `PaperPlacement.clamp(_:to:minimum:)` moves a frame onto the screen that holds the most of it, or onto the first screen, and shrinks it to that screen. The feed paper and the saved reader frames pass through it. On `NSApplication.didChangeScreenParametersNotification`, the desk calls `PaperWindow.keepOnScreen()` on each paper.
+`PaperFrames` keeps the frame of each reader paper by its `PaperItem`, in `readerFrames`, with the newest 200 frames. It keeps the frame of the feed paper apart from them, so the limit never removes it. `ReaderPaperController` and `FeedPaperController` report each move and each resize to the desk, which saves the frame. `PaperDesk.feedFrame(saved:screens:main:)` gives the frame of the feed paper: its saved frame, or its default size at the left of the main screen. `PaperDesk.frame(of:saved:screens:)` gives the saved frame of a new paper, or nil, and a paper with no saved frame takes the cascade. `PaperPlacement.clamp(_:to:minimum:)` moves a frame onto the screen that holds the most of it, or onto the first screen, and shrinks it to that screen. The feed paper and the saved reader frames pass through it. On `NSApplication.didChangeScreenParametersNotification`, the desk calls `PaperWindow.keepOnScreen()` on each paper.
 
 ### Paper Keys
 
@@ -228,7 +234,7 @@ At most two sessions are in a turn. Other turns wait. A timer stops a turn after
 
 The session composer handles Return, Tab, the arrows, and Escape in `textView(_:doCommandBy:)` of `CaptureEditor`. An `NSEvent` monitor kept the view from its first appearance, and Return then sent to an old session.
 
-`SkillTarget` names what the reader paper with the focus shows: `page(path)`, `text(text, noteID)`, or `folder`. `PaperDesk` sets `AppModel.actionTarget` when a reader paper becomes key, and the session card takes a page as context. A Send action opens a session draft with the skill command and note text. The composer sends the edited draft when the reader presses Return.
+`SkillTarget` names what the reader paper with the focus shows: `page(path)`, `text(text, noteID)`, or `folder`. `PaperDesk` sets `AppModel.actionTarget` when a reader paper takes the focus, and the session card takes a page as context. A Send action opens a session draft with the skill command and note text. The composer sends the edited draft when the reader presses Return.
 
 `SessionRunner` stores each session at each change of state through a `SessionStorage`. The app makes `Database` conform, so the sessions go in the `sessions` table of the note database. Quit asks before it stops sessions in a turn. `AppDelegate` also stops them on SIGTERM, because a child process keeps running after its parent exits.
 
@@ -389,8 +395,8 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [Today/](../../Sources/Piper/Today) | `TodayModel`, `TodayView`, `TodayRow`, `FilePicker`, and `SegmentedCapsule` |
 | [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | `RowTime`, and the section and note sheets |
 | [CaptureEditor.swift](../../Sources/Piper/CaptureEditor.swift) | The composer text view |
-| [Papers/PaperDesk.swift](../../Sources/Piper/Papers/PaperDesk.swift) | The feed paper, the reader papers, their placement, and the focus |
-| [Papers/PaperFrames.swift](../../Sources/Piper/Papers/PaperFrames.swift) | The saved frames of the reader papers, the rules that keep a paper on the screen, and the double-click setting |
+| [Papers/PaperDesk.swift](../../Sources/Piper/Papers/PaperDesk.swift) | The one way to open a paper, the feed paper, the reader papers, the session panel, their placement, and the focus |
+| [Papers/PaperFrames.swift](../../Sources/Piper/Papers/PaperFrames.swift) | The saved frames of the feed paper and the reader papers, the rules that keep a paper on the screen, and the double-click setting |
 | [Papers/PaperDeskState.swift](../../Sources/Piper/Papers/PaperDeskState.swift) | `PaperTab`, `PaperScope`, and the restored state of the feed paper |
 | [Papers/](../../Sources/Piper/Papers) | The feed paper, its tabs, its index, its lists, the reader papers, the row icons, and the error alert |
 | [Feeds/](../../Sources/Piper/Feeds) | The article list, the article detail, Sources, the history scan, and the Feeds settings |

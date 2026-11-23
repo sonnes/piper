@@ -128,12 +128,8 @@ final class AppModel {
 
     var openNoteEditor: ((Note) -> Void)?
     var openSettings: (() -> Void)?
-    /// Shows a note in a reader paper.
-    var showNote: ((UUID) -> Void)?
-    /// Shows a link capture in a reader paper.
-    var showArticle: ((UUID) -> Void)?
-    /// Shows a session in a reader paper.
-    var showSession: ((UUID) -> Void)?
+    /// The desk, which opens every paper. `PaperDesk` sets it when the app makes the desk.
+    @ObservationIgnored weak var desk: PaperDesk?
 
     /// The preferences of every key that the model and its parts keep.
     @ObservationIgnored let preferences: UserDefaults
@@ -175,8 +171,6 @@ final class AppModel {
         siteScan = SiteScan(feeds: self.feeds, preferences: preferences)
         store.archiveFinishedReading()
         StarMigration.run(feeds: self.feeds, captures: store)
-        agents.showDraft = { [weak self] id in self?.showSession?(id) }
-        files.showNote = { [weak self] id in self?.showNote?(id) }
         // A question goes to the folder of the Send buttons, or else to the open folder.
         reader.folder = { [weak agents, weak library] in agents?.defaultFolder?.path ?? library?.vault.root.path }
     }

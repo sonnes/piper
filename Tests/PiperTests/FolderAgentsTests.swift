@@ -133,14 +133,11 @@ final class FolderAgentsTests: XCTestCase {
         let note = try XCTUnwrap(store.notes.last)
         let notesAction = try XCTUnwrap(agents.completions(for: "capture").last)
 
-        var shown: UUID?
-        agents.showDraft = { shown = $0 }
         let session = try XCTUnwrap(agents.send(note, action: notesAction))
         XCTAssertEqual(session.folder, notes.standardizedFileURL.path)
         XCTAssertEqual(session.command, SlashCommand(name: "capture", arguments: "https://example.com/page"))
         XCTAssertEqual(agents.defaultFolder?.name, "notes")
         XCTAssertEqual(store.status, "Draft in notes")
-        XCTAssertEqual(shown, session.id)
         XCTAssertEqual(session.noteID, note.id)
         XCTAssertEqual(session.draft, "/capture https://example.com/page")
         XCTAssertTrue(session.blocks.isEmpty)
@@ -336,8 +333,8 @@ final class FolderAgentsTests: XCTestCase {
         try "# Home".write(to: wiki.appendingPathComponent("index.md"), atomically: true, encoding: .utf8)
         preferences.set(notes.path, forKey: AppDefaults.Key.vaultPath)
         let model = AppModel(store: store, preferences: preferences)
-        var shown: [String] = []
-        model.files.showFile = { shown.append($0) }
+        let desk = PaperDesk(model: model, defaults: preferences)
+        defer { desk.hide() }
 
         try FileManager.default.createDirectory(at: wiki.appendingPathComponent("sources"), withIntermediateDirectories: true)
         try "# New".write(to: wiki.appendingPathComponent("sources/new.md"), atomically: true, encoding: .utf8)
@@ -348,6 +345,6 @@ final class FolderAgentsTests: XCTestCase {
         }
         XCTAssertEqual(model.library.vault.root, Vault(path: wiki.path).root)
         XCTAssertEqual(model.files.selectedDocument, "sources/new.md")
-        XCTAssertEqual(shown, ["sources/new.md"])
+        XCTAssertTrue(desk.paper.marks.isOpenFile("sources/new.md"))
     }
 }

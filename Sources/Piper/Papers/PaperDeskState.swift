@@ -106,7 +106,8 @@ enum PaperScope: Codable, Equatable {
 /// What the feed paper restores when it opens again.
 ///
 /// One type covers the feed paper: its tab, its scope, the open folders of
-/// the folder tree, the color and the file count of each folder tab, and its frame.
+/// the folder tree, the color and the file count of each folder tab, and the
+/// file of the file paper. `PaperFrames` keeps the frame.
 struct PaperDeskState: Codable, Equatable {
 
     // MARK: - Properties
@@ -125,8 +126,6 @@ struct PaperDeskState: Codable, Equatable {
     /// folder list. Piper scans only the active folder, so the other tabs
     /// show the count of their last scan.
     var folderCounts: [String: Int] = [:]
-    /// The frame of the feed paper window, from `NSStringFromRect`.
-    var feedFrame: String?
     /// The file of the file paper, as a path from the root of the active folder.
     var selectedFile: String?
 
@@ -158,14 +157,6 @@ struct PaperDeskState: Codable, Equatable {
         }
     }
 
-    /// Forgets the state that belongs to the previous folder. The tab of a
-    /// folder moves to the new active folder. The open folders stay, because
-    /// they hold absolute paths.
-    mutating func resetForVault(root: String) {
-        if tab.isFolder { tab = .folder(root) }
-        selectedFile = nil
-    }
-
     // MARK: - Persistence
 
     static func restore(from defaults: UserDefaults = .standard) -> PaperDeskState {
@@ -186,7 +177,7 @@ struct PaperDeskState: Codable, Equatable {
 
 extension PaperDeskState {
     private enum CodingKeys: String, CodingKey {
-        case tab, scope, lens, expandedFolders, folderColors, folderCounts, feedFrame, selectedFile
+        case tab, scope, lens, expandedFolders, folderColors, folderCounts, selectedFile
     }
 
     /// Reads a saved state. A key that is missing or that this version cannot
@@ -204,7 +195,6 @@ extension PaperDeskState {
         expandedFolders = (try? container.decodeIfPresent([String].self, forKey: .expandedFolders)) ?? []
         folderColors = (try? container.decodeIfPresent([String: TabColor].self, forKey: .folderColors)) ?? [:]
         folderCounts = (try? container.decodeIfPresent([String: Int].self, forKey: .folderCounts)) ?? [:]
-        feedFrame = try? container.decodeIfPresent(String.self, forKey: .feedFrame)
         selectedFile = try? container.decodeIfPresent(String.self, forKey: .selectedFile)
     }
 }
