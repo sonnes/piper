@@ -236,10 +236,12 @@ To remove an agent, select Remove on its row. A session of a removed agent fails
 
 ## Send A Note
 
-- On the Clipboard tab, Control-click a row, then select a folder and a skill in Send To. Piper saves the text to Inbox and opens a draft.
-- To send any note, Control-click it and select Send to <folder> with /<skill>.
-- To send several notes, select them, then select Send in the selection bar, or press Command-Shift-Return. Each note gets a draft with its default skill.
-- To choose a different skill, open the menu on the Send button, or select Send To in the context menu. The menu lists each folder and its skills.
+- To send a row of Today with its default skill, select it and press S.
+- To choose a skill, select the Send button (a paper plane) on the row, or Send in its context menu. The menu lists the default skill, each folder and its skills, and Ask.
+- Ask starts a session in the default folder, with the text of the row as the draft.
+- A clipboard text goes to Inbox first, then Piper opens its draft.
+- An article goes as its link. A digest goes as the list of its links.
+- To send several rows, select them, then select Send in the selection bar, or press Command-Shift-Return. Each row gets a draft with its default skill.
 
 The session composer opens with the skill command and the note text. Edit the text or add instructions, then press Return or select Send.
 Claude Code starts only after you send the draft. The original note stays unchanged. Unsent drafts last until you quit Piper.

@@ -25,43 +25,47 @@ The tests use temporary folders and temporary databases. Each module has a test 
 | `HistoryTests` | Browser sources, history reads, the digest, the decay rank, and blocked sites |
 | `FeedsTests` | The feed parser, the feed database, refresh, feed discovery, OPML import, and suggestions |
 | `CapturesTests` | The capture store, clipboard entries, and capture links |
+| `StreamTests` | The stream of Today, the feed rows and modes, the relevance score, and the star migration |
 | `VaultTests` | Scans, path safety, reads, writes, and the watcher |
-| `PiperTests` | The app model: editing, refresh, previews, and quit safety |
+| `PiperTests` | The app model: editing, refresh, previews, quit safety, the verbs of Today, and Sources |
 
 The tests do not cover the UI or the global shortcut path.
 
 ## Capture Checks
 
 1. Run `make run`.
-2. Make another app active. Select New Capture in the menu bar icon. Make sure that the feed paper shows the Inbox list with the cursor in the add field.
-3. Select the Feeds tab, then press Command-1. Make sure that the feed paper changes to the Inbox list with the cursor in the add field.
+2. Make another app active. Select New Capture in the menu bar icon. Make sure that the feed paper shows Today with the cursor in the capture field.
+3. Select the Agents tab, then press Command-1. Make sure that the feed paper changes to Today with the cursor in the capture field.
 4. Save a note with Return. Control-click it, select Edit, and select Save.
-5. Copy text in another app. Select the Clipboard tab, move the pointer over its row, and select Keep in Inbox.
-6. Copy a web link. On the Clipboard tab, select Add to Reading on its row. Make sure that the page opens on a reader paper.
-7. Click another clipboard row. Make sure that its text is on the clipboard. Make sure that Clear History empties the list.
-8. Select notes, then use Merge, Move, Copy, Delete, Command-Shift-C, and Undo.
-9. Restart Piper.
-10. Make sure that the notes, sections, and the add field draft are still there.
+5. Paste a web link in the capture field and press Return. Make sure that the link shows in the Reading lens and the Kept lens.
+6. Paste the home page of a site with a feed and press Return. Make sure that Sources opens and finds the feed. Paste it again and press Option-Return. Make sure that Piper saves it as a link.
+7. Type `# Research` and press Return. Make sure that the section exists and the list shows it.
+8. Copy text in another app. In the Clipboard part of Today, select the text and press K. Make sure that a kept note shows in Inbox.
+9. Copy more text. Select it and press E. Make sure that it leaves the tray, and that Undo brings it back within 5 seconds.
+10. Restart Piper.
+11. Make sure that the notes, the sections, the lens, and the capture field draft are still there.
 
-## Feed Paper Inbox
+## Today And Sources Checks
 
-1. Select the Inbox tab, then All Sections. Make sure that the captures of every section show in one list, in day groups, and that the Inbox tab shows the count.
-2. Select a section on the Inbox index. Make sure that the list shows only the captures of that section, and that the composer saves to it.
-3. On the Inbox index, select All Sections, Notes, and Reading. Make sure that each count matches the list.
-4. Select New Section on the Inbox index. Make sure that the new section shows on the index.
-5. Select several notes. Use Merge, Move, Copy, Delete, and Undo.
-6. Search from the field at the top of the Inbox list. Make sure that results come from every section.
-7. Select one note. Make sure that it opens on a reader paper. Type in the paper. Make sure that the change is saved after a pause.
-8. Select text on the reader paper. Make sure that Command-C copies the text and Delete does not remove a note.
-9. Select Mark as Done in the header of the paper. Make sure that the note moves to "done today" at the end of the list, and to Done.
-10. Select the Clipboard tab. Make sure that the history shows.
+1. Make sure that Today shows notes, links, feed articles, digest rows, and the clipboard tray in one list, in day groups.
+2. Press 1, 2, 3, and 4. Make sure that the All, Notes, Reading, and Kept lenses show, and that each count matches the list.
+3. Select a row with the keyboard. Make sure that Keep, Done, File, Send, and More show on the selected row without the pointer.
+4. Press K, E, F, and S on a note, an article, a digest, and a clipboard text. Make sure that each verb acts as the capture guide says.
+5. Press F. File a note into a section, an article into a folder, and a note into a file. Make sure of the result on disk.
+6. Command-click two notes, then Shift-Down. Make sure that the selection bar shows. Use Keep, Done, File, Send, Merge, and Copy.
+7. Turn on VoiceOver. Make sure that VoiceOver reads each row as one item, and reaches Keep, Done, File, Send, and More as separate buttons.
+8. Open Sources from the More menu and from the command palette. Change the mode of a feed. Make sure that Today shows the new mode, and that the mode survives a restart.
+9. On Sources, import an OPML file, add a feed by address, and add a site from Sites You Read Often.
+10. Open an article on a paper and press K. Make sure that the article shows as one kept row in Today.
+11. Select a section on the Today index. Make sure that the list shows only the captures of that section, and that the capture field saves to it.
+12. Select Done on the Today index. Make sure that the completed notes show by month.
 
 ## Claude Checks
 
 Use a copy of a folder with skills, because a session changes files.
 
 1. Add the copy with Add Folder. Make sure that Settings > AI shows the folder, the path of `claude`, and a green dot for Claude Code.
-2. Copy a URL. On the Clipboard tab, Control-click its row and select a skill in Send To. Send the draft. Make sure that the note shows Running, then Done or Failed.
+2. Copy a URL. In the Clipboard part of Today, select it, then select a skill in the Send menu of the row. Send the draft. Make sure that the note shows Running, then Done or Failed.
 3. With Auto, send a link to a skill that fetches the page. Make sure that the note shows Done.
 4. Select Ask Every Time in Settings > AI > Claude Code > Permissions. Send a link to a skill that needs a shell command. Make sure that the note shows Needs you.
 5. Select the note. On its reader paper, select Deny on the card. Make sure that Claude continues and names the denied call.
@@ -125,7 +129,7 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 2. Add, rename, and delete a file in Finder. Make sure that the tree updates.
 3. Press Command-K and type a part of a file name. Make sure that Return opens the file on the file paper.
 4. Select a folder in the folder tree. Make sure that it opens or closes. Press Right Arrow, Left Arrow, and Return on the tree. Make sure that they open, close, and step as in the browse guide.
-5. Select each tab. Make sure that the tab comes to the front and joins the paper. Select the active tab of Inbox, Feeds, or Agents, then press Escape. Make sure that the paper moves between the index and the list. Turn on Reduce Motion. Make sure that the active tab does not slide.
+5. Select each tab. Make sure that the tab comes to the front and joins the paper. Select the active tab of Today or Agents, then press Escape. Make sure that the paper moves between the index and the list. Turn on Reduce Motion. Make sure that the active tab does not slide.
 6. Open a capture, an article, and a file. Make sure that each paper opens right of the feed paper, 24 points lower than the last one. Close the first paper and open another item. Make sure that the new paper takes the free place. Open the capture again. Make sure that its paper comes to the front.
 7. Press Command-` several times. Make sure that the focus moves through every paper. Press Escape on a reader paper. Make sure that it closes.
 8. Add two more folders. Make sure that their tabs take teal, rose, and clay in order. Select each folder tab. Make sure that the title and the tree change to that folder. Select a swatch. Make sure that the tab takes the color. Make the feed paper short. Make sure that the folder tabs show one letter.
@@ -161,13 +165,13 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 5. Select Reset to Defaults and make sure that the defaults return.
 6. Switch the system appearance between Light and Dark. Make sure that both windows update.
 
-## Inbox Reader Checks
+## Link Reader Checks
 
 1. Capture a note that contains only a URL, and a note that contains text with two URLs.
-2. Select the Inbox tab, then select each note. Make sure that the note with only a URL opens in the Reader tab, and that the other note opens in the editor. Control-click the other note and select Add Link to Reading.
+2. In Today, open each note. Make sure that the note with only a URL opens in the Reader tab, and that the other note opens in the editor. Control-click the other note and select Add Link to Reading.
 3. Follow a redirect, use Back and Forward, and select Reload.
 4. Load a page that fails, then select Try Again.
-5. Select text on a page and select Capture in the reader bar. Make sure that a new Inbox note has the page title and URL.
+5. Select text on a page and select Capture in the reader bar. Make sure that a new note in Inbox has the page title and URL.
 
 ## Reading Checks
 

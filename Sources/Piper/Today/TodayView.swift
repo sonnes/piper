@@ -481,7 +481,11 @@ struct TodayView: View {
         case .link(let url), .source(let url):
             if !store.keep(links: [KeptLink(url: url, source: "Piper")], to: target).isEmpty { clearComposer() }
         case .note:
-            if store.add(model.composerDraft, to: target, interpretSection: false) { clearComposer() }
+            let heading = model.composerDraft.hasPrefix("# ") && !model.composerDraft.contains("\n")
+            guard store.add(model.composerDraft, to: target) else { return }
+            clearComposer()
+            // "# Name" alone creates or chooses a section. The list then shows it.
+            if heading { paper.pick(.today(section: store.activeSection)) }
         }
     }
 

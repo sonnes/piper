@@ -1,6 +1,6 @@
 ---
 title: "Browse And Edit Files"
-summary: "Move between the tabs of the feed paper, open items on reader papers, edit files, read captures in Inbox, and keep a reading list"
+summary: "Move between the tabs of the feed paper, open items on reader papers, edit files, read captures, and keep a reading list"
 read_when:
   - Adding or removing a folder, or changing the color of its tab
   - Opening, closing, or moving between papers
@@ -16,13 +16,13 @@ Piper shows your captures, your feeds, and your folders on papers. A paper is a 
 
 Piper keeps one or more folders. The folder that you work in is the active folder. Any folder works: Piper needs no index, no frontmatter, and no folder names. See [Wiki files](../concepts/files.md) for the scan rules.
 
-To open the feed paper, press Command-2, or select Feed Paper in the menu bar icon.
+To open the feed paper, press Command-0, or select Feed Paper in the menu bar icon. Command-1 opens it on Today.
 
 ## Add A Folder
 
 The default folder is `~/Desktop/Wiki`. Each folder that you add gets a tab on the feed paper.
 
-1. Open the feed paper with Command-2.
+1. Open the feed paper with Command-0.
 2. Select the dashed + Folder tab at the end of the column of tabs.
 3. Select one or more folders.
 4. Select Add.
@@ -41,9 +41,7 @@ The feed paper has a column of tabs on its left edge. Each tab looks like a file
 
 | Tab | Color | Count | Index |
 | --- | --- | --- | --- |
-| Inbox | Indigo | The captures that are not done | All Sections, Notes, Reading, each section, Done, and New Section |
-| Clipboard | Zinc | None | None. The tab shows the clipboard history. |
-| Feeds | Sky | The unread articles | Discover, All Unread, Starred, and each feed. See [Read feeds](feeds.md). |
+| Today | Indigo | The captures that are not done | All, Notes, Reading, Kept, each section, Done, Sources, and New Section. See [Capture notes](capture.md#today). |
 | Agents | Plum | The sessions that wait for you | Each folder that has sessions. See [Find a session](claude.md#find-a-session). |
 | A folder | Teal, rose, clay, or emerald | The files in the folder | None. The tab shows the tree of the folder. |
 
@@ -57,36 +55,30 @@ If the column is taller than the paper, each folder tab shows only the first let
 
 ### Move Between The Index And The List
 
-The feed paper shows the index of a tab or the list of one scope. A scope is one item of an index, for example one feed or one folder.
+The feed paper shows the index of a tab or the list of one scope. A scope is one item of an index, for example one section or one folder.
 
 1. Select a tab. The paper shows the index of the tab.
 2. Select an item on the index. The paper shows its list.
 
-Clipboard and the folder tabs have no index. A click on one of these tabs shows its list or its tree at once.
+The folder tabs have no index. A click on a folder tab shows its tree at once.
 
 To go back to the list, press Escape, select Back to the List, or select the active tab again. To see the index again, select the active tab. If Reduce Motion is off, the index and the list fade into each other in 0.22 seconds.
 
 These keys work while the feed paper has the focus and no text field is active:
 
-- To show a tab, press its number, from 1 to 9. The numbers follow the order of the column.
-- To open the index of the active tab, press Left Arrow or the number of the tab.
+- To show a tab, press Command and its number, from 1 to 9. The numbers follow the order of the column.
+- To open the index of the active tab, press Left Arrow, or Command and the number of the tab.
 - On the index, press Up Arrow or Down Arrow to move the cursor. A ring marks the row of the cursor.
 - To show the scope at the cursor, press Return or Right Arrow.
 - To show the previous or the next scope of the tab, press `[` or `]`.
 
-If the active tab shows a scope other than its first scope, its number shows the first scope. A second press opens the index.
+If the active tab shows a scope other than its first scope, Command and its number show the first scope. A second press opens the index. In Today, the keys 1 to 4 without Command choose a lens.
 
 A hairline parts two rows of a list. The selected row has an indigo fill while the feed paper has the focus, and a gray fill when it does not. Group headers, such as Today, stay at the top of the list while it scrolls.
 
-When the pointer is over a row, its actions show in place of its time:
+In Today, the selected row and the row under the pointer show Keep, Done, File, Send, and a More menu in place of the time. See [Act on a row](capture.md#act-on-a-row). In the list of one feed, the row under the pointer shows Mark as Read or Mark as Unread.
 
-| Row | Actions |
-| --- | --- |
-| A capture | Mark as Done, or Reopen |
-| An article | Star, and Mark as Read or Mark as Unread |
-| A copy on the Clipboard tab | Keep in Inbox, Add to Reading for a web link, and Copy |
-
-The title of the list names the tab and the scope, for example "Feeds › All Unread". The More menu at the top right has New Capture, New Section, Add Folder, Add Feed, Show in Finder, Refresh, and Settings. While the tab of a folder is active, the menu also has Remove Folder.
+The title of the list names the tab and the scope, for example "Today › Sources". The More menu at the top right has New Capture, New Section, Add Folder, Sources, Show in Finder, Refresh, and Settings. While the tab of a folder is active, the menu also has Remove Folder.
 
 ### Open An Item On A Paper
 
@@ -100,7 +92,7 @@ The header of a reader paper names the item at the left. A toolbar at the right 
 | --- | --- | --- |
 | A note | The section, the source app, and the time | Put Back |
 | A link | The site and the reading time | Mark as Done or Open Again, and Put Back |
-| An article | The site icon, the feed, and the time | Mark as Read, Star, Keep in Inbox, and Put Back |
+| An article | The site icon, the feed, and the time | Keep and Put Back |
 | A file | The folder, the folders of the file, and the file name | Back, Forward, and Put Back |
 | A session | The title of the session and its state | Put Back |
 
@@ -153,9 +145,9 @@ Piper keeps the color of each folder.
 
 The feed paper restores its frame, its tab, its scope, the open folders, the tab colors, and the last file.
 
-## Search Captures And The Clipboard
+## Search Today
 
-Press Command-F to show the search field at the top of the list of captures or of the clipboard history. In Inbox, search filters the notes of every section. In Clipboard, search filters the clipboard history.
+Press Command-F to show the search field at the top of Today. Search matches the notes, the links, the articles, and their highlights in every section. In Done, search matches only completed notes.
 
 To find a file, use [Go to File](#go-to-a-file).
 
@@ -230,7 +222,7 @@ Select text in a file to show the selection bar. It is the bar of the Reader tab
 - Ask, Explain, and Define send the selection to the margin agent. The answer shows as a card in the margin, and Piper keeps it. The file does not change. A dashed line marks the text of each question.
 - Capture saves the selection as a new capture in Inbox.
 
-Piper keeps the notes and the answers of a file under one capture in Inbox, with the address `piper-file://` and the path of the file. If you rename or move the file, its cards do not follow it.
+Piper keeps the notes and the answers of a file under one capture, with the address `piper-file://` and the path of the file. If you rename or move the file, its cards do not follow it.
 
 If the paper is too narrow for the margin, the cards show under the text. In a read-only Preview, the bar has no Highlight, no Note highlight, and no formatting.
 
@@ -280,29 +272,17 @@ To show an HTML file of the folder in a note, add a line like this:
 
 The page shows the HTML file in a frame. Piper reloads the frame when the file changes. The frame cannot read or change other files, and its links do not open.
 
-## Read Captures In Inbox
+## Read Captures
 
-Select the Inbox tab, then select All Sections to see the notes and links of every section in one list. Inbox also becomes the section for new notes. Select a section on the Inbox index to show only its captures and make it the section for new notes. Select the Clipboard tab to see the clipboard history. See [Capture notes](capture.md) for the actions on a capture.
+Today shows your captures with the new articles of your feeds. See [Capture notes](capture.md#today) for the lenses, the groups, and the actions on a row. Select a section on the Today index to show only its captures.
 
-The first rows of the Inbox index choose what the list of all sections shows:
+Each row shows its time at the right. Every list title uses Noto Sans. A note shows its text, and under it the source app and the section. A link shows the first line of its title. Under the title, it shows the site, the reading time, the progress, and the section.
 
-| Row | Captures |
-| --- | --- |
-| All Sections | Every capture. Continue Reading over the day groups shows up to three articles that you started. See All selects Reading. |
-| Notes | The captures that are not links |
-| Reading | The links, in Continue, Up Next, and Finished This Week. See [Keep a reading list](#keep-a-reading-list). |
-
-The field to add a note is the first line of the list. The list shows the newest capture first, in day groups: Today, Yesterday, This Week, and Earlier. Each row shows its time at the right. A note shows its text, and under it the section and the source app. A link shows the first line of its title in a serif font. Under the title, it shows the site, the reading time, the progress, and the section.
-
-The captures that you mark as done today show under "done today" at the end of All Sections and Notes. Select the line to show or hide them.
-
-A note has a circle. Select the circle to mark the note as done. A done note shows an indigo circle with a check, and a line goes through its text. A link has an indigo dot until you open the link. Select the dot to mark the article as read. A read article has no dot. To read it again, select the empty place of the dot.
+A note has a circle. Select the circle to mark the note as done. A done note shows an indigo circle with a check, and a line goes through its text. A link and an article show the icon of the site, with an indigo dot until you open the item.
 
 The last two notes of a capture show under its row, with the quoted text. A line under them gives the number of the other notes. Select a note to open it. When a new note lands under a row, the row flashes.
 
-Under the list, a line shows the latest clipboard text. Select Keep to save it to Inbox.
-
-Select a capture to open it on a reader paper. You can also select it and press Return. Type in the text to change the note. Piper saves the change shortly after you stop typing. If the note looks like source code, the text uses a monospaced font. The editor does not change quotes or dashes while you type. The source app shows under the text.
+Select a capture, then press Return or click it again, to open it on a reader paper. You can also select it and press Return. Type in the text to change the note. Piper saves the change shortly after you stop typing. If the note looks like source code, the text uses a monospaced font. The editor does not change quotes or dashes while you type. The source app shows under the text.
 
 A capture that holds only a web link opens in the tab that you last chose for its site, Reader or Web. A link from a new site opens in the Web tab. A click on one of its highlights or questions opens the Reader tab at that text. Its agent session, if it has one, shows in the session card. A note that holds a link and more text opens in the editor. To read its link, Control-click the note and select Add Link to Reading.
 
@@ -356,7 +336,7 @@ Piper loads HTTP and HTTPS pages only. A page needs a network connection.
 
 ## Keep A Reading List
 
-Select Reading on the Inbox index. Reading shows each capture that holds only a web link, and each page that you saved from a browser.
+Select the Reading lens in Today, or press 3. Reading shows each capture that holds only a web link, and each page that you saved from a browser.
 
 | Group | Articles |
 | --- | --- |

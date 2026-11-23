@@ -17,11 +17,13 @@ The feed database is `~/Library/Application Support/Piper/Feeds.sqlite`. It has 
 
 | Table | Content |
 | --- | --- |
-| `feeds` | The address, the title, and the home page of each feed. Also the ETag and Last-Modified values, the count of failures in a row, the time of the next refresh, and the last error. |
-| `articles` | Each article: the feed, the link, the title, a plain-text summary, the dates, and the read and star marks |
-| `suggestions` | The sites of the last Discover scan: the host, the feed, the visits, the score, and the ignore mark |
+| `feeds` | The address, the title, and the home page of each feed. Also the ETag and Last-Modified values, the count of failures in a row, the time of the next refresh, the last error, and the mode: `every`, `best`, `digest`, or `off`. |
+| `articles` | Each article: the feed, the link, the title, a plain-text summary, the dates, and the read mark. The `starred` column of an older database stays, and Piper clears it. |
+| `suggestions` | The sites of the last history scan for Sites You Read Often: the host, the feed, the visits, the score, and the ignore mark |
 
-Piper removes a read article that is not starred 30 days after it arrives. A scan replaces the suggestions, but the ignored rows stay.
+Piper removes a read article 30 days after it arrives. An older database gets the `mode` column at launch, with the value `best`.
+
+At launch, Piper copies each starred article of an older database to a kept link capture in Inbox, then clears the star. A link that a capture holds already gets the kept tag. The copy runs one time, and Undo does not remove it. A scan replaces the suggestions, but the ignored rows stay.
 
 The folder `~/Library/Application Support/Piper/Favicons` holds the icon of each site, in one file for each host. Piper fetches an icon only when the folder has no file for the host. To fetch the icons again, delete the folder.
 
@@ -41,7 +43,7 @@ The `state` table holds one versioned JSON snapshot. The snapshot contains the n
 | `isDone` | The done state |
 | `createdAt`, `modifiedAt` | Creation and modification times |
 | `parent` | The UUID of the link capture that holds a highlight or a question. A note without a parent has no value. |
-| `tags` | Tags in lowercase, such as `highlight`, `yellow`, or `question` |
+| `tags` | Tags in lowercase, such as `highlight`, `yellow`, `question`, or `kept` for an item that you kept |
 | `anchor` | The quoted text, the paragraph index, and the offset in UTF-16 units, for a highlight or a question |
 | `reading` | For a link capture: the title, the reading time, the first paragraph on the screen, the progress from 0 to 1, the open and finish times, and the path and time of Save as File |
 
@@ -131,17 +133,17 @@ UserDefaults holds these keys:
 | `wikiPath` | The active Wiki folder |
 | `wikiPaths` | The folders that Piper keeps, in the order of their tabs on the feed paper |
 | `captureShortcut` | `Shift, Shift` or `Control-Option-Space` |
-| `composerDraft` | The unsaved text of the Inbox add field |
+| `composerDraft` | The unsaved text of the capture field of Today |
 | `showsFileSource` | True while the file paper shows the Source view of a file |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
 | `wikiFileSort` | Name or Date |
-| `blockedSites`, `disabledHistorySources` | The sites that Discover never reads, and the history sources that are off |
-| `discoverLastScan` | The time of the last Discover scan |
+| `blockedSites`, `disabledHistorySources` | The sites that the history scan never reads, and the history sources that are off |
+| `siteScanDate` | The time of the last history scan for Sites You Read Often |
 | `claudePath`, `claudeModel`, `claudePermissionMode` | The `claude` command that you chose, and the default model and permissions of Claude Code |
 | `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |
 | `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |
 | `articleSiteTabs` | The tab, Reader or Web, that each site of a link capture opens in |
-| `paperDeskState` | The tab and the scope of the feed paper, its frame, the open folders, the tab color and the last file count of each folder, and the open file |
+| `paperDeskState` | The tab, the scope, and the lens of the feed paper, its frame, the open folders, the tab color and the last file count of each folder, and the open file |
 | `readerFrames` | The frame of each reader paper that you moved or resized, by its item. Piper keeps the 200 newest frames. It also keeps the last size of each kind of paper, for the next new paper of that kind. |
 | `NSWindow Frame PiperSessionPanel` | The frame of the detached session card |
 

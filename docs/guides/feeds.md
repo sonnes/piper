@@ -1,41 +1,75 @@
 ---
 title: "Read Feeds"
-summary: "Subscribe to RSS, Atom, and JSON feeds, import NetNewsWire subscriptions, read articles on papers, and find feeds from browser history with Discover"
+summary: "Subscribe to RSS, Atom, and JSON feeds on Sources, choose how each feed reaches Today, import NetNewsWire subscriptions, and keep articles"
 read_when:
   - Adding a feed or importing an OPML file
   - Moving from NetNewsWire
-  - Reading, starring, or keeping an article
+  - Choosing how often a feed shows in Today
+  - Reading or keeping an article
   - Finding feeds on the sites of your history
-  - Blocking a site from Discover
+  - Blocking a site from Sites You Read Often
   - Giving Piper access to Safari history
 ---
 
 # Read Feeds
 
-Piper reads RSS, Atom, RSS-in-JSON, and JSON Feed. Select the Feeds tab of the feed paper to show the Feeds index. The index holds these rows:
+Piper reads RSS, Atom, RSS-in-JSON, and JSON Feed. The new articles of your feeds show in Today, with your notes and links. See [Capture notes](capture.md#today). Sources is the only place where you add, set, and remove feeds.
 
-| Row | Content |
+## Open Sources
+
+Do one of these steps:
+
+- In the More menu of the feed paper, choose Sources.
+- Select the Today tab to show its index, then select Sources.
+- In the command palette, choose Sources.
+- Paste the address of a site or a feed in the capture field of Today, then press Return. Sources opens and looks for the feeds at that address.
+
+Sources lists each feed with these items:
+
+| Item | Content |
 | --- | --- |
-| Discover | The sites of your recent browser history, and the feed of each site |
-| All Unread | The unread articles of every feed |
-| Starred | The articles that you starred |
-| A feed | The articles of that feed |
+| Icon | The icon of the site, or the first letter of the title until Piper finds an icon |
+| Rate | The posts in a week, or in a month for a quiet feed, from the last 4 weeks |
+| Keep rate | The part of the posts that you kept as link captures |
+| Mode | How the posts of the feed reach Today |
 
-Each row shows a count of unread articles. Starred shows a count of starred articles. The Feeds tab shows the number of unread articles.
+Select the title of a feed to show all of its articles. Right-click a feed for Show Posts, Open Site in Browser, Copy Feed Address, and Remove Source. Remove Source removes the feed and its articles.
 
-A feed shows the icon of its site. Piper gets the icon from the home page of the site. Until Piper finds an icon, the feed shows the first letter of its title. Discover and the article rows show the same icons.
+## Choose How A Feed Reaches Today
+
+Each feed has one mode. Piper saves the mode with the feed.
+
+| Mode | Today shows |
+| --- | --- |
+| Every post | One row for each new article |
+| Best | One row for each article on a quiet day. On a busy day, the 2 best articles get rows, and the others go into a digest row. |
+| Digest | One digest row for each day with new articles |
+| Off | No rows. The articles stay on Sources. |
+
+A day with more than 3 new articles from one feed is a busy day. A digest row shows the feed title, the count of new articles, and the first titles, for example "Fieldstone Weekly · 9 new".
+
+To change the mode, select it on Sources. You can also right-click an article or a digest row in Today, and choose Show Posts.
+
+### How Piper Finds The Best Articles
+
+Piper gives each article a score from 0 to 1. The score uses only data on your Mac. Piper sends no request and uses no AI for it. The score has these parts:
+
+- The keep rate of the feed.
+- The visits to the site of the article in your recent browser history.
+- The words of the title that are also in the names of the files in your active folder.
+
+An article with a score of 0.25 or more is a best article. Its row says "matches your reading".
 
 ## Add A Feed
 
-1. Select Add Feed at the end of the Feeds index. You can also choose Add Feed in the More menu of the feed paper.
-2. Type the address of a site or of a feed.
-3. Select Find Feeds.
-4. If the site has more than one feed, choose one.
-5. Select Subscribe.
+1. Open Sources.
+2. Paste or type the address of a site or of a feed in the add field.
+3. Press Return, or select Find Feeds.
+4. Select Add on the feed that you want.
 
 ## Import Subscriptions
 
-1. Open Add Feed.
+1. Open Sources.
 2. Open the Import menu.
 3. To import the subscriptions of NetNewsWire, choose Import from NetNewsWire.
 4. To import another OPML file, choose Import OPML File, and select the file.
@@ -46,55 +80,51 @@ If Piper cannot read the NetNewsWire file, give Piper Full Disk Access. You can 
 
 ## Read Articles
 
-Select a row on the Feeds index. The feed paper shows the articles, the newest first. Select an article to read it on a reader paper. The paper is the same reader as a link in Inbox. The Reader tab shows the article as clean text, and the Web tab shows the original page.
+Select an article row in Today to read it on a reader paper. Select a digest row, then press Return, to show the articles of that feed. The reader paper is the same reader as a link capture. The Reader tab shows the article as clean text, and the Web tab shows the original page.
 
 ![A fictional feed with its articles, and an article in the Reader tab](../images/feeds.png)
 
-When you select an article, Piper marks it as read. The article stays in the list until you select another row.
+When you open an article, Piper marks it as read. An article stays in Today for 7 days. Piper removes a read article 30 days after it arrives, unless you kept it.
+
+The list of one feed has these keys:
 
 | Key | Action |
 | --- | --- |
 | Return | Open the selected article on a paper |
 | Space | Open the next unread article on a paper |
-| R | Mark the article as read or unread |
-| S | Star the article, or remove the star |
+| K | Keep the article |
 | B | Open the article in the browser |
-| I | Keep the article in Inbox |
 | Command-K | Mark all articles in the list as read |
 
-The keys act on the article that you select in the list. R, S, I, and B also act on an article paper with the focus. The toolbar of an article paper has Mark as Read, Star, and Keep in Inbox. When the pointer is over an article in the list, the row shows Star and Mark as Read in place of its time. Right-click an article in the list for the same actions, Open in Browser, and Copy Link.
+K and B also act on an article paper with the focus. The toolbar of an article paper has Keep. Right-click an article in the list for Mark as Read, Keep, Open in Browser, and Copy Link.
 
-Keep saves the article to Inbox as a link capture. The source of the capture is the title of the feed. After Keep, the paper also shows the Notes tab. A highlight or a note on a feed article also keeps the article, because a note needs a capture.
+## Keep An Article
+
+Keep saves the article as a kept link capture. The source of the capture is the title of the feed. To keep an article, use one of these:
+
+- Press K on the article row in Today, or on its paper.
+- Select the star button on the row.
+- Select Keep in the More menu or the context menu of the row.
+
+A kept article shows in the Kept lens and the Reading lens. Today shows one row for the article and its capture. A highlight or a note on a feed article also keeps the article, because a note needs a capture.
 
 ## Refresh
 
-Piper refreshes each feed every 30 minutes, while Piper is open. Piper refreshes up to 4 feeds at the same time. To refresh all feeds now, select the refresh button (a circular arrow) at the top right of the list. The button next to it marks all articles in the list as read.
+Piper refreshes each feed every 30 minutes, while Piper is open. Piper refreshes up to 4 feeds at the same time. To refresh all feeds now, show the list of a feed, then select the refresh button (a circular arrow) at the top right.
 
-If a feed fails, its row shows a warning icon. Move the pointer over the row to read the error. Piper tries again after 30 minutes, and again after 30 more minutes. Then the waits are 2 hours, 8 hours, and 24 hours.
+If a feed fails, its list shows a warning icon. Move the pointer over the icon to read the error. Piper tries again after 30 minutes, and again after 30 more minutes. Then the waits are 2 hours, 8 hours, and 24 hours.
 
-Piper removes a read article 30 days after it arrives. Piper keeps each starred article.
+## Sites You Read Often
 
-## Manage A Feed
-
-Right-click a feed on the Feeds index:
-
-| Item | Action |
-| --- | --- |
-| Mark All as Read | Mark each article of the feed as read |
-| Copy Feed Address | Copy the address of the feed |
-| Unsubscribe | Remove the feed and its articles |
-
-## Discover
-
-Discover finds the sites that you visit and looks for a feed on each site. Discover uses no AI.
+Sites You Read Often is at the end of Sources. It shows the sites of your browser history that have a feed and no subscription. It uses no AI.
 
 1. Piper reads the last 14 days of browser history on this Mac.
 2. Piper ranks the sites by visits. A recent visit counts more than an old visit.
 3. Piper loads the home page of each site and looks for a feed.
 
-Each site with a feed shows Subscribe and Ignore. The sites with no feed are in a folded section at the end. Each of these sites shows Open and Ignore. Ignore hides the site from later scans.
+Each site shows Add and Ignore. Ignore hides the site from later scans.
 
-Piper scans when you open Discover and the last scan is older than one day. To scan now, select Scan Again.
+Piper scans when you open Sources and the last scan is older than one day. To scan now, select Scan Again.
 
 The history does not leave your Mac. The scan sends one request to the home page of each site, and more requests to the feeds that the page names.
 
@@ -102,7 +132,7 @@ The history does not leave your Mac. The scan sends one request to the home page
 
 Open Settings > Feeds.
 
-- To stop Discover from reading a browser, turn off its switch.
+- To stop Piper from reading a browser, turn off its switch.
 - If a source shows Open Privacy Settings, Piper needs Full Disk Access to read it. Safari needs this access.
 - To block a site, add its host to Blocked Sites. Type one host on each line. A block also covers each subdomain.
 

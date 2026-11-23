@@ -4,7 +4,7 @@ summary: "Modules, window ownership, and the flow between captures and the vault
 read_when:
   - Changing window behavior
   - Deciding which module new code belongs in
-  - Tracing capture persistence, file saves, feed refresh, or Discover
+  - Tracing capture persistence, file saves, feed refresh, Today, or the history scan
 ---
 
 # Architecture
@@ -15,8 +15,12 @@ Piper is a Swift package. Model code lives in modules under `Sources/Modules`. T
 flowchart LR
     CS[CaptureService] --> S[CaptureStore]
     CB[ClipboardInbox] --> S
-    P[Inbox add field] --> S
+    P[Today capture field] --> S
     S --> D[(SQLite snapshot)]
+    S --> U[UnifiedStream]
+    CB --> U
+    F[FeedStore] --> U
+    U --> T[Today]
     V[Vault scan and watcher] --> M[AppModel]
     M --> W[Papers]
     W --> ED[Editor] --> V
@@ -34,7 +38,8 @@ flowchart LR
 | `Vault` | One folder: scan, read, write, and watch | `PiperCore`, Yams |
 | `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, and `PermissionRule` | `PiperCore`, `CapturesDatabase` |
 | `History` | `BrowserCatalog`, `HistoryReader`, `DatabaseCopy`, `HistoryDigest`, `Decay`, and `BlockedSites` | `PiperCore`, `CSQLite` |
-| `Feeds` | The RSParser port of NetNewsWire, `FeedStore`, `FeedDatabase`, `FeedFetch`, `FeedDiscovery`, and `OPMLImport` | `CSQLite` |
+| `Feeds` | The RSParser port of NetNewsWire, `FeedStore`, `FeedDatabase`, `FeedFetch`, `FeedDiscovery`, `FeedMode`, and `OPMLImport` | `CSQLite` |
+| `Stream` | `UnifiedStream`, `StreamItem`, `FeedRows`, `Relevance`, `FeedStats`, and `StarMigration` | `Captures`, `Feeds` |
 | `Piper` | Windows, views, and app state | All modules and Yams |
 
 `PiperCore`, `PiperTree`, and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser.
@@ -53,7 +58,7 @@ Each module has a test target with the same name and a `Tests` suffix. `PiperTes
 | Capture toast | `AppDelegate` |
 | Reading toast | `ReadingToast`, which `AppDelegate` owns |
 
-The feed paper is the main window. Piper shows it at launch, and `showLibrary()` shows it with the open reader papers. `newCapture()` shows the feed paper on the Inbox list and asks `CaptureView` to focus the add field through `FeedPaperModel.composerRequest`. Window > Inbox (Command-1), File > New Capture (Command-N), and New Capture in the menu bar item call `newCapture()`. Closing every window leaves the app running in the menu bar.
+The feed paper is the main window. Piper shows it at launch, and `showLibrary()` shows it with the open reader papers. `newCapture()` shows the feed paper on Today and asks `TodayView` to focus the capture field through `FeedPaperModel.composerRequest`. Window > Today (Command-1), File > New Capture (Command-N), and New Capture in the menu bar item call `newCapture()`. Closing every window leaves the app running in the menu bar.
 
 ### Papers
 
@@ -69,13 +74,13 @@ The system resize edges of the window lie at the outer edge of the shadow margin
 - `showsIndex` is true while the sheet shows the index of the active tab.
 - `choose(_:)` handles a click on a tab. `pick(_:)` handles a pick on an index. `showList()` handles Escape and Back to the List.
 
-`PaperTab.column(folders:showsAgents:)` gives the tabs. The fixed tabs come first: Inbox, Clipboard, Feeds, and Agents. Agents shows only while a folder has sessions. Then each folder of `AppModel.wikiPaths` has a `.folder(path)` tab, in the order of the list. The column has no limit. `FeedPaperModel.syncFolders()` runs when the folder list changes. It calls `PaperDeskState.assignColors(to:)`, which gives a new folder the first free color of `TabColor.folderOrder` and forgets the colors of removed folders.
+`PaperTab.column(folders:showsAgents:)` gives the tabs. The fixed tabs come first: Today and Agents. Agents shows only while a folder has sessions. Then each folder of `AppModel.wikiPaths` has a `.folder(path)` tab, in the order of the list. The column has no limit. `FeedPaperModel.syncFolders()` runs when the folder list changes. It calls `PaperDeskState.assignColors(to:)`, which gives a new folder the first free color of `TabColor.folderOrder` and forgets the colors of removed folders.
 
 A click on a folder tab calls `AppModel.changeWiki(to:)`, because Piper scans one folder at a time. `FeedPaperModel.recordFileCount()` saves the file count of the active folder after each scan, so the other folder tabs show the count of their last scan.
 
 `PaperTabs` draws the column as file-folder tabs, as in variant C of the mock. `FolderTabShape` is the outline of a tab. The feed paper draws the column twice: the tabs that are not active lie under the sheet, and the active tab lies over it, so it joins the paper. `TabColumn` measures the labels and the dashed + Folder tab. When the column is taller than the paper, the folder tabs show one letter. The rule reads the height of the paper as it shows, so a resize changes the tabs at once. `PiperTheme.tabFill(_:)` and `PiperTheme.tabEdge(_:)` give the colors of each `TabColor`.
 
-`PaperScope` is what the list shows: an Inbox section, Done, the clipboard, a `FeedFilter`, a folder, or the sessions of a folder. `FeedPaperIndex` draws the index of Inbox, Feeds, and Agents. A folder tab has no index. It shows `FolderTreeView`. `FolderTree.rows` flattens the tree of the active folder into rows, and it shows the rows of the open folders only. `FolderTree.action(_:cursor:rows:)` maps the arrow keys and Return to a move, an open, a close, or a file to open. `SessionList` lists the sessions of a folder under a New Session row.
+`PaperScope` is what the list shows: Today with one section or every section, Done, the articles of one feed, Sources, a folder, or the sessions of a folder. `PaperDeskState.lens` keeps the lens of Today. `FeedPaperIndex` draws the index of Today and Agents. `IndexEntry` lists the rows of an index that the keyboard can pick: the lens rows, the sections, Done, and Sources. A folder tab has no index. It shows `FolderTreeView`. `FolderTree.rows` flattens the tree of the active folder into rows, and it shows the rows of the open folders only. `FolderTree.action(_:cursor:rows:)` maps the arrow keys and Return to a move, an open, a close, or a file to open. `SessionList` lists the sessions of a folder under a New Session row.
 
 The index and the list fade into each other in 0.22 seconds. When Reduce Motion is on, the change has no animation.
 
@@ -98,7 +103,7 @@ A row of a list calls `FeedPaperModel.open`, which `PaperDesk.open(_:)` handles.
 `PaperKey` turns a key event with no modifier into a paper key: an arrow, Return, a number, a bracket, or a letter. `FeedPaperController` and each `ReaderPaperController` have a local key monitor. A monitor acts only when its window is `PaperKey.focusedWindow` and `PaperKey.editsText` is false. A text view or a sheet keeps its keys.
 
 - The feed paper reads the number keys through `NumberKey.action`, Left Arrow, the brackets, and T. On the index, the arrows move `FeedPaperModel.indexCursor` over `IndexEntry.entries`, and Return picks the row.
-- A list of articles, files, or sessions sets `FeedPaperModel.listKeys` for its arrows, Return, and letters. A list of captures reads its own keys in `CaptureView`.
+- A list of articles, files, or sessions sets `FeedPaperModel.listKeys` for its arrows, Return, and letters. Today reads its own keys in `TodayView`. `FeedPaperController` reads Command and a number first, for the tabs, so the plain digits stay free for the lenses.
 - A reader paper scrolls the Reader tab with the arrows, sends H and N to the reader page, and gives R, S, I, and B to `AppModel.articleKey`. While the reader page has the focus, the page reads its own keys. It posts each letter that it does not use, and the paper performs it.
 
 `HintStrip` is a non-activating panel at the bottom of the screen. `Hint.hints` gives the keys for the paper with the focus, and the desk updates the strip when the focus changes.
@@ -127,9 +132,23 @@ The service then looks for a web page. It reads `AXDocument` from the focused el
 
 `CaptureStore` builds a candidate state and saves it before it replaces the current state. `Database` compares the stored blob with the last loaded blob on every save. A database error or a stale snapshot leaves the current notes as they are. See [Local storage](../concepts/storage.md).
 
-`ClipboardInbox` polls the pasteboard and keeps the 50 latest texts from the last 7 days, with the copy time and the app in front. It stores them in the `clipboard` table through the `Database` of `CaptureStore`. `PaperClipboardRow` saves a text to Inbox with Keep, and puts the text on the clipboard again with Copy. For a web link, Add to Reading saves the page and opens it.
+`ClipboardInbox` polls the pasteboard and keeps the 50 latest texts from the last 7 days, with the copy time and the app in front. It stores them in the `clipboard` table through the `Database` of `CaptureStore`. `ClipboardInbox.save` keeps a text as a kept note in Inbox. `dismiss` removes a text for Done, and `restore` puts it back for Undo. Today shows the texts in its tray.
 
-`CaptureView` draws the capture list of the feed paper. The add field is at the top of the list. `InboxStream.doneToday` gives the captures done today for the fold at the end of each list. `CaptureListContent.stream` shows the `InboxStream` of the scope: every section for Inbox, or one section. `InboxStream` filters the captures by section, filter, and search, and groups them as Continue Reading and days, or as Continue, Up Next, and Finished This Week. `AppModel.inboxFilters` keeps the filter of each section. The Notes and Reading rows of the Inbox index set the filter. `InboxRow` draws each capture of the stream, with the menu of `NoteContextMenu`. A click on a row calls `openCapture`, which opens the capture on a reader paper. Command-click and Shift-click set `checking` and select several captures. The selection bar shows while `checking` is true. The circle completes a note, and the dot marks an article as read. `NoteDetail` shows a link capture in its tabs and any other note in an editor. `SessionTarget` reads the open note from `AppModel.actionTarget`. For a note, the card shows the selected session when it belongs to the note, or else the newest session of the note, and it leaves out the margin sessions. A message from the card starts a session with the `noteID` of the note. `AppModel.newSessionNote` keeps the card empty after New Session. The child notes of an article stay hidden until the reader opens them. Done shows `InboxStream.archive`, which groups the done captures by the month of `modifiedAt`, because marking a capture as done sets that time. `CaptureView` takes keys on the feed paper only while the paper shows a list.
+## Today
+
+`UnifiedStream` in the `Stream` module joins the captures of `CaptureStore`, the texts of `ClipboardInbox`, and the articles of `FeedStore` into one read-only list. It owns no data. Each row is a `StreamItem`. Its `Ref` names the store of the item: a note, an article, a digest of one feed on one day, or a clip. The state of an item is new, reading, kept, or done. A capture is kept when it has the `kept` tag or child notes.
+
+The stream drops an article when a capture holds its link, so a kept article shows as one row. It also drops an article older than 7 days, or a read article older than `FeedStore.keepDays`. A section scope shows no articles. A search gives each matching article its own row. The lens filters the rows: All, Notes, Reading, or Kept. All groups the rows as Continue Reading and the days. Reading groups them as Continue, Up Next, and Finished This Week. `UnifiedStream.done` groups the done captures by the month of `modifiedAt`.
+
+`FeedRows` turns the new articles of each feed and day into rows by the `FeedMode` of the feed. A busy day has more than 3 articles from one feed. On a busy day, Best gives an article row to the 2 best articles at or above `Relevance.bar`. The other articles go into one digest row. `Relevance` scores an article from 0 to 1 with local data only. The score uses the keep rate of the feed from `FeedStats`, and the visits to its site from the history suggestions. It also uses the words that the title shares with the file names of the active folder. It sends no request.
+
+`TodayModel` in the application target holds the selection, the search, the Undo offer, and the File list. Its verbs act on `StreamItem` values: `keep`, `done`, `file`, `send`, `ask`, `merge`, `copy`, and `delete`. Done and Delete offer Undo for `AppDefaults.Today.undoSeconds`. `TodayView` draws the capture field, the lenses (`SegmentedCapsule`), the groups, the tray, `UndoToast`, and `SelectionBar`. `TodayRow` draws one row through `PaperRow`, with the verb buttons on the selected row and on the row under the pointer. `PaperRow` combines the mark, the text, and the time into one accessibility element, and keeps each action a separate button. `FilePicker` lists `FileTarget` values: sections, folders, and the Markdown files of the active folder. `PiperTheme.listTitle` is the title style of every list row.
+
+`CaptureDraft` sorts the text of the capture field. A web link alone is a link and becomes a kept link capture. A site home page or a feed address is a source and opens Sources, unless the reader presses Option-Return.
+
+At launch, `StarMigration.run` copies each starred article to a kept link capture with `CaptureStore.keep(links:recordUndo:)`, then clears the stars. The copy records no undo step, so Undo cannot remove it.
+
+`NoteDetail` shows a link capture in its tabs and any other note in an editor. `SessionTarget` reads the open note from `AppModel.actionTarget`. For a note, the card shows the selected session when it belongs to the note, or else the newest session of the note, and it leaves out the margin sessions. A message from the card starts a session with the `noteID` of the note. `AppModel.newSessionNote` keeps the card empty after New Session. The child notes of an article stay hidden until the reader opens them.
 
 ## Agent Sessions
 
@@ -261,7 +280,7 @@ The editor adds an empty paragraph after a last block that is not a paragraph, s
 
 `WikiWorkspace` owns the navigation history. `WikiLinks` resolves links and computes backlinks. `WikiMarkdown` parses blocks for the outline, heading anchors, and backlinks.
 
-## Inbox Reader
+## Link Reader
 
 `NoteDetail` shows a capture. `CaptureLinks` finds HTTP and HTTPS URLs with `NSDataDetector` and keeps the original text. If the capture is only a URL, the reader opens it at once. `AppModel.articleTab` picks the Reader tab, the Web tab, or the Notes tab. `AppModel.chooseArticleTab(_:for:)` records a choice of Reader or Web for the site of the link, and `AppModel.openingTab(for:)` opens the next link of that site in the same tab. A link from a new site opens in the Web tab. `NoteDetail` shows Reader, Web, and Notes in a `TabIsland` at the bottom of the paper.
 
@@ -279,7 +298,7 @@ The page reports the first block on the screen and the progress 250 milliseconds
 
 The Capture button runs JavaScript in an isolated content world. One call returns the selected text or the page text, the title, and the URL. `CaptureStore` saves the result to Inbox.
 
-`ReadingList` in the `Captures` module groups the link captures that are not done into Continue, Up Next, and Finished This Week. `Note.isArticle` is true for a capture without a parent that has a reading state or holds only a link. `InboxStream` reads `ReadingList`. At launch, `AppModel` marks as done each article that the reader finished more than seven days before.
+`ReadingList` in the `Captures` module groups the link captures that are not done into Continue, Up Next, and Finished This Week. `Note.isArticle` is true for a capture without a parent that has a reading state or holds only a link. `UnifiedStream` reads `ReadingList`. At launch, `AppModel` marks as done each article that the reader finished more than seven days before.
 
 `ArticleNotebook` shows the Notes tab. Its summary is a child note with the tag `summary`. `ArticleMarkdown` builds the file of Save as File, and the text that Update File adds. `Vault.write` writes the file, and `Note.reading` records its path and the save time.
 
@@ -287,7 +306,7 @@ The Capture button runs JavaScript in an isolated content world. One call return
 
 ## Search
 
-Inbox search filters the active capture section and temporary clipboard cards. Go to File (Command-K) searches every file of the active folder. See [Command Palette](#command-palette).
+Today search filters the captures, the articles, and the clipboard texts of the scope. Go to File (Command-K) searches every file of the active folder. See [Command Palette](#command-palette).
 
 ## Feeds
 
@@ -300,10 +319,10 @@ A refresh has these steps:
 1. A timer in `FeedStore` runs every 60 seconds. It takes each feed whose `nextFetch` is in the past.
 2. `FeedFetch.get` sends a conditional GET with the stored ETag and Last-Modified values. Up to 4 requests run at the same time.
 3. A 304 answer changes nothing. A new body goes to the parser, and `FeedFetch.articles` makes one `Article` for each item. The id of an article is the MD5 of the feed address and the unique id of the item.
-4. `FeedDatabase.insert` ignores an article id that exists, so a refresh keeps the read and star marks.
+4. `FeedDatabase.insert` ignores an article id that exists, so a refresh keeps the read marks.
 5. A success sets `nextFetch` to 30 minutes later. Each failure in a row sets a longer wait, from `FeedFetch.waitHours`.
 
-After each refresh, `FeedStore` prunes the read articles that are not starred and arrived more than 30 days ago.
+After each refresh, `FeedStore` prunes the read articles that arrived more than 30 days ago. The prune also skips a row with the old `starred` mark, which `StarMigration` clears.
 
 `FeedDiscovery.find` takes the address of a site or a feed. If the address is a feed, it returns that feed. If not, `HTMLFeedFinder` reads the feed links of the page. `find` parses the 3 best candidates to confirm them.
 
@@ -311,18 +330,18 @@ After each refresh, `FeedStore` prunes the read articles that are not starred an
 
 `FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` and `RowIcon.favicon` draw the icon.
 
-The Feeds index holds one row for each `FeedFilter`. `FeedArticleList` fills the list of the feed paper. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `TabIsland` as `ArticleReader`. The header of the article paper has Read, Star, and Keep. `FeedStore.revision` changes after each write, so the views read again.
+`SourcesView` lists the feeds with their `FeedStats` and their `FeedMode`, adds a feed with `FeedDiscovery`, imports OPML, and shows the history suggestions. `FeedArticleList` fills the list of one feed. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `TabIsland` as `ArticleReader`. The header of the article paper has Keep. `AppModel.keep(_:)` keeps articles for Today, the feed list, and the article paper. `FeedStore.revision` changes after each write, so the views read again.
 
-## Discover
+## History Scan
 
-`DiscoverScan` in the application target runs each scan. `DiscoverView` shows the result. A scan has these steps:
+`SiteScan` in the application target runs each scan. Sites You Read Often on Sources shows the result. A scan has these steps:
 
 1. `BrowserCatalog` finds each history source. `HistoryReader` reads a private copy of each database through `DatabaseCopy`, so another app cannot lock the file and the original does not change.
 2. `HistoryDigest` ranks the sites of the last 14 days with `Decay`. The points of a site are its visits, and the age is the time since the last visit. It drops blocked sites and private hosts, and it keeps 30 sites at most.
 3. `FeedDiscovery.find` loads the home page of each site, 4 sites at a time.
 4. `FeedStore.replaceSuggestions` writes one `Suggestion` for each site, with its feed or with no feed. The rows that you ignored stay.
 
-`DiscoverView` calls `DiscoverScan.scanIfStale` when it shows. A scan starts if the last scan is older than one day. Discover sends no data to an agent.
+`SourcesView` calls `SiteScan.scanIfStale` when it shows. A scan starts if the last scan is older than one day. The scan sends no data to an agent.
 
 ## QA Mode
 
@@ -353,20 +372,19 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [Sessions/](../../Sources/Piper/Sessions) | The session pane, the transcript views, the cards, the message field, the session card, and the detached session panel |
 | [SendShortcut.swift](../../Sources/Piper/SendShortcut.swift) | The Control-Option-W hotkey |
 | [Modules/Agents/](../../Sources/Modules/Agents) | Skill discovery, command parsing, sessions, the JSON stream, allow rules, and the session runner |
-| [CaptureView.swift](../../Sources/Piper/CaptureView.swift) | The capture list of the feed paper, the selection bar, and the add field |
-| [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | `RowTime`, the note context menu, and the section and note sheets |
+| [Today/](../../Sources/Piper/Today) | `TodayModel`, `TodayView`, `TodayRow`, `FilePicker`, and `SegmentedCapsule` |
+| [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | `RowTime`, and the section and note sheets |
 | [CaptureEditor.swift](../../Sources/Piper/CaptureEditor.swift) | The composer text view |
 | [Papers/PaperDesk.swift](../../Sources/Piper/Papers/PaperDesk.swift) | The feed paper, the reader papers, their placement, and the focus |
 | [Papers/PaperFrames.swift](../../Sources/Piper/Papers/PaperFrames.swift) | The saved frames of the reader papers, the rules that keep a paper on the screen, and the double-click setting |
 | [Papers/PaperDeskState.swift](../../Sources/Piper/Papers/PaperDeskState.swift) | `PaperTab`, `PaperScope`, and the restored state of the feed paper |
 | [Papers/](../../Sources/Piper/Papers) | The feed paper, its tabs, its index, its lists, the reader papers, the row icons, and the error alert |
-| [Feeds/](../../Sources/Piper/Feeds) | The article list, the article detail, Add Feed, Discover, its scan, and the Feeds settings |
+| [Feeds/](../../Sources/Piper/Feeds) | The article list, the article detail, Sources, the history scan, and the Feeds settings |
 | [Modules/Feeds/](../../Sources/Modules/Feeds) | The parser, the feed database, refresh, feed discovery, and OPML import |
 | [Modules/History/](../../Sources/Modules/History) | History sources, history reads, the digest, the decay rank, and blocked sites |
-| [InboxRow.swift](../../Sources/Piper/InboxRow.swift) | The rows of the Inbox stream and the progress ring |
 | [Readers/](../../Sources/Piper/Readers) | File previews, the Reader tab, the Web tab, the Notes tab, and the tabs at the bottom of a paper |
 | [Modules/Captures/ReadingList.swift](../../Sources/Modules/Captures/ReadingList.swift) | The Reading groups and the Markdown of Save as File |
-| [Modules/Captures/InboxStream.swift](../../Sources/Modules/Captures/InboxStream.swift) | The groups and the filter counts of the Inbox stream |
+| [Modules/Stream/](../../Sources/Modules/Stream) | The stream of Today, the feed rows, the relevance score, and the star migration |
 | [Readers/EditorPage.swift](../../Sources/Piper/Readers/EditorPage.swift) | The editor page, its bridge, the asset scheme, and the conflict bar |
 | [EditorSession.swift](../../Sources/Piper/EditorSession.swift) | The save of a Markdown file and the conflict rules |
 | [CommandPalette.swift](../../Sources/Piper/CommandPalette.swift) | The command palette |

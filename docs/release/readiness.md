@@ -25,7 +25,10 @@ Acceptance: a supported app saves the exact selected text. The clipboard and the
 - [ ] Run the capture checks, including a restart.
 - [ ] Test Save and Cancel in a separate note editor.
 - [ ] Test Command-1, Command-N, and New Capture in the menu bar icon with real input, from another app. QA called the same action in PiperQA, but no real key or menu reached it.
-- [ ] Test Copy, Keep in Inbox, Add to Reading, and Send To on a row of the Clipboard tab with the pointer and the context menu.
+- [ ] Test the keys of Today with real input: 1 to 4, K, E, F, S, M, Space, Delete, Command-Z, Command-click, Shift-click, and Shift-arrows. QA mode cannot send keys or modifier clicks.
+- [ ] Test the More menu and the context menu of each row kind, the Send menu, and the More menu of the feed paper with real input. A menu does not open in QA mode.
+- [ ] Test the verb buttons and the rows of Today with VoiceOver and Full Keyboard Access.
+- [ ] Decide whether a list quote, such as a highlight under a link, keeps the serif. Today the serif stays in quotes and in the body of a reader paper.
 - [x] Keep the current notes when a database write fails. `ReleaseTests` covers locked, invalid, and stale databases.
 - [x] Protect capture drafts from conflicting edits and from quit. `ReleaseTests` and `QuitSafetyTests` cover this.
 
@@ -36,10 +39,11 @@ Acceptance: each window restores its own state, saved notes survive a restart, a
 - [ ] Run the paper, editing, and reading preference checks.
 - [ ] Decide whether the file paper needs find in the open file.
 - [ ] Test the paper keys, the hint strip, and the paper motion with real input. QA posted the key events to PiperQA in a locked session, so the menus, the mouse, a drag, and the animations are not checked.
-- [ ] Take new screenshots of the papers for the README and the guides. `main-window.png` and `feeds.png` show the old main window.
+- [ ] Take new screenshots of the papers for the README and the guides. `main-window.png` and `feeds.png` show the old main window and the old feed tabs.
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
 - [ ] Import a real NetNewsWire `Subscriptions.opml`, and make sure that each feed refreshes.
-- [ ] Run Discover in the built app with Safari history, and make sure that Settings > Feeds shows Open Privacy Settings while Piper has no Full Disk Access.
+- [ ] Scan Sites You Read Often in the built app with Safari history. While Piper has no Full Disk Access, make sure that Settings > Feeds shows Open Privacy Settings.
+- [ ] Tune the Best mode with real feeds: the busy-day count of 3, the 2 best rows, and the relevance bar of 0.25.
 - [ ] Measure if agent sessions get the Full Disk Access of Piper.
 - [ ] Make a link from the editor show the new file in the folder tree.
 - [ ] Do the Editing Checks in [validate.md](validate.md) that are not done in the built app: Japanese input, Command-F, and Reload in the conflict bar.

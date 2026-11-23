@@ -13,10 +13,10 @@ Piper captures text into a local database and browses a folder of files.
 ## Use Piper
 
 - [Install Piper](guides/install.md): download the signed DMG, build from source, allow Accessibility access, and publish a signed release.
-- [Capture notes](guides/capture.md): the Inbox add field, clipboard history, selection capture, and sections.
+- [Capture notes](guides/capture.md): Today, the capture field, the row verbs, clipboard history, selection capture, and sections.
 - [Work with agents](guides/claude.md): talk to Claude Code or an ACP agent in a folder, and send notes to the skills of the folder.
-- [Read feeds](guides/feeds.md): subscribe to feeds, import from NetNewsWire, read articles, and find feeds with Discover.
-- [Browse and edit files](guides/browse.md): folders, search, previews, editing, the command palette, and the Inbox reader.
+- [Read feeds](guides/feeds.md): Sources, the mode of each feed, import from NetNewsWire, reading articles, and Sites You Read Often.
+- [Browse and edit files](guides/browse.md): folders, search, previews, editing, the command palette, and the link reader.
 - [Keyboard shortcuts](guides/shortcuts.md): every shortcut in both windows.
 
 ## Understand The Data
