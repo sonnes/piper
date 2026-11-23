@@ -1,6 +1,6 @@
 ---
 title: "Keyboard Shortcuts"
-summary: "Every keyboard shortcut in the capture panel and the main window"
+summary: "Every keyboard shortcut in the capture panel and on the papers"
 read_when:
   - Looking up a shortcut
 ---
@@ -15,28 +15,28 @@ read_when:
 | Control-Option-Space | Capture the selection, if you choose it in Settings > Capture |
 | Control-Option-W | Save the clipboard to Inbox and open a draft for the default folder, while a folder has Claude skills |
 | Command-1 | Show the capture panel |
-| Command-2 | Show the files in the main window |
+| Command-2 | Show the feed paper and the open reader papers |
 | Command-comma | Open Settings |
 | Command-Q | Quit Piper |
 
-Command-S, Command-[, and Command-] act on the main window even when the capture panel is in front.
+Command-S, Command-[, and Command-] act on the file paper even when the capture panel is in front.
 
 ## Capture Panel And Inbox
 
-These shortcuts work in the capture panel or the main-window Inbox when no sheet is open. In the main window, the Inbox pane must have keyboard focus.
+These shortcuts work in the capture panel or in the Inbox list of the feed paper when no sheet is open. On the feed paper, the list must have keyboard focus.
 
 | Shortcut | Action |
 | --- | --- |
-| Return | Save the composer, or edit the selected note |
+| Return | Save the composer. In the capture panel, edit the selected note. On the feed paper, open the selected note on a paper. |
 | Shift-Return | Add a new line in the composer |
 | Command-Return | Save in an editor, or open the selected note in a separate window |
 | Command-N | In the capture panel, move the focus to the composer and clear the selection |
 | Command-K | Choose the section for new notes, or create one |
 | Command-F | Search notes and the clipboard |
-| Up / Down | Select the previous or next note. In the main window, while the Reader tab shows, scroll the article. |
-| Click | In the main window, open a note. In the capture panel, select or deselect it. |
+| Up / Down | Select the previous or next note |
+| Click | On the feed paper, open a note on a paper. In the capture panel, select or deselect it. |
 | Click the circle or ring | Mark a note as done, or mark an article as read |
-| Command-click | In the main window, select or deselect a note for an action on several notes |
+| Command-click | On the feed paper, select or deselect a note for an action on several notes |
 | Shift-click | Select a range of notes |
 | Shift-Up / Shift-Down | Add the previous or next note to the selection |
 | Command-A | Select all matching notes |
@@ -54,11 +54,11 @@ When the composer shows the skill list, Up and Down move the highlight. Tab puts
 
 Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit the text.
 
-## Main Window
+## Papers
 
 | Shortcut | Action |
 | --- | --- |
-| Command-N | Open the note composer in the selected Inbox section, or in Inbox from another pane |
+| Command-N | Show the feed paper and open the note composer in the selected Inbox section, or in Inbox from another list |
 | Command-S | Save the open Markdown file at once. Piper also saves 120 ms after an edit. |
 | Command-K | Open the command palette. In the editor, with text selected, make a link. |
 | Command-F | Find and replace text in the open Markdown file |
@@ -66,8 +66,10 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 | Command-[ | Go back |
 | Command-] | Go forward |
 | Command-Z | Undo an edit |
-| Command-W | Close the window |
-| Option-Command-C | Open or close the session card, or bring the detached session panel to the front |
+| Command-W | Close the reader paper with the focus, or the feed paper |
+| Escape | Close the reader paper with the focus. On the feed paper, go from the index back to the list. |
+| Command-` | Move the focus to the next paper |
+| Option-Command-C | Open or close the session card of the reader paper with the focus. With no reader paper open, open the detached session panel. |
 | Command-K | In the Reader tab, with text selected, ask about the selected text |
 | N | In the Reader tab, write a note on the selected text |
 | Up Arrow / Down Arrow | In the Reader tab, scroll the article |

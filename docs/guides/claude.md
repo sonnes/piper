@@ -15,7 +15,7 @@ read_when:
 
 # Work With Agents
 
-Piper runs an agent in a sidebar folder. The agent is Claude Code, or a command that speaks the Agent Client Protocol (ACP), such as Gemini CLI or OpenCode. You can talk to an agent in a session, or send a note to a skill of the folder.
+Piper runs an agent in one of your folders. The agent is Claude Code, or a command that speaks the Agent Client Protocol (ACP), such as Gemini CLI or OpenCode. You can talk to an agent in a session, or send a note to a skill of the folder.
 
 A session is a conversation with one agent in one folder. Piper shows each message, each tool call, and each result in a transcript. A skill run is also a session, so you can answer the agent after the skill ends.
 
@@ -26,7 +26,7 @@ Piper holds no logic for any skill. It reads each `.claude/skills/<name>/SKILL.m
 ## Prepare A Folder
 
 1. Install Claude Code, and sign in once in Terminal.
-2. Add the folder to the sidebar. See [Browse and edit files](browse.md#add-a-folder).
+2. Add the folder to Piper. See [Browse and edit files](browse.md#add-a-folder).
 3. Make sure that the folder has at least one skill in `.claude/skills`.
 4. Open Settings > AI.
 5. Make sure that the Claude Code row shows a green dot and the path of the `claude` command.
@@ -50,8 +50,8 @@ The folder that you used last is the default folder. The Send button names it, f
 
 ## Talk To An Agent In A Session
 
-1. In the main window, select a file or a capture.
-2. Press Option-Command-C, or select the pill in the bottom right corner of the detail pane. The session card opens. A chip over the message field names the file or the capture on the screen.
+1. Open a file or a capture on a reader paper.
+2. Press Option-Command-C, or select the pill in the bottom right corner of the paper. The session card opens. A chip over the message field names the file or the capture on the screen.
 3. Type a message.
 4. Press Return.
 
@@ -59,7 +59,7 @@ The card works in the folder of the selected file. If no file is selected, the c
 
 While a capture is open, the card shows the conversations of that capture. It opens the newest one. The title menu lists the others. A message to a capture that has no session starts one for that capture, so the card shows it again when you come back. When you open another capture, the card and the pill change with it.
 
-The session card floats over the bottom right corner of the detail pane, so the page stays on the screen beside it. In a narrow pane, the card fits the pane width and sits above the tabs. To change its height, drag its top edge. To close it, press Escape, select the down arrow, or press Option-Command-C again. The card collapses to the pill.
+The session card floats over the bottom right corner of the reader paper with the focus, so the page stays on the screen beside it. On a narrow paper, the card fits the paper width and sits above the tabs. To change its height, drag its top edge. To close it, press Escape, select the down arrow, or press Option-Command-C again. The card collapses to the pill.
 
 The pill shows the state of the session:
 
@@ -75,7 +75,7 @@ The pill shows the state of the session:
 
 Select Pop Out in the header of the card. The card moves to a panel of its own. The panel floats over every app, on every Space, so you can read in another app and ask at the same time. The panel does not make Piper the active app.
 
-To return the card to the main window, select Dock in the panel. To close the panel, select its close button. The card collapses to the pill. While the panel is open, Option-Command-C brings it to the front. Piper keeps the size and the place of the panel, and it opens the panel again after a restart.
+To return the card to the reader paper, select Dock in the Paper. To close the panel, select its close button. The card collapses to the pill. While the panel is open, Option-Command-C brings it to the front. Piper keeps the size and the place of the panel, and it opens the panel again after a restart.
 
 The first message starts a session.
 
@@ -105,12 +105,12 @@ To start another session, select New Session (the pencil icon). The title menu o
 
 ### Find A Session
 
-When a folder has sessions, the sidebar shows a Claude group with a row for that folder. An orange number on the row counts the sessions that wait for you.
+When a folder has sessions, the feed paper shows the Agents tab. Its index has a row for each folder with sessions. An orange number on the tab counts the sessions that wait for you.
 
-1. Select the folder in the Claude group. The folder opens and shows its sessions, with the newest change first.
+1. Select the Agents tab, then select a folder. The list shows its sessions, with the newest change first.
 2. Select a session.
 
-The detail pane shows the transcript and a message field. To start a new session in the folder, select the folder row.
+The session opens on a reader paper with the transcript and a message field. To start a new session in the folder, select New Session at the top of the list.
 
 The dot before each session shows its state:
 
@@ -279,10 +279,10 @@ The row of a sent note shows a badge and a second line:
 | Waiting | Two sessions are in a turn. This turn starts when one ends. | Show the note |
 | Running | The agent works. The second line shows the last tool call. | Show the note |
 | Needs you | A request waits for your answer. | Show the note |
-| Done | The last turn ended. The second line shows the first Markdown file that the session wrote. | Open that file in the main window |
+| Done | The last turn ended. The second line shows the first Markdown file that the session wrote. | Open that file on the file paper |
 | Failed | The last turn stopped. The second line shows the reason. | Show the note |
 
-In the main window, select the note. The pill of the session card shows the state of its session. Open the card to answer a request, or to send another message.
+On the feed paper, select the note. On its reader paper, the pill of the session card shows the state of its session. Open the card to answer a request, or to send another message.
 
 The transcript shows:
 

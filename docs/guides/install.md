@@ -44,7 +44,7 @@ Piper starts with the capture panel and a menu bar icon. A second launch opens t
 
 ## Allow Selection Capture
 
-Piper reads selected text through the macOS Accessibility API. Without this permission, the capture panel and the main window still work.
+Piper reads selected text through the macOS Accessibility API. Without this permission, the capture panel and the papers still work.
 
 1. Open Settings with Command-comma.
 2. Select Capture.

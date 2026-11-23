@@ -9,7 +9,7 @@ read_when:
 
 # Architecture
 
-Piper is a Swift package. Model code lives in modules under `Sources/Modules`. The `Piper` application target sits above them and holds the windows and views. AppKit owns the windows and the panes. SwiftUI draws most pane content. The rules for new code are in [Coding guidelines](coding-guidelines.md).
+Piper is a Swift package. Model code lives in modules under `Sources/Modules`. The `Piper` application target sits above them and holds the windows and views. AppKit owns the windows. SwiftUI draws most of their content. The rules for new code are in [Coding guidelines](coding-guidelines.md).
 
 ```mermaid
 flowchart LR
@@ -18,7 +18,7 @@ flowchart LR
     P[Capture panel] --> S
     S --> D[(SQLite snapshot)]
     V[Vault scan and watcher] --> M[AppModel]
-    M --> W[Main window]
+    M --> W[Papers]
     W --> ED[Editor] --> V
 ```
 
@@ -35,7 +35,7 @@ flowchart LR
 | `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, and `PermissionRule` | `PiperCore`, `CapturesDatabase` |
 | `History` | `BrowserCatalog`, `HistoryReader`, `DatabaseCopy`, `HistoryDigest`, `Decay`, and `BlockedSites` | `PiperCore`, `CSQLite` |
 | `Feeds` | The RSParser port of NetNewsWire, `FeedStore`, `FeedDatabase`, `FeedFetch`, `FeedDiscovery`, and `OPMLImport` | `CSQLite` |
-| `Piper` | Windows, panes, views, and app state | All modules and Yams |
+| `Piper` | Windows, views, and app state | All modules and Yams |
 
 `PiperCore`, `PiperTree`, and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the frontmatter parser.
 
@@ -48,40 +48,43 @@ Each module has a test target with the same name and a `Tests` suffix. `PiperTes
 | Window | Owner |
 | --- | --- |
 | Capture panel | `CapturePanelController` |
-| Main window | `MainWindowController` |
+| Feed paper and reader papers | `PaperDesk`, with `FeedPaperController` and one `ReaderPaperController` for each reader paper |
 | Settings | `SettingsWindowController` |
 | Note editor windows | `AppDelegate`, one for each note |
 | Capture toast | `AppDelegate` |
 | Reading toast | `ReadingToast`, which `AppDelegate` owns |
 
-The capture panel and the main window are exclusive. `showPanel()` hides the main window, and `showLibrary()` hides the panel. Neither closes, so drafts and edit sessions stay. Closing every window leaves the app running in the menu bar.
+The capture panel and the papers are exclusive. `showPanel()` hides the papers, and `showLibrary()` hides the panel. Neither closes, so drafts and edit sessions stay. Closing every window leaves the app running in the menu bar.
 
 The panel is a non-activating `NSPanel` on every Space. Its initial size is 600 by 960 points with 22-point corners. It scales down on a small screen.
 
-### Main Window
+### Papers
 
-`MainWindowController` owns the toolbar and an `NSSplitViewController` with four split items:
+`PaperDesk` owns the feed paper and the reader papers. A paper is a `PaperWindow`: a titled window with a full-size content view, a transparent title bar, and no title bar buttons. Its background is clear, and the content clips to a rounded rectangle of 20 points. The system draws the shadow. A drag on the background or on the header moves the paper. `PaperWindow.cancelOperation` calls its `escape` closure, so Escape reaches the paper after the views in it.
 
-| Pane | Controller | Content |
-| --- | --- | --- |
-| Sidebar | `SidebarViewController` | `SidebarOutline`, an `NSOutlineView` |
-| List | `CaptureListViewController` | `CaptureView` for Inbox, a section, or Done |
-| Detail | `DetailViewController` | `CaptureView` for Clipboard, `EditorPane`, `FilePreview`, `NoteDetail`, or a session |
-| Session card | `DetailViewController` | `SessionOverlay`, in a hosting view over the bottom right corner of the detail pane |
+`FeedPaperController` owns the feed paper. `FeedPaperView` draws the column of tabs on the left edge, and the sheet with the index or the list. `FeedPaperModel` holds the state of the paper:
 
-Each controller subclasses `HostingPaneViewController`, which wraps an `NSHostingView`. A pane reports upward through a delegate protocol, and `MainWindowController` decides what the other panes show. The editor page is an exception. A link in it calls `AppModel.openDocument` directly, so a link does not change the sidebar selection.
+- `PaperDeskState` holds the tab, the scope, the open folders of the Folders index, the pinned folders, the frame, and the open file. Each change saves it to `paperDeskState` in the preferences.
+- `showsIndex` is true while the sheet shows the index of the active tab.
+- `choose(_:)` handles a click on a tab. `pick(_:)` handles a pick on an index. `showList()` handles Escape and Back to the List.
 
-`SidebarSelection` decides the layout. `SidebarSelection.showsList` is true only for Inbox, a section, and Done (`SidebarSelection.archived`). Every other selection collapses the list pane, and the detail pane takes its width. A Claude folder hides the session card, because the detail pane shows the sessions of the folder. `MainWindowState` saves the selection, the open file, the open folders, and the pane widths. `AppModel.selectedSession` holds the session that the session card and the detail pane of a Claude folder show.
+`PaperTab.column(pins:showsAgents:limit:)` gives the tabs and the pinned folders that do not fit. The column holds `AppDefaults.Papers.tabLimit` tabs. The fixed tabs come first: Inbox, Clipboard, Feeds, Folders, and Agents. Agents shows only while a folder has sessions. A pinned folder that does not fit shows at the top of the Folders index.
 
-`AppModel.sessionPresentation` is the pill, the card, or the detached panel, and preferences keep it. `DetailViewController` holds two hosting views: the content, and an overlay pinned to the bottom right corner. The overlay takes the intrinsic size of `SessionPill` or `SessionCard`, so a click outside it reaches the content. A constraint keeps the overlay at most 85% of the pane height. `DetailPaneLayout` shares the pane width between the card and the tabs. In a narrow pane, the card fits the width and sits above the tabs. `SessionCard` hosts `SessionPane`, and `SessionTarget` picks its folder, its session, and its context page. `SessionPanelController` shows the same card in a non-activating `NSPanel` on every Space. Its close button returns the presentation to the pill.
+`PaperScope` is what the list shows: an Inbox section, Done, the clipboard, a `FeedFilter`, a folder, or the sessions of a folder. `FeedPaperIndex` draws the index of each tab. `FolderIndex.rows` flattens the tree of the active folder into rows, and it shows the rows of the open folders only. `FolderListView` groups the files of a folder by their folder. `SessionList` lists the sessions of a folder under a New Session row.
 
-The window title names the open file, and the subtitle shows the folders of the file. For other selections, the title names the selection, as in Mail, and the subtitle shows a count. The title updates through `withObservationTracking`. The toolbar has tracking separators that align with the split view dividers. Toggle Sidebar sits over the sidebar. New Capture sits over the list. Back and Forward, Mark as Done, and the More menu sit over the detail pane. `TabIsland` floats over the bottom of the detail pane, with Preview and Source for a file. The Session Card button at the end opens and collapses the session card, as does Option-Command-C. The list of captures and the clipboard history each have a search field.
+The index and the list fade into each other in 0.22 seconds. When Reduce Motion is on, the change has no animation.
 
-The sidebar has up to four groups. Library holds Inbox with one child for each capture section other than Inbox, Clipboard, and Done. Claude holds one `SidebarSelection.sessions` row for each folder with sessions, and it shows only when a session exists. Each folder row holds a `SidebarSessionRow` for each session. A session row sets `AppModel.selectedSession` and selects its folder. A folder row clears `AppModel.selectedSession`, so the detail pane starts a new session. Feeds holds Discover, All Unread, Starred, and one row for each feed. Folders holds every root and the tree of the active root, with its files. A click on a folder opens or closes it. `SidebarSelection.folder` keeps the last file in the detail pane. `SidebarSelection.section` shows the captures of one section, and `SidebarSelection.clipboard` shows the clipboard history in the detail pane.
+### Reader Papers
 
-The expansion set of `SidebarPane` holds the open folder paths. The empty path is the root folder. `MainWindowState.expandedRows` saves the set. A window that has not opened before has an empty set, so every folder starts closed. The set also holds two kinds of keys that start with `\u{1}`, so they cannot match a path: `SidebarOutline.inboxCollapsedKey` for a closed Inbox, and `SidebarOutline.sessionsExpandedKey` for each open Claude folder.
+A row of a list calls `FeedPaperModel.open`, which `PaperDesk.open(_:)` handles. A `PaperItem` names the item: a note, an article, the file, a session, or a new session in a folder. If a paper of the item is open, the desk brings it to the front. If not, `PaperDesk.frame(index:size:feed:screen:)` places a new `ReaderPaperController`. The paper opens 24 points to the right of the feed paper, with its top at the top of the feed paper. Each paper that is open moves the new paper by 24 points to the right and down. After six papers, the cascade starts again. The paper stays 24 points inside the screen.
 
-The sidebar always uses medium rows: 13-point text and 18-point icons. It ignores the macOS sidebar size preference, so the list and the detail pane stay larger than the sidebar.
+`EditorPage` holds one web view, so one file paper exists. A second file replaces the first file on the same paper. When the file paper closes, the desk flushes the editor, so the last edit saves.
+
+`ReaderPaper` draws a header with the actions of the item, and `NoteDetail`, `FeedArticleDetail`, `FilePaperContent`, or `SessionPane` under it. `ReaderPaperViewController` holds two hosting views: the content, and an overlay pinned to the bottom right corner. The overlay holds `SessionOverlay` only while the paper has the keyboard focus. The overlay takes the intrinsic size of `SessionPill` or `SessionCard`, so a click outside it reaches the content. A constraint keeps the overlay at most 85% of the paper height. `PaperLayout` shares the paper width between the card and the tabs. On a narrow paper, the card fits the width and sits above the tabs.
+
+`AppModel.sessionPresentation` is the pill, the card, or the detached panel, and preferences keep it. `SessionCard` hosts `SessionPane`, and `SessionTarget` picks its folder, its session, and its context page. `SessionPanelController` shows the same card in a non-activating `NSPanel` on every Space. Its close button returns the presentation to the pill. When a reader paper becomes key, the desk sets `AppModel.actionTarget` from its item.
+
+`PaperDesk.cycle()` moves the focus to the next visible paper, for Next Paper (Command-`). `PaperDesk.closeFocused()` closes the reader paper with the focus.
 
 ## Capture
 
@@ -109,11 +112,11 @@ The service then looks for a web page. It reads `AXDocument` from the focused el
 
 `ClipboardInbox` polls the pasteboard and keeps the 50 latest texts from the last 7 days, with the copy time and the app in front. It stores them in the `clipboard` table through the `Database` of `CaptureStore`. `ClipboardRow` in `CaptureRows.swift` saves to Inbox with Keep, and pastes through `ClipboardPaster` on a double-click.
 
-`CaptureView` draws the capture list for both windows. The add field is at the top of the list in both windows. In the panel, the list holds the active section, the newest note first. A search shows every section under a header. Tabs select the first `AppDefaults.CaptureItem.sectionTabCount` sections, and `CaptureSectionMenu` holds the others. The clipboard strip under the panel list shows the latest clipboard texts. `InboxStream.doneToday` gives the captures done today for the fold at the end of each list. In the main window, `CaptureListContent.stream` shows the `InboxStream` of the sidebar selection: every section for Inbox, or one section. `InboxStream` filters the captures by section, chip, and search, and groups them as Continue Reading and days, or as Continue, Up Next, and Finished This Week. `AppModel.inboxFilters` keeps the chip of each section. `InboxRow` draws each capture of the stream, and `NoteContextMenu` gives the panel rows and the stream rows the same menu. In the main window, a click on a row sets the selection to that capture, which opens it. Command-click and Shift-click set `checking` and select several captures. The selection bar shows while `checking` is true. The circle completes a note, and the ring marks an article as read. `NoteDetail` shows a link capture in its tabs and any other note in an editor. `SessionTarget` reads the open note from `AppModel.actionTarget`. For a note, the card shows the selected session when it belongs to the note, or else the newest session of the note, and it leaves out the margin sessions. A message from the card starts a session with the `noteID` of the note. `AppModel.newSessionNote` keeps the card empty after New Session. The child notes of an article stay hidden until the reader opens them. Done shows `InboxStream.archive`, which groups the done captures by the month of `modifiedAt`, because marking a capture as done sets that time. The main-window controller routes note selection to the detail pane and limits shortcuts to the Inbox pane.
+`CaptureView` draws the capture list for both windows. The add field is at the top of the list in both windows. In the panel, the list holds the active section, the newest note first. A search shows every section under a header. Tabs select the first `AppDefaults.CaptureItem.sectionTabCount` sections, and `CaptureSectionMenu` holds the others. The clipboard strip under the panel list shows the latest clipboard texts. `InboxStream.doneToday` gives the captures done today for the fold at the end of each list. On the feed paper, `CaptureListContent.stream` shows the `InboxStream` of the scope: every section for Inbox, or one section. `InboxStream` filters the captures by section, chip, and search, and groups them as Continue Reading and days, or as Continue, Up Next, and Finished This Week. `AppModel.inboxFilters` keeps the chip of each section. `InboxRow` draws each capture of the stream, and `NoteContextMenu` gives the panel rows and the stream rows the same menu. On the feed paper, a click on a row calls `openCapture`, which opens the capture on a reader paper. Command-click and Shift-click set `checking` and select several captures. The selection bar shows while `checking` is true. The circle completes a note, and the ring marks an article as read. `NoteDetail` shows a link capture in its tabs and any other note in an editor. `SessionTarget` reads the open note from `AppModel.actionTarget`. For a note, the card shows the selected session when it belongs to the note, or else the newest session of the note, and it leaves out the margin sessions. A message from the card starts a session with the `noteID` of the note. `AppModel.newSessionNote` keeps the card empty after New Session. The child notes of an article stay hidden until the reader opens them. Done shows `InboxStream.archive`, which groups the done captures by the month of `modifiedAt`, because marking a capture as done sets that time. `CaptureView` takes keys on the feed paper only while the paper shows a list.
 
 ## Agent Sessions
 
-`FolderAgents` in the application target holds the agents, the defaults of a new session and of a margin answer, the sidebar folders that have skills, the default folder, and the default skill for links and for text. `AppModel` refreshes the folders when the folder list changes, on each scan, and when the capture panel becomes key.
+`FolderAgents` in the application target holds the agents, the defaults of a new session and of a margin answer, the added folders that have skills, the default folder, and the default skill for links and for text. `AppModel` refreshes the folders when the folder list changes, on each scan, and when the capture panel becomes key.
 
 `SessionRunner` in the `Agents` module owns every `AgentSession`. Each session is an `@Observable` object, so a view of one session redraws only when that session changes. A session records its agent, its purpose, its model, its mode, and the ACP session id in `resumeToken`.
 
@@ -179,7 +182,7 @@ At most two sessions are in a turn. Other turns wait. A timer stops a turn after
 
 The session composer handles Return, Tab, the arrows, and Escape in `textView(_:doCommandBy:)` of `CaptureEditor`. An `NSEvent` monitor kept the view from its first appearance, and Return then sent to an old session.
 
-`SkillTarget` names what the main window shows: `page(path)`, `text(text, noteID)`, or `folder`. `MainWindowController` sets `AppModel.actionTarget` with the selection, and the session card takes a page as context. A Send action opens a session draft with the skill command and note text. The composer sends the edited draft when the reader presses Return.
+`SkillTarget` names what the reader paper with the focus shows: `page(path)`, `text(text, noteID)`, or `folder`. `PaperDesk` sets `AppModel.actionTarget` when a reader paper becomes key, and the session card takes a page as context. A Send action opens a session draft with the skill command and note text. The composer sends the edited draft when the reader presses Return.
 
 The `sessions` table stores each session at each change of state. Quit asks before it stops sessions in a turn. `AppDelegate` also stops them on SIGTERM, because a child process keeps running after its parent exits.
 
@@ -193,7 +196,7 @@ The `sessions` table stores each session at each change of state. Quit asks befo
 
 ## Reading And Editing
 
-`FilePresentation` decides how the detail pane shows a file. Markdown opens in the editor, other text in a read-only text view, and everything else in Quick Look. `AppModel.showsFileSource` holds the choice of the Source tab. For Markdown, Source is the source mode of the editor. For HTML, it is `PlainTextPreview`.
+`FilePresentation` decides how the file paper shows a file. Markdown opens in the editor, other text in a read-only text view, and everything else in Quick Look. `AppModel.showsFileSource` holds the choice of the Source tab. For Markdown, Source is the source mode of the editor. For HTML, it is `PlainTextPreview`.
 
 ### The Editor Page
 
@@ -203,7 +206,7 @@ The Markdown editor is the editor of Hubble.md, a Tiptap and React editor, in a 
 - `web/src/` is the host: the bridge, the image and embed nodes, the loss guard, and the theme of Piper.
 - `make web` builds one file, `Sources/Piper/Resources/editor.html`, with the JS and CSS inline. The repository holds this file. The build also writes `Licenses/Editor.txt`.
 
-`EditorPage` owns one web view for the main window. A change of file sends a new `open` call to the same page, so the page loads once. `EditorPane` moves the web view into the detail pane. Piper calls the functions on `window.piper`, and the page sends messages to the `editor` handler, which answers each message:
+`EditorPage` owns one web view for the file paper. A change of file sends a new `open` call to the same page, so the page loads once. `EditorPane` moves the web view into the file paper. Piper calls the functions on `window.piper`, and the page sends messages to the `editor` handler, which answers each message:
 
 | From Piper | Effect |
 | --- | --- |
@@ -237,13 +240,13 @@ The editor adds an empty paragraph after a last block that is not a paragraph, s
 
 ### Command Palette
 
-`CommandPaletteController` shows `CommandPaletteView` in a borderless child panel of the main window. `PaletteResults` ranks files with `PaletteSearch.score` and finds lines with `PaletteSearch.excerpts`, off the main thread. The scores copy `fuzzy.ts` of Hubble.md.
+`CommandPaletteController` shows `CommandPaletteView` in a borderless child panel of the paper with the focus, or of the feed paper. `PaletteResults` ranks files with `PaletteSearch.score` and finds lines with `PaletteSearch.excerpts`, off the main thread. The scores copy `fuzzy.ts` of Hubble.md.
 
 `WikiWorkspace` owns the navigation history. `WikiLinks` resolves links and computes backlinks. `WikiMarkdown` parses blocks for the outline, heading anchors, and backlinks.
 
 ## Inbox Reader
 
-`NoteDetail` shows a capture. `CaptureLinks` finds HTTP and HTTPS URLs with `NSDataDetector` and keeps the original text. If the capture is only a URL, the reader opens it at once. `AppModel.articleTab` picks the Reader tab, the Web tab, or the Notes tab. `AppModel.chooseArticleTab(_:for:)` records a choice of Reader or Web for the site of the link, and `AppModel.openingTab(for:)` opens the next link of that site in the same tab. A link from a new site opens in the Web tab. `NoteDetail` shows Reader, Web, and Notes in a `TabIsland` at the bottom of the pane.
+`NoteDetail` shows a capture. `CaptureLinks` finds HTTP and HTTPS URLs with `NSDataDetector` and keeps the original text. If the capture is only a URL, the reader opens it at once. `AppModel.articleTab` picks the Reader tab, the Web tab, or the Notes tab. `AppModel.chooseArticleTab(_:for:)` records a choice of Reader or Web for the site of the link, and `AppModel.openingTab(for:)` opens the next link of that site in the same tab. A link from a new site opens in the Web tab. `NoteDetail` shows Reader, Web, and Notes in a `TabIsland` at the bottom of the paper.
 
 `NoteWebReader` embeds `WKWebView` through `NSViewRepresentable`, which works on macOS 14. It keeps the requested URL apart from the current URL, so a view update does not restart navigation after a redirect. A new capture selection resets the reader.
 
@@ -289,9 +292,9 @@ After each refresh, `FeedStore` prunes the read articles that are not starred an
 
 `OPMLImport` reads an OPML file and returns each feed, also the feeds in folders. `OPMLImport.netNewsWireFile` is the OPML file of the On My Mac account of NetNewsWire.
 
-`FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` and `SidebarIcon.favicon` draw the icon.
+`FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` and `RowIcon.favicon` draw the icon.
 
-The Feeds group of the sidebar holds `SidebarSelection.feeds` rows, each with a `FeedFilter`. `FeedArticleList` fills the list pane. `FeedArticleDetail` shows the selected article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `ReaderAddressBar` and `TabIsland` as `ArticleReader`. The `keepArticle`, `star`, and `markDone` toolbar items act on the selected article. `FeedStore.revision` changes after each write, so the views read again.
+The Feeds index holds one row for each `FeedFilter`. `FeedArticleList` fills the list of the feed paper. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `ReaderAddressBar` and `TabIsland` as `ArticleReader`. The header of the article paper has Read, Star, and Keep. `FeedStore.revision` changes after each write, so the views read again.
 
 ## Discover
 
@@ -308,7 +311,7 @@ The Feeds group of the sidebar holds `SidebarSelection.feeds` rows, each with a 
 
 A debug build that starts with `-PiperQA YES` is in QA mode. A test uses QA mode to drive Piper while the user works in another app.
 
-- At launch, Piper opens the main window instead of the capture panel.
+- At launch, Piper opens the feed paper instead of the capture panel.
 - `QA.activate` replaces `NSApp.activate`, so Piper never becomes the active app.
 - `QAScripts` runs JavaScript in the editor page. A test posts the distributed notification `com.piper.qa.eval` with the body of an async function. Piper writes the result to the file that `-PiperQAResult` names.
 
@@ -336,21 +339,19 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [CaptureView.swift](../../Sources/Piper/CaptureView.swift) | The capture list, tabs, selection bar, and composer |
 | [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | Capture rows, headers, and the section and note sheets |
 | [CaptureEditor.swift](../../Sources/Piper/CaptureEditor.swift) | The composer text view |
-| [MainWindow/MainWindowController.swift](../../Sources/Piper/MainWindow/MainWindowController.swift) | Split view, toolbar, and routing between panes |
-| [MainWindow/MainWindowState.swift](../../Sources/Piper/MainWindow/MainWindowState.swift) | `SidebarSelection`, restored state, and pane delegate protocols |
-| [MainWindow/PaneViewControllers.swift](../../Sources/Piper/MainWindow/PaneViewControllers.swift) | One hosting view controller for each pane |
-| [MainWindow/RouteSheets.swift](../../Sources/Piper/MainWindow/RouteSheets.swift) | The error alert |
+| [Papers/PaperDesk.swift](../../Sources/Piper/Papers/PaperDesk.swift) | The feed paper, the reader papers, their placement, and the focus |
+| [Papers/PaperDeskState.swift](../../Sources/Piper/Papers/PaperDeskState.swift) | `PaperTab`, `PaperScope`, and the restored state of the feed paper |
+| [Papers/](../../Sources/Piper/Papers) | The feed paper, its tabs, its index, its lists, the reader papers, the row icons, and the error alert |
 | [Feeds/](../../Sources/Piper/Feeds) | The article list, the article detail, Add Feed, Discover, its scan, and the Feeds settings |
 | [Modules/Feeds/](../../Sources/Modules/Feeds) | The parser, the feed database, refresh, feed discovery, and OPML import |
 | [Modules/History/](../../Sources/Modules/History) | History sources, history reads, the digest, the decay rank, and blocked sites |
-| [MainWindow/Sidebar/](../../Sources/Piper/MainWindow/Sidebar) | Library rows, the session rows, the folder tree, and file warnings |
 | [InboxRow.swift](../../Sources/Piper/InboxRow.swift) | The rows of the Inbox stream and the progress ring |
-| [MainWindow/Detail/](../../Sources/Piper/MainWindow/Detail) | Header, file previews, the Reader tab, and the Notes tab |
+| [Readers/](../../Sources/Piper/Readers) | File previews, the Reader tab, the Web tab, the Notes tab, and the tabs at the bottom of a paper |
 | [Modules/Captures/ReadingList.swift](../../Sources/Modules/Captures/ReadingList.swift) | The Reading groups and the Markdown of Save as File |
 | [Modules/Captures/InboxStream.swift](../../Sources/Modules/Captures/InboxStream.swift) | The groups and the chip counts of the Inbox stream |
-| [MainWindow/Detail/EditorPage.swift](../../Sources/Piper/MainWindow/Detail/EditorPage.swift) | The editor page, its bridge, the asset scheme, and the conflict bar |
+| [Readers/EditorPage.swift](../../Sources/Piper/Readers/EditorPage.swift) | The editor page, its bridge, the asset scheme, and the conflict bar |
 | [EditorSession.swift](../../Sources/Piper/EditorSession.swift) | The save of a Markdown file and the conflict rules |
-| [MainWindow/CommandPalette.swift](../../Sources/Piper/MainWindow/CommandPalette.swift) | The command palette |
+| [CommandPalette.swift](../../Sources/Piper/CommandPalette.swift) | The command palette |
 | [ReadingAppearance.swift](../../Sources/Piper/ReadingAppearance.swift) | Reading themes, fonts, and appearance |
 | [web/](../../web) | The source of the editor page |
 | [WikiWorkspace.swift](../../Sources/Piper/WikiWorkspace.swift) | Navigation history, link resolution, and backlinks |

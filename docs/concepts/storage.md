@@ -129,13 +129,13 @@ UserDefaults holds these keys:
 | Key | Content |
 | --- | --- |
 | `wikiPath` | The active Wiki folder |
-| `wikiPaths` | The Wiki folders in the sidebar |
+| `wikiPaths` | The Wiki folders on the Folders index |
 | `captureShortcut` | `Shift, Shift` or `Control-Option-Space` |
 | `captureFloating` | True by default. Keeps the capture panel above other apps. |
 | `composerDraft` | The unsaved composer text |
 | `accessibilityTipDismissed` | True after you close the Accessibility tip in the capture panel |
 | `clipboardStripFolded` | True after you fold the clipboard strip of the capture panel |
-| `showsFileSource` | True while the main window shows the Source view of a file |
+| `showsFileSource` | True while the file paper shows the Source view of a file |
 | `wikiReaderTheme`, `wikiReaderFont`, `wikiReaderSize`, `wikiReaderAppearance` | Reading preferences |
 | `wikiFileSort` | Name or Date |
 | `blockedSites`, `disabledHistorySources` | The sites that Discover never reads, and the history sources that are off |
@@ -144,7 +144,7 @@ UserDefaults holds these keys:
 | `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |
 | `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |
 | `articleSiteTabs` | The tab, Reader or Web, that each site of a link capture opens in |
-| `mainWindowState` | The sidebar selection, open file, open folders, and pane widths |
+| `paperDeskState` | The tab and the scope of the feed paper, its frame, the open folders, the pinned folders, and the open file |
 | `NSWindow Frame PiperCapturePanel`, `NSWindow Frame PiperLibrary` | Window frames |
 
 ### Bundle ID Migration

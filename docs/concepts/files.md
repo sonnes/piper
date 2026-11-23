@@ -21,9 +21,9 @@ The scan skips these items:
 - Items named `node_modules`, `venv`, or `__pycache__`
 - Symbolic links inside the folder
 
-If Piper cannot read one file, it adds a problem to the list and continues. The sidebar shows the count as file warnings.
+If Piper cannot read one file, it adds a problem to the list and continues. The Folders index shows the count as file warnings.
 
-`VaultWatcher` watches the folder with `FSEventStream`. It groups changes for about 0.5 seconds, then Piper scans again. A change during a scan starts one more scan after that scan finishes. Piper also scans every four seconds while the main window shows.
+`VaultWatcher` watches the folder with `FSEventStream`. It groups changes for about 0.5 seconds, then Piper scans again. A change during a scan starts one more scan after that scan finishes. Piper also scans every four seconds while a paper shows.
 
 A scan updates the tree and the previews. If the open file changed, the scan loads the new text into the editor, or marks a conflict. See [Saving An Edit](#saving-an-edit). A deleted file stays open while the editor has text that is not on disk.
 
@@ -55,7 +55,7 @@ Piper refuses a path that leaves the Wiki root or goes through a symbolic link.
 
 ## Navigation History
 
-The main window has one history. Opening a new file clears the forward history. A scan removes deleted files from the history.
+The file paper has one history. Opening a new file clears the forward history. A scan removes deleted files from the history.
 
 ## Saving An Edit
 

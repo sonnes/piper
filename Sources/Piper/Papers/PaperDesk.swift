@@ -20,9 +20,9 @@ final class PaperDesk {
 
     // MARK: - Initialization
 
-    init(model: AppModel) {
+    init(model: AppModel, defaults: UserDefaults = .standard) {
         self.model = model
-        paper = FeedPaperModel(model: model)
+        paper = FeedPaperModel(model: model, defaults: defaults)
         paper.open = { [weak self] item in self?.open(item) }
     }
 
@@ -139,7 +139,7 @@ final class PaperDesk {
     /// new paper by `cascade` to the right and down. After six papers, the
     /// cascade starts again. The paper stays `screenInset` inside the screen,
     /// and it shrinks to fit a small screen.
-    static func frame(index: Int, size: NSSize, feed: NSRect?, screen: NSRect) -> NSRect {
+    nonisolated static func frame(index: Int, size: NSSize, feed: NSRect?, screen: NSRect) -> NSRect {
         let inset = AppDefaults.Papers.screenInset
         let step = CGFloat(index % 6) * AppDefaults.Papers.cascade
         let width = min(size.width, screen.width - 2 * inset)

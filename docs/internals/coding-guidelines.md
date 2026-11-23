@@ -97,11 +97,9 @@ Do not fight the system frameworks, and do not hide them behind a wrapper.
 
 Use stock elements. Custom work invites bugs and future churn, so keep it to the minimum. Piper is built for the long term.
 
-`NSWindowController`, `NSSplitViewController`, `NSOutlineView`, and `NSToolbar` own the window chrome, the panes, and the sidebar. They give state restoration, keyboard handling, and responder chain behavior at no cost.
+An `NSWindowController` owns each window. It gives keyboard handling and responder chain behavior at no cost. The content of a window is an `NSHostingView` around one SwiftUI view.
 
-Each pane is an `NSViewController`. Its `view` is an `NSHostingView` around one SwiftUI view.
-
-Panes never call each other. A pane reports upward through a delegate protocol, and `MainWindowController` decides what happens next.
+Papers never call each other. A reader paper reports upward through `ReaderPaperControllerDelegate`, and `PaperDesk` decides what happens next.
 
 Put sizes, colors, and other parameters in `AppDefaults` and `PiperTheme`. Do not write a literal color in a view.
 
@@ -111,12 +109,14 @@ Give each text outside a web page a size from `PiperTheme.TextSize`:
 | --- | --- | --- |
 | `caption` | 11 | Group headers, counts, hints, and times |
 | `secondary` | 12 | Meta lines, reasons, tabs, and tool rows |
-| `body` | 13 | List rows, controls, and the sidebar |
+| `body` | 13 | List rows and controls |
 | `reading` | 15 | Notes and agent messages |
-| `title` | 17 | Pane titles and the palette field |
+| `title` | 17 | Titles and the palette field |
 | `display` | 24 | The title of an article notebook |
 
-`PiperTheme.ui` and `PiperTheme.uiNS` take only these sizes. Do not use a half-point size. An SF Symbol can use another size.
+The chrome of a paper uses `PiperTheme.PaperSize` instead: 14, 16, 18, 22, and 28 points, with `PiperTheme.paperUI` (Noto Sans) and `PiperTheme.paperTitle` (Fraunces). No text on the chrome of a paper is smaller than 14 points.
+
+`PiperTheme.ui` and `PiperTheme.uiNS` take only the sizes of `TextSize`. Do not use a half-point size. An SF Symbol can use another size.
 
 Use nil-targeted actions and the responder chain where they fit.
 
@@ -190,9 +190,9 @@ NetNewsWire does not endorse Piper, and it has no connection to this project.
 
 | Rule in NetNewsWire | Rule in Piper | Reason |
 | --- | --- | --- |
-| Use AppKit and `.xib` files on macOS. Avoid SwiftUI. | AppKit owns the window chrome. SwiftUI draws the content of each pane. | The Piper target is about 6,000 lines of Swift, most of it SwiftUI. A full AppKit rewrite costs weeks and changes nothing that a reader sees. |
-| Use Auto Layout in `.xib` files, not in code. | No `.xib` files. SwiftUI lays out the pane content. Split view items set minimum thickness in code. | This follows from the rule above. |
-| Prefer storyboards to xibs. | Neither. Window controllers build their split view controllers in code. | Swift Package Manager builds Piper. It has no Interface Builder step. |
+| Use AppKit and `.xib` files on macOS. Avoid SwiftUI. | AppKit owns the windows. SwiftUI draws their content. | The Piper target is about 6,000 lines of Swift, most of it SwiftUI. A full AppKit rewrite costs weeks and changes nothing that a reader sees. |
+| Use Auto Layout in `.xib` files, not in code. | No `.xib` files. SwiftUI lays out the content of each window. | This follows from the rule above. |
+| Prefer storyboards to xibs. | Neither. Window controllers build their windows in code. | Swift Package Manager builds Piper. It has no Interface Builder step. |
 | `NotificationCenter` and `didSet` carry every state change. | `Observation` carries state inside a module. `NotificationCenter` carries it across modules. | `Observation` did not exist when the original rule was written. It gives the same result as `didSet` without the manual wiring, and it is not KVO. |
 | Indent with tabs. | Indent with four spaces. | Every existing Piper source file uses four spaces. |
 | Write new code in Swift 5. | Write new code in Swift, with no version pinned in the guidance. | The Swift version belongs in `Package.swift`, not in prose that goes stale. |

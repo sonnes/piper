@@ -29,19 +29,23 @@ Acceptance: a supported app saves the exact selected text. The clipboard and the
 
 Acceptance: each window restores its own state, saved notes survive a restart, and a failed write keeps the current data.
 
-## Main Window
+## Papers
 
-- [ ] Run the main window, editing, and reading preference checks.
-- [ ] Decide whether the main window needs find in the open file.
+- [ ] Run the paper, editing, and reading preference checks.
+- [ ] Decide whether the file paper needs find in the open file.
+- [ ] Take new screenshots of the papers for the README and the guides. `main-window.png` and `feeds.png` show the old main window.
+- [ ] Give each article paper its own Reader, Web, or Notes tab. Today `AppModel.articleTab` is one value, so two open link papers show the same tab.
+- [ ] Decide whether the index of a tab moves with the arrow keys, and whether keys choose a tab.
+- [ ] Decide whether R, S, and I act on an article paper. Today they act on the article list.
 - [ ] Decide whether the capture tabs follow the section at the top of the list while it scrolls. Today a tab changes only on a click.
 - [ ] Decide whether Piper needs a Create Wiki action. `Vault.create()` has no caller.
 - [ ] Import a real NetNewsWire `Subscriptions.opml`, and make sure that each feed refreshes.
 - [ ] Run Discover in the built app with Safari history, and make sure that Settings > Feeds shows Open Privacy Settings while Piper has no Full Disk Access.
 - [ ] Measure if agent sessions get the Full Disk Access of Piper.
-- [ ] While a folder is selected in the sidebar, make a link from the editor select the new file in the tree.
+- [ ] Make a link from the editor show the new file on the Folders index.
 - [ ] Do the Editing Checks in [validate.md](validate.md) that are not done in the built app: Japanese input, Command-F, and Reload in the conflict bar.
 - [ ] Decide whether Piper turns off text replacement and smart quotes in the editor page. Today a macOS text replacement changes the Markdown that you type.
-- [ ] Hide `<note>.assets` folders in the sidebar.
+- [ ] Hide `<note>.assets` folders on the Folders index.
 - [x] Edit footnotes in Preview. `web/test/footnote.test.ts` and `EditorPageTests.testAnEditKeepsTheFootnotesOfAFile` cover the round trip and the save.
 - [x] Stop a save from adding a blank line at the end of a file that ends with a list, a quote, a code block, a table, or a footnote. `web/test/trailingParagraph.test.ts` covers it.
 - [ ] Decide whether the editor escapes Markdown characters in plain text. Today a literal `*` that you type can become emphasis when the file opens again.
@@ -54,10 +58,10 @@ Acceptance: every visible control does what its label says, and no edit is lost 
 
 - [ ] Run the Claude checks in [Validate a build](validate.md#claude-checks).
 - [ ] Test the toast Send button when Piper is not the active app.
-- [ ] Decide on a notice when a turn ends or needs an answer while the main window is hidden.
+- [ ] Decide on a notice when a turn ends or needs an answer while the papers are hidden.
 - [ ] Decide whether Stop sends an interrupt and keeps the process. Today Stop ends the process.
 - [ ] Decide whether the session card restores the session that it showed before a restart.
-- [ ] Decide whether the detached session panel takes its context from the app in front, through Accessibility. Today it takes the page of the main window.
+- [ ] Decide whether the detached session panel takes its context from the app in front, through Accessibility. Today it takes the page of the last reader paper with the focus.
 
 Acceptance: a link from the clipboard reaches the folder with one action, a card waits for an answer, and a failed turn names its cause.
 

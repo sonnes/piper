@@ -1,6 +1,6 @@
 ---
 title: "Read Feeds"
-summary: "Subscribe to RSS, Atom, and JSON feeds, import NetNewsWire subscriptions, read articles in the main window, and find feeds from browser history with Discover"
+summary: "Subscribe to RSS, Atom, and JSON feeds, import NetNewsWire subscriptions, read articles on papers, and find feeds from browser history with Discover"
 read_when:
   - Adding a feed or importing an OPML file
   - Moving from NetNewsWire
@@ -12,7 +12,7 @@ read_when:
 
 # Read Feeds
 
-Piper reads RSS, Atom, RSS-in-JSON, and JSON Feed. The Feeds group of the sidebar holds these rows:
+Piper reads RSS, Atom, RSS-in-JSON, and JSON Feed. Select the Feeds tab of the feed paper to show the Feeds index. The index holds these rows:
 
 | Row | Content |
 | --- | --- |
@@ -21,13 +21,13 @@ Piper reads RSS, Atom, RSS-in-JSON, and JSON Feed. The Feeds group of the sideba
 | Starred | The articles that you starred |
 | A feed | The articles of that feed |
 
-Each row shows a count of unread articles. Starred shows a count of starred articles.
+Each row shows a count of unread articles. Starred shows a count of starred articles. The Feeds tab shows the number of unread articles.
 
 A feed shows the icon of its site. Piper gets the icon from the home page of the site. Until Piper finds an icon, the feed shows the first letter of its title. Discover and the article rows show the same icons.
 
 ## Add A Feed
 
-1. Select the + button in the header of the Feeds group. You can also choose Add Feed from the + menu of the toolbar.
+1. Select Add Feed at the end of the Feeds index. You can also choose Add Feed in the More menu of the feed paper.
 2. Type the address of a site or of a feed.
 3. Select Find Feeds.
 4. If the site has more than one feed, choose one.
@@ -46,7 +46,7 @@ If Piper cannot read the NetNewsWire file, give Piper Full Disk Access. You can 
 
 ## Read Articles
 
-Select a row in the Feeds group. The list pane shows the articles, the newest first. Select an article to read it in the detail pane. The detail pane is the same reader as a link in Inbox. The Reader tab shows the article as clean text, and the Web tab shows the original page.
+Select a row on the Feeds index. The feed paper shows the articles, the newest first. Select an article to read it on a reader paper. The paper is the same reader as a link in Inbox. The Reader tab shows the article as clean text, and the Web tab shows the original page.
 
 ![A fictional feed with its articles, and an article in the Reader tab](../images/feeds.png)
 
@@ -54,16 +54,17 @@ When you select an article, Piper marks it as read. The article stays in the lis
 
 | Key | Action |
 | --- | --- |
-| Space | Open the next unread article |
+| Return | Open the selected article on a paper |
+| Space | Open the next unread article on a paper |
 | R | Mark the article as read or unread |
 | S | Star the article, or remove the star |
 | B | Open the article in the browser |
 | I | Keep the article in Inbox |
 | Command-K | Mark all articles in the list as read |
 
-The window toolbar has Keep in Inbox, Star, and Mark as Read over the detail pane. Right-click an article for the same actions, Open in Browser, and Copy Link.
+The keys act on the article that you select in the list. The header of an article paper has Read, Star, and Keep. Right-click an article in the list for the same actions, Open in Browser, and Copy Link.
 
-Keep saves the article to Inbox as a link capture. The source of the capture is the title of the feed. After Keep, the detail pane also shows the Notes tab. A highlight or a note on a feed article also keeps the article, because a note needs a capture.
+Keep saves the article to Inbox as a link capture. The source of the capture is the title of the feed. After Keep, the paper also shows the Notes tab. A highlight or a note on a feed article also keeps the article, because a note needs a capture.
 
 ## Refresh
 
@@ -75,7 +76,7 @@ Piper removes a read article 30 days after it arrives. Piper keeps each starred 
 
 ## Manage A Feed
 
-Right-click a feed in the sidebar:
+Right-click a feed on the Feeds index:
 
 | Item | Action |
 | --- | --- |

@@ -1,6 +1,6 @@
 ---
 title: "Validate A Build"
-summary: "Automated tests and manual acceptance checks for capture, the main window, and distribution"
+summary: "Automated tests and manual acceptance checks for capture, the papers, and distribution"
 read_when:
   - Testing a build before regular use
   - Recording application compatibility
@@ -42,34 +42,34 @@ The tests do not cover the UI or the global shortcut path.
 8. Restart Piper.
 9. Make sure that the notes, sections, and composer draft are still there.
 
-## Main-Window Inbox
+## Feed Paper Inbox
 
-1. Select Inbox in the main window. Make sure that the captures of every section show in one list, in day groups, and that the title shows the item count.
-2. Select a section under Inbox. Make sure that the list shows only the captures of that section, and that the composer saves to it.
+1. Select the Inbox tab, then All Sections. Make sure that the captures of every section show in one list, in day groups, and that the Inbox tab shows the count.
+2. Select a section on the Inbox index. Make sure that the list shows only the captures of that section, and that the composer saves to it.
 3. Select each chip: All, Notes, and Reading. Make sure that each count matches the list.
-4. Select New Section at the bottom of the sidebar. Make sure that the new section shows under Inbox.
+4. Select New Section on the Inbox index. Make sure that the new section shows on the index.
 5. Select several notes. Use Merge, Move, Copy, Delete, and Undo.
 6. Search from the field at the top of the Inbox list. Make sure that results come from every section.
-7. Select one note and type in the detail pane. Make sure that the change is saved after a pause.
-8. Select text in the detail pane. Make sure that Command-C copies the text and Delete does not remove a note.
-9. Select Mark as Done in the toolbar. Make sure that the note moves to "done today" at the end of the list, and to Done.
-10. Select Clipboard in the sidebar. Make sure that the history shows.
+7. Select one note. Make sure that it opens on a reader paper. Type in the paper. Make sure that the change is saved after a pause.
+8. Select text on the reader paper. Make sure that Command-C copies the text and Delete does not remove a note.
+9. Select Mark as Done in the header of the paper. Make sure that the note moves to "done today" at the end of the list, and to Done.
+10. Select the Clipboard tab. Make sure that the history shows.
 
 ## Claude Checks
 
 Use a copy of a folder with skills, because a session changes files.
 
-1. Add the copy to the sidebar. Make sure that Settings > AI shows the folder, the path of `claude`, and a green dot for Claude Code.
+1. Add the copy with Add Folder. Make sure that Settings > AI shows the folder, the path of `claude`, and a green dot for Claude Code.
 2. Copy a URL. Open the capture panel and select Send on the clipboard row. Make sure that the note shows Running, then Done or Failed.
 3. With Auto, send a link to a skill that fetches the page. Make sure that the note shows Done.
 4. Select Ask Every Time in Settings > AI > Claude Code > Permissions. Send a link to a skill that needs a shell command. Make sure that the note shows Needs you.
-5. Select the note. In the detail pane, select Deny on the card. Make sure that Claude continues and names the denied call.
+5. Select the note. On its reader paper, select Deny on the card. Make sure that Claude continues and names the denied call.
 6. Send the link again. Select Always in <folder> on the card. Make sure that `.claude/settings.local.json` in the folder has the rule.
-7. Select the Done badge on a note. Make sure that the main window opens the file that the session wrote.
-8. Press Option-Command-C. Make sure that the session card opens with a chip for the file. Select Pop Out, then Dock. Make sure that the card returns to the main window.
+7. Select the Done badge on a note. Make sure that the file paper opens the file that the session wrote.
+8. Press Option-Command-C. Make sure that the session card opens with a chip for the file. Select Pop Out, then Dock. Make sure that the card returns to the reader paper.
 9. Type a question and press Return. Make sure that the transcript shows the tool calls and the answer. Send a second message in the same session.
 10. Type `@` and a part of a file name. Make sure that the file list shows, and that Tab puts the path in the message.
-11. Select the folder in the Claude group of the sidebar. Make sure that the folder opens and shows its sessions. Select a session. Make sure that the detail pane shows it.
+11. Select the Agents tab, then the folder. Make sure that the list shows its sessions. Select a session. Make sure that it opens on a reader paper.
 12. Type `/` in the composer. Make sure that the skill list shows. Press Tab, type a URL, and press Return.
 13. Copy a URL in another app and press Control-Option-W. Make sure that a toast shows, and that Show opens the note.
 14. Capture a selection with double Shift. Make sure that the toast shows a Send button, and that the button starts a session.
@@ -94,7 +94,7 @@ Use a copy of a folder, because a session changes files. Install an ACP agent, s
 1. Open a link capture in the Reader tab. Select a passage, then select Explain.
 2. Make sure that the card names the model and the agent, for example "Haiku · Claude Code".
 3. Ask a question that needs the web. Make sure that the card shows a line for the tools, and that no approval request shows.
-4. Make sure that the Claude group of the sidebar does not show the margin session.
+4. Make sure that the Agents tab does not show the margin session.
 5. Select Continue in Session. Make sure that a draft session opens with the question thread and the address of the page.
 
 ## Selection Capture Checks
@@ -118,19 +118,21 @@ Record the macOS version, the app version, and the permission state with each re
 
 Automated keystrokes go directly to an app. They do not test the macOS hotkey path or the double Shift gesture.
 
-## Main Window Checks
+## Paper Checks
 
-Only Inbox, its sections, and Done show the list of captures. Every other selection gives the width of the list to the detail pane.
-
-1. Add a disposable folder with Add Folder at the bottom of the sidebar.
+1. Add a disposable folder with Add Folder on the Folders index.
 2. Add, rename, and delete a file in Finder. Make sure that the tree updates.
-3. Press Command-K and type a part of a file name. Make sure that Return opens the file.
-4. Click a folder in the tree. Make sure that it opens or closes, and that the detail pane keeps the file.
-5. Select Clipboard. Make sure that the clipboard history fills the detail pane.
-6. Follow a Wiki link, then use Command-[ and Command-].
-7. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the pane. Make sure that Source shows their text, and that long lines wrap.
-8. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
-9. Control-click the added folder and select Remove Folder. Make sure that the folder stays on disk.
+3. Press Command-K and type a part of a file name. Make sure that Return opens the file on the file paper.
+4. Select the arrow of a folder on the Folders index. Make sure that it opens or closes. Select the folder. Make sure that the list shows its files.
+5. Select each tab. Select the active tab, then press Escape. Make sure that the paper moves between the index and the list.
+6. Open a capture, an article, and a file. Make sure that each paper opens right of the feed paper, 24 points lower than the last one. Open the capture again. Make sure that its paper comes to the front.
+7. Press Command-` several times. Make sure that the focus moves through every paper. Press Escape on a reader paper. Make sure that it closes.
+8. Pin a folder. Make sure that its tab shows its files. Pin more folders than the column holds. Make sure that the others show at the top of the Folders index.
+9. Quit Piper and open it again. Make sure that the feed paper restores its frame, its tab, its scope, and its pins.
+10. Follow a Wiki link, then use Command-[ and Command-].
+11. Switch Markdown and HTML files between Preview and Source in the tabs at the bottom of the paper. Make sure that Source shows their text, and that long lines wrap.
+12. Open a JSON file, an image, and a PDF. Make sure that each one shows a preview.
+13. Control-click the added folder and select Remove Folder. Make sure that the folder stays on disk.
 
 ## Editing Checks
 
@@ -159,7 +161,7 @@ Only Inbox, its sections, and Done show the list of captures. Every other select
 ## Inbox Reader Checks
 
 1. Capture a note that contains only a URL, and a note that contains text with two URLs.
-2. Select Inbox in the main window, then select each note. Make sure that the note with only a URL opens in the Reader tab, and that the other note opens in the editor. Control-click the other note and select Add Link to Reading.
+2. Select the Inbox tab, then select each note. Make sure that the note with only a URL opens in the Reader tab, and that the other note opens in the editor. Control-click the other note and select Add Link to Reading.
 3. Follow a redirect, use Back and Forward, and select Reload.
 4. Load a page that fails, then select Try Again.
 5. Select text on a page and select Capture in the reader bar. Make sure that a new Inbox note has the page title and URL.

@@ -1,8 +1,9 @@
 ---
 title: "Browse And Edit Files"
-summary: "Search, read, preview, and edit the files in your folders, read captures in Inbox, and keep a reading list"
+summary: "Move between the tabs of the feed paper, open items on reader papers, edit files, read captures in Inbox, and keep a reading list"
 read_when:
-  - Adding a folder
+  - Adding or pinning a folder
+  - Opening, closing, or moving between papers
   - Searching, reading, or editing a file
   - Reading web links from captures
   - Continuing an article, or saving its notes as a file
@@ -10,74 +11,89 @@ read_when:
 
 # Browse And Edit Files
 
-The main window keeps one or more folders in the sidebar. The selected folder is the active vault. Any folder works: Piper needs no index, no frontmatter, and no folder names. See [Wiki files](../concepts/files.md) for the scan rules.
+Piper shows your captures, your feeds, and your folders on papers. A paper is a window with round corners and no title bar. The feed paper lists the items. Each item that you open shows on a reader paper of its own.
 
-Open the window with Command-2.
+Piper keeps one or more folders. The folder that you work in is the active folder. Any folder works: Piper needs no index, no frontmatter, and no folder names. See [Wiki files](../concepts/files.md) for the scan rules.
+
+To open the feed paper, press Command-2, or select Feed Paper in the menu bar icon.
 
 ## Add A Folder
 
 The default folder is `~/Desktop/Wiki`.
 
-1. Open the main window with Command-2.
-2. Select Add Folder in the + menu of the toolbar, above the sidebar.
-3. Select one or more folders.
-4. Select Add.
+1. Open the feed paper with Command-2.
+2. Select the Folders tab.
+3. Select Add Folder at the end of the Folders index.
+4. Select one or more folders.
+5. Select Add.
 
-Add Folder is also in the sidebar context menu and in Settings > General. When the pointer is on the sidebar, a + button also shows beside the Folders heading.
+Add Folder is also in the More menu of the feed paper and in Settings > General.
 
-Piper keeps the added folders across restarts. Select a folder in the sidebar to show its folder tree.
+Piper keeps the added folders across restarts. To make a folder the active folder, select it on the Folders index.
 
-To take a folder out of the sidebar, Control-click it and select Remove Folder. You can also select it in Settings > General and select the minus button. The folder on disk does not change. The last folder cannot be removed.
+To remove a folder from Piper, Control-click it on the Folders index and select Remove Folder. You can also select it in Settings > General and select the minus button. The folder on disk does not change. You cannot remove the last folder.
 
-[Go to File](#go-to-a-file) searches the selected folder. Before Piper changes the folder, it saves the open file. If the open file has a conflict, Piper stays in the current folder.
+[Go to File](#go-to-a-file) searches the active folder. Before Piper changes the folder, it saves the open file. If the open file has a conflict, Piper stays in the current folder.
 
 ## Find Your Way Around
 
-The window has a sidebar and a detail pane. The sidebar has these groups:
+The feed paper has a column of tabs on its left edge. Each tab shows a count:
 
-| Group | Rows |
+| Tab | Count | Index |
+| --- | --- | --- |
+| Inbox | The captures that are not done | All Sections, each section, Done, and New Section |
+| Clipboard | The clipboard texts | None. The tab shows the clipboard history. |
+| Feeds | The unread articles | Discover, All Unread, Starred, and each feed. See [Read feeds](feeds.md). |
+| Folders | The files of the active folder | Pinned folders that have no tab, each folder, and the tree of the active folder |
+| Agents | The sessions that wait for you | Each folder that has sessions. See [Find a session](claude.md#find-a-session). |
+
+The Agents tab shows only while a folder has sessions. A count over 999 shows as 999+.
+
+### Move Between The Index And The List
+
+The feed paper shows the index of a tab or the list of one scope. A scope is one item of an index, for example one feed or one folder.
+
+1. Select a tab. The paper shows the index of the tab.
+2. Select an item on the index. The paper shows its list.
+
+To go back to the list, press Escape, select Back to the List, or select the active tab again. To see the index again, select the active tab. If Reduce Motion is off, the index and the list fade into each other in 0.22 seconds.
+
+The title of the list names the tab and the scope, for example "Feeds › All Unread". The More menu at the top right has New Capture, New Section, Add Folder, Add Feed, Reveal in Finder, Refresh, and Settings.
+
+### Open An Item On A Paper
+
+Select a row in a list to open the item on a reader paper. The paper opens to the right of the feed paper. Each paper that is already open moves the new paper 24 points to the right and down. If the item is already open, Piper brings its paper to the front.
+
+A capture, an article, a file, and a session each open on a paper. One file paper shows all files: a second file replaces the first file on the same paper.
+
+The header of a reader paper holds the actions of the item:
+
+| Item | Header |
 | --- | --- |
-| Library | Inbox with a row for each other section, Clipboard, and Done |
-| Claude | Each folder with agent sessions, and its sessions. See [Find a session](claude.md#find-a-session). |
-| Feeds | Discover, All Unread, Starred, and each feed. See [Read feeds](feeds.md). |
-| Folders | Every folder, and the tree of the active folder with its files |
+| A capture | The section, the time, and Mark as Done or Reopen |
+| An article | The site icon, the feed, the time, Read, Star, and Keep |
+| A file | The folders of the file, the file name, Back, and Forward |
+| A session | The title of the session and its state |
 
-The sidebar selection decides what the detail pane shows:
+To close a reader paper, press Escape or Command-W, or select Put Back. To move the focus to the next paper, press Command-`. To move a paper, drag its header.
 
-| Selection | Detail pane |
-| --- | --- |
-| Inbox, a section, or Done | The capture that you select in the list of captures. The list shows between the sidebar and the detail pane. |
-| Clipboard | The clipboard history |
-| A file | The file |
-| A folder | The last file that you opened |
-| A folder in the Claude group | A new session in the folder |
-| A session | The session |
-| A feed, All Unread, or Starred | The article that you select in the list of articles |
-| Discover | The sites of your recent history, and their feeds |
+### Pin A Folder
 
-The window title names the open file. The subtitle shows the folders of the file, for example "Notes › Reading". For other selections, the title names the selection and the subtitle shows a count.
+A pinned folder gets a tab of its own, under the fixed tabs. The tab is paler than the fixed tabs and shows the number of files in the folder. A click on the tab shows the files of the folder.
 
-The toolbar has these controls:
+To pin a folder, Control-click it on the Folders index and select Pin to Tabs. You can also select Pin at the top of the list of a folder. To remove the pin, select Unpin from Tabs or Unpin.
 
-| Control | Action |
-| --- | --- |
-| Toggle Sidebar | Hides or shows the sidebar |
-| + | New Section and Add Folder |
-| New Capture | Moves the focus to the note composer in the main window |
-| Back and Forward | Moves through the files you opened |
-| Mark as Done | Marks the selected capture as done, or opens it again |
-| More | Reveal in Finder, Refresh, and Settings |
+The column holds 8 tabs. If you pin more folders than the column holds, the other pinned folders show at the top of the Folders index.
 
-Tabs float over the bottom of the detail pane. A Markdown or HTML file has Preview and Source. A capture with a link has Reader, Web, and Notes.
+### Use The Folders Index
 
-The folder tree shows every folder and every file, as in an editor. Folders come first, then files. Each file and folder shows its full name, with the extension. Every folder starts closed. Each top-level folder shows a colored tile with the first letter of its name. The arrows that open and close folders show only when the pointer is on the sidebar. The arrow keys open and close folders at all times.
+The Folders index lists every folder that you added. Under the active folder, it shows the tree of folders and files. Folders come first, then files. Each file and each folder shows its full name, with the extension. Every folder starts closed.
 
-- Select a file to open it.
-- Click a folder to open or close it. The detail pane keeps the last file.
+- To open or close a folder, select its arrow.
+- To show the files of a folder, select the folder. The list groups the files by folder.
+- To open a file, select it.
 
-When a link opens another file, the tree selects that file and opens the folders above it.
-
-The window restores its frame, the pane widths, the selection, the open folders, and the last file.
+The feed paper restores its frame, its tab, its scope, the open folders, the pinned folders, and the last file.
 
 ## Search Captures And The Clipboard
 
@@ -87,7 +103,7 @@ To find a file, use [Go to File](#go-to-a-file).
 
 ## Read A File
 
-Select a file in the sidebar tree.
+Select a file on the Folders index or in the list of a folder. The file opens on the file paper.
 
 A Markdown file opens in the editor, in a centered column. The page uses the paper, the type, and the colors of the Reader tab. A byline over the text shows the modification date and the reading time. After a save, the byline also shows "Saved". The byline scrolls with the text. If the file has no heading, its title shows under the byline.
 
@@ -95,7 +111,7 @@ An image line, such as `![Figure](assets/figure.png)`, shows the image. The path
 
 Wiki links use `[[Note]]`, `[[folder/Note|Label]]`, and `[[Note#Heading]]`. Relative Markdown links open from the current file. HTTP, HTTPS, and `mailto` links open in your default app. To follow a link while you edit, Command-click it.
 
-To ask an agent about the open file, press Option-Command-C. See [Talk to an agent in a session](claude.md#talk-to-an-agent-in-a-session).
+To ask an agent about the open file, press Option-Command-C while its paper has the focus. See [Talk to an agent in a session](claude.md#talk-to-an-agent-in-a-session).
 
 Use Command-[ and Command-] to go back and forward. To scan the folder again, press Command-R, or select Refresh in the More menu.
 
@@ -124,7 +140,7 @@ A file larger than 4 MiB, or a file that is not UTF-8 text, uses the Quick Look 
 
 ## View The Source
 
-For a Markdown or HTML file, select Source in the tabs at the bottom of the pane. The choice stays for the next file. Select Preview to go back to the formatted page.
+For a Markdown or HTML file, select Source in the tabs at the bottom of the paper. The choice stays for the next file. Select Preview to go back to the formatted page.
 
 For Markdown, Source is an editor for the raw text of the file, including the frontmatter. Piper saves an edit in Source the same way as an edit in Preview. For HTML, Preview shows the page and Source shows its markup as read-only text. The control is off for a file that has no source text.
 
@@ -158,7 +174,7 @@ Select text in a file to show the selection bar. It is the bar of the Reader tab
 
 Piper keeps the notes and the answers of a file under one capture in Inbox, with the address `piper-file://` and the path of the file. If you rename or move the file, its cards do not follow it.
 
-If the pane is too narrow for the margin, the cards show under the text. In a read-only Preview, the bar has no colors, no Note highlight, and no formatting.
+If the paper is too narrow for the margin, the cards show under the text. In a read-only Preview, the bar has no colors, no Note highlight, and no formatting.
 
 ### When Preview Is Read-Only
 
@@ -208,7 +224,7 @@ The page shows the HTML file in a frame. Piper reloads the frame when the file c
 
 ## Read Captures In Inbox
 
-Select Inbox in the sidebar to see the notes and links of every section in one list. Inbox also becomes the section for new notes. Select a section under Inbox to show only its captures and make it the section for new notes. Select Clipboard to see the clipboard history. See [Capture notes](capture.md) for the actions on a capture.
+Select the Inbox tab, then select All Sections to see the notes and links of every section in one list. Inbox also becomes the section for new notes. Select a section on the Inbox index to show only its captures and make it the section for new notes. Select the Clipboard tab to see the clipboard history. See [Capture notes](capture.md) for the actions on a capture.
 
 The field to add a note is at the top of the list. The list shows the newest capture first, in day groups: Today, Yesterday, This Week, and Earlier. A note shows only its text. To see its time or its source app, move the pointer over the row. A link shows its site, and its number of highlights or its reading time. A capture from a section other than Inbox shows the dot and the name of its section. The chips over the list choose what the list shows:
 
@@ -226,11 +242,11 @@ A note has a circle. Select the circle to mark the note as done. A link has a ri
 
 A link shows the first line of its title, and its site under the title. A started article also shows the minutes left. If a capture has highlights, notes, or questions, their number shows on the second line. Select the number to open the list of them. Select it again to close the list.
 
-Select one capture to show it in the detail pane. The date shows at the top. Type in the text to change the note. Piper saves the change shortly after you stop typing. If the note looks like source code, the text uses a monospaced font. The editor does not change quotes or dashes while you type. The source app shows under the text.
+Select a capture to open it on a reader paper. You can also select it and press Return. The date shows at the top. Type in the text to change the note. Piper saves the change shortly after you stop typing. If the note looks like source code, the text uses a monospaced font. The editor does not change quotes or dashes while you type. The source app shows under the text.
 
 A capture that holds only a web link opens in the tab that you last chose for its site, Reader or Web. A link from a new site opens in the Web tab. A click on one of its highlights or questions opens the Reader tab at that text. Its agent session, if it has one, shows in the session card. A note that holds a link and more text opens in the editor. To read its link, Control-click the note and select Add Link to Reading.
 
-The tabs at the bottom of the pane show Reader, Web, and Notes for a capture with a link. The Reader tab shows the article as clean text, with the site, the title, and the reading time. It keeps the images with their captions, the videos, the code blocks, and the tables of the page. A YouTube, Vimeo, Loom, or Wistia video shows as its still image. Select it to watch the video in your browser. In a narrow pane, notes appear below the article. In a wide pane, they appear in the margin. The Web tab shows the original page. The Notes tab shows the notes of the article. If Piper cannot find the article text, select Show Web Page.
+The tabs at the bottom of the paper show Reader, Web, and Notes for a capture with a link. The Reader tab shows the article as clean text, with the site, the title, and the reading time. It keeps the images with their captions, the videos, the code blocks, and the tables of the page. A YouTube, Vimeo, Loom, or Wistia video shows as its still image. Select it to watch the video in your browser. On a narrow paper, notes appear below the article. On a wide paper, they appear in the margin. The Web tab shows the original page. The Notes tab shows the notes of the article. If Piper cannot find the article text, select Show Web Page.
 
 While the article loads, the Reader tab shows the site, the title when Piper knows it, and gray lines in the place of the text. If the page takes more than five seconds, a line says that the page is slow. When the text arrives, it moves into place. If Reduce Motion is on in the Accessibility settings of macOS, nothing moves.
 
@@ -251,7 +267,7 @@ Select text in the article to show the selection bar. The bar has Ask, Explain, 
 
 Ask, Explain, and Define send the selection to the margin agent. By default, the margin agent is Claude Code with Haiku. To change the agent or the model, open Settings > AI > Defaults.
 
-The first question about a capture also sends the article text. One hidden session answers every question about one capture. The sidebar does not show this session.
+The first question about a capture also sends the article text. One hidden session answers every question about one capture. The Agents tab does not show this session.
 
 The margin agent works in the folder of the Send buttons. It can read the files of that folder and search the web. It cannot change a file or run a command, so it never asks for your approval. Claude Code gets only the Read, Grep, Glob, WebSearch, and WebFetch tools, and no MCP server. For an ACP agent, Piper uses the read-only mode of the agent, such as Plan. Piper also allows each request that only reads, and denies each other request. An ACP agent without a read-only mode cannot answer in the margin. See [Choose the agent, the model, and the mode](claude.md#choose-the-agent-the-model-and-the-mode).
 
@@ -288,13 +304,13 @@ Select the Reading chip over the Inbox list. Reading shows each capture that hol
 | Up Next | The articles that you did not open |
 | Finished This Week | The articles that you read to the end in the last seven days |
 
-The count on the Reading chip includes all three groups. When you scroll to the end of an article, or select its ring, Piper moves it to Finished This Week. Seven days later, Piper marks it as done, and it moves to Done. Piper makes this check at launch and each time the main window becomes active.
+The count on the Reading chip includes all three groups. When you scroll to the end of an article, or select its ring, Piper moves it to Finished This Week. Seven days later, Piper marks it as done, and it moves to Done. Piper makes this check at launch and each time the feed paper becomes active.
 
 ### Use The Notes Tab
 
 ![Close-up of the Notes tab with an article summary, highlighted quotes, and personal notes](../images/article-notes.png)
 
-Select Notes in the tabs at the bottom of the pane. The Notes tab shows one page for the article:
+Select Notes in the tabs at the bottom of the paper. The Notes tab shows one page for the article:
 
 - The summary. Type it in the box. Piper saves it as a note under the article, with the tag `summary`.
 - Each highlight with your note, the app where you made it, and the time. Select a highlight to open the Reader tab at its text.

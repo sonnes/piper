@@ -42,19 +42,22 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Tool calls of a finished turn in one line, by tool kind | Implemented | `TranscriptFoldTests` |
 | The JSON stream parser, allow rules, the diff, and `@` mentions | Implemented | `SessionEventTests`, `SessionHelperTests` |
 | Sessions stored across restarts | Implemented | `SessionsTableTests`, `SessionRunnerTests` |
-| The session card, its pill and detached panel, the Sessions sidebar group, and the session list | Implemented | `MainWindowState` covered by `WikiRefreshTests`. The views have no automated UI test. |
+| The session card, its pill and detached panel, the Agents tab, and the session list | Implemented | `SessionCardTests`. The views have no automated UI test. |
 | Send from a note, a clipboard row, the selection bar, and Command-Shift-Return | Implemented | `FolderAgentsTests`. The buttons have no automated UI test. |
 | Slash commands in the composer | Implemented | `SlashCommandTests`, `FolderAgentsTests`. The skill list has no automated UI test. |
 | Control-Option-W and the toast Send button | Implemented | Manual checks only |
 | A per-session agent, model, and mode | Implemented | `ACPAgentTests`. The composer menus have no automated UI test. |
 | Interrupt a turn and keep the process | Partial | An ACP agent keeps its process after Stop (`ACPAgentTests`). Claude Code ends its process, and the next message resumes the session. |
 | Margin answers that read files and the web, and change nothing | Implemented | `ACPMessageTests` (the tools of Claude Code), `ACPAgentTests` (allows reads, denies edits) |
-| A notice when a turn ends or needs you | Not implemented | The badges, the sidebar count, and the unread dot change. Piper shows no toast. |
+| A notice when a turn ends or needs you | Not implemented | The badges, the count on the Agents tab, and the unread dot change. Piper shows no toast. |
 
-## Main Window
+## Papers
 
 | Capability | Status | Evidence or limit |
 | --- | --- | --- |
+| Feed paper with tabs, an index for each tab, and the scoped list | Implemented | `PaperDeskStateTests` (state, overflow, folder index). Checked in the app with agent-desktop. Keys not checked in the app. |
+| Reader papers: placement, cascade, focus of an open item, Escape, and Next Paper | Implemented | `PaperDeskStateTests` (placement), `PaperDeskTests` (the open file). Escape and Command-` not checked in the app. |
+| Pinned folders as tabs | Implemented | `PaperDeskStateTests` (pins, overflow) |
 | Folder tree with any folder structure | Implemented | `VaultTests`, `PathTreeBuilderTests`, `TreeControllerTests` |
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |
 | Feed parsing: RSS, Atom, RSS-in-JSON, JSON Feed, and OPML | Implemented | `FeedsTests` (the upstream parser tests of NetNewsWire, with their fixtures) |

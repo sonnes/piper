@@ -46,24 +46,25 @@ The app that you build runs on macOS 14 or later.
 
 2. Type a note in the capture panel and press Return.
 3. Copy text in another app. Click its card in the panel to save it to Inbox.
-4. Press Command-2 to open the main window on `~/Desktop/Wiki`.
+4. Press Command-2 to open the feed paper on `~/Desktop/Wiki`.
 
-To add another folder, select Add Folder in the + menu of the main window toolbar. To capture a selection with Shift pressed twice, allow Accessibility access first. See [Install Piper](docs/guides/install.md).
+To add another folder, select the Folders tab of the feed paper, then select Add Folder. To capture a selection with Shift pressed twice, allow Accessibility access first. See [Install Piper](docs/guides/install.md).
 
 ## Windows
 
 | Window | Purpose |
 | --- | --- |
 | Capture panel | Save, organize, edit, and copy notes |
-| Main window | Search, read, preview, and edit files, and read captures in Inbox |
+| Feed paper | Tabs for Inbox, Clipboard, Feeds, Folders, and Agents, with the list of the tab |
+| Reader paper | Read or edit one capture, article, file, or session |
 | Note editor | Edit one capture in a separate window with Save |
 | Settings | Folders, the capture shortcut, and reading preferences |
 
-The capture panel and the main window take turns on screen. Command-1 shows the panel, and Command-2 shows the main window. Neither closes, so a draft stays open.
+The capture panel and the papers take turns on screen. Command-1 shows the panel, and Command-2 shows the papers. Nothing closes, so a draft stays open.
 
-Both windows use the system font and colors, with one blue accent. Both follow the system appearance.
+The capture panel uses the system font and colors, with one blue accent. The papers use Fraunces for titles, Noto Sans for the interface, and an indigo accent. Both follow the system appearance.
 
-The sidebar of the main window shows Inbox, the clipboard history, your feeds, and your folders. A folder opens as a tree, and each file shows its extension. Inbox lists your captures. [Feeds](docs/guides/feeds.md) holds your RSS subscriptions and Discover, which finds feeds on the sites of your browser history.
+The feed paper has a tab for Inbox, the clipboard history, your feeds, and your folders. A tab shows its index, and a pick on the index shows a list. A row of the list opens on a reader paper, to the right of the feed paper. Inbox lists your captures. [Feeds](docs/guides/feeds.md) holds your RSS subscriptions and Discover, which finds feeds on the sites of your browser history.
 
 ![The Feeds group with fictional sites and their icons, and an article in the Reader tab](docs/images/feeds.png)
 
@@ -125,7 +126,9 @@ The application bundles the components below. Their license texts are in [`Licen
 | [Hubble.md](https://github.com/bholmesdev/hubble.md), the Markdown editor | MIT |
 | The packages of the editor page, such as Tiptap, ProseMirror, React, and remark. `Licenses/Editor.txt` lists each one. | MIT, ISC, Apache 2.0, and others |
 | [IBM Plex Mono](https://github.com/IBM/plex) | SIL Open Font License 1.1 |
-| [Lucide](https://lucide.dev) 1.49.0, sidebar icons | ISC |
+| [Lucide](https://lucide.dev) 1.49.0, row icons | ISC |
+| [Fraunces](https://github.com/undercasetype/Fraunces), the paper titles | SIL Open Font License 1.1 |
+| [Noto Sans](https://github.com/notofonts/latin-greek-cyrillic), the paper interface | SIL Open Font License 1.1 |
 
 ## Attribution
 
