@@ -6,7 +6,7 @@ import XCTest
 @testable import Piper
 
 /// Loads the built editor page in an offscreen web view and drives it through
-/// the bridge, the way the detail pane does.
+/// the bridge, the way the file paper does.
 @MainActor
 final class EditorPageTests: XCTestCase {
     private var root: URL!

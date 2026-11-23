@@ -8,9 +8,6 @@ import Captures
 /// name for them is declared here. Post each one on the main queue.
 extension Notification.Name {
 
-    /// macOS changed the preferred sidebar row size.
-    static let appleSideBarDefaultIconSizeChanged = Notification.Name("AppleSideBarDefaultIconSizeChanged")
-
     /// The vault finished a scan. The object is the `VaultScan`.
     static let vaultDidScan = Notification.Name("VaultDidScanNotification")
 

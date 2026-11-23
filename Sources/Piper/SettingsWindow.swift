@@ -66,7 +66,7 @@ private final class SettingsTabViewController: NSTabViewController {
 
 // MARK: - Panes
 
-/// The folders in the sidebar and the location of the note database.
+/// The folders on the Folders index and the location of the note database.
 private struct GeneralSettings: View {
     @Bindable var model: AppModel
     @State private var selection: String?
@@ -260,7 +260,7 @@ private struct AISettings: View {
             }
             Section {
                 if agents.available.isEmpty {
-                    Text("No sidebar folder has skills in .claude/skills.")
+                    Text("No folder on the Folders index has skills in .claude/skills.")
                         .foregroundStyle(PiperTheme.secondary)
                 }
                 ForEach(agents.available) { folder in

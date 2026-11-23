@@ -26,7 +26,6 @@ struct ReaderPaper: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(PiperTheme.page)
-        .routeSheets(model)
     }
 
     // MARK: - Header

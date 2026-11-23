@@ -22,7 +22,7 @@ enum CaptureListContent: Equatable {
     /// The whole clipboard history, grouped by day.
     case clipboard
     case archived
-    /// The main window: one stream of the captures of a section, or of every
+    /// The feed paper: one stream of the captures of a section, or of every
     /// section when the section is nil.
     case stream(section: String?)
 }
@@ -41,7 +41,7 @@ struct CaptureView: View {
     let selectCapture: (UUID?) -> Void
     /// Opens one capture as a reader paper, after a click or Return.
     let openCapture: (UUID) -> Void
-    /// What the main window shows. The panel keeps its own selection.
+    /// What the feed paper shows. The panel keeps its own selection.
     let embeddedContent: CaptureListContent
     let composerRequest: UUID?
 
@@ -229,7 +229,7 @@ struct CaptureView: View {
         }
         .onChange(of: matching.map(\.id)) { _, ids in
             guard let window = NSApp.keyWindow,
-                  embedded ? (window.windowController is FeedPaperController || window.windowController is MainWindowController) : window is CapturePanel else { return }
+                  embedded ? window.windowController is FeedPaperController : window is CapturePanel else { return }
             store.selection.formIntersection(ids)
         }
         .onChange(of: store.selection) { _, selection in
@@ -325,7 +325,7 @@ struct CaptureView: View {
             Button("Capture To…", systemImage: "tray") { sheet = .sections(moving: false) }
             Button("New Section…", systemImage: "plus") { sheet = .newSection }
             Divider()
-            Button("Open Main Window", systemImage: "macwindow") { model.openLibrary?() }
+            Button("Open Feed Paper", systemImage: "macwindow") { model.openLibrary?() }
             Button("Settings…", systemImage: "gearshape") { model.openSettings?() }
             Divider()
             Button("Undo Last Change", systemImage: "arrow.uturn.backward") { store.undo() }.disabled(!store.canUndo)
@@ -339,7 +339,7 @@ struct CaptureView: View {
         .help("More Actions").accessibilityLabel("More Actions")
     }
 
-    /// The search field over the Inbox list in the main window. The window
+    /// The search field over the Inbox list on the feed paper. The paper
     /// title names the list.
     private func paneHeader(_ stream: InboxStream?, matches: Int) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -523,7 +523,7 @@ struct CaptureView: View {
                      agents: agents, send: { send(entry, $0) })
     }
 
-    /// The Inbox of the main window: Continue Reading, one group for each day,
+    /// The Inbox of the feed paper: Continue Reading, one group for each day,
     /// and the captures done today.
     private func streamList(_ stream: InboxStream) -> some View {
         let doneToday = filter == .reading || !store.query.isEmpty ? []
@@ -573,7 +573,7 @@ struct CaptureView: View {
         .frame(maxHeight: .infinity)
     }
 
-    /// The done captures, one group for each month. The main window uses the
+    /// The done captures, one group for each month. The feed paper uses the
     /// rows of the Inbox stream, and the panel uses its cards.
     private var archiveList: some View {
         let groups = archiveGroups
@@ -630,7 +630,7 @@ struct CaptureView: View {
         let finished = note.reading?.finishedAt != nil
         return InboxRow(
             note: note, style: style, selected: store.selection.contains(note.id),
-            section: streamSection == nil && note.section != SidebarOutline.inboxSection
+            section: streamSection == nil && note.section != RowIcon.inboxSection
                 ? (note.section, sectionColor(note.section)) : nil,
             children: store.children(of: note.id),
             showsChildren: showsChildren(note.id, byDefault: false),
@@ -672,10 +672,9 @@ struct CaptureView: View {
         }
     }
 
-    /// The dot color of a section, as the sidebar shows it.
+    /// The dot color of a section, as the Inbox index shows it.
     private func sectionColor(_ section: String) -> Color {
-        let position = store.sections.filter { $0 != SidebarOutline.inboxSection }.firstIndex(of: section) ?? 0
-        return Color(nsColor: RowIcon.tagColor(at: position))
+        Color(nsColor: RowIcon.sectionColor(section, in: store.sections))
     }
 
     /// Marks an article as read, or opens it again. A read article stays in
@@ -956,7 +955,7 @@ struct CaptureView: View {
         if !ClipboardPaster.paste(entry.text) { store.status = "Copied. Press Command-V to paste it." }
     }
 
-    /// Saves a copied web link to Reading and opens it in the main window.
+    /// Saves a copied web link to Reading and opens it as a reader paper.
     private func readAction(_ entry: ClipboardEntry) -> (() -> Void)? {
         guard let url = CaptureLinks(entry.text).standaloneURL else { return nil }
         return {
@@ -1004,7 +1003,7 @@ struct CaptureView: View {
         }
     }
 
-    /// Opens one capture in the detail pane, and ends a selection of several.
+    /// Opens one capture as a reader paper, and ends a selection of several.
     private func openNote(_ id: UUID) {
         let flags = NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags
         if !flags.intersection([.command, .shift]).isEmpty {

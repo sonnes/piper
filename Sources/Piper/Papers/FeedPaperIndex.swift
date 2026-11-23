@@ -77,8 +77,9 @@ struct FeedPaperIndex: View {
         IndexRow(title: "All Sections", icon: .glyph("inbox", PiperTheme.inboxNS), count: open.count,
                  current: scope == .inbox(section: nil)) { paper.pick(.inbox(section: nil)) }
         IndexHeader(title: "Sections")
-        ForEach(Array(store.sections.enumerated()), id: \.element) { index, section in
-            IndexRow(title: section, icon: .dot(RowIcon.tagColor(at: index)),
+        ForEach(store.sections, id: \.self) { section in
+            IndexRow(title: section, icon: section == RowIcon.inboxSection ? .glyph("inbox", PiperTheme.inboxNS)
+                        : .dot(RowIcon.sectionColor(section, in: store.sections)),
                      count: open.filter { $0.section == section }.count,
                      current: scope == .inbox(section: section)) { paper.pick(.inbox(section: section)) }
                 .contextMenu {
@@ -145,7 +146,7 @@ struct FeedPaperIndex: View {
             IndexHeader(title: "Pinned")
             ForEach(overflow, id: \.self) { path in
                 IndexRow(title: URL(fileURLWithPath: path).lastPathComponent,
-                         icon: .glyph("folder", PiperTheme.sidebarFolderNS), count: 0,
+                         icon: .glyph("folder", PiperTheme.folderNS), count: 0,
                          current: false) { paper.pickPinned(path) }
                     .contextMenu { folderMenu(path, root: nil) }
             }
@@ -181,13 +182,13 @@ struct FeedPaperIndex: View {
         let rows = FolderIndex.rows(paths: model.files.map(\.relativePath), folders: model.folders, expanded: expanded)
         ForEach(rows) { row in
             if row.isFolder {
-                IndexRow(title: row.name, icon: .glyph("folder", PiperTheme.sidebarFolderNS), count: 0,
+                IndexRow(title: row.name, icon: .glyph("folder", PiperTheme.folderNS), count: 0,
                          depth: row.depth, disclosure: row.hasChildren ? row.expanded : nil,
                          current: paper.state.tab == .folders && scope == .folder(row.path),
                          toggle: { toggle(row.path) }) { paper.pick(.folder(row.path)) }
                     .contextMenu { folderMenu(model.vault.root.appendingPathComponent(row.path).path, root: nil) }
             } else {
-                IndexRow(title: row.name, icon: .glyph(RowIcon.fileIcon(row.name), PiperTheme.sidebarFileNS), count: 0,
+                IndexRow(title: row.name, icon: .glyph(RowIcon.fileIcon(row.name), PiperTheme.fileNS), count: 0,
                          depth: row.depth, weight: .regular, current: false) {
                     model.openDocument(row.path)
                     paper.open(.file)
@@ -325,10 +326,16 @@ struct IndexRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
         .onHover { hovered = $0 }
-        .accessibilityElement(children: .combine)
+        // The row is one element. A press picks the row. The disclosure is a named action.
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(count > 0 ? "\(title), \(count)" : title)
         .accessibilityAddTraits(current ? [.isButton, .isSelected] : .isButton)
-        .accessibilityAction(named: "Open", action)
+        .accessibilityAction(.default, action)
+        .accessibilityActions {
+            if disclosure != nil {
+                Button(disclosure == true ? "Close \(title)" : "Open \(title)", action: toggle)
+            }
+        }
     }
 }
 

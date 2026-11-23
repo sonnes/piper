@@ -3,8 +3,8 @@ import Captures
 import AppKit
 import SwiftUI
 
-/// Where the session shows in the main window: a pill in the corner of the detail
-/// pane, a card over the corner, or a panel of its own over every app.
+/// Where the session shows: a pill in the corner of the focused reader
+/// paper, a card over the corner, or a panel of its own over every app.
 enum SessionPresentation: String {
     case pill
     case card
@@ -70,7 +70,7 @@ struct SessionTarget {
     }
 }
 
-/// The pill or the card in the bottom right corner of the detail pane.
+/// The pill or the card in the bottom right corner of a reader paper.
 struct SessionOverlay: View {
     @Bindable var model: AppModel
 
@@ -85,7 +85,7 @@ struct SessionOverlay: View {
 
 /// The conversation with an agent: a header, the transcript, and the composer.
 ///
-/// The same view is the card in the main window and the content of the
+/// The same view is the card in a reader paper and the content of the
 /// detached panel.
 struct SessionCard: View {
 
@@ -132,7 +132,7 @@ struct SessionCard: View {
             if let session { SessionStateChip(session: session) }
             IconButton(title: "New Session", icon: "square.and.pencil") { newSession() }
             if detached {
-                IconButton(title: "Dock in the Main Window", icon: "arrow.down.left.square") { model.sessionPresentation = .card }
+                IconButton(title: "Dock in the Paper", icon: "arrow.down.left.square") { model.sessionPresentation = .card }
             } else {
                 IconButton(title: "Pop Out", icon: "arrow.up.right.square") { model.sessionPresentation = .detached }
                 IconButton(title: "Collapse · Escape", icon: "chevron.down") { model.sessionPresentation = .pill }

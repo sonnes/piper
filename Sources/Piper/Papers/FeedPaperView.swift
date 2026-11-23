@@ -82,6 +82,15 @@ struct FeedPaperView: View {
                 .buttonStyle(.plain)
                 .help("Show the list · Escape")
             } else {
+                if case .folder(let path) = paper.state.scope {
+                    let folder = path.isEmpty ? model.vault.root.path : model.vault.root.appendingPathComponent(path).path
+                    let pinned = paper.state.pinnedFolders.contains(folder)
+                    PaperButton(title: pinned ? "Unpin" : "Pin", symbol: pinned ? "pin.fill" : "pin", active: pinned,
+                                help: pinned ? "Remove the tab of this folder" : "Add a tab for this folder") {
+                        paper.togglePin(folder)
+                    }
+                    .font(PiperTheme.paperUI(.body, weight: .medium))
+                }
                 Text(Date().formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                 moreMenu
@@ -117,7 +126,7 @@ struct FeedPaperView: View {
         case .feed(let filter):
             FeedArticleList(model: model, filter: filter, selectedID: paper.selectedArticle,
                             select: { paper.selectedArticle = $0?.id },
-                            openPaper: { paper.open(.article($0.id)) }, showsTitle: false)
+                            openPaper: { paper.open(.article($0.id)) })
         case .folder(let path):
             FolderListView(model: model, folder: path) { file in
                 model.openDocument(file)

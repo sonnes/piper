@@ -25,7 +25,7 @@ struct WindowDragArea: NSViewRepresentable {
 /// Owns the capture panel window.
 ///
 /// Each window has an `NSWindowController` that owns its window, its frame
-/// autosave name, and its toolbar. `AppDelegate` holds no window code.
+/// and its autosave name. `AppDelegate` holds no window code.
 @MainActor
 final class CapturePanelController: NSWindowController {
 

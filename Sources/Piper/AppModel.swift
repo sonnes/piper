@@ -77,7 +77,7 @@ final class AppModel {
     var files: [VaultFile] = []
     /// Every folder of the vault, including the ones that hold no file.
     var folders: [String] = []
-    /// The file the main window had open when it last closed. The first scan
+    /// The file the file paper had open when Piper last quit. The first scan
     /// opens it, so that the window comes back to the file the reader left.
     var initialDocument: String?
     var wikiProblems: [String] = []
@@ -97,7 +97,7 @@ final class AppModel {
     }
     /// The editor session of the open file.
     var editor: EditorSession? { selectedDocument.flatMap { editors[$0] } }
-    /// The web page of the editor. Piper creates it when the main window first shows a Markdown file.
+    /// The web page of the editor. Piper creates it when the file paper first shows a Markdown file.
     @ObservationIgnored private(set) var loadedEditorPage: EditorPage?
     var editorPage: EditorPage {
         if let loadedEditorPage { return loadedEditorPage }
@@ -105,7 +105,7 @@ final class AppModel {
         loadedEditorPage = page
         return page
     }
-    /// What the actions in the toolbar run on. The window sets it with the selection.
+    /// What the session card works with. The focused reader paper sets it.
     var actionTarget = SkillTarget.folder
     var requestedAnchor: String?
     var anchorRequest = UUID()
@@ -117,7 +117,7 @@ final class AppModel {
     var openPanel: (() -> Void)?
     var openLibrary: (() -> Void)?
     var openSettings: (() -> Void)?
-    /// True while the detail pane shows the text of a file in place of its preview.
+    /// True while the file paper shows the text of a file in place of its preview.
     var showsFileSource = UserDefaults.standard.bool(forKey: AppDefaults.Key.showsFileSource) {
         didSet { UserDefaults.standard.set(showsFileSource, forKey: AppDefaults.Key.showsFileSource) }
     }
@@ -137,13 +137,13 @@ final class AppModel {
     }
     /// A file to open when the next scan finds it, because a run just wrote it.
     @ObservationIgnored private var pendingDocument: String?
-    /// Shows a file in the main window.
+    /// Shows a file in the file paper.
     var showFile: ((String) -> Void)?
-    /// Shows a note in the Inbox of the main window.
+    /// Shows a note in a reader paper.
     var showNote: ((UUID) -> Void)?
     /// Shows a link capture in Inbox, in the Web tab.
     var showArticle: ((UUID) -> Void)?
-    /// Shows a session in the session pane of the main window.
+    /// Shows a session in a reader paper.
     var showSession: ((UUID) -> Void)?
     /// The session that the session card and the Sessions list show. Nil starts a new session.
     var selectedSession: UUID?
@@ -217,7 +217,7 @@ final class AppModel {
     }
 
     /// Moves the articles that the reader finished more than a week ago to
-    /// Done. Launch runs it, and so does each return to the main window.
+    /// Done. Launch runs it, and so does each return to the feed paper.
     func archiveFinishedReading(now: Date = Date()) {
         store.archiveFinishedReading(before: now.addingTimeInterval(-Double(ReadingList.finishedDays) * 86_400))
     }
@@ -331,12 +331,12 @@ final class AppModel {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.prompt = "Add"
-        panel.message = "Choose folders to add to the sidebar."
+        panel.message = "Choose folders to add to Folders."
         guard panel.runModal() == .OK else { return }
         addWikiFolders(panel.urls)
     }
 
-    /// Takes a folder out of the sidebar. The folder on disk does not change.
+    /// Takes a folder off the Folders index. The folder on disk does not change.
     ///
     /// The active folder moves to the next folder in the list first. The last
     /// folder stays, because the window needs one folder to show.
@@ -608,7 +608,7 @@ final class AppModel {
     }
 }
 
-/// The tabs of a link capture in the detail pane.
+/// The tabs of a link capture in its reader paper.
 enum ArticleTab: Int {
     case reader
     case web

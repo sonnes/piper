@@ -23,7 +23,6 @@ struct PiperApp {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
     private var panelController: CapturePanelController?
-    private var mainWindowController: MainWindowController?
     private lazy var desk = PaperDesk(model: model)
     private var settingsWindowController: SettingsWindowController?
     private var editors: [UUID: NSWindow] = [:]
@@ -53,12 +52,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         model.openLibrary = { [weak self] in self?.showLibrary() }
         model.openSettings = { [weak self] in self?.settings() }
         model.showFile = { [weak self] path in
-            self?.showLibrary()
-            self?.mainWindowController?.showFile(path)
+            self?.panelController?.hide()
+            self?.desk.openFile(path)
         }
         model.showNote = { [weak self] id in
-            self?.showLibrary()
-            self?.mainWindowController?.showNote(id)
+            self?.panelController?.hide()
+            self?.desk.openNote(id)
         }
         model.sessionPresentationChanged = { [weak self] presentation in self?.updateSessionPanel(presentation) }
         if model.sessionPresentation == .detached { DispatchQueue.main.async { [weak self] in self?.showSessionPanel() } }
@@ -68,12 +67,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
                 model.selectedSession = id
                 return showSessionPanel()
             }
-            showLibrary()
-            mainWindowController?.showSession(id)
+            panelController?.hide()
+            desk.openSession(id)
         }
         model.showArticle = { [weak self] id in
-            self?.showLibrary()
-            self?.mainWindowController?.showArticle(id)
+            self?.panelController?.hide()
+            self?.desk.openNote(id, asArticle: true)
         }
         let readingToast = ReadingToast(store: model.store)
         readingToast.open = { [weak self] id in self?.model.showArticle?(id) }
@@ -89,19 +88,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         model.captureShortcutChanged = { [weak capture] in capture?.start() }
         capture.start()
         model.clipboard.start()
-        model.initialDocument = MainWindowState.restore().selectedFile
+        model.initialDocument = PaperDeskState.restore().selectedFile
         model.reload()
         refresh = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.capture?.start()
                 self?.sendShortcut.update(enabled: self?.model.agents.folders.isEmpty == false)
-                if self?.mainWindowController?.window?.isVisible == true { self?.model.reload() }
+                if self?.desk.isVisible == true { self?.model.reload() }
             }
         }
         #if DEBUG
         if QA.isOn {
             qaScripts = QAScripts(model: model)
-            return showBrowser()
+            return showLibrary()
         }
         #endif
         showPanel()
@@ -131,7 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         // A menu item puts them on the responder chain instead, which is where
         // AppKit expects them and which shows them to the reader.
         let fileMenu = NSMenu(title: "File")
-        fileMenu.addItem(withTitle: "New Capture", action: #selector(MainWindowController.newDocument(_:)), keyEquivalent: "n")
+        fileMenu.addItem(withTitle: "New Capture", action: #selector(newCapture), keyEquivalent: "n").target = self
         fileMenu.addItem(withTitle: "Save", action: #selector(saveFile), keyEquivalent: "s").target = self
         fileMenu.addItem(withTitle: "Refresh", action: #selector(refreshVault), keyEquivalent: "r").target = self
         fileMenu.addItem(.separator())
@@ -151,8 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
         let windowMenu = NSMenu(title: "Window")
         windowMenu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "1").target = self
-        windowMenu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "2").target = self
-        windowMenu.addItem(withTitle: "Feed Paper", action: #selector(showFeedPaper), keyEquivalent: "3").target = self
+        windowMenu.addItem(withTitle: "Feed Paper", action: #selector(showLibrary), keyEquivalent: "2").target = self
         windowMenu.addItem(withTitle: "Next Paper", action: #selector(nextPaper), keyEquivalent: "`").target = self
         let sessionCard = windowMenu.addItem(withTitle: "Session Card", action: #selector(toggleSessionCard), keyEquivalent: "c")
         sessionCard.keyEquivalentModifierMask = [.command, .option]
@@ -170,7 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         }
         let menu = NSMenu()
         menu.addItem(withTitle: "Capture Panel", action: #selector(showPanel), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Main Window", action: #selector(showBrowser), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Feed Paper", action: #selector(showLibrary), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Capture Clipboard", action: #selector(clipboard), keyEquivalent: "").target = self
         let send = menu.addItem(withTitle: "Send Clipboard", action: #selector(sendClipboard), keyEquivalent: "w")
         send.keyEquivalentModifierMask = [.control, .option]
@@ -200,29 +198,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         editors[note.id] = window
     }
 
-    /// Shows the capture panel and takes the main window off the screen.
+    /// Shows the capture panel and takes the papers off the screen.
     ///
-    /// The two surfaces are exclusive. Only one is in front at a time.
+    /// The panel and the papers are exclusive. Only one is in front at a time.
     @objc func showPanel() {
         if panelController == nil { panelController = CapturePanelController(model: model) }
-        mainWindowController?.hide()
+        desk.hide()
         panelController?.show()
     }
 
-    /// Shows the main window and takes the capture panel off the screen.
+    /// Shows the feed paper and the open reader papers, and takes the capture panel off the screen.
     @objc func showLibrary() {
-        if mainWindowController == nil {
-            let controller = MainWindowController(model: model)
-            controller.window?.delegate = self
-            mainWindowController = controller
-        }
         panelController?.hide()
-        mainWindowController?.show()
+        desk.show()
     }
 
-    /// Shows the feed paper.
-    @objc func showFeedPaper() {
-        desk.show()
+    /// Puts the cursor in the add field of the Inbox list of the feed paper.
+    @objc private func newCapture() {
+        panelController?.hide()
+        desk.newCapture()
     }
 
     /// Gives the keyboard focus to the next paper.
@@ -230,17 +224,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         desk.cycle()
     }
 
-    /// Opens or collapses the session card. A hidden window comes back with
-    /// the card open. A detached panel comes to the front instead.
+    /// Opens or collapses the session card of the focused reader paper. With
+    /// no reader paper open, or with a detached card, the detached panel
+    /// comes to the front instead.
     @objc private func toggleSessionCard() {
-        if model.sessionPresentation == .detached { return showSessionPanel() }
-        let visible = mainWindowController?.window?.isVisible == true
-        showLibrary()
-        if visible { mainWindowController?.toggleSessionCard() } else { mainWindowController?.showSessionCard() }
+        if model.sessionPresentation == .detached || !desk.toggleSessionCard() { showSessionPanel() }
     }
 
     /// Shows the detached panel, or takes it off the screen when the card
-    /// goes back to the main window.
+    /// goes back to the reader paper.
     private func updateSessionPanel(_ presentation: SessionPresentation) {
         if presentation == .detached { showSessionPanel() } else { sessionPanel?.dismiss() }
     }
@@ -248,12 +240,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private func showSessionPanel() {
         if sessionPanel == nil { sessionPanel = SessionPanelController(model: model) }
         sessionPanel?.present()
-    }
-
-    /// Shows the window and its browser. Showing the window alone leaves the
-    /// home page in front, which is not what the menu item names.
-    @objc func showBrowser() {
-        showLibrary()
     }
 
     /// Saves the open file at once. The editor saves by itself 120 ms after an edit.
@@ -268,23 +254,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private func flushEditor() async {
         await model.flushEditor()
     }
-    @objc private func refreshVault() { model.reload(); mainWindowController?.refreshPanes() }
-    @objc private func goBack() { model.navigate(-1); mainWindowController?.refreshPanes() }
-    @objc private func goForward() { model.navigate(1); mainWindowController?.refreshPanes() }
+    @objc private func refreshVault() { model.reload() }
+    @objc private func goBack() { model.navigate(-1) }
+    @objc private func goForward() { model.navigate(1) }
 
-    /// Opens the command palette over the main window.
+    /// Opens the command palette over the paper with the keyboard focus, or over the feed paper.
     @objc private func showPalette() {
-        showLibrary()
-        guard let window = mainWindowController?.window else { return }
+        let key = NSApp.keyWindow
+        if key?.windowController is FeedPaperController || key?.windowController is ReaderPaperController {
+            panelController?.hide()
+        } else {
+            showLibrary()
+        }
+        guard let window = NSApp.keyWindow ?? desk.feedWindow else { return }
         if palette == nil { palette = CommandPaletteController(model: model) }
         palette?.toggle(over: window, commands: paletteCommands) { [weak self] path in
-            self?.mainWindowController?.showFile(path)
+            self?.desk.openFile(path)
         }
     }
 
     private var paletteCommands: [PaletteCommand] {
         [
-            PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.mainWindowController?.newDocument(nil) },
+            PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.newCapture() },
             PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.loadedEditorPage?.command("find") },
             PaletteCommand(title: model.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
                 self?.model.showsFileSource.toggle()
@@ -385,18 +376,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     /// Brings the open windows forward on a Dock click. With no window open,
-    /// the click opens the main window. The capture panel has its own shortcut.
+    /// the click opens the feed paper. The capture panel has its own shortcut.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { showLibrary() }
         return true
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if sender === mainWindowController?.window {
-            // The window hides, and the editor page stays. Its last edit still saves.
-            Task { @MainActor in await flushEditor() }
-            return true
-        }
         if let session = editorSessions[ObjectIdentifier(sender)] { return resolveCaptureEdit(session) }
         return true
     }
@@ -436,7 +422,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         Task { @MainActor in
             await flushEditor()
             let settled = model.settleEditors()
-            if !settled { showLibrary() }
+            if !settled {
+                showLibrary()
+                desk.open(.file)
+            }
             NSApp.reply(toApplicationShouldTerminate: settled)
         }
         return .terminateLater
@@ -472,7 +461,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     /// Closes a sheet on any window, so that a modal alert can appear.
     private func dismissAttachedSheet() {
-        mainWindowController?.dismissAttachedSheet()
+        desk.dismissAttachedSheet()
         panelController?.dismissAttachedSheet()
         model.route = "wiki"
     }

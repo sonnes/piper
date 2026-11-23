@@ -62,16 +62,13 @@ final class AppDefaults {
         /// Keys carried over when the bundle identifier changed to `com.piper`.
         static let migrated = [
             vaultPath, captureShortcut, composerDraft, readerSize,
-            "NSWindow Frame " + WindowName.capturePanel,
-            "NSWindow Frame " + WindowName.mainWindow
+            "NSWindow Frame " + WindowName.capturePanel
         ]
     }
 
     /// Frame autosave names. A window controller reads its own name from here.
     enum WindowName {
         static let capturePanel = "PiperCapturePanel"
-        static let mainWindow = "PiperLibrary"
-        static let mainSplitView = "PiperMainSplitViewFourPane"
         static let sessionPanel = "PiperSessionPanel"
     }
 
@@ -142,47 +139,7 @@ final class AppDefaults {
         static let tileSymbolFraction: CGFloat = 0.62
     }
 
-    /// Sidebar cell metrics.
-    enum Sidebar {
-        /// The side of a row icon. The sidebar always uses medium rows.
-        static let imageSize: CGFloat = 18
-
-        static let imageMarginRight: CGFloat = 4
-        static let countMarginLeft: CGFloat = 10
-        static let countCornerRadius: CGFloat = 8
-        static let countPadding = NSEdgeInsets(top: 1, left: 7, bottom: 1, right: 7)
-        static let minimumThickness: CGFloat = 210
-
-        static let rowCornerRadius: CGFloat = 6
-        /// The inset of the selection fill from each edge of the sidebar.
-        static let rowInset: CGFloat = 12
-        /// The gutter that holds the disclosure triangle. A file reserves it, so
-        /// that every icon of one level starts at the same place.
-        static let disclosureWidth: CGFloat = 10
-        static let indent: CGFloat = 13
-        static let countFontSize = PiperTheme.TextSize.secondary.rawValue
-        static let iconPointSize: CGFloat = 14
-        static let disclosurePointSize: CGFloat = 9
-
-        static let headerFontSize: CGFloat = 11
-        static let addButtonSize: CGFloat = 20
-        /// The corner radius of a folder tile, as a fraction of its side.
-        static let tileCornerFraction: CGFloat = 0.28
-        /// The diameter of a section dot, as a fraction of the icon side.
-        static let dotFraction: CGFloat = 0.55
-        /// The size of the symbol in a tile, as a fraction of its side.
-        static let tileSymbolFraction: CGFloat = 0.62
-        static let attentionPadding = NSEdgeInsets(top: 0, left: 6, bottom: 0, right: 6)
-        static let actionSpacing: CGFloat = 6
-        static let trailingInset: CGFloat = 4
-        /// The space over a group header. The first header needs less, because
-        /// the toolbar is already over it.
-        static let headerTopMargin: CGFloat = 14
-        static let firstHeaderTopMargin: CGFloat = 8
-        static let headerBottomMargin: CGFloat = 4
-    }
-
-    /// The Feeds group, the article list, and Discover.
+    /// The Feeds index, the article list, and Discover.
     enum Feeds {
         static let headerHeight: CGFloat = 38
         static let unreadDot: CGFloat = 7
@@ -197,21 +154,15 @@ final class AppDefaults {
 
     enum Window {
         static let captureSettingsSize = NSSize(width: 560, height: 380)
-        static let mainSize = NSSize(width: 1240, height: 800)
-        static let mainMinimumSize = NSSize(width: 900, height: 620)
-        static let listMinimumThickness: CGFloat = 300
-        static let detailMinimumThickness: CGFloat = 384
         static let capturePanelSize = NSSize(width: 600, height: 960)
         static let capturePanelMinimumSize = NSSize(width: 340, height: 480)
-        /// The corner radius of the main window.
-        static let cornerRadius: CGFloat = 12
         static let captureCornerRadius: CGFloat = 22
     }
 
-    /// The command palette over the main window.
+    /// The command palette over a paper.
     enum Palette {
         static let size = NSSize(width: 560, height: 380)
-        /// The space between the top of the main window and the palette.
+        /// The space between the top of the paper and the palette.
         static let topInset: CGFloat = 90
         static let cornerRadius: CGFloat = 12
         static let queryFontSize = PiperTheme.TextSize.title
@@ -220,7 +171,7 @@ final class AppDefaults {
         static let recentLimit = 8
     }
 
-    /// The Markdown editor in the main window.
+    /// The Markdown editor in the file paper.
     enum Editor {
         /// Seconds after a Piper session wrote a file during which a change on
         /// disk names the session as its source.
@@ -268,7 +219,7 @@ final class AppDefaults {
         static let loaderSize = NSSize(width: 1024, height: 768)
     }
 
-    /// The session card in the corner of the detail pane, and its detached panel.
+    /// The session card in the corner of a reader paper, and its detached panel.
     enum SessionCard {
         static let width: CGFloat = 400
         static let height: CGFloat = 560
@@ -279,7 +230,7 @@ final class AppDefaults {
         static let headerHeight: CGFloat = 44
         static let pillHeight: CGFloat = 34
         static let pillMaximumWidth: CGFloat = 340
-        /// The part of the detail pane that the card can cover at most.
+        /// The part of the reader paper that the card can cover at most.
         static let paneFraction: CGFloat = 0.85
         static let panelSize = NSSize(width: 420, height: 640)
         static let panelMinimumSize = NSSize(width: 340, height: 360)
@@ -298,7 +249,7 @@ final class AppDefaults {
         static let panelScreenInset: CGFloat = 30
     }
 
-    /// The tabs that float over the bottom of the detail pane.
+    /// The tabs that float over the bottom of a reader paper.
     enum TabIsland {
         static let segmentHeight: CGFloat = 26
         static let fontSize = PiperTheme.TextSize.body
@@ -383,7 +334,7 @@ final class AppDefaults {
         static let cornerFraction: CGFloat = 0.24
     }
 
-    /// A row of the Inbox stream in the main window.
+    /// A row of the Inbox stream on the feed paper.
     enum InboxRow {
         static let controlSize: CGFloat = 18
         /// The column that holds the circle or the ring.
@@ -501,7 +452,7 @@ final class AppDefaults {
         /// The number of files that the `@` list shows.
         static let fileCompletionLimit = 8
         static let captureCompletionLimit = 4
-        /// The files that Piper reads for the `@` list of a folder that the sidebar does not show.
+        /// The files that Piper reads for the `@` list of a folder that is not on the Folders index.
         static let folderFileLimit = 5000
         /// The characters of a note or a title in a context chip or a mention.
         static let contextLabelLimit = 40

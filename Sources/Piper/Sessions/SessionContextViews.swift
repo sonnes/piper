@@ -138,7 +138,7 @@ struct MentionOption: Identifiable, Equatable {
 }
 
 /// The files of a folder as relative paths, for the `@` list of a session in a
-/// folder that the sidebar does not show.
+/// folder that is not on the Folders index.
 enum FolderFileList {
     static func paths(in folder: String) -> [String] {
         let root = URL(fileURLWithPath: folder)

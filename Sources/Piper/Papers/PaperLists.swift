@@ -19,7 +19,7 @@ struct FolderListView: View {
                                 : group.folder.replacingOccurrences(of: "/", with: " › "))
                     ForEach(group.files) { file in
                         PaperListRow(title: file.title, detail: file.name, time: RowTime.text(file.modifiedAt),
-                                     icon: .glyph(RowIcon.fileIcon(file.name), PiperTheme.sidebarFileNS),
+                                     icon: .glyph(RowIcon.fileIcon(file.name), PiperTheme.fileNS),
                                      selected: model.selectedDocument == file.id) { open(file.id) }
                     }
                 }

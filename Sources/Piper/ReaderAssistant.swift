@@ -150,7 +150,7 @@ final class ReaderAssistant {
         let highlights = ReadingList.highlights(in: store.children(of: parent))
         guard !highlights.isEmpty else { return nil }
         guard let folder = folder() else {
-            store.report(PiperError("Add a folder in the sidebar. An agent works in a folder."))
+            store.report(PiperError("Add a folder on the Folders index. An agent works in a folder."))
             return nil
         }
         guard let note = store.addChild(Self.reviewTitle, to: parent, tags: [Self.questionTag]) else { return nil }
@@ -179,7 +179,7 @@ final class ReaderAssistant {
     @discardableResult
     func ask(_ request: Request, about anchor: NoteAnchor, in parent: UUID, article: ReaderArticle) -> Note? {
         guard let folder = folder() else {
-            store.report(PiperError("Add a folder in the sidebar. An agent works in a folder."))
+            store.report(PiperError("Add a folder on the Folders index. An agent works in a folder."))
             return nil
         }
         var text = request.label + ": " + Self.line(anchor.quote)
@@ -229,7 +229,7 @@ final class ReaderAssistant {
     func continueInSession(_ noteID: UUID, article: ReaderArticle) {
         guard let note = store.notes.first(where: { $0.id == noteID }) else { return }
         guard let folder = folder() else {
-            store.report(PiperError("Add a folder in the sidebar. An agent works in a folder."))
+            store.report(PiperError("Add a folder on the Folders index. An agent works in a folder."))
             return
         }
         let quote = note.anchor.map { "\n\n> " + Self.line($0.quote) } ?? ""

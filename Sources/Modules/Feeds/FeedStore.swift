@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// The subscriptions and their counts, for the sidebar and the article list.
+/// The subscriptions and their counts, for the Feeds index and the article list.
 /// It owns the database and the refresh of each feed.
 ///
 /// The database calls run on the main thread. A fetch and its parse run in a
@@ -93,7 +93,7 @@ public final class FeedStore {
 
     // MARK: - Articles
 
-    /// The articles of a row of the sidebar. See `FeedDatabase.articles`.
+    /// The articles of a row of the Feeds index. See `FeedDatabase.articles`.
     public func articles(_ filter: FeedFilter, keeping: Set<String> = []) -> [Article] {
         (try? database?.articles(filter, keeping: keeping)) ?? []
     }

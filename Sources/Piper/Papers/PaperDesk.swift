@@ -52,6 +52,7 @@ final class PaperDesk {
     /// Opens an item as a reader paper, or brings its open paper to the front.
     func open(_ item: PaperItem) {
         if feed?.window?.isVisible != true { show() }
+        if item == .file { paper.state.selectedFile = model.selectedDocument }
         if let open = readers.first(where: { $0.item == item }) {
             open.focus()
             return
@@ -89,6 +90,22 @@ final class PaperDesk {
     func newCapture() {
         show()
         paper.newCapture()
+    }
+
+    /// Opens the session card of the focused reader paper, or collapses it.
+    /// With no reader paper focused, the newest one comes to the front with
+    /// its card open. Returns false when no reader paper is open.
+    func toggleSessionCard() -> Bool {
+        if let reader = readers.first(where: { $0.window?.isKeyWindow == true }) {
+            model.sessionPresentation = model.sessionPresentation == .card ? .pill : .card
+            reader.showsSessionCard(true)
+            return true
+        }
+        guard let reader = readers.last else { return false }
+        if feed?.window?.isVisible != true { show() }
+        reader.focus()
+        model.sessionPresentation = .card
+        return true
     }
 
     /// Closes the reader paper with the keyboard focus. Returns false when no reader paper has it.

@@ -124,12 +124,9 @@ final class FeedPaperModel {
         state.scope = scope
         guard case .inbox(let section) = scope else { return }
         let store = model.store
-        let target = section ?? (store.sections.contains(Self.inboxSection) ? Self.inboxSection : store.sections.first)
+        let target = section ?? (store.sections.contains(RowIcon.inboxSection) ? RowIcon.inboxSection : store.sections.first)
         if let target, target != store.activeSection { store.chooseSection(target) }
     }
-
-    /// The section that the Inbox stream adds to when no section is picked.
-    private static let inboxSection = "Inbox"
 
     /// Makes the folder that holds `path` the active folder. A path in no
     /// folder of the list stays where it is.

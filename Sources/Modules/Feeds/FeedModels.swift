@@ -12,7 +12,7 @@ public struct Feed: Equatable, Hashable, Identifiable, Sendable {
     /// The count of failed fetches in a row.
     public var failures: Int
     public var nextFetch: Date
-    /// The reason of the last failure, for the sidebar row.
+    /// The reason of the last failure, for the row of the feed.
     public var error: String?
 
     public init(id: String, title: String, home: String? = nil, etag: String? = nil, lastModified: String? = nil,
@@ -65,7 +65,7 @@ public struct Article: Equatable, Hashable, Identifiable, Sendable {
     public var date: Date { published ?? arrived }
 }
 
-/// A row of the Feeds group in the sidebar.
+/// A row of the Feeds index.
 public enum FeedFilter: Codable, Equatable, Hashable, Sendable {
     case discover
     case allUnread

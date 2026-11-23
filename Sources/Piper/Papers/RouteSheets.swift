@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// The error alert that the main window presents.
+/// The error alert that a paper presents.
 ///
-/// The modifier goes on the home page and on the detail pane. Only one of those
-/// is in the view hierarchy at a time, so the alert cannot open twice.
+/// The modifier goes on the feed paper only, so the alert cannot open twice.
 struct RouteSheets: ViewModifier {
 
     @Bindable var model: AppModel

@@ -125,7 +125,7 @@ public final class FeedDatabase {
         }
     }
 
-    /// The articles of a row of the sidebar, the newest first.
+    /// The articles of a row of the Feeds index, the newest first.
     ///
     /// - Parameter keeping: Articles that the list shows already. They stay in
     ///   the result after the reader marks them as read, as in NetNewsWire.

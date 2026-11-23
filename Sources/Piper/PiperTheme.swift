@@ -51,7 +51,7 @@ enum PiperTheme {
     static let dangerNS = NSColor.systemRed
     static let successNS = NSColor.systemGreen
 
-    // The sidebar icons use the Tailwind CSS palette: shade 500 in the light
+    // The row icons use the Tailwind CSS palette: shade 500 in the light
     // appearance and shade 400 in the dark, unless a comment names others.
 
     /// Amber.
@@ -70,9 +70,9 @@ enum PiperTheme {
     /// Teal 600 and 400. The mark of an agent that speaks ACP.
     static let acpAgentNS = color(light: 0x0D9488, dark: 0x2DD4BF)
     /// Zinc 500 and 400.
-    static let sidebarFolderNS = color(light: 0x71717A, dark: 0xA1A1AA)
+    static let folderNS = color(light: 0x71717A, dark: 0xA1A1AA)
     /// Zinc 400 and 500.
-    static let sidebarFileNS = color(light: 0xA1A1AA, dark: 0x71717A)
+    static let fileNS = color(light: 0xA1A1AA, dark: 0x71717A)
     /// The colors of section dots and folder tiles, in the order of the rows:
     /// violet, emerald, orange, sky, rose, lime, fuchsia, and amber. Rows next
     /// to each other get hues that are far apart.
@@ -140,7 +140,7 @@ enum PiperTheme {
     /// The shadows of the session card and of its pill.
     static let sessionCardShadow = Color.black.opacity(0.2)
     static let sessionPillShadow = Color.black.opacity(0.16)
-    /// The shadow of a control that floats over content, such as the tabs of the detail pane.
+    /// The shadow of a control that floats over content, such as the tabs of a reader paper.
     static let floatingShadow = Color.black.opacity(0.14)
     /// The line over an article that says where it opened.
     static let resumeFill = accent.opacity(0.1)
@@ -267,7 +267,7 @@ enum PiperTheme {
         case caption = 11
         /// Meta lines, reasons, tabs, and tool rows.
         case secondary = 12
-        /// List rows, controls, and the sidebar.
+        /// List rows and controls.
         case body = 13
         /// Notes and agent messages: text that the reader reads, not scans.
         case reading = 15

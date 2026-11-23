@@ -2,7 +2,7 @@ import AppKit
 import Captures
 import SwiftUI
 
-/// The Inbox detail pane: a link capture in the Reader, Web, and Notes tabs,
+/// A capture in a reader paper: a link capture in the Reader, Web, and Notes tabs,
 /// or any other note in an editor.
 ///
 /// The session of the note shows in the session card, not in this pane.

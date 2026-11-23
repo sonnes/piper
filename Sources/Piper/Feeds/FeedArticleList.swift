@@ -2,7 +2,7 @@ import Captures
 import Feeds
 import SwiftUI
 
-/// The articles of a row of the Feeds group, in the list pane.
+/// The articles of a row of the Feeds index, in the list of the feed paper.
 ///
 /// The keys match NetNewsWire: Space goes to the next unread article, R marks
 /// as read or unread, S stars, B opens the article in the browser, and
@@ -14,7 +14,6 @@ struct FeedArticleList: View {
     let select: (Article?) -> Void
     /// Opens an article as a reader paper, after a click, Return, or Space.
     var openPaper: (Article) -> Void = { _ in }
-    var showsTitle = true
 
     @State private var articles: [Article] = []
     @FocusState private var focused: Bool
@@ -60,7 +59,6 @@ struct FeedArticleList: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            if showsTitle { Text(title).font(PiperTheme.ui(.body, weight: .semibold)).lineLimit(1) }
             if let error = oneFeed?.error {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(PiperTheme.warning)
                     .help(error)
@@ -202,7 +200,7 @@ private struct FeedArticleRow: View {
     let feed: Feed?
     let showsFeed: Bool
     let favicons: FaviconStore
-    /// The place of the feed in the sidebar, for the color of its letter tile.
+    /// The place of the feed on the Feeds index, for the color of its letter tile.
     let index: Int
 
     var body: some View {

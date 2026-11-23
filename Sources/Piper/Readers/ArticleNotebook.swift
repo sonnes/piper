@@ -273,7 +273,7 @@ private struct QuestionEntry: View {
 /// The popover of Save as File: the folder, the parts to include, and the text.
 private struct SaveArticleForm: View {
 
-    /// A folder that can take the file: a sidebar folder, or a folder inside the open one.
+    /// A folder that can take the file: a folder of the Folders index, or a folder inside the open one.
     struct Destination: Hashable {
         let root: String
         let folder: String

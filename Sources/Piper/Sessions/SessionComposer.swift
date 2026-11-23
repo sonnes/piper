@@ -34,7 +34,7 @@ struct SessionComposer: View {
     @State private var completionIndex = 0
     /// The items that the reader added with `@` for the next message.
     @State private var mentions: [Mention] = []
-    /// The files of a folder that the sidebar does not show.
+    /// The files of a folder that is not on the Folders index.
     @State private var folderFiles: [String] = []
 
     private var agents: FolderAgents { model.agents }

@@ -4,7 +4,7 @@ import Captures
 import Observation
 import PiperCore
 
-/// The agents that Piper runs, the sidebar folders that offer Claude skills,
+/// The agents that Piper runs, the folders of the Folders index that offer Claude skills,
 /// and every action that sends a note to one of them.
 ///
 /// A folder takes part when it has at least one skill in `.claude/skills` and
@@ -37,7 +37,7 @@ final class FolderAgents {
     var showDraft: ((UUID) -> Void)?
 
     let runner: SessionRunner
-    /// Every sidebar folder with skills, including the folders that are off.
+    /// Every folder of the Folders index with skills, including the folders that are off.
     private(set) var available: [Folder] = []
     @ObservationIgnored private let store: CaptureStore
     @ObservationIgnored private let preferences: UserDefaults
@@ -292,7 +292,7 @@ final class FolderAgents {
     @discardableResult
     func sendPasteboard(_ pasteboard: NSPasteboard = .general) -> AgentSession? {
         guard defaultFolder != nil else {
-            store.status = "No folder in the sidebar has Claude skills"
+            store.status = "No folder on the Folders index has Claude skills"
             return nil
         }
         guard let text = pasteboard.string(forType: .string),

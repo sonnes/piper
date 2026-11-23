@@ -2,32 +2,7 @@ import PiperTree
 import XCTest
 @testable import Piper
 
-final class SidebarTreeTests: XCTestCase {
-
-    func testFileSelectionNamesItsFolderAndSurvivesASave() throws {
-        var state = MainWindowState()
-        state.selection = .file("sources/prompts/interview.md")
-        XCTAssertEqual(state.selectedFolder, "sources/prompts")
-        XCTAssertFalse(state.selection.showsCaptures)
-        let data = try JSONEncoder().encode(state)
-        XCTAssertEqual(try JSONDecoder().decode(MainWindowState.self, from: data).selection, .file("sources/prompts/interview.md"))
-        XCTAssertEqual(SidebarSelection.file("index.md").folder, "")
-    }
-
-    func testOnlyTheCapturesShowTheListPane() {
-        let withList: [SidebarSelection] = [.inbox, .section("Reading"), .archived]
-        let withoutList: [SidebarSelection] = [.clipboard, .folder("notes"), .file("notes/a.md"), .sessions("/Users/me/Wiki")]
-        for selection in withList { XCTAssertTrue(selection.showsList, "\(selection)") }
-        for selection in withoutList { XCTAssertFalse(selection.showsList, "\(selection)") }
-        XCTAssertTrue(SidebarSelection.clipboard.showsCaptures)
-    }
-
-    func testAnOpenClaudeFolderKeyCannotMatchAFolderPath() {
-        let key = SidebarOutline.sessionsExpandedKey("/Users/me/Wiki")
-        XCTAssertTrue(key.hasPrefix("\u{1}"))
-        XCTAssertNotEqual(key, SidebarOutline.inboxCollapsedKey)
-        XCTAssertNotEqual(key, SidebarOutline.sessionsExpandedKey("/Users/me/Other"))
-    }
+final class RowIconTests: XCTestCase {
 
     func testFileRowsShowTheKind() {
         XCTAssertEqual(RowIcon.fileIcon("claude-code.md"), "note")
@@ -49,7 +24,7 @@ final class SidebarTreeTests: XCTestCase {
     }
 
     @MainActor
-    func testEverySidebarGlyphLoadsAsATemplate() throws {
+    func testEveryGlyphLoadsAsATemplate() throws {
         for name in ["inbox", "clipboard", "archived", "claude", "folder", "note", "image", "web", "file"] {
             let image = try XCTUnwrap(RowIcon.glyph(name), name)
             XCTAssertTrue(image.isTemplate, name)

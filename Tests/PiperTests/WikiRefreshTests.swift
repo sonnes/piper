@@ -56,7 +56,7 @@ final class WikiRefreshTests: XCTestCase {
         XCTAssertNil(model.currentDocument)
     }
 
-    func testVisibilityChangesRefreshTheSidebarFolders() async throws {
+    func testVisibilityChangesRefreshTheFolders() async throws {
         var folder = root.appendingPathComponent("raw")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         var values = URLResourceValues()
@@ -171,31 +171,5 @@ final class WikiRefreshTests: XCTestCase {
         XCTAssertTrue(model.editor === session)
         XCTAssertTrue(session.hasChanges)
         XCTAssertEqual(try String(contentsOf: url), "# Agent edit\n")
-    }
-
-    func testNewVaultResetsFolderStateAndKeepsPaneWidths() {
-        var state = MainWindowState()
-        state.selection = .folder("sources/prompts")
-        state.selectedFile = "sources/prompts/old.md"
-        state.expandedRows = ["sources", "sources/prompts"]
-        state.sidebarWidth = 250
-        state.listWidth = 300
-        state.resetForVault()
-        XCTAssertEqual(state.selection, .folder(""))
-        XCTAssertNil(state.selectedFile)
-        XCTAssertNil(state.expandedRows)
-        XCTAssertEqual(state.sidebarWidth, 250)
-        XCTAssertEqual(state.listWidth, 300)
-    }
-
-    func testSessionsSelectionSurvivesASave() throws {
-        var state = MainWindowState()
-        state.selection = .sessions("/Users/me/Wiki")
-        XCTAssertFalse(state.selection.showsCaptures)
-        XCTAssertFalse(state.selection.showsList)
-        XCTAssertEqual(state.selectedFolder, "")
-
-        let copy = try JSONDecoder().decode(MainWindowState.self, from: JSONEncoder().encode(state))
-        XCTAssertEqual(copy.selection, .sessions("/Users/me/Wiki"))
     }
 }

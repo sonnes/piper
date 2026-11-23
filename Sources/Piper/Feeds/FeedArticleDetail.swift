@@ -2,7 +2,7 @@ import Captures
 import Feeds
 import SwiftUI
 
-/// A feed article in the detail pane, in the same reader as a link in Inbox.
+/// A feed article in a reader paper, in the same reader as a link in Inbox.
 ///
 /// After Keep, the article is a link capture, and the pane shows that capture
 /// with its Reader, Web, and Notes tabs. Before Keep, the pane shows the

@@ -4,7 +4,7 @@ import WebKit
 /// Hooks that let a test drive Piper while another app stays in front.
 ///
 /// The hooks are in debug builds only. They are on when Piper starts with
-/// `-PiperQA YES`. Then Piper opens the main window at launch, never makes itself
+/// `-PiperQA YES`. Then Piper opens the feed paper at launch, never makes itself
 /// the active app, and runs the scripts that `QAScripts` receives.
 @MainActor
 enum QA {

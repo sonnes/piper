@@ -26,7 +26,7 @@ final class ReadingToast: NSObject {
     private var dismiss: DispatchWorkItem?
     private let draft = CommentDraft()
     private let store: CaptureStore
-    /// Opens an article in the main window.
+    /// Opens an article as a reader paper.
     var open: (UUID) -> Void = { _ in }
 
     /// The highlight on the screen, while its toast shows.

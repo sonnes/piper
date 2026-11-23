@@ -29,6 +29,15 @@ enum RowIcon: Equatable {
         PiperTheme.tagsNS[max(index, 0) % PiperTheme.tagsNS.count]
     }
 
+    /// The section that the Inbox stream adds to when no section is picked.
+    static let inboxSection = "Inbox"
+
+    /// The dot color of a capture section. Inbox has no dot, so the colors
+    /// start at the first other section.
+    static func sectionColor(_ section: String, in sections: [String]) -> NSColor {
+        tagColor(at: sections.filter { $0 != inboxSection }.firstIndex(of: section) ?? 0)
+    }
+
     /// The letter on a folder tile: the first letter or digit of the name, in capitals.
     static func monogram(_ name: String) -> String {
         name.first { $0.isLetter || $0.isNumber }.map { String($0).uppercased() } ?? "•"

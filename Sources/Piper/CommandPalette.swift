@@ -11,7 +11,7 @@ struct PaletteCommand: Identifiable {
     let run: () -> Void
 }
 
-/// The command palette over the main window: Go > Go to File, Command-K.
+/// The command palette over a paper: Go > Go to File, Command-K.
 ///
 /// The design copies the palette of Hubble.md. Text finds files by name, text
 /// of three characters or more also finds lines in files, and text that starts

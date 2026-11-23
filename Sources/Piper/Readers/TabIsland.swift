@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The tabs of the detail pane, in a capsule that floats over the bottom of
-/// the pane: Reader, Web, and Notes for a link capture, or Preview and Source
+/// The tabs of a reader paper, in a capsule that floats over the bottom of
+/// the paper: Reader, Web, and Notes for a link capture, or Preview and Source
 /// for a file.
 struct TabIsland<Tab: Hashable>: View {
 

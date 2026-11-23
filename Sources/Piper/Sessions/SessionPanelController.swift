@@ -5,8 +5,8 @@ import SwiftUI
 /// over every app and on every Space.
 ///
 /// The panel does not activate Piper, so the app under it stays in front.
-/// Its close button collapses the card to the pill in the main window, and
-/// Dock in the card returns the card to the main window.
+/// Its close button collapses the card to the pill in the reader paper, and
+/// Dock in the card returns the card to the reader paper.
 @MainActor
 final class SessionPanelController: NSWindowController {
 

@@ -35,7 +35,7 @@ struct EditorOpenRequest: Encodable, Equatable {
 
 /// The web page with Hubble.md's Markdown editor.
 ///
-/// One page serves every file of the main window, so a change of file does not
+/// One page serves every file of the file paper, so a change of file does not
 /// load the page again. Piper calls the functions on `window.piper`, and the page
 /// sends messages to the `editor` handler. See `web/src/bridge.ts`.
 @MainActor
@@ -292,7 +292,7 @@ final class AssetSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 }
 
-/// The editor page in the detail pane. The pane moves the one web view of the
+/// The editor page in the file paper. The paper moves the one web view of the
 /// page into its own container.
 struct EditorPane: NSViewRepresentable {
     let page: EditorPage

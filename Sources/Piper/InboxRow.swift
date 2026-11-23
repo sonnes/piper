@@ -3,7 +3,7 @@ import Agents
 import Captures
 import SwiftUI
 
-/// One capture in the Inbox stream of the main window.
+/// One capture in the Inbox stream of the feed paper.
 ///
 /// A circle completes a note. A ring marks an article as read.
 /// The content opens the capture. Command-click and Shift-click select several captures.
