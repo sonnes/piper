@@ -64,9 +64,11 @@ struct FeedPaperView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
+            // The title takes the room first. It shrinks before it truncates.
             Text(paper.showsIndex ? paper.state.tab.title : title)
                 .font(PiperTheme.paperTitle(.title))
-                .lineLimit(1).truncationMode(.middle)
+                .lineLimit(1).minimumScaleFactor(Metrics.titleMinimumScale).truncationMode(.tail)
+                .layoutPriority(1)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
             if paper.showsIndex {
@@ -91,8 +93,13 @@ struct FeedPaperView: View {
                     }
                     .font(PiperTheme.paperUI(.body, weight: .medium))
                 }
-                Text(Date().formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
-                    .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
+                // The date leaves the header when the title needs its room.
+                ViewThatFits {
+                    Text(Date().formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                        .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
+                        .fixedSize()
+                    Color.clear.frame(width: 0, height: 0)
+                }
                 moreMenu
             }
         }

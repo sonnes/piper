@@ -91,6 +91,8 @@ final class AppDefaults {
         static let gap: CGFloat = 24
         /// The offset of each next reader paper, to the right and down.
         static let cascade: CGFloat = 24
+        /// The number of places in the cascade before it starts again.
+        static let cascadeSteps = 6
         /// The space that a paper keeps from the edges of the screen.
         static let screenInset: CGFloat = 24
         /// The cross-fade between the index and the list.
@@ -110,6 +112,8 @@ final class AppDefaults {
         static let tabShadowRadius: CGFloat = 2
         static let tabShadowOffset: CGFloat = 1
 
+        /// The smallest scale of the title of the feed paper before it truncates.
+        static let titleMinimumScale: CGFloat = 0.7
         static let headerPadding = EdgeInsets(top: 26, leading: 32, bottom: 12, trailing: 24)
         static let indexPadding = EdgeInsets(top: 8, leading: 20, bottom: 20, trailing: 20)
         static let rowHeight: CGFloat = 44

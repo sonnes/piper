@@ -40,6 +40,8 @@ struct FeedArticleList: View {
                                            index: feeds.feeds.firstIndex { $0.id == article.feedID } ?? 0)
                                 .tag(article.id)
                                 .contextMenu { menu(for: article) }
+                                // A press, as from VoiceOver, opens the article as a click does.
+                                .accessibilityAction(.default) { openPaper(article) }
                         }
                     }
                     .listStyle(.plain)

@@ -56,7 +56,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | Capability | Status | Evidence or limit |
 | --- | --- | --- |
 | Feed paper with tabs, an index for each tab, and the scoped list | Implemented | `PaperDeskStateTests` (state, overflow, folder index). Checked in the app with agent-desktop. Keys not checked in the app. |
-| Reader papers: placement, cascade, focus of an open item, Escape, and Next Paper | Implemented | `PaperDeskStateTests` (placement), `PaperDeskTests` (the open file). Escape and Command-` not checked in the app. |
+| Reader papers: placement, cascade, focus of an open item, Escape, and Next Paper | Implemented | `PaperDeskStateTests` (placement, free places), `PaperDeskTests` (the open file). Open, focus, Put Back, and placement checked in the app with agent-desktop. Escape and Command-` not checked in the app. |
 | Pinned folders as tabs | Implemented | `PaperDeskStateTests` (pins, overflow) |
 | Folder tree with any folder structure | Implemented | `VaultTests`, `PathTreeBuilderTests`, `TreeControllerTests` |
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |

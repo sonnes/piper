@@ -76,7 +76,7 @@ The index and the list fade into each other in 0.22 seconds. When Reduce Motion 
 
 ### Reader Papers
 
-A row of a list calls `FeedPaperModel.open`, which `PaperDesk.open(_:)` handles. A `PaperItem` names the item: a note, an article, the file, a session, or a new session in a folder. If a paper of the item is open, the desk brings it to the front. If not, `PaperDesk.frame(index:size:feed:screen:)` places a new `ReaderPaperController`. The paper opens 24 points to the right of the feed paper, with its top at the top of the feed paper. Each paper that is open moves the new paper by 24 points to the right and down. After six papers, the cascade starts again. The paper stays 24 points inside the screen.
+A row of a list calls `FeedPaperModel.open`, which `PaperDesk.open(_:)` handles. A `PaperItem` names the item: a note, an article, the file, a session, or a new session in a folder. If a paper of the item is open, the desk brings it to the front. If not, `PaperDesk.frame(size:feed:screen:open:)` places a new `ReaderPaperController`. The first place is 24 points to the right of the feed paper, with its top at the top of the feed paper. Each next place of the cascade is 24 points to the right and down. A new paper takes the first place that no open paper has. After six places, the cascade starts again. The paper stays 24 points inside the screen.
 
 `EditorPage` holds one web view, so one file paper exists. A second file replaces the first file on the same paper. When the file paper closes, the desk flushes the editor, so the last edit saves.
 

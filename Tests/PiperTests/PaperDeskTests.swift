@@ -133,6 +133,24 @@ final class PaperDeskStateTests: XCTestCase {
                        PaperDesk.frame(index: 0, size: size, feed: feed, screen: screen))
     }
 
+    /// A paper that opens after another paper closed takes the free place, and
+    /// does not cover a paper that is still open.
+    func testANewPaperTakesTheFirstFreePlace() {
+        let screen = NSRect(x: 0, y: 0, width: 2000, height: 1200)
+        let feed = NSRect(x: 100, y: 200, width: 520, height: 760)
+        let note = NSSize(width: 600, height: 560)
+        let file = NSSize(width: 712, height: 860)
+        let first = PaperDesk.frame(index: 0, size: note, feed: feed, screen: screen)
+        let third = PaperDesk.frame(index: 2, size: file, feed: feed, screen: screen)
+        // The first paper closed. The papers in the second and the third place stay.
+        let second = PaperDesk.frame(index: 1, size: file, feed: feed, screen: screen)
+        XCTAssertEqual(PaperDesk.frame(size: note, feed: feed, screen: screen, open: [second, third]), first)
+
+        let fourth = PaperDesk.frame(size: note, feed: feed, screen: screen, open: [first, second, third])
+        XCTAssertEqual(fourth, PaperDesk.frame(index: 3, size: note, feed: feed, screen: screen))
+        XCTAssertNotEqual(fourth.origin, third.origin)
+    }
+
     func testReaderPapersStayOnTheScreen() {
         let screen = NSRect(x: 0, y: 0, width: 2000, height: 1200)
         let size = NSSize(width: 600, height: 560)

@@ -26,6 +26,8 @@ struct ReaderPaper: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(PiperTheme.page)
+        // The title bar is hidden, so the header starts at the top edge.
+        .ignoresSafeArea(.container, edges: .top)
     }
 
     // MARK: - Header
@@ -161,7 +163,7 @@ struct PaperButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 if let symbol { Image(systemName: symbol).font(.system(size: 14)) }
-                if !title.isEmpty { Text(title) }
+                if !title.isEmpty { Text(title).lineLimit(1).fixedSize() }
                 if let key { KeyCap(text: key) }
             }
             .foregroundStyle(!enabled ? PiperTheme.paperFaint : active ? PiperTheme.brand : PiperTheme.paperMuted)

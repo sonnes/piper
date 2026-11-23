@@ -62,7 +62,7 @@ The title of the list names the tab and the scope, for example "Feeds › All Un
 
 ### Open An Item On A Paper
 
-Select a row in a list to open the item on a reader paper. The paper opens to the right of the feed paper. Each paper that is already open moves the new paper 24 points to the right and down. If the item is already open, Piper brings its paper to the front.
+Select a row in a list to open the item on a reader paper. The paper opens to the right of the feed paper, in the first free place of a cascade. Each place of the cascade is 24 points to the right of and lower than the place before it. If the item is already open, Piper brings its paper to the front.
 
 A capture, an article, a file, and a session each open on a paper. One file paper shows all files: a second file replaces the first file on the same paper.
 

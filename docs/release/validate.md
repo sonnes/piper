@@ -125,7 +125,7 @@ Automated keystrokes go directly to an app. They do not test the macOS hotkey pa
 3. Press Command-K and type a part of a file name. Make sure that Return opens the file on the file paper.
 4. Select the arrow of a folder on the Folders index. Make sure that it opens or closes. Select the folder. Make sure that the list shows its files.
 5. Select each tab. Select the active tab, then press Escape. Make sure that the paper moves between the index and the list.
-6. Open a capture, an article, and a file. Make sure that each paper opens right of the feed paper, 24 points lower than the last one. Open the capture again. Make sure that its paper comes to the front.
+6. Open a capture, an article, and a file. Make sure that each paper opens right of the feed paper, 24 points lower than the last one. Close the first paper and open another item. Make sure that the new paper takes the free place. Open the capture again. Make sure that its paper comes to the front.
 7. Press Command-` several times. Make sure that the focus moves through every paper. Press Escape on a reader paper. Make sure that it closes.
 8. Pin a folder. Make sure that its tab shows its files. Pin more folders than the column holds. Make sure that the others show at the top of the Folders index.
 9. Quit Piper and open it again. Make sure that the feed paper restores its frame, its tab, its scope, and its pins.

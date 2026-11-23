@@ -59,8 +59,9 @@ final class PaperDesk {
         }
         let size = Self.size(of: item, model: model)
         let screen = feed?.window?.screen ?? NSScreen.main
-        let frame = Self.frame(index: readers.count, size: size, feed: feedPaperFrame,
-                               screen: screen?.visibleFrame ?? NSRect(origin: .zero, size: size))
+        let frame = Self.frame(size: size, feed: feedPaperFrame,
+                               screen: screen?.visibleFrame ?? NSRect(origin: .zero, size: size),
+                               open: readers.compactMap { $0.window?.frame })
         let reader = ReaderPaperController(item: item, model: model, frame: frame)
         reader.delegate = self
         readers.append(reader)
@@ -136,12 +137,12 @@ final class PaperDesk {
     ///
     /// The paper opens `gap` to the right of the feed paper, with its top at
     /// the top of the feed paper. Each paper that is already open moves the
-    /// new paper by `cascade` to the right and down. After six papers, the
-    /// cascade starts again. The paper stays `screenInset` inside the screen,
+    /// new paper by `cascade` to the right and down. After `cascadeSteps`
+    /// papers, the cascade starts again. The paper stays `screenInset` inside the screen,
     /// and it shrinks to fit a small screen.
     nonisolated static func frame(index: Int, size: NSSize, feed: NSRect?, screen: NSRect) -> NSRect {
         let inset = AppDefaults.Papers.screenInset
-        let step = CGFloat(index % 6) * AppDefaults.Papers.cascade
+        let step = CGFloat(index % AppDefaults.Papers.cascadeSteps) * AppDefaults.Papers.cascade
         let width = min(size.width, screen.width - 2 * inset)
         let height = min(size.height, screen.height - 2 * inset)
         let left = feed.map { $0.maxX + AppDefaults.Papers.gap } ?? screen.midX - width / 2
@@ -151,6 +152,18 @@ final class PaperDesk {
         var y = min(top - step, screen.maxY - inset) - height
         y = max(y, screen.minY + inset)
         return NSRect(x: x, y: y, width: width, height: height)
+    }
+
+    /// The frame of a new reader paper in the first free place of the cascade.
+    ///
+    /// A place is free when no open paper has its top left corner there. When
+    /// every place is taken, the paper takes the place after the open papers.
+    nonisolated static func frame(size: NSSize, feed: NSRect?, screen: NSRect, open: [NSRect]) -> NSRect {
+        for index in 0..<AppDefaults.Papers.cascadeSteps {
+            let frame = frame(index: index, size: size, feed: feed, screen: screen)
+            if !open.contains(where: { $0.minX == frame.minX && $0.maxY == frame.maxY }) { return frame }
+        }
+        return frame(index: open.count, size: size, feed: feed, screen: screen)
     }
 
     /// The size of a new paper for an item. An article and a file take the

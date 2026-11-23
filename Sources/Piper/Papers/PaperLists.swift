@@ -115,6 +115,6 @@ struct PaperListRow: View {
         .onHover { hovered = $0 }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: "Open", action)
+        .accessibilityAction(.default, action)
     }
 }
