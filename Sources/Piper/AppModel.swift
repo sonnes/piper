@@ -1,6 +1,5 @@
 import AppKit
 import Agents
-import CryptoKit
 import ApplicationServices
 import Observation
 import PiperCore
@@ -85,110 +84,75 @@ final class AppModel {
         articleTabs[article] = .reader
         readerScroll = ReaderScroll(note: note, in: article)
     }
-    var files: [VaultFile] = []
-    /// Every folder of the vault, including the ones that hold no file.
-    var folders: [String] = []
-    /// The file the file paper had open when Piper last quit. The first scan
-    /// opens it, so that the window comes back to the file the reader left.
-    var initialDocument: String?
-    var wikiProblems: [String] = []
-    var wikiError: String?
-    var loading = false
-    @ObservationIgnored private var vaultWatcher: VaultWatcher?
-    @ObservationIgnored private var reloadPending = false
-    var workspace = WikiWorkspace()
-    /// The editor sessions by path: the open file, and each file with text that is not on disk.
-    var editors: [String: EditorSession] = [:]
+
+    // MARK: - Folders and files
+
+    let library: Library
+    let files: FileEditor
+
+    // MARK: - Captures
+
     var captureEdits: [UUID: CaptureEditSession] = [:]
-    var selectedDocument: String? { workspace.location?.path }
-    /// The open file. A deleted file stays open while the editor holds text that is not on disk.
-    var currentDocument: VaultFile? {
-        files.first { $0.id == selectedDocument } ?? selectedDocument.flatMap { editors[$0]?.document }
-    }
-    /// The editor session of the open file.
-    var editor: EditorSession? { selectedDocument.flatMap { editors[$0] } }
-    /// The web page of the editor. Piper creates it when the file paper first shows a Markdown file.
-    @ObservationIgnored private(set) var loadedEditorPage: EditorPage?
-    var editorPage: EditorPage {
-        if let loadedEditorPage { return loadedEditorPage }
-        let page = EditorPage(model: self)
-        loadedEditorPage = page
-        return page
-    }
-    /// What the session card works with. The focused reader paper sets it.
-    var actionTarget = SkillTarget.folder
-    var requestedAnchor: String?
-    var anchorRequest = UUID()
-    var composerDraft = UserDefaults.standard.string(forKey: AppDefaults.Key.composerDraft) ?? "" {
-        didSet { UserDefaults.standard.set(composerDraft, forKey: AppDefaults.Key.composerDraft) }
+    var composerDraft: String {
+        didSet { preferences.set(composerDraft, forKey: AppDefaults.Key.composerDraft) }
     }
     var accessibilityEnabled = AXIsProcessTrusted()
-    var openNoteEditor: ((Note) -> Void)?
-    var openSettings: (() -> Void)?
-    /// True while the file paper shows the text of a file in place of its preview.
-    var showsFileSource = UserDefaults.standard.bool(forKey: AppDefaults.Key.showsFileSource) {
-        didSet { UserDefaults.standard.set(showsFileSource, forKey: AppDefaults.Key.showsFileSource) }
-    }
-    var captureShortcutChanged: (() -> Void)?
-    private(set) var wikiPaths: [String] {
+    var captureShortcut: String {
         didSet {
-            preferences.set(wikiPaths, forKey: AppDefaults.Key.wikiPaths)
-            agents.refresh(paths: wikiPaths)
+            preferences.set(captureShortcut, forKey: AppDefaults.Key.captureShortcut)
+            captureShortcutChanged?()
         }
     }
-    /// A file to open when the next scan finds it, because a run just wrote it.
-    @ObservationIgnored private var pendingDocument: String?
-    /// Shows a file in the file paper.
-    var showFile: ((String) -> Void)?
-    /// Shows a note in a reader paper.
-    var showNote: ((UUID) -> Void)?
-    /// Shows a link capture in a reader paper.
-    var showArticle: ((UUID) -> Void)?
-    /// Shows a session in a reader paper.
-    var showSession: ((UUID) -> Void)?
+    @ObservationIgnored var captureShortcutChanged: (() -> Void)?
+
+    // MARK: - Sessions
+
+    /// What the session card works with. The focused reader paper sets it.
+    var actionTarget = SkillTarget.folder
     /// The session that the session card and the Sessions list show. Nil starts a new session.
     var selectedSession: UUID?
     /// The note whose session card the reader cleared with New Session. The
     /// card stays empty for that note until a message starts a session.
     var newSessionNote: UUID?
     /// The pill, the card, or the detached panel. The choice survives a restart.
-    var sessionPresentation = SessionPresentation(rawValue: UserDefaults.standard.string(forKey: AppDefaults.Key.sessionPresentation) ?? "") ?? .pill {
+    var sessionPresentation: SessionPresentation {
         didSet {
-            UserDefaults.standard.set(sessionPresentation.rawValue, forKey: AppDefaults.Key.sessionPresentation)
+            preferences.set(sessionPresentation.rawValue, forKey: AppDefaults.Key.sessionPresentation)
             if oldValue != sessionPresentation { sessionPresentationChanged?(sessionPresentation) }
         }
     }
     /// Opens or closes the detached panel when the presentation changes.
     @ObservationIgnored var sessionPresentationChanged: ((SessionPresentation) -> Void)?
-    @ObservationIgnored private let preferences: UserDefaults
-    var wikiPath: String {
-        didSet {
-            preferences.set(wikiPath, forKey: AppDefaults.Key.vaultPath)
-            if let vaultWatcher, vaultWatcher.vault.root != vault.root { reload() }
-        }
-    }
-    var captureShortcut: String {
-        didSet {
-            UserDefaults.standard.set(captureShortcut, forKey: "captureShortcut")
-            captureShortcutChanged?()
-        }
-    }
+
+    // MARK: - Windows
+
+    var openNoteEditor: ((Note) -> Void)?
+    var openSettings: (() -> Void)?
+    /// Shows a note in a reader paper.
+    var showNote: ((UUID) -> Void)?
+    /// Shows a link capture in a reader paper.
+    var showArticle: ((UUID) -> Void)?
+    /// Shows a session in a reader paper.
+    var showSession: ((UUID) -> Void)?
+
+    /// The preferences of every key that the model and its parts keep.
+    @ObservationIgnored let preferences: UserDefaults
 
     /// - Parameter feeds: The feed store. A test that gives a capture store and no
     ///   feed store gets a feed store in a temporary folder.
     init(store: CaptureStore? = nil, wikiPath: String? = nil, preferences: UserDefaults = .standard, feeds: FeedStore? = nil) {
         self.preferences = preferences
-        let defaults = preferences
-        if Bundle.main.bundleIdentifier == "com.piper", !defaults.bool(forKey: AppDefaults.Key.migratedLocalPreferences) {
-            let previous = defaults.persistentDomain(forName: "local.piper") ?? [:]
+        if Bundle.main.bundleIdentifier == "com.piper", !preferences.bool(forKey: AppDefaults.Key.migratedLocalPreferences) {
+            let previous = preferences.persistentDomain(forName: "local.piper") ?? [:]
             let keys = [AppDefaults.Key.vaultPath, AppDefaults.Key.captureShortcut, AppDefaults.Key.composerDraft, AppDefaults.Key.readerSize]
             for key in keys {
-                if defaults.object(forKey: key) == nil, let value = previous[key] { defaults.set(value, forKey: key) }
+                if preferences.object(forKey: key) == nil, let value = previous[key] { preferences.set(value, forKey: key) }
             }
-            defaults.set(true, forKey: AppDefaults.Key.migratedLocalPreferences)
+            preferences.set(true, forKey: AppDefaults.Key.migratedLocalPreferences)
         }
-        composerDraft = defaults.string(forKey: AppDefaults.Key.composerDraft) ?? ""
-        siteTabs = (defaults.dictionary(forKey: AppDefaults.Key.siteTabs) as? [String: Int] ?? [:])
+        composerDraft = preferences.string(forKey: AppDefaults.Key.composerDraft) ?? ""
+        sessionPresentation = SessionPresentation(rawValue: preferences.string(forKey: AppDefaults.Key.sessionPresentation) ?? "") ?? .pill
+        siteTabs = (preferences.dictionary(forKey: AppDefaults.Key.siteTabs) as? [String: Int] ?? [:])
             .compactMapValues { ArticleTab(rawValue: $0) }
         self.feeds = feeds ?? FeedStore(url: store == nil ? nil : FileManager.default.temporaryDirectory
             .appendingPathComponent("PiperFeeds-\(UUID().uuidString)/Feeds.sqlite"))
@@ -197,24 +161,24 @@ final class AppModel {
         let store = store ?? CaptureStore()
         self.store = store
         clipboard = ClipboardInbox(store: store)
-        agents = FolderAgents(store: store, preferences: preferences)
-        let activePath = wikiPath ?? defaults.string(forKey: AppDefaults.Key.vaultPath) ?? Vault.defaultPath
-        self.wikiPath = activePath
-        var savedPaths = wikiPath == nil ? defaults.stringArray(forKey: AppDefaults.Key.wikiPaths) ?? [] : []
-        if !savedPaths.contains(activePath) { savedPaths.append(activePath) }
-        self.wikiPaths = savedPaths
+        let agents = FolderAgents(store: store, preferences: preferences)
+        self.agents = agents
         // Control-Option-C was the earlier alternative. A stored value that no
         // longer matches a preset leaves the capture shortcut dead.
-        let stored = UserDefaults.standard.string(forKey: "captureShortcut") ?? "Shift, Shift"
+        let stored = preferences.string(forKey: AppDefaults.Key.captureShortcut) ?? "Shift, Shift"
         captureShortcut = stored == "Control-Option-C" ? "Control-Option-Space" : stored
-        reader = ReaderAssistant(store: store, agents: agents)
+        let reader = ReaderAssistant(store: store, agents: agents)
+        self.reader = reader
+        let library = Library(wikiPath: wikiPath, preferences: preferences, agents: agents)
+        self.library = library
+        files = FileEditor(library: library, store: store, reader: reader, agents: agents, preferences: preferences)
         siteScan = SiteScan(feeds: self.feeds, preferences: preferences)
         store.archiveFinishedReading()
         StarMigration.run(feeds: self.feeds, captures: store)
-        agents.refresh(paths: wikiPaths)
         agents.showDraft = { [weak self] id in self?.showSession?(id) }
+        files.showNote = { [weak self] id in self?.showNote?(id) }
         // A question goes to the folder of the Send buttons, or else to the open folder.
-        reader.folder = { [weak self] in self.map { $0.agents.defaultFolder?.path ?? $0.vault.root.path } }
+        reader.folder = { [weak agents, weak library] in agents?.defaultFolder?.path ?? library?.vault.root.path }
     }
 
     func requestAccessibility() {
@@ -239,334 +203,6 @@ final class AppModel {
               let saved = store.notes.first(where: { $0.id == session.note.id }) else { return false }
         session.note = saved
         return true
-    }
-
-    var vault: Vault { Vault(path: wikiPath) }
-
-    func reload() {
-        agents.refresh(paths: wikiPaths)
-        let repo = vault
-        if vaultWatcher?.vault.root != repo.root {
-            vaultWatcher?.stop()
-            let watcher = VaultWatcher(vault: repo) { [weak self] in self?.reload() }
-            vaultWatcher = watcher
-            watcher.start()
-        }
-        guard !loading else { reloadPending = true; return }
-        reloadPending = false
-        loading = true
-        Task {
-            defer {
-                loading = false
-                if reloadPending { reload() }
-            }
-            let result = await Task.detached { Result { try repo.scan() } }.value
-            guard repo.root == vault.root else {
-                reloadPending = true
-                return
-            }
-            switch result {
-            case .success(let scan):
-                wikiProblems = scan.problems
-                wikiError = nil
-                let firstLoad = files.isEmpty && workspace.history.isEmpty
-                let previous = Dictionary(files.map { ($0.id, $0.modifiedAt) }, uniquingKeysWith: { first, _ in first })
-                for file in scan.files where ["html", "htm"].contains((file.id as NSString).pathExtension.lowercased()) {
-                    if let date = previous[file.id], date != file.modifiedAt { loadedEditorPage?.assetChanged(file.id) }
-                }
-                files = scan.files
-                folders = scan.folders
-                let previousLocation = workspace.location
-                var paths = Set(files.map(\.id))
-                for (path, session) in editors {
-                    if let file = files.first(where: { $0.id == path }) {
-                        if file.raw != session.baseline { session.diskChanged(in: repo) }
-                        if !session.hasChanges { session.document = file }
-                    } else if session.hasChanges {
-                        // A deleted file stays open while the editor holds text that is not on disk.
-                        paths.insert(path)
-                    }
-                }
-                workspace.reconcile(paths: paths)
-                pruneEditors()
-                beginEdit()
-                if previousLocation != workspace.location { jump(to: workspace.location?.anchor) }
-                if let pending = pendingDocument, files.contains(where: { $0.id == pending }) {
-                    pendingDocument = nil
-                    openDocument(pending)
-                } else if firstLoad,
-                   let first = files.first(where: { $0.id == initialDocument })
-                       ?? files.first(where: { $0.id == "Start Here.md" })
-                       ?? files.first(where: { $0.id == "index.md" })
-                       ?? files.first {
-                    openDocument(first.id)
-                }
-            case .failure(let error):
-                files = []
-                folders = []
-                wikiError = error.localizedDescription
-            }
-        }
-    }
-
-    func chooseWiki() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
-        panel.prompt = "Add"
-        panel.message = "Choose folders. Each folder gets a tab."
-        guard panel.runModal() == .OK else { return }
-        addWikiFolders(panel.urls.map(\.path))
-    }
-
-    /// Takes a folder off the folder list and its tab off the feed paper. The folder on disk does not change.
-    ///
-    /// The active folder moves to the next folder in the list first. The last
-    /// folder stays, because the window needs one folder to show.
-    func removeWikiFolder(_ path: String) {
-        guard wikiPaths.count > 1, let index = wikiPaths.firstIndex(of: path) else { return }
-        if path == wikiPath {
-            let next = wikiPaths[index == 0 ? 1 : index - 1]
-            changeWiki(to: next)
-            guard wikiPath == next else { return }
-        }
-        wikiPaths.removeAll { $0 == path }
-    }
-
-    func addWikiFolders(_ paths: [String]) {
-        guard let first = paths.first, settleEditors() else { return }
-        for path in paths { registerWikiFolder(path) }
-        changeWiki(to: first)
-    }
-
-    /// Returns the listed path of the folder, and adds the folder when the list
-    /// does not have it. Two paths to the same folder are one folder.
-    @discardableResult private func registerWikiFolder(_ path: String) -> String {
-        let root = Vault(path: path).root
-        if let existing = wikiPaths.first(where: { Vault(path: $0).root == root }) { return existing }
-        wikiPaths.append(path)
-        return path
-    }
-
-    func changeWiki(to path: String) {
-        guard settleEditors() else { return }
-        wikiPath = registerWikiFolder(path)
-        workspace = WikiWorkspace()
-        initialDocument = nil
-        files = []
-        folders = []
-        NotificationCenter.default.post(name: .vaultPathDidChange, object: self)
-        reload()
-    }
-
-    /// Opens a file that a run wrote, in the folder it ran in.
-    ///
-    /// The file can be newer than the last scan. The model then opens it when
-    /// the next scan finds it.
-    func openRunFile(_ path: String, in folder: String) {
-        let root = Vault(path: folder).root
-        if root != vault.root {
-            changeWiki(to: folder)
-            guard vault.root == root else { return }
-        }
-        if files.contains(where: { $0.id == path }) {
-            openDocument(path)
-        } else {
-            pendingDocument = path
-            reload()
-        }
-        showFile?(path)
-    }
-
-    func openLink(_ url: URL, from document: VaultFile) {
-        if ["http", "https", "mailto"].contains(url.scheme ?? "") { NSWorkspace.shared.open(url); return }
-        guard url.scheme == nil || url.isFileURL else { return }
-        do {
-            let target = url.path + (url.fragment.map { "#" + $0 } ?? "")
-            let location = try WikiLinks.resolve(target, from: document, files: files, vault: vault)
-            openDocument(location.path, anchor: location.anchor)
-        } catch { store.report(error) }
-    }
-
-    func openDocument(_ path: String, anchor: String? = nil) {
-        if path == selectedDocument {
-            beginEdit()
-            if let anchor { jump(to: anchor) }
-            return
-        }
-        guard files.contains(where: { $0.id == path }) else { return }
-        workspace.open(WikiLocation(path: path, anchor: anchor))
-        pruneEditors()
-        beginEdit()
-        jump(to: anchor)
-    }
-
-    func navigate(_ offset: Int) {
-        let next = workspace.position + offset
-        guard workspace.history.indices.contains(next) else { return }
-        workspace.move(offset)
-        pruneEditors()
-        beginEdit()
-        jump(to: workspace.location?.anchor)
-    }
-
-    // MARK: - Editor
-
-    /// Starts an editor session for the open Markdown file, if it has none.
-    func beginEdit() {
-        guard let document = currentDocument, document.isMarkdown, document.isText,
-              editors[document.id] == nil else { return }
-        editors[document.id] = EditorSession(document: document)
-    }
-
-    /// Takes the text of a file from the editor and saves it.
-    ///
-    /// The editor sends its text 120 ms after the last edit, and again when it
-    /// closes a file. The text can be for a file that is no longer open.
-    func editorChanged(path: String, text: String) {
-        guard let session = editors[path] else { return }
-        session.text = text
-        saveEditor(session)
-    }
-
-    @discardableResult func saveEditor(_ session: EditorSession) -> Bool {
-        let saved = session.save(in: vault)
-        refreshFile(of: session)
-        pruneEditors()
-        return saved
-    }
-
-    /// Writes the editor text over a change on disk.
-    func keepEditorText() {
-        guard let session = editor else { return }
-        session.keepMine(in: vault)
-        refreshFile(of: session)
-    }
-
-    /// Drops the edits of the open file and loads the text on disk.
-    func reloadEditorFromDisk() {
-        guard let session = editor else { return }
-        session.reloadFromDisk(in: vault)
-        refreshFile(of: session)
-    }
-
-    /// True when a Piper session wrote the file in the last 10 minutes, or is still running.
-    func sessionWrote(_ path: String) -> Bool {
-        let recent = Date().addingTimeInterval(-AppDefaults.Editor.sessionWriteWindow)
-        return agents.runner.sessions(in: vault.root.path).contains { session in
-            session.files.contains(path) && (session.isActive || session.updatedAt > recent)
-        }
-    }
-
-    /// Saves each edit before the folder changes or Piper quits.
-    ///
-    /// A change on disk blocks the save of a file with edits. Piper then shows
-    /// that file and returns false, so the reader can choose Reload or Keep Mine.
-    func settleEditors() -> Bool {
-        for session in editors.values where session.hasChanges { saveEditor(session) }
-        if let blocked = editors.values.first(where: { $0.hasChanges || $0.status == .conflict }) {
-            if blocked.path != selectedDocument { openDocument(blocked.path) }
-            showFile?(blocked.path)
-            store.report(PiperError("“\(blocked.document.title)” changed on disk while you edited it. Choose Reload or Keep Mine first."))
-            return false
-        }
-        editors = [:]
-        return true
-    }
-
-    /// Takes the newest text from the editor page, which can be newer than its last save.
-    func flushEditor() async {
-        guard let page = loadedEditorPage, let (path, text) = await page.flush() else { return }
-        editorChanged(path: path, text: text)
-    }
-
-    /// Drops the sessions of the files that are not open and that hold no text off disk.
-    func pruneEditors() {
-        let kept = editors.filter { $0.key == selectedDocument || $0.value.hasChanges || $0.value.status == .conflict }
-        if kept.count != editors.count { editors = kept }
-    }
-
-    private func refreshFile(of session: EditorSession) {
-        guard !session.hasChanges, session.status == .saved, let file = try? vault.file(session.path) else { return }
-        session.document = file
-        if let index = files.firstIndex(where: { $0.id == file.id }) { files[index] = file }
-    }
-
-    // MARK: - Margin notes of a file
-
-    /// The link of the page note that holds the margin notes of a file.
-    func fileLink(_ path: String) -> String {
-        let absolute = vault.root.appendingPathComponent(path).path
-        return "piper-file://" + (absolute.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? absolute)
-    }
-
-    /// A file as the margin agent reads it: its title and its blocks.
-    func fileArticle(_ document: VaultFile) -> ReaderArticle {
-        let blocks = WikiMarkdown.parse(document.body)
-            .filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
-            .map { ReaderArticle.Block(kind: $0.kind == .heading ? "heading" : "paragraph", text: $0.text) }
-        return ReaderArticle(url: URL(string: fileLink(document.id)) ?? vault.root, site: vault.root.lastPathComponent,
-                             title: document.title, author: "", blocks: blocks)
-    }
-
-    /// The margin notes of a file, as the editor page draws them.
-    func fileNotes(_ document: VaultFile) -> [ReaderPageNote] {
-        let link = fileLink(document.id)
-        guard let parent = store.notes.first(where: { $0.parent == nil && $0.sourceURLs.contains(link) }) else { return [] }
-        return ReaderMarks.payload(model: self, parent: parent.id, article: fileArticle(document), places: NotePlaces())
-    }
-
-    /// Runs an action of the selection bar or a margin card of the editor page.
-    func performFileAction(_ message: [String: Any], path: String) {
-        guard let document = editors[path]?.document ?? files.first(where: { $0.id == path }) else { return }
-        let link = fileLink(path)
-        ReaderMarks.perform(message, model: self, article: fileArticle(document)) {
-            store.pageNote(for: link, title: document.title, source: ReaderAssistant.source)?.id
-        }
-    }
-
-    /// Follows a link that the reader clicked in the editor.
-    func openEditorLink(kind: String, target: String) {
-        guard let document = currentDocument else { return }
-        if kind == "wiki" {
-            do {
-                let location = try WikiLinks.resolve(target, from: document, files: files, vault: vault, wikiStyle: true)
-                openDocument(location.path, anchor: location.anchor)
-            } catch { store.report(error) }
-            return
-        }
-        let encoded = target.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed)
-        guard let url = URL(string: target) ?? encoded.flatMap(URL.init(string:)) else { return }
-        openLink(url, from: document)
-    }
-
-    /// Writes a pasted image next to a note, as `<note>.assets/<hash>.<ext>`,
-    /// and returns the path for the Markdown, relative to the note.
-    func saveEditorImage(for path: String, type: String, base64: String) throws -> String {
-        guard let data = Data(base64Encoded: base64), !data.isEmpty else { throw PiperError("The image is empty.") }
-        let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined().prefix(12)
-        let stem = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
-        let name = "\(stem).assets/\(hash).\(Self.imageExtension(for: type))"
-        try vault.write(data, to: ((path as NSString).deletingLastPathComponent as NSString).appendingPathComponent(name))
-        return name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
-    }
-
-    static func imageExtension(for type: String) -> String {
-        switch type.lowercased() {
-        case "image/jpeg", "image/jpg": return "jpg"
-        case "image/gif": return "gif"
-        case "image/webp": return "webp"
-        case "image/heic": return "heic"
-        case "image/svg+xml": return "svg"
-        case "image/tiff": return "tiff"
-        default: return "png"
-        }
-    }
-
-    func jump(to anchor: String?) {
-        requestedAnchor = anchor
-        anchorRequest = UUID()
     }
 }
 

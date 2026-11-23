@@ -48,7 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         installMenus()
         model.openNoteEditor = { [weak self] note in self?.showEditor(note) }
         model.openSettings = { [weak self] in self?.settings() }
-        model.showFile = { [weak self] path in self?.desk.openFile(path) }
+        model.files.showFile = { [weak self] path in self?.desk.openFile(path) }
         model.showNote = { [weak self] id in self?.desk.openNote(id) }
         model.sessionPresentationChanged = { [weak self] presentation in self?.updateSessionPanel(presentation) }
         if model.sessionPresentation == .detached { DispatchQueue.main.async { [weak self] in self?.showSessionPanel() } }
@@ -64,7 +64,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let readingToast = ReadingToast(store: model.store)
         readingToast.open = { [weak self] id in self?.model.showArticle?(id) }
         self.readingToast = readingToast
-        let capture = CaptureService(model: model)
+        let capture = CaptureService(store: model.store, shortcut: { [weak model] in model?.captureShortcut ?? "" },
+                                     accessibilityChanged: { [weak model] enabled in model?.accessibilityEnabled = enabled })
         capture.didCapture = { [weak self] outcome in self?.captured(outcome) }
         capture.shownHighlight = { [weak readingToast] in readingToast?.shownHighlight }
         sendShortcut.action = { [weak self] in self?.sendClipboard() }
@@ -79,13 +80,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             capture.start()
             model.clipboard.start()
         }
-        model.initialDocument = PaperDeskState.restore().selectedFile
-        model.reload()
         refresh = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 if !QA.isOn { self?.capture?.start() }
                 self?.sendShortcut.update(enabled: self?.model.agents.folders.isEmpty == false)
-                if self?.desk.isVisible == true { self?.model.reload() }
+                if self?.desk.isVisible == true { self?.model.library.reload() }
             }
         }
         #if DEBUG
@@ -220,15 +219,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     /// Saves the open file at once. The editor saves by itself 120 ms after an edit.
     @objc private func saveFile() {
-        Task { @MainActor in
-            await model.flushEditor()
-            if let session = model.editor { model.saveEditor(session) }
-        }
+        Task { @MainActor in await model.files.save() }
     }
 
-    @objc private func refreshVault() { model.reload() }
-    @objc private func goBack() { model.navigate(-1) }
-    @objc private func goForward() { model.navigate(1) }
+    @objc private func refreshVault() { model.library.reload() }
+    @objc private func goBack() { model.files.navigate(-1) }
+    @objc private func goForward() { model.files.navigate(1) }
 
     /// Opens the command palette over the paper with the keyboard focus, or over the feed paper.
     @objc private func showPalette() {
@@ -237,7 +233,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             showLibrary()
         }
         guard let window = NSApp.keyWindow ?? desk.feedWindow else { return }
-        if palette == nil { palette = CommandPaletteController(model: model) }
+        if palette == nil { palette = CommandPaletteController(library: model.library, files: model.files) }
         palette?.toggle(over: window, commands: paletteCommands) { [weak self] path in
             self?.desk.openFile(path)
         }
@@ -247,9 +243,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         [
             PaletteCommand(title: "New Capture", shortcut: "⌘N") { [weak self] in self?.newCapture() },
             PaletteCommand(title: "Sources", shortcut: "") { [weak self] in self?.desk.showSources() },
-            PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.loadedEditorPage?.webView.findInPage(nil) },
-            PaletteCommand(title: model.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
-                self?.model.showsFileSource.toggle()
+            PaletteCommand(title: "Find in File", shortcut: "⌘F") { [weak self] in self?.model.files.find() },
+            PaletteCommand(title: model.files.showsFileSource ? "Show Preview" : "Show Source", shortcut: "") { [weak self] in
+                self?.model.files.showsFileSource.toggle()
             },
             PaletteCommand(title: "Back", shortcut: "⌘[") { [weak self] in self?.goBack() },
             PaletteCommand(title: "Forward", shortcut: "⌘]") { [weak self] in self?.goForward() },
@@ -267,7 +263,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     /// Names the default folder in the menu bar item, and hides the item when
     /// no folder has Claude skills.
     func menuNeedsUpdate(_ menu: NSMenu) {
-        model.agents.refresh(paths: model.wikiPaths)
+        model.agents.refresh(paths: model.library.wikiPaths)
         sendClipboardItem?.isHidden = model.agents.folders.isEmpty
         sendClipboardItem?.title = "Send Clipboard to " + (model.agents.defaultFolder?.name ?? "Folder")
     }
@@ -390,8 +386,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             if !resolveCaptureEdit(session) { return .terminateCancel }
         }
         Task { @MainActor in
-            await model.flushEditor()
-            let settled = model.settleEditors()
+            await model.files.flushEditor()
+            let settled = model.files.settleEditors()
             if !settled {
                 showLibrary()
                 desk.open(.file)

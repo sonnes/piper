@@ -48,12 +48,12 @@ final class FilePreviewTests: XCTestCase {
         ] {
             let url = root.appendingPathComponent(path)
             try bytes.write(to: url)
-            let file = try model.vault.file(path)
-            model.files.append(file)
-            model.openDocument(path)
-            XCTAssertEqual(model.currentDocument?.id, path)
-            XCTAssertNil(model.editor)
-            model.editorChanged(path: path, text: "Replacement")
+            let file = try model.library.vault.file(path)
+            model.library.files.append(file)
+            model.files.openDocument(path)
+            XCTAssertEqual(model.files.currentDocument?.id, path)
+            XCTAssertNil(model.files.editor)
+            model.files.editorChanged(path: path, text: "Replacement")
             XCTAssertEqual(try Data(contentsOf: url), bytes)
             XCTAssertNotNil(file)
         }
@@ -66,12 +66,12 @@ final class FilePreviewTests: XCTestCase {
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
         let note = makeFile("# Note\n", path: "Note.md")
         let image = VaultFile(relativePath: "image.png", size: 10, modifiedAt: Date(), text: nil)
-        model.files = [note, image]
-        model.openDocument(note.id)
-        model.editor?.text += "Unsaved"
-        model.openDocument(image.id)
-        XCTAssertEqual(model.selectedDocument, image.id)
-        XCTAssertNil(model.editor)
-        XCTAssertTrue(model.editors[note.id]?.hasChanges == true, "The edit waits for its save")
+        model.library.files = [note, image]
+        model.files.openDocument(note.id)
+        model.files.editor?.text += "Unsaved"
+        model.files.openDocument(image.id)
+        XCTAssertEqual(model.files.selectedDocument, image.id)
+        XCTAssertNil(model.files.editor)
+        XCTAssertTrue(model.files.editors[note.id]?.hasChanges == true, "The edit waits for its save")
     }
 }

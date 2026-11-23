@@ -45,7 +45,7 @@ struct SessionTarget {
     var folder: String {
         if noteID != nil, let session { return session.folder }
         if let id = model.selectedSession, let session = runner.session(id), session.noteID != nil { return session.folder }
-        return page == nil ? model.agents.defaultFolder?.path ?? model.vault.root.path : model.vault.root.path
+        return page == nil ? model.agents.defaultFolder?.path ?? model.library.vault.root.path : model.library.vault.root.path
     }
 
     var session: AgentSession? {

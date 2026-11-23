@@ -63,7 +63,8 @@ struct FeedArticleDetail: View {
     /// article in Inbox first. The pane then shows the capture.
     private func perform(_ message: [String: Any]) {
         guard case .loaded(let page) = loader.state, let url else { return }
-        ReaderMarks.perform(message, model: model, article: page) {
+        ReaderMarks.perform(message, store: model.store, reader: model.reader, article: page,
+                            open: { model.showNote?($0) }) {
             model.store.saveArticle(url, title: article.title, source: model.feeds.feed(article.feedID)?.title)?.id
         }
     }

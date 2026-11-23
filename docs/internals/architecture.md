@@ -21,9 +21,11 @@ flowchart LR
     CB --> U
     F[FeedStore] --> U
     U --> T[Today]
-    V[Vault scan and watcher] --> M[AppModel]
-    M --> W[Papers]
-    W --> ED[Editor] --> V
+    V[Vault scan and watcher] --> L[Library]
+    L --> W[Papers]
+    L --> FE[FileEditor]
+    FE --> W
+    W --> ED[Editor page] --> FE --> V
 ```
 
 ## Modules
@@ -44,6 +46,15 @@ flowchart LR
 `PiperCore` and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the rules that several modules share: the site of a link (`Site.key` is the host in lowercase without `www.`), the web link test, and the data folder. Each text that Piper copies goes through `Clipboard.copy`, which marks the copy so that the clipboard tray ignores it.
 
 Each module has a test target with the same name and a `Tests` suffix. `PiperTests` tests the application target.
+
+## App State
+
+`AppModel` holds the stores of the modules and the state that the papers share. `AppDelegate` makes one `AppModel`. `AppModel` also holds two parts:
+
+- `Library` holds the folder list, the active folder, the scan, the watcher, and the scan error.
+- `FileEditor` holds the open file of the file paper, its Back and Forward history, its editor sessions, the editor page, its margin notes, pasted images, and its links.
+
+A view or a controller takes the part that it uses. For example, `FolderTreeView` takes `Library`, and `FilePaperContent` takes `FileEditor`. `AppModel` takes one `UserDefaults` and gives it to each part, so a test can give its own suite.
 
 ## Windows
 
@@ -73,9 +84,9 @@ The system resize edges of the window lie at the outer edge of the shadow margin
 - `showsIndex` is true while the sheet shows the index of the active tab.
 - `choose(_:)` handles a click on a tab. `pick(_:)` handles a pick on an index. `showList()` handles Escape and Back to the List.
 
-`PaperTab.column(folders:showsAgents:)` gives the tabs. The fixed tabs come first: Today and Agents. Agents shows only while a folder has sessions. Then each folder of `AppModel.wikiPaths` has a `.folder(path)` tab, in the order of the list. The column has no limit. `FeedPaperModel.syncFolders()` runs when the folder list changes. It calls `PaperDeskState.assignColors(to:)`, which gives a new folder the first free color of `TabColor.folderOrder` and forgets the colors of removed folders.
+`PaperTab.column(folders:showsAgents:)` gives the tabs. The fixed tabs come first: Today and Agents. Agents shows only while a folder has sessions. Then each folder of `Library.wikiPaths` has a `.folder(path)` tab, in the order of the list. The column has no limit. `FeedPaperModel.syncFolders()` runs when the folder list changes. It calls `PaperDeskState.assignColors(to:)`, which gives a new folder the first free color of `TabColor.folderOrder` and forgets the colors of removed folders.
 
-A click on a folder tab calls `AppModel.changeWiki(to:)`, because Piper scans one folder at a time. `FeedPaperModel.recordFileCount()` saves the file count of the active folder after each scan, so the other folder tabs show the count of their last scan.
+A click on a folder tab calls `Library.changeWiki(to:)`, because Piper scans one folder at a time. After the change, `Library.folderChanged` calls `FeedPaperModel`, which resets the state of the previous folder. `FeedPaperModel.recordFileCount()` saves the file count of the active folder after each scan, so the other folder tabs show the count of their last scan.
 
 `PaperTabs` draws the column as file-folder tabs, as in variant C of the mock. `FolderTabShape` is the outline of a tab. The feed paper draws the column twice: the tabs that are not active lie under the sheet, and the active tab lies over it, so it joins the paper. `TabColumn` measures the labels and the dashed + Folder tab. When the column is taller than the paper, the folder tabs show one letter. The rule reads the height of the paper as it shows, so a resize changes the tabs at once. `PiperTheme.tabFill(_:)` and `PiperTheme.tabEdge(_:)` give the colors of each `TabColor`.
 
@@ -229,13 +240,13 @@ The session composer handles Return, Tab, the arrows, and Escape in `textView(_:
 
 Each read and write of a folder file goes through `Vault`: `read` and `write` for bytes or text, `file` for a `VaultFile`, and `freeName` for a new file name that no file has. `VaultFile.isMarkdown` is the one test for a Markdown file.
 
-`AppModel` stores the folder list and the active root in preferences. `removeWikiFolder` moves the active root to another folder before it removes a root.
+`Library` stores the folder list and the active root in preferences. `removeWikiFolder` moves the active root to another folder before it removes a root.
 
-`AppModel` starts the watcher with the first scan and replaces it when the active root changes. A scan runs in the background. A change during a scan requests one more scan. A scan keeps unsaved edit sessions and updates clean editors and previews. See [Wiki files](../concepts/files.md).
+`Library` starts the watcher with the first scan and replaces it when the active root changes. A scan runs in the background. A change during a scan requests one more scan. A failed scan keeps its message in `Library.scanError`, and the folder tree shows this message in place of the file list. After each scan, `Library` calls its `LibraryDelegate`, which is `FileEditor`. `FileEditor` keeps unsaved edit sessions and updates clean editors and previews. Before the active root changes, `Library` asks `FileEditor` to save each edit. See [Wiki files](../concepts/files.md).
 
 ## Reading And Editing
 
-`FilePresentation` decides how the file paper shows a file. Markdown opens in the editor, other text in a read-only text view, and everything else in Quick Look. `AppModel.showsFileSource` holds the choice of the Source tab. For Markdown, Source is the source mode of the editor. For HTML, it is `PlainTextPreview`.
+`FilePresentation` decides how the file paper shows a file. Markdown opens in the editor, other text in a read-only text view, and everything else in Quick Look. `FileEditor.showsFileSource` holds the choice of the Source tab. For Markdown, Source is the source mode of the editor. For HTML, it is `PlainTextPreview`.
 
 ### The Editor Page
 
@@ -257,23 +268,23 @@ The Markdown editor is the editor of Hubble.md, a Tiptap and React editor, in a 
 
 | From the page | Piper does |
 | --- | --- |
-| `change` | `AppModel.editorChanged` saves the text. |
+| `change` | `FileEditor.editorChanged` saves the text. |
 | `link` | Opens a wiki link or a URL. |
 | `image` | Writes a pasted image to `<note>.assets/` and answers with its path. |
 | `lossy` | Sets `EditorSession.lossy`. |
-| `note`, `ask`, `explain`, `define`, `followup`, `continue`, `capture`, `open`, `copy` | `AppModel.performFileAction` runs the action of the selection bar or the card. |
+| `note`, `ask`, `explain`, `define`, `followup`, `continue`, `capture`, `open`, `copy` | `FileEditor.performFileAction` runs the action of the selection bar or the card. |
 
 `AssetSchemeHandler` serves the files of the folder at `piper-asset://folder/<path>`, for images and embeds, through `Vault.containedURL`. An HTML file gets a `sandbox` content security policy, and the iframe has no `allow-same-origin`.
 
 `Footnote.ts` adds the `footnoteReference` and `footnoteDefinition` nodes. The Hubble parser and writer in `web/vendor/hubble/editor/` read and write them as `[^label]` and `[^label]: text`. A note with more than one block indents each later line by 4 spaces.
 
-`ReaderLayer.tsx` ports the selection bar and the margin cards of `reader.html` to the editor page. A highlight is the `highlight` mark, which `HighlightMarkdown.ts` reads and writes as `==text==` or `<mark class="color">`. The other actions go to `AppModel.performFileAction`, which calls `ReaderMarks.perform` with a page note for the file (`AppModel.fileLink`). `AppModel.fileNotes` sends the cards to the page through `setNotes`.
+`ReaderLayer.tsx` ports the selection bar and the margin cards of `reader.html` to the editor page. A highlight is the `highlight` mark, which `HighlightMarkdown.ts` reads and writes as `==text==` or `<mark class="color">`. The other actions go to `FileEditor.performFileAction`, which calls `ReaderMarks.perform` with a page note for the file (`FileEditor.fileLink`). `FileEditor.fileNotes` sends the cards to the page through `setNotes`.
 
 `lossGuard.ts` parses a file, writes it back, and compares the text, the link targets, and the structure. If they differ, or the file has link titles or table alignment, the rich editor is read-only. `EditorBanner` then offers the Source tab.
 
 ### Saving
 
-`EditorSession` holds one Markdown file: its baseline, the editor text, its status, and its revision. `DiskChange.classify` compares the baseline, the editor text, and the disk text. `AppModel.editors` keeps the session of the open file, and each session with text that is not on disk. The page sends the last edit of a file after it opens the next file, so a session stays until that edit saves. A scan calls `EditorSession.diskChanged` for each file that changed. A conflict stops saves, and `EditorBanner` offers Reload or Keep Mine. `AppModel.settleEditors` saves each session before a folder change and before quit. It stops on a conflict.
+`EditorSession` holds one Markdown file: its baseline, the editor text, its status, and its revision. `DiskChange.classify` compares the baseline, the editor text, and the disk text. `FileEditor.editors` keeps the session of the open file, and each session with text that is not on disk. The page sends the last edit of a file after it opens the next file, so a session stays until that edit saves. A scan calls `EditorSession.diskChanged` for each file that changed. A conflict stops saves, and `EditorBanner` offers Reload or Keep Mine. `FileEditor.settleEditors` saves each session before a folder change and before quit. It stops on a conflict.
 
 The editor adds an empty paragraph after a last block that is not a paragraph, so that the reader can type under it. `tiptapDocToMarkdown` does not write this paragraph. `EditorView` adds the final newline that the file had. A file that opens with no edit then saves with no change.
 
@@ -362,9 +373,9 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | Source | Responsibility |
 | --- | --- |
 | [PiperApp.swift](../../Sources/Piper/PiperApp.swift) | `AppDelegate`, menus, the menu bar item, editor windows, the toast, and quit |
-| [AppModel.swift](../../Sources/Piper/AppModel.swift) | Scans, selection, and edit sessions |
+| [AppModel.swift](../../Sources/Piper/AppModel.swift) | The container of the stores, `Library`, and `FileEditor`, with the state that the papers share |
+| [Library/](../../Sources/Piper/Library) | `Library` (the folder list, the scan, and the watcher) and `FileEditor` (the open file, its history, its editor sessions, the editor page, its margin notes, and its links) |
 | [AppDefaults.swift](../../Sources/Piper/AppDefaults.swift) | Preference keys, sizes, and metrics |
-| [AppNotifications.swift](../../Sources/Piper/AppNotifications.swift) | Notification names |
 | [PiperTheme.swift](../../Sources/Piper/PiperTheme.swift) | App colors, shapes, fonts, and shared controls |
 | [FileReadState.swift](../../Sources/Piper/FileReadState.swift) | Read timestamps for each file |
 | [CaptureService.swift](../../Sources/Piper/CaptureService.swift) | Global shortcuts, Accessibility selection, and web page capture |

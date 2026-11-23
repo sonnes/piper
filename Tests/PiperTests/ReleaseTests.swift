@@ -25,9 +25,9 @@ final class ReleaseTests: XCTestCase {
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
         XCTAssertTrue(store.notes.isEmpty)
-        XCTAssertTrue(model.files.isEmpty)
+        XCTAssertTrue(model.library.files.isEmpty)
         XCTAssertTrue(model.clipboard.entries.isEmpty)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: model.wikiPath))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: model.library.wikiPath))
     }
 
     func testExplicitClipboardCapturePreservesTextAndPasteboard() {

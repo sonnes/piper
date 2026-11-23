@@ -134,18 +134,18 @@ struct ReaderPaper: View {
     }
 
     @ViewBuilder private var fileHeader: some View {
-        if let document = model.currentDocument {
+        if let document = model.files.currentDocument {
             SheetMark()
-            label(([model.vault.root.lastPathComponent] + document.folder.split(separator: "/").map(String.init) + [document.name])
+            label(([model.library.vault.root.lastPathComponent] + document.folder.split(separator: "/").map(String.init) + [document.name])
                 .joined(separator: " › "))
         } else {
             label("")
         }
-        let workspace = model.workspace
+        let workspace = model.files.workspace
         PaperToolbar {
-            PaperButton(title: "Back", symbol: "chevron.left", help: "Back · Command-[") { model.navigate(-1) }
+            PaperButton(title: "Back", symbol: "chevron.left", help: "Back · Command-[") { model.files.navigate(-1) }
                 .disabled(!workspace.history.indices.contains(workspace.position - 1))
-            PaperButton(title: "Forward", symbol: "chevron.right", help: "Forward · Command-]") { model.navigate(1) }
+            PaperButton(title: "Forward", symbol: "chevron.right", help: "Forward · Command-]") { model.files.navigate(1) }
                 .disabled(!workspace.history.indices.contains(workspace.position + 1))
             PaperToolbarDivider()
             closeButton
@@ -182,7 +182,7 @@ struct ReaderPaper: View {
                 EmptyPane(title: "Article Removed", detail: "This article is no longer in its feed.")
             }
         case .file:
-            FilePaperContent(model: model)
+            FilePaperContent(files: model.files, cardPresented: model.sessionPresentation == .card)
         case .session(let id):
             if let session = model.agents.runner.session(id) {
                 SessionPane(model: model, session: session, folder: session.folder, started: started)
@@ -271,10 +271,12 @@ struct PressStyle: ButtonStyle {
     }
 }
 
-/// The open file of the model, in the editor, a text view, or Quick Look. It
-/// holds the reading preferences, which belong to the view.
+/// The open file, in the editor, a text view, or Quick Look. It holds the
+/// reading preferences, which belong to the view.
 struct FilePaperContent: View {
-    @Bindable var model: AppModel
+    @Bindable var files: FileEditor
+    /// True while the session card shows over the paper.
+    let cardPresented: Bool
 
     @AppStorage(AppDefaults.Key.readerSize) private var readerSize = AppDefaults.Reader.defaultSize
     @AppStorage(AppDefaults.Key.readerTheme) private var readerTheme = WikiReadingTheme.paper
@@ -284,28 +286,28 @@ struct FilePaperContent: View {
 
     var body: some View {
         Group {
-            if let document = model.currentDocument {
-                if FilePresentation(document) == .markdown, let session = model.editor {
+            if let document = files.currentDocument {
+                if FilePresentation(document) == .markdown, let session = files.editor {
                     VStack(spacing: 0) {
-                        EditorBanner(model: model, session: session)
-                        EditorPane(page: model.editorPage,
-                                   request: EditorPane.request(for: session, model: model, source: model.showsFileSource),
-                                   session: session, theme: theme, anchorRequest: model.anchorRequest,
-                                   notes: model.fileNotes(document))
+                        EditorBanner(files: files, session: session)
+                        EditorPane(page: files.editorPage,
+                                   request: EditorPane.request(for: session, files: files, source: files.showsFileSource),
+                                   session: session, theme: theme, anchorRequest: files.anchorRequest,
+                                   notes: files.fileNotes(document))
                     }
                     .background(paper)
-                } else if model.showsFileSource, let source = FilePresentation.sourceText(for: document) {
+                } else if files.showsFileSource, let source = FilePresentation.sourceText(for: document) {
                     PlainTextPreview(text: source)
                 } else {
-                    FilePreview(model: model, document: document)
+                    FilePreview(library: files.library, document: document)
                 }
             } else {
                 EmptyPane(title: "No File")
             }
         }
         .overlay(alignment: .bottom) {
-            if let document = model.currentDocument, FilePresentation.sourceText(for: document) != nil {
-                TabIsland(showsSource: $model.showsFileSource, cardPresented: model.sessionPresentation == .card)
+            if let document = files.currentDocument, FilePresentation.sourceText(for: document) != nil {
+                TabIsland(showsSource: $files.showsFileSource, cardPresented: cardPresented)
             }
         }
     }

@@ -182,7 +182,7 @@ final class QAScripts: NSObject {
         let script = "return JSON.stringify(await (async () => {\n\(body)\n})()) ?? \"null\""
         let result: String
         do {
-            let value = try await model.editorPage.webView.callAsyncJavaScript(script, contentWorld: .page)
+            let value = try await model.files.editorPage.webView.callAsyncJavaScript(script, contentWorld: .page)
             result = "ok\n\(value as? String ?? "null")"
         } catch {
             result = "error\n\(error.localizedDescription)"

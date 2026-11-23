@@ -128,9 +128,9 @@ Key-Value Observing is banned. KVO is where the crashing bugs live. The only exc
 
 Inside a module, state changes travel through Swift `Observation` and through `didSet`.
 
-Across modules, state changes travel through `NotificationCenter`. Declare every notification name in `AppNotifications.swift`.
+When one type must hear about a change in another type, the other type calls a delegate or a closure. For example, `Library` calls its `LibraryDelegate` after each scan.
 
-Post every notification on the main queue.
+If Piper must post a notification, post it on the main queue.
 
 ## Threading
 
@@ -193,7 +193,7 @@ NetNewsWire does not endorse Piper, and it has no connection to this project.
 | Use AppKit and `.xib` files on macOS. Avoid SwiftUI. | AppKit owns the windows. SwiftUI draws their content. | The Piper target is about 6,000 lines of Swift, most of it SwiftUI. A full AppKit rewrite costs weeks and changes nothing that a reader sees. |
 | Use Auto Layout in `.xib` files, not in code. | No `.xib` files. SwiftUI lays out the content of each window. | This follows from the rule above. |
 | Prefer storyboards to xibs. | Neither. Window controllers build their windows in code. | Swift Package Manager builds Piper. It has no Interface Builder step. |
-| `NotificationCenter` and `didSet` carry every state change. | `Observation` carries state inside a module. `NotificationCenter` carries it across modules. | `Observation` did not exist when the original rule was written. It gives the same result as `didSet` without the manual wiring, and it is not KVO. |
+| `NotificationCenter` and `didSet` carry every state change. | `Observation` carries state inside a module. A delegate or a closure carries a change to the one type that needs it. | `Observation` did not exist when the original rule was written. It gives the same result as `didSet` without the manual wiring, and it is not KVO. A delegate or a closure shows the link between two types, and a notification hides it. |
 | Indent with tabs. | Indent with four spaces. | Every existing Piper source file uses four spaces. |
 | Write new code in Swift 5. | Write new code in Swift, with no version pinned in the guidance. | The Swift version belongs in `Package.swift`, not in prose that goes stale. |
 | Frameworks live in `Modules/` beside an Xcode project. | Modules live in `Sources/Modules` as Swift Package Manager targets. | Piper has no Xcode project. |

@@ -27,7 +27,7 @@ final class TodayModelTests: XCTestCase {
         })
         model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path,
                          feeds: FeedStore(url: feedsURL))
-        model.reload()
+        model.library.reload()
         today = TodayModel(model: model)
     }
 

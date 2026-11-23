@@ -5,7 +5,7 @@ import Vault
 
 /// One block of a transcript.
 struct TranscriptBlockView: View {
-    let model: AppModel
+    let files: FileEditor
     let session: AgentSession
     let block: TranscriptBlock
 
@@ -17,7 +17,7 @@ struct TranscriptBlockView: View {
             AssistantTextView(text: text)
         case .toolCall(let call):
             ToolCallRow(call: call, isLive: session.isActive) { path in
-                model.openRunFile(path, in: session.folder)
+                files.openRunFile(path, in: session.folder)
             }
         case .permission(let request, let decision):
             PermissionCard(request: request, decision: decision, folderName: session.folderName)

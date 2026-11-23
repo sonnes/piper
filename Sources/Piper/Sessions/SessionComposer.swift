@@ -62,7 +62,7 @@ struct SessionComposer: View {
     /// The choices of the `@` list for the typed text.
     private var mentionOptions: [MentionOption] {
         guard focused, let partial = SessionComposerText.partialMention(text) else { return [] }
-        let files = folder == model.vault.root.path ? model.files.map(\.relativePath) : folderFiles
+        let files = folder == model.library.vault.root.path ? model.library.files.map(\.relativePath) : folderFiles
         return MentionOption.options(matching: partial, screen: screenItem, folder: folder, files: files,
                                      notes: model.store.notes)
     }
@@ -140,7 +140,7 @@ struct SessionComposer: View {
             mentions.removeAll { !text.contains("@" + $0.token) }
         }
         .task(id: folder) {
-            guard folder != model.vault.root.path else { return }
+            guard folder != model.library.vault.root.path else { return }
             let folder = folder
             folderFiles = await Task.detached { FolderFileList.paths(in: folder) }.value
         }

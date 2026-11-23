@@ -50,8 +50,6 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
             window.setPaperFrame(NSRect(x: frame.minX + AppDefaults.Papers.screenInset * 2, y: frame.midY - size.height / 2,
                                         width: size.width, height: size.height), display: false)
         }
-        NotificationCenter.default.addObserver(self, selector: #selector(vaultChanged),
-                                               name: .vaultPathDidChange, object: model)
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
             if let number = PaperKey.tabNumber(event), self.handleTab(number, in: event.window) { return nil }
@@ -68,7 +66,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     func show() {
         window?.makeKeyAndOrderFront(nil)
         QA.activate()
-        model.reload()
+        model.library.reload()
     }
 
     /// Takes the paper off the screen. The list and the drafts stay as they are.
@@ -151,9 +149,5 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     private func saveFrame() {
         guard let frame = (window as? PaperWindow)?.paperFrame else { return }
         paper.state.feedFrame = NSStringFromRect(frame)
-    }
-
-    @objc private func vaultChanged() {
-        paper.vaultChanged()
     }
 }

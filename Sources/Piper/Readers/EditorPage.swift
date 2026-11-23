@@ -56,7 +56,7 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
     }
 
     let webView: EditorWebView
-    private weak var model: AppModel?
+    private weak var files: FileEditor?
     private let page: URL?
     private let assets: AssetSchemeHandler
     private var ready = false
@@ -68,10 +68,10 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
     private var shownNotes: [ReaderPageNote]?
     private var last: Show?
 
-    init(model: AppModel) {
-        self.model = model
+    init(files: FileEditor) {
+        self.files = files
         let configuration = WKWebViewConfiguration()
-        assets = AssetSchemeHandler { [weak model] in model?.vault }
+        assets = AssetSchemeHandler { [weak files] in files?.library.vault }
         configuration.setURLSchemeHandler(assets, forURLScheme: AssetSchemeHandler.scheme)
         configuration.websiteDataStore = .nonPersistent()
         webView = EditorWebView(frame: .zero, configuration: configuration)
@@ -154,7 +154,7 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) async -> (Any?, String?) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url == page,
               let body = message.body as? [String: Any], let action = body["action"] as? String,
-              let model else { return (nil, nil) }
+              let files else { return (nil, nil) }
         switch action {
         case "ready":
             ready = true
@@ -163,22 +163,22 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
             for script in pending { _ = try? await webView.evaluateJavaScript(script) }
         case "change":
             guard let path = body["path"] as? String, let text = body["text"] as? String else { break }
-            model.editorChanged(path: path, text: text)
+            files.editorChanged(path: path, text: text)
         case "link":
             guard let kind = body["kind"] as? String, let target = body["target"] as? String else { break }
-            model.openEditorLink(kind: kind, target: target)
+            files.openEditorLink(kind: kind, target: target)
         case "image":
             guard let path = body["path"] as? String, let data = body["data"] as? String else { break }
-            do { return (try model.saveEditorImage(for: path, type: body["type"] as? String ?? "", base64: data), nil) }
+            do { return (try files.saveEditorImage(for: path, type: body["type"] as? String ?? "", base64: data), nil) }
             catch {
-                model.store.report(error)
+                files.store.report(error)
                 return (nil, error.localizedDescription)
             }
         case "lossy":
             guard let path = body["path"] as? String else { break }
-            model.editors[path]?.lossy = body["reasons"] as? [String] ?? []
+            files.editors[path]?.lossy = body["reasons"] as? [String] ?? []
         case "explain", "define", "ask", "note", "capture", "open", "copy", "continue", "followup":
-            if let path = shown?.path { model.performFileAction(body, path: path) }
+            if let path = shown?.path { files.performFileAction(body, path: path) }
         default:
             break
         }
@@ -310,9 +310,9 @@ struct EditorPane: NSViewRepresentable {
         container.addSubview(view)
     }
 
-    /// The request for the open file of the model.
+    /// The request for the open file of the editor.
     @MainActor
-    static func request(for session: EditorSession, model: AppModel, source: Bool) -> EditorOpenRequest {
+    static func request(for session: EditorSession, files: FileEditor, source: Bool) -> EditorOpenRequest {
         let document = session.document
         var byline = [document.modifiedAt.formatted(date: .long, time: .shortened)]
         let words = ReadingTime.words(in: document.body)
@@ -323,38 +323,38 @@ struct EditorPane: NSViewRepresentable {
         case .opened: break
         }
         let hasTitle = document.body.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("# ")
-        let targets = model.files.filter(\.isMarkdown).map { file in
+        let targets = files.library.files.filter(\.isMarkdown).map { file in
             EditorOpenRequest.WikiTarget(path: file.id, target: (file.id as NSString).deletingPathExtension, title: file.title)
         }
         return EditorOpenRequest(path: session.path, text: session.text,
                                  mode: source ? "source" : "rich", wikiTargets: targets,
                                  header: byline.joined(separator: " · "), title: hasTitle ? nil : document.title,
-                                 anchor: model.requestedAnchor)
+                                 anchor: files.requestedAnchor)
     }
 }
 
 /// The bar over the editor when Piper stopped saving, or when the Preview tab
 /// cannot edit the file.
 struct EditorBanner: View {
-    let model: AppModel
+    @Bindable var files: FileEditor
     let session: EditorSession
 
     var body: some View {
         if session.status == .conflict {
-            bar(model.sessionWrote(session.path)
+            bar(files.sessionWrote(session.path)
                 ? "Claude changed this file while you edited it. Piper stopped saving."
                 : "This file changed on disk while you edited it. Piper stopped saving.") {
-                Button("Keep Mine") { model.keepEditorText() }
-                Button("Reload") { model.reloadEditorFromDisk() }
+                Button("Keep Mine") { files.keepEditorText() }
+                Button("Reload") { files.reloadEditorFromDisk() }
                     .keyboardShortcut(.defaultAction)
             }
         } else if case .failed(let reason) = session.status {
             bar("Piper could not save this file. \(reason)") {
-                Button("Try Again") { model.saveEditor(session) }
+                Button("Try Again") { files.saveEditor(session) }
             }
-        } else if !session.lossy.isEmpty, !model.showsFileSource {
+        } else if !session.lossy.isEmpty, !files.showsFileSource {
             bar("Preview cannot edit \(ListFormatter.localizedString(byJoining: session.lossy)) without losing them. Edit this file in Source.") {
-                Button("Edit in Source") { model.showsFileSource = true }
+                Button("Edit in Source") { files.showsFileSource = true }
             }
         }
     }

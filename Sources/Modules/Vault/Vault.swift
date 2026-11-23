@@ -89,7 +89,7 @@ public struct Vault {
     public func scan() throws -> VaultScan {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: root.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            throw PiperError("The vault folder is unavailable. Choose a folder in Settings.")
+            throw PiperError("The folder is unavailable. Make sure that it exists, or remove its tab and add the folder again.")
         }
         var problems: [String] = []
         let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey,

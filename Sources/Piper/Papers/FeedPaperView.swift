@@ -35,9 +35,9 @@ struct FeedPaperView: View {
                 paper.pick(.today(section: model.store.activeSection))
             }
         }
-        .onChange(of: model.wikiPaths, initial: true) { paper.syncFolders() }
-        .onChange(of: model.loading) { paper.recordFileCount() }
-        .onChange(of: model.files.count) { paper.recordFileCount() }
+        .onChange(of: model.library.wikiPaths, initial: true) { paper.syncFolders() }
+        .onChange(of: model.library.loading) { paper.recordFileCount() }
+        .onChange(of: model.library.files.count) { paper.recordFileCount() }
         .onChange(of: model.store.sections) { _, sections in
             if case .today(let section?) = paper.state.scope, !sections.contains(section) { paper.pick(.today(section: nil)) }
         }
@@ -58,7 +58,7 @@ struct FeedPaperView: View {
         let tabs = paper.tabs
         let lengths = tabs.map { TabColumn.labelLength(title: $0.title, count: count($0)) }
         let addLength = TabColumn.labelLength(title: TabColumn.addLabel, count: 0)
-        let removeFolder: ((String) -> Void)? = model.wikiPaths.count > 1 ? { model.removeWikiFolder($0) } : nil
+        let removeFolder: ((String) -> Void)? = model.library.wikiPaths.count > 1 ? { model.library.removeWikiFolder($0) } : nil
         return PaperTabs(layer: layer, tabs: tabs, active: paper.state.tab, color: paper.color(of:), count: count,
                          stubs: TabColumn.usesStubs(lengths: lengths, addLength: addLength, paperHeight: paper.paperHeight),
                          choose: paper.choose, addFolder: paper.addFolder,
@@ -128,11 +128,11 @@ struct FeedPaperView: View {
             Button("Add Folder…") { paper.addFolder() }
             Button("Sources…") { paper.showSources() }
             Divider()
-            Button("Show in Finder") { NSWorkspace.shared.open(model.vault.root) }
-            if case .folder(let path) = paper.state.tab, model.wikiPaths.count > 1 {
-                Button("Remove Folder") { model.removeWikiFolder(path) }
+            Button("Show in Finder") { NSWorkspace.shared.open(model.library.vault.root) }
+            if case .folder(let path) = paper.state.tab, model.library.wikiPaths.count > 1 {
+                Button("Remove Folder") { model.library.removeWikiFolder(path) }
             }
-            Button("Refresh") { model.reload() }
+            Button("Refresh") { model.library.reload() }
             Button("Settings…") { model.openSettings?() }
         } label: {
             Image(systemName: "ellipsis.circle").font(.system(size: 16)).foregroundStyle(PiperTheme.paperMuted)
@@ -153,7 +153,7 @@ struct FeedPaperView: View {
         case .sources:
             SourcesView(paper: paper, model: model)
         case .folder:
-            FolderTreeView(paper: paper, model: model)
+            FolderTreeView(paper: paper, library: model.library)
         case .sessions(let folder):
             SessionList(model: model, folder: folder, open: paper.open, setKeys: { paper.listKeys = $0 })
         }

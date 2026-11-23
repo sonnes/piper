@@ -27,7 +27,7 @@ final class WikiFoldersTests: XCTestCase {
 
     private func waitForScan(_ model: AppModel) async throws {
         for _ in 0..<400 {
-            if !model.loading { return }
+            if !model.library.loading { return }
             try await Task.sleep(for: .milliseconds(20))
         }
         XCTFail("The folder scan did not finish.")
@@ -43,17 +43,17 @@ final class WikiFoldersTests: XCTestCase {
         }
         preferences.set(first.path, forKey: AppDefaults.Key.vaultPath)
         let model = makeModel()
-        XCTAssertEqual(model.wikiPaths, [first.path])
-        model.addWikiFolders([second.path, third.path, second.path])
+        XCTAssertEqual(model.library.wikiPaths, [first.path])
+        model.library.addWikiFolders([second.path, third.path, second.path])
         try await waitForScan(model)
-        XCTAssertEqual(model.wikiPaths, [first.path, second.path, third.path])
-        XCTAssertEqual(model.currentDocument?.raw, "second")
-        model.changeWiki(to: first.path)
+        XCTAssertEqual(model.library.wikiPaths, [first.path, second.path, third.path])
+        XCTAssertEqual(model.files.currentDocument?.raw, "second")
+        model.library.changeWiki(to: first.path)
         try await waitForScan(model)
-        XCTAssertEqual(model.currentDocument?.raw, "first")
+        XCTAssertEqual(model.files.currentDocument?.raw, "first")
         let restored = makeModel()
-        XCTAssertEqual(restored.wikiPaths, model.wikiPaths)
-        XCTAssertEqual(restored.wikiPath, first.path)
+        XCTAssertEqual(restored.library.wikiPaths, model.library.wikiPaths)
+        XCTAssertEqual(restored.library.wikiPath, first.path)
     }
 
     func testRemovingAFolderKeepsItOnDiskAndMovesOffTheActiveFolder() async throws {
@@ -65,20 +65,20 @@ final class WikiFoldersTests: XCTestCase {
         }
         preferences.set(first.path, forKey: AppDefaults.Key.vaultPath)
         let model = makeModel()
-        model.addWikiFolders([second.path])
+        model.library.addWikiFolders([second.path])
         try await waitForScan(model)
-        XCTAssertEqual(model.wikiPath, second.path)
+        XCTAssertEqual(model.library.wikiPath, second.path)
 
-        model.removeWikiFolder(second.path)
+        model.library.removeWikiFolder(second.path)
         try await waitForScan(model)
-        XCTAssertEqual(model.wikiPaths, [first.path])
-        XCTAssertEqual(model.wikiPath, first.path)
-        XCTAssertEqual(model.currentDocument?.raw, "first")
+        XCTAssertEqual(model.library.wikiPaths, [first.path])
+        XCTAssertEqual(model.library.wikiPath, first.path)
+        XCTAssertEqual(model.files.currentDocument?.raw, "first")
         XCTAssertTrue(FileManager.default.fileExists(atPath: second.appendingPathComponent("same.md").path))
 
-        model.removeWikiFolder(first.path)
-        XCTAssertEqual(model.wikiPaths, [first.path], "The last folder stays")
-        XCTAssertEqual(makeModel().wikiPaths, [first.path])
+        model.library.removeWikiFolder(first.path)
+        XCTAssertEqual(model.library.wikiPaths, [first.path], "The last folder stays")
+        XCTAssertEqual(makeModel().library.wikiPaths, [first.path])
     }
 
     func testAddingAnAliasDoesNotDuplicateAFolder() async throws {
@@ -86,10 +86,10 @@ final class WikiFoldersTests: XCTestCase {
         let alias = root.appendingPathComponent("alias")
         try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: root)
         let model = makeModel()
-        model.addWikiFolders([alias.path, root.path])
+        model.library.addWikiFolders([alias.path, root.path])
         try await waitForScan(model)
-        XCTAssertEqual(model.wikiPaths, [root.path])
-        XCTAssertEqual(model.wikiPath, root.path)
+        XCTAssertEqual(model.library.wikiPaths, [root.path])
+        XCTAssertEqual(model.library.wikiPath, root.path)
     }
 
     func testOpeningARunFileWorksInAFolderBehindASymbolicLink() async throws {
@@ -101,14 +101,14 @@ final class WikiFoldersTests: XCTestCase {
         preferences.set(root.path, forKey: AppDefaults.Key.vaultPath)
         let model = makeModel()
         var shown: [String] = []
-        model.showFile = { shown.append($0) }
+        model.files.showFile = { shown.append($0) }
 
-        model.openRunFile("run.md", in: folder.path)
-        for _ in 0..<400 where model.selectedDocument != "run.md" {
+        model.files.openRunFile("run.md", in: folder.path)
+        for _ in 0..<400 where model.files.selectedDocument != "run.md" {
             try await Task.sleep(for: .milliseconds(20))
         }
-        XCTAssertEqual(model.wikiPath, folder.path)
-        XCTAssertEqual(model.selectedDocument, "run.md")
+        XCTAssertEqual(model.library.wikiPath, folder.path)
+        XCTAssertEqual(model.files.selectedDocument, "run.md")
         XCTAssertEqual(shown, ["run.md"])
     }
 
@@ -116,16 +116,16 @@ final class WikiFoldersTests: XCTestCase {
         preferences.set(root.path, forKey: AppDefaults.Key.vaultPath)
         try Data("# Original".utf8).write(to: root.appendingPathComponent("note.md"))
         let model = makeModel()
-        model.reload()
+        model.library.reload()
         try await waitForScan(model)
-        model.openDocument("note.md")
-        let edit = try XCTUnwrap(model.editor)
+        model.files.openDocument("note.md")
+        let edit = try XCTUnwrap(model.files.editor)
         edit.text = "# Unsaved"
         try Data("# Agent edit".utf8).write(to: root.appendingPathComponent("note.md"))
-        model.addWikiFolders([root.appendingPathComponent("next").path])
-        XCTAssertEqual(model.wikiPaths, [root.path])
-        XCTAssertEqual(model.wikiPath, root.path)
-        XCTAssertTrue(model.editor === edit)
+        model.library.addWikiFolders([root.appendingPathComponent("next").path])
+        XCTAssertEqual(model.library.wikiPaths, [root.path])
+        XCTAssertEqual(model.library.wikiPath, root.path)
+        XCTAssertTrue(model.files.editor === edit)
         XCTAssertTrue(edit.hasChanges)
         XCTAssertNil(preferences.array(forKey: AppDefaults.Key.wikiPaths))
     }

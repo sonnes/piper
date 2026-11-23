@@ -19,10 +19,12 @@ struct PaletteCommand: Identifiable {
 @MainActor
 final class CommandPaletteController {
     private var panel: PalettePanel?
-    private let model: AppModel
+    private let library: Library
+    private let files: FileEditor
 
-    init(model: AppModel) {
-        self.model = model
+    init(library: Library, files: FileEditor) {
+        self.library = library
+        self.files = files
     }
 
     func toggle(over window: NSWindow, commands: [PaletteCommand], open: @escaping (String) -> Void) {
@@ -38,7 +40,7 @@ final class CommandPaletteController {
         panel.hasShadow = true
         panel.isReleasedWhenClosed = false
         panel.onResign = { [weak self] in self?.close() }
-        let view = CommandPaletteView(model: model, commands: commands, open: { [weak self] path in
+        let view = CommandPaletteView(library: library, files: files, commands: commands, open: { [weak self] path in
             self?.close()
             open(path)
         }, run: { [weak self] command in
@@ -169,7 +171,8 @@ struct PaletteResults {
 }
 
 private struct CommandPaletteView: View {
-    let model: AppModel
+    let library: Library
+    let files: FileEditor
     let commands: [PaletteCommand]
     let open: (String) -> Void
     let run: (PaletteCommand) -> Void
@@ -181,8 +184,8 @@ private struct CommandPaletteView: View {
     @FocusState private var focused: Bool
 
     private var results: PaletteResults {
-        var results = PaletteResults.rank(query, files: model.files,
-                                          recent: model.workspace.history.reversed().map(\.path),
+        var results = PaletteResults.rank(query, files: library.files,
+                                          recent: files.workspace.history.reversed().map(\.path),
                                           commands: commands, recentCommands: PaletteRecents.titles())
         results.lines = lines
         return results
@@ -233,7 +236,7 @@ private struct CommandPaletteView: View {
             guard text.count >= PaletteSearch.minimumQueryLength, !text.hasPrefix("/") else { return }
             try? await Task.sleep(for: .milliseconds(150))
             guard !Task.isCancelled else { return }
-            let files = model.files
+            let files = library.files
             let found = await Task.detached { PaletteResults.lines(text, in: files) }.value
             if !Task.isCancelled { lines = found }
         }

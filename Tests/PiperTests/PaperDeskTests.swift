@@ -489,14 +489,14 @@ final class PaperDeskTests: XCTestCase {
     /// `openFile`, is the file that the feed paper restores.
     func testEveryFilePaperSavesItsFile() async throws {
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
-        model.reload()
-        for _ in 0..<400 where model.loading { try await Task.sleep(for: .milliseconds(20)) }
+        model.library.reload()
+        for _ in 0..<400 where model.library.loading { try await Task.sleep(for: .milliseconds(20)) }
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "piper-paper-desk-window-tests"))
         defer { defaults.removePersistentDomain(forName: "piper-paper-desk-window-tests") }
         let desk = PaperDesk(model: model, defaults: defaults)
         defer { desk.hide() }
 
-        model.openDocument("notes/journal.md")
+        model.files.openDocument("notes/journal.md")
         desk.paper.open(.file)
         XCTAssertEqual(desk.paper.state.selectedFile, "notes/journal.md")
     }
@@ -561,8 +561,8 @@ final class PaperDeskTests: XCTestCase {
             try Data("x\n".utf8).write(to: root.appendingPathComponent("\(folder)/x.md"))
         }
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
-        model.reload()
-        for _ in 0..<400 where model.loading || model.files.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        model.library.reload()
+        for _ in 0..<400 where model.library.loading || model.library.files.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
         let suite = "piper-paper-tree-tests"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defaults.removePersistentDomain(forName: suite)
@@ -570,11 +570,11 @@ final class PaperDeskTests: XCTestCase {
         let paper = FeedPaperModel(model: model, defaults: defaults)
         var opened: [PaperItem] = []
         paper.open = { opened.append($0) }
-        paper.choose(.folder(model.wikiPath))
+        paper.choose(.folder(model.library.wikiPath))
         XCTAssertEqual(paper.state.scope, .folder)
         XCTAssertFalse(paper.showsIndex, "A folder tab has no index.")
 
-        let a = URL(fileURLWithPath: model.wikiPath).appendingPathComponent("a").path
+        let a = URL(fileURLWithPath: model.library.wikiPath).appendingPathComponent("a").path
         XCTAssertEqual(paper.treeCursor(in: paper.treeRows), a)
         paper.treeKey(.right)
         XCTAssertEqual(paper.state.expandedFolders, [a])
@@ -582,7 +582,7 @@ final class PaperDeskTests: XCTestCase {
         XCTAssertEqual(paper.treeCursor(in: paper.treeRows), a + "/x.md")
         paper.treeKey(.enter)
         XCTAssertEqual(opened, [.file])
-        XCTAssertEqual(model.selectedDocument, "a/x.md")
+        XCTAssertEqual(model.files.selectedDocument, "a/x.md")
         paper.treeKey(.left)
         paper.treeKey(.left)
         XCTAssertEqual(paper.state.expandedFolders, [])
@@ -602,7 +602,7 @@ final class PaperDeskTests: XCTestCase {
         defer { preferences.removePersistentDomain(forName: suite) }
         preferences.set(roots[0].path, forKey: AppDefaults.Key.vaultPath)
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), preferences: preferences)
-        model.addWikiFolders(roots.dropFirst().map(\.path))
+        model.library.addWikiFolders(roots.dropFirst().map(\.path))
         let paper = FeedPaperModel(model: model, defaults: preferences)
         paper.syncFolders()
         XCTAssertEqual(paper.tabs.filter(\.isFolder), roots.map { .folder($0.path) })
@@ -610,8 +610,8 @@ final class PaperDeskTests: XCTestCase {
 
         for (index, folder) in roots.enumerated() {
             paper.choose(.folder(folder.path))
-            for _ in 0..<400 where model.loading || model.files.count != index + 1 { try await Task.sleep(for: .milliseconds(20)) }
-            XCTAssertEqual(model.wikiPath, folder.path)
+            for _ in 0..<400 where model.library.loading || model.library.files.count != index + 1 { try await Task.sleep(for: .milliseconds(20)) }
+            XCTAssertEqual(model.library.wikiPath, folder.path)
             XCTAssertEqual(paper.state.tab, .folder(folder.path))
             XCTAssertEqual(paper.treeRows.map(\.name), (0...index).map { "\($0).md" })
             paper.recordFileCount()
@@ -622,9 +622,9 @@ final class PaperDeskTests: XCTestCase {
         paper.setTabColor(.plum)
         XCTAssertEqual(paper.color(of: .folder(roots[2].path)), .plum)
         XCTAssertEqual(paper.color(of: .folder(roots[0].path)), .teal)
-        model.removeWikiFolder(roots[2].path)
+        model.library.removeWikiFolder(roots[2].path)
         paper.syncFolders()
-        XCTAssertEqual(paper.state.tab, .folder(model.wikiPath), "The tab moves to the next active folder.")
+        XCTAssertEqual(paper.state.tab, .folder(model.library.wikiPath), "The tab moves to the next active folder.")
         XCTAssertNil(paper.state.folderColors[roots[2].path])
     }
 

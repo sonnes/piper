@@ -110,11 +110,11 @@ final class TodayModel {
     /// The relevance from local data. It changes when the feeds, the captures,
     /// or the files change.
     func relevance() -> Relevance {
-        let key = [feeds.revision, store.notes.count, model.files.count]
+        let key = [feeds.revision, store.notes.count, model.library.files.count]
         if let relevanceCache, relevanceCache.key == key { return relevanceCache.value }
         let stats = FeedStats.compute(feeds: feeds.feeds, counts: feeds.articleCounts(days: FeedStats.days), notes: store.notes)
         let history = Dictionary(feeds.suggestions.map { ($0.host, $0.score) }, uniquingKeysWith: max)
-        let value = Relevance(stats: stats, history: history, fileNames: model.files.map(\.relativePath))
+        let value = Relevance(stats: stats, history: history, fileNames: model.library.files.map(\.relativePath))
         relevanceCache = (key, value)
         return value
     }
@@ -220,8 +220,8 @@ final class TodayModel {
 
     /// The places that the File picker offers for a search.
     func fileTargets(query: String) -> [FileTarget] {
-        FileTarget.targets(sections: store.sections, roots: model.wikiPaths, active: model.wikiPath,
-                           folders: model.folders, files: model.files, query: query)
+        FileTarget.targets(sections: store.sections, roots: model.library.wikiPaths, active: model.library.wikiPath,
+                           folders: model.library.folders, files: model.library.files, query: query)
     }
 
     /// Files the items. A section takes the captures, and keeps an article or
@@ -252,9 +252,9 @@ final class TodayModel {
             do { try vault.write(text, to: path) } catch { store.report(error); return false }
             finishFiling(items, savedFile: vault.root.appendingPathComponent(path).path)
             store.status = "Saved to " + target.title
-            model.reload()
+            model.library.reload()
         case .file(let path):
-            let vault = model.vault
+            let vault = model.library.vault
             do {
                 let current = (try? vault.read(path)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
                 let block = items.map { appendText($0) }.joined(separator: "\n")
@@ -264,7 +264,7 @@ final class TodayModel {
             } catch { store.report(error); return false }
             finishFiling(items, savedFile: vault.root.appendingPathComponent(path).path)
             store.status = "Added to " + path
-            model.reload()
+            model.library.reload()
         }
         selection.subtract(items.map(\.id))
         return true

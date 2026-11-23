@@ -33,10 +33,10 @@ enum FilePresentation {
 }
 
 struct FilePreview: View {
-    let model: AppModel
+    let library: Library
     let document: VaultFile
 
-    private var url: URL? { try? model.vault.containedURL(document.id) }
+    private var url: URL? { try? library.vault.containedURL(document.id) }
 
     var body: some View {
         VStack(spacing: 0) {

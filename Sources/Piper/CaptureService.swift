@@ -37,7 +37,9 @@ final class CaptureService {
     private var hotKeyHandler: EventHandlerRef?
     private var monitoredShortcut: String?
     private var gesture = ShiftGesture()
-    private let model: AppModel
+    private let store: CaptureStore
+    private let shortcut: () -> String
+    private let accessibilityChanged: (Bool) -> Void
     private let queue = DispatchQueue(label: "piper.capture")
     private var busy = false
     /// Reports what a capture saved.
@@ -46,15 +48,24 @@ final class CaptureService {
     /// second capture of the same text then asks for a note on it.
     var shownHighlight: (() -> (id: UUID, quote: String)?)?
 
-    init(model: AppModel) { self.model = model }
+    /// - Parameters:
+    ///   - shortcut: The capture shortcut that Settings shows.
+    ///   - accessibilityChanged: Takes the Accessibility access of Piper each time the service checks it.
+    init(store: CaptureStore, shortcut: @escaping () -> String, accessibilityChanged: @escaping (Bool) -> Void) {
+        self.store = store
+        self.shortcut = shortcut
+        self.accessibilityChanged = accessibilityChanged
+    }
 
     func start() {
-        model.accessibilityEnabled = AXIsProcessTrusted()
-        guard model.accessibilityEnabled else { stop(); return }
-        guard monitoredShortcut != model.captureShortcut else { return }
+        let trusted = AXIsProcessTrusted()
+        accessibilityChanged(trusted)
+        guard trusted else { stop(); return }
+        let shortcut = shortcut()
+        guard monitoredShortcut != shortcut else { return }
         stop()
-        monitoredShortcut = model.captureShortcut
-        if model.captureShortcut == "Control-Option-Space" {
+        monitoredShortcut = shortcut
+        if shortcut == "Control-Option-Space" {
             registerHotKey()
             return
         }
@@ -92,12 +103,12 @@ final class CaptureService {
             return noErr
         }, 1, &event, Unmanaged.passUnretained(self).toOpaque(), &hotKeyHandler)
         guard installed == noErr else {
-            model.store.report(PiperError("Cannot register the capture shortcut. Choose Shift, Shift in Settings."))
+            store.report(PiperError("Cannot register the capture shortcut. Choose Shift, Shift in Settings."))
             return
         }
         let registered = RegisterEventHotKey(49, UInt32(controlKey | optionKey), EventHotKeyID(signature: 0x50697072, id: 1), GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &hotKey)
         if registered != noErr {
-            model.store.report(PiperError("Control-Option-Space is unavailable. Choose Shift, Shift or release the shortcut in the other application."))
+            store.report(PiperError("Control-Option-Space is unavailable. Choose Shift, Shift or release the shortcut in the other application."))
         }
     }
 
@@ -107,26 +118,26 @@ final class CaptureService {
             gesture.cancel()
             return
         }
-        guard model.captureShortcut == "Shift, Shift", [56, 60].contains(event.keyCode) else { gesture.cancel(); return }
+        guard shortcut() == "Shift, Shift", [56, 60].contains(event.keyCode) else { gesture.cancel(); return }
         if gesture.shift(down: flags.contains(.shift), time: event.timestamp, otherModifier: !flags.subtracting(.shift).isEmpty) { capture() }
     }
 
     func capture() {
         guard !busy else { return }
         guard AXIsProcessTrusted() else {
-            model.accessibilityEnabled = false
-            model.store.status = "Enable Accessibility in Settings"
-            didCapture?(.note(model.store.status, nil))
+            accessibilityChanged(false)
+            store.status = "Enable Accessibility in Settings"
+            didCapture?(.note(store.status, nil))
             return
         }
         guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
-            model.store.status = "Select text in another app first"
+            store.status = "Select text in another app first"
             return
         }
         busy = true
         let pid = app.processIdentifier
         let source = app.localizedName ?? app.bundleIdentifier ?? "Application"
-        let section = model.store.activeSection
+        let section = store.activeSection
         queue.async { [weak self] in
             let result = Self.selection(pid: pid)
             Task { @MainActor [weak self] in
@@ -135,9 +146,9 @@ final class CaptureService {
                 switch result {
                 case .success(let selection):
                     self.didCapture?(Self.save(selection, source: source, section: section,
-                                               store: self.model.store, shown: self.shownHighlight?()))
+                                               store: self.store, shown: self.shownHighlight?()))
                 case .failure(let error):
-                    self.model.store.status = error.localizedDescription
+                    self.store.status = error.localizedDescription
                     self.didCapture?(.note(error.localizedDescription, nil))
                 }
             }

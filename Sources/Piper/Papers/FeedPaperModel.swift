@@ -99,13 +99,14 @@ final class FeedPaperModel {
         today = TodayModel(model: model)
         state = PaperDeskState.restore(from: defaults)
         syncFolders()
+        model.library.folderChanged = { [weak self] in self?.vaultChanged() }
     }
 
     // MARK: - API
 
     /// The tabs of the column: the fixed tabs, then one tab for each folder.
     var tabs: [PaperTab] {
-        PaperTab.column(folders: model.wikiPaths, showsAgents: !model.agents.runner.folders().isEmpty)
+        PaperTab.column(folders: model.library.wikiPaths, showsAgents: !model.agents.runner.folders().isEmpty)
     }
 
     /// The color of a tab.
@@ -116,31 +117,31 @@ final class FeedPaperModel {
     /// The number of files of a folder tab: the files of the active folder,
     /// or the count of the last scan of another folder.
     func fileCount(of path: String) -> Int {
-        if path == model.wikiPath, !model.loading, !model.files.isEmpty { return model.files.count }
+        if path == model.library.wikiPath, !model.library.loading, !model.library.files.isEmpty { return model.library.files.count }
         return state.folderCounts[path] ?? 0
     }
 
     /// Gives each new folder a color, and keeps the tab of a folder on the
     /// active folder. The feed paper calls it when the folder list changes.
     func syncFolders() {
-        state.assignColors(to: model.wikiPaths)
-        if state.tab.isFolder, state.tab != .folder(model.wikiPath) { state.tab = .folder(model.wikiPath) }
+        state.assignColors(to: model.library.wikiPaths)
+        if state.tab.isFolder, state.tab != .folder(model.library.wikiPath) { state.tab = .folder(model.library.wikiPath) }
     }
 
     /// Saves the number of files of the active folder after a scan.
     func recordFileCount() {
-        guard !model.loading else { return }
-        state.folderCounts[model.wikiPath] = model.files.count
+        guard !model.library.loading else { return }
+        state.folderCounts[model.library.wikiPath] = model.library.files.count
     }
 
     /// The + tab: adds folders with the Add Folder panel, then shows the tab
     /// of the first new folder.
     func addFolder() {
-        let before = model.wikiPaths
-        model.chooseWiki()
-        guard model.wikiPaths != before else { return }
+        let before = model.library.wikiPaths
+        model.library.chooseWiki()
+        guard model.library.wikiPaths != before else { return }
         syncFolders()
-        choose(.folder(model.wikiPath))
+        choose(.folder(model.library.wikiPath))
     }
 
     /// A click on a tab.
@@ -155,7 +156,7 @@ final class FeedPaperModel {
         }
         guard enter(tab) else { return }
         state.tab = tab
-        setScope(state.defaultScope(for: tab, root: model.vault.root.path, sessionFolders: model.agents.runner.folders()))
+        setScope(state.defaultScope(for: tab, root: model.library.vault.root.path, sessionFolders: model.agents.runner.folders()))
         showsIndex = tab.hasIndex
     }
 
@@ -236,7 +237,7 @@ final class FeedPaperModel {
 
     /// Command and a number key: Command-1 is the first tab of the column.
     func numberKey(_ number: Int) {
-        let root = model.vault.root.path
+        let root = model.library.vault.root.path
         let folders = model.agents.runner.folders()
         let atDefault = state.scope == state.defaultScope(for: state.tab, root: root, sessionFolders: folders)
         switch NumberKey.action(number, tabs: tabs, active: state.tab, showsIndex: showsIndex,
@@ -245,7 +246,7 @@ final class FeedPaperModel {
         case .showTab(let tab):
             guard enter(tab) else { return }
             state.tab = tab
-            setScope(state.defaultScope(for: tab, root: model.vault.root.path, sessionFolders: folders))
+            setScope(state.defaultScope(for: tab, root: model.library.vault.root.path, sessionFolders: folders))
             showsIndex = false
         case .none: break
         }
@@ -278,7 +279,7 @@ final class FeedPaperModel {
 
     /// The rows of the tree of the active folder that show.
     var treeRows: [FolderTreeRow] {
-        FolderTree.rows(paths: model.files.map(\.relativePath), folders: model.folders, root: model.wikiPath,
+        FolderTree.rows(paths: model.library.files.map(\.relativePath), folders: model.library.folders, root: model.library.wikiPath,
                         expanded: Set(state.expandedFolders))
     }
 
@@ -316,7 +317,7 @@ final class FeedPaperModel {
             setExpanded(id, false)
         case .openFile(let id):
             guard let row = rows.first(where: { $0.id == id }) else { return }
-            model.openDocument(row.path)
+            model.files.openDocument(row.path)
             open(.file)
         case .none:
             break
@@ -328,13 +329,13 @@ final class FeedPaperModel {
         if open { state.expandedFolders.append(id) }
     }
 
+    // MARK: - Private
+
     /// Forgets the state of the previous folder after a change of the active
     /// folder. The tab of a folder moves to the new active folder.
-    func vaultChanged() {
-        state.resetForVault(root: model.wikiPath)
+    private func vaultChanged() {
+        state.resetForVault(root: model.library.wikiPath)
     }
-
-    // MARK: - Private
 
     /// Shows a scope. A move to another scope clears the search and the selection.
     private func setScope(_ scope: PaperScope) {
@@ -351,8 +352,8 @@ final class FeedPaperModel {
     /// Prepares a tab before it shows. The folder of a folder tab becomes the
     /// active folder, because Piper scans one folder at a time.
     private func enter(_ tab: PaperTab) -> Bool {
-        guard case .folder(let path) = tab, path != model.wikiPath else { return true }
-        model.changeWiki(to: path)
-        return model.wikiPath == path
+        guard case .folder(let path) = tab, path != model.library.wikiPath else { return true }
+        model.library.changeWiki(to: path)
+        return model.library.wikiPath == path
     }
 }

@@ -38,7 +38,7 @@ final class ArticleTabTests: XCTestCase {
         XCTAssertEqual(model.articleTab(for: post), .notes)
         XCTAssertEqual(model.openingTab(for: link("https://blog.example/other")), .reader)
 
-        let restored = AppModel(store: model.store, wikiPath: model.wikiPath, preferences: preferences)
+        let restored = AppModel(store: model.store, wikiPath: model.library.wikiPath, preferences: preferences)
         XCTAssertEqual(restored.openingTab(for: link("https://blog.example/third")), .reader)
 
         restored.chooseArticleTab(.web, for: post)

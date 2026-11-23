@@ -136,7 +136,7 @@ struct ArticleReader: View {
     /// The child notes, as the reader page draws them.
     private var payload: [ReaderPageNote] {
         guard case .loaded(let article) = loader.state else { return [] }
-        return ReaderMarks.payload(model: model, parent: note.id, article: article, places: places)
+        return ReaderMarks.payload(store: model.store, reader: model.reader, parent: note.id, article: article, places: places)
     }
 
     // MARK: - Actions
@@ -147,7 +147,8 @@ struct ArticleReader: View {
             guard let block = message["block"] as? Int, let progress = message["progress"] as? Double else { return }
             savePosition(block: block, progress: progress)
         } else {
-            ReaderMarks.perform(message, model: model, article: article) { note.id }
+            ReaderMarks.perform(message, store: model.store, reader: model.reader, article: article,
+                                open: { model.showNote?($0) }) { note.id }
         }
     }
 }
@@ -157,8 +158,9 @@ struct ArticleReader: View {
 enum ReaderMarks {
 
     /// The child notes of the parent, as the reader page draws them.
-    static func payload(model: AppModel, parent: UUID, article: ReaderArticle, places: NotePlaces) -> [ReaderPageNote] {
-        let children = model.store.children(of: parent)
+    static func payload(store: CaptureStore, reader: ReaderAssistant, parent: UUID, article: ReaderArticle,
+                        places: NotePlaces) -> [ReaderPageNote] {
+        let children = store.children(of: parent)
         let found = places.places(in: article, for: children)
         return children.compactMap { child -> ReaderPageNote? in
             let isQuestion = child.has(.question)
@@ -183,48 +185,50 @@ enum ReaderMarks {
                 label: label,
                 tags: child.tags,
                 turns: thread.turns.map { ReaderPageNote.Turn(question: $0.question, answer: $0.answer) },
-                pending: model.reader.waitingNotes.contains(child.id),
-                failure: model.reader.failures[child.id],
-                agent: isQuestion ? model.reader.answererName(for: parent) : "",
-                tools: model.reader.toolLines[child.id] ?? ""
+                pending: reader.waitingNotes.contains(child.id),
+                failure: reader.failures[child.id],
+                agent: isQuestion ? reader.answererName(for: parent) : "",
+                tools: reader.toolLines[child.id] ?? ""
             )
         }
     }
 
-    /// Runs an action of the reader. The parent function adds the parent note when a page has none yet.
-    static func perform(_ message: [String: Any], model: AppModel, article: ReaderArticle, parent: () -> UUID?) {
+    /// Runs an action of the reader. The open function shows a note in a reader
+    /// paper. The parent function adds the parent note when a page has none yet.
+    static func perform(_ message: [String: Any], store: CaptureStore, reader: ReaderAssistant, article: ReaderArticle,
+                        open: (UUID) -> Void, parent: () -> UUID?) {
         guard let action = message["action"] as? String else { return }
         switch action {
         case "highlight":
             guard let anchor = Self.anchor(message["anchor"]), let parent = parent() else { return }
-            model.reader.highlight(anchor, color: message["color"] as? String ?? "", in: parent)
+            reader.highlight(anchor, color: message["color"] as? String ?? "", in: parent)
         case "note":
             guard let anchor = Self.anchor(message["anchor"]), let text = message["text"] as? String,
                   !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let parent = parent() else { return }
-            model.reader.highlight(anchor, color: ReaderAssistant.colors[0], in: parent, comment: text)
+            reader.highlight(anchor, color: ReaderAssistant.colors[0], in: parent, comment: text)
         case "explain", "define":
             guard let anchor = Self.anchor(message["anchor"]), let parent = parent() else { return }
-            model.reader.ask(action == "explain" ? .explain : .define, about: anchor, in: parent, article: article)
+            reader.ask(action == "explain" ? .explain : .define, about: anchor, in: parent, article: article)
         case "ask":
             guard let anchor = Self.anchor(message["anchor"]), let question = message["question"] as? String,
                   !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let parent = parent() else { return }
-            model.reader.ask(.ask(question), about: anchor, in: parent, article: article)
+            reader.ask(.ask(question), about: anchor, in: parent, article: article)
         case "followup":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)),
                   let question = message["question"] as? String, let parent = parent() else { return }
-            model.reader.followUp(question, on: id, in: parent, article: article)
+            reader.followUp(question, on: id, in: parent, article: article)
         case "continue":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
-            model.reader.continueInSession(id, article: article)
+            reader.continueInSession(id, article: article)
         case "capture":
             guard let text = message["text"] as? String else { return }
-            model.store.add(text, source: article.title, sourceURL: article.url.absoluteString, to: Note.inbox, interpretSection: false)
+            store.add(text, source: article.title, sourceURL: article.url.absoluteString, to: Note.inbox, interpretSection: false)
         case "open":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
-            model.showNote?(id)
+            open(id)
         case "copy":
             guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
-            model.store.copy(id)
+            store.copy(id)
         case "link":
             guard let url = (message["url"] as? String).flatMap(URL.init(string:)), url.isWeb else { return }
             NSWorkspace.shared.open(url)

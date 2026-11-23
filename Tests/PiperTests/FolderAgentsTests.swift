@@ -337,17 +337,17 @@ final class FolderAgentsTests: XCTestCase {
         preferences.set(notes.path, forKey: AppDefaults.Key.vaultPath)
         let model = AppModel(store: store, preferences: preferences)
         var shown: [String] = []
-        model.showFile = { shown.append($0) }
+        model.files.showFile = { shown.append($0) }
 
         try FileManager.default.createDirectory(at: wiki.appendingPathComponent("sources"), withIntermediateDirectories: true)
         try "# New".write(to: wiki.appendingPathComponent("sources/new.md"), atomically: true, encoding: .utf8)
-        model.openRunFile("sources/new.md", in: wiki.path)
+        model.files.openRunFile("sources/new.md", in: wiki.path)
 
-        for _ in 0..<400 where model.selectedDocument != "sources/new.md" {
+        for _ in 0..<400 where model.files.selectedDocument != "sources/new.md" {
             try await Task.sleep(for: .milliseconds(20))
         }
-        XCTAssertEqual(model.vault.root, Vault(path: wiki.path).root)
-        XCTAssertEqual(model.selectedDocument, "sources/new.md")
+        XCTAssertEqual(model.library.vault.root, Vault(path: wiki.path).root)
+        XCTAssertEqual(model.files.selectedDocument, "sources/new.md")
         XCTAssertEqual(shown, ["sources/new.md"])
     }
 }

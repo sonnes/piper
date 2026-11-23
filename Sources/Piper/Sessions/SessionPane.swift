@@ -91,13 +91,13 @@ private struct SessionTranscript: View {
                     ForEach(TranscriptRow.rows(of: session.blocks)) { row in
                         switch row {
                         case .block(let block):
-                            TranscriptBlockView(model: model, session: session, block: block).id(block.id)
+                            TranscriptBlockView(files: model.files, session: session, block: block).id(block.id)
                         case .fold(let id, let summary, let blocks):
                             TurnFold(summary: summary, isOpen: Binding(
                                 get: { opened.contains(id) },
                                 set: { if $0 { opened.insert(id) } else { opened.remove(id) } }
                             )) {
-                                ForEach(blocks) { block in TranscriptBlockView(model: model, session: session, block: block) }
+                                ForEach(blocks) { block in TranscriptBlockView(files: model.files, session: session, block: block) }
                             }
                             .id(id)
                         }
@@ -139,7 +139,7 @@ private struct SessionFooter: View {
                 if !files.isEmpty {
                     Menu {
                         ForEach(files, id: \.self) { file in
-                            Button(file) { model.openRunFile(file, in: session.folder) }
+                            Button(file) { model.files.openRunFile(file, in: session.folder) }
                         }
                     } label: {
                         Label(files.count == 1 ? files[0] : "\(files.count) files changed", systemImage: "doc.on.doc")

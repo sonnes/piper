@@ -23,7 +23,7 @@ final class WikiEditingTests: XCTestCase {
             try Data(raw.utf8).write(to: url)
         }
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = files.map { makeFile($0.1, path: $0.0) }
+        model.library.files = files.map { makeFile($0.1, path: $0.0) }
         return model
     }
 
@@ -36,8 +36,8 @@ final class WikiEditingTests: XCTestCase {
     }
 
     @MainActor private func settle(_ model: AppModel) async throws {
-        for _ in 0..<100 where model.loading { try await Task.sleep(for: .milliseconds(10)) }
-        XCTAssertFalse(model.loading)
+        for _ in 0..<100 where model.library.loading { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertFalse(model.library.loading)
     }
 
     func testDiskChangeClassification() {
@@ -51,50 +51,50 @@ final class WikiEditingTests: XCTestCase {
 
     @MainActor func testSamePageAnchorKeepsTheSession() throws {
         let model = try makeModel([("Note.md", "# Note\n\n## Details\nOriginal.\n")])
-        model.openDocument("Note.md")
-        let session = model.editor
+        model.files.openDocument("Note.md")
+        let session = model.files.editor
         XCTAssertNotNil(session)
-        model.openDocument("Note.md", anchor: "details")
-        XCTAssertTrue(model.editor === session)
-        XCTAssertEqual(model.requestedAnchor, "details")
+        model.files.openDocument("Note.md", anchor: "details")
+        XCTAssertTrue(model.files.editor === session)
+        XCTAssertEqual(model.files.requestedAnchor, "details")
     }
 
     @MainActor func testAnEditSavesTheWholeTextAndLeavesOtherFilesAlone() throws {
         let raw = "---\r\n# Keep this comment\r\ntitle: 'Tea 🍵'\r\n---\r\n\r\n# Tea\r\n\r\nOriginal.\r\n"
         let model = try makeModel([("Tea.md", raw), ("Other.md", "untouched")])
-        model.openDocument("Tea.md")
+        model.files.openDocument("Tea.md")
         let edited = raw.replacingOccurrences(of: "Original.", with: "Updated **text** and [[Other|other note]].")
-        model.editorChanged(path: "Tea.md", text: edited)
+        model.files.editorChanged(path: "Tea.md", text: edited)
         XCTAssertEqual(try disk("Tea.md"), edited)
         XCTAssertEqual(try disk("Other.md"), "untouched")
-        XCTAssertEqual(model.editor?.status, .saved)
-        XCTAssertFalse(try XCTUnwrap(model.editor).hasChanges)
-        XCTAssertEqual(model.files.first { $0.id == "Tea.md" }?.raw, edited)
+        XCTAssertEqual(model.files.editor?.status, .saved)
+        XCTAssertFalse(try XCTUnwrap(model.files.editor).hasChanges)
+        XCTAssertEqual(model.library.files.first { $0.id == "Tea.md" }?.raw, edited)
     }
 
     @MainActor func testAChangeOnDiskStopsSavesUntilTheReaderChooses() throws {
         let model = try makeModel([("Note.md", "# Original\n")])
-        model.openDocument("Note.md")
+        model.files.openDocument("Note.md")
         try write("# External edit\n", to: "Note.md")
-        model.editorChanged(path: "Note.md", text: "# My edit\n")
-        XCTAssertEqual(model.editor?.status, .conflict)
+        model.files.editorChanged(path: "Note.md", text: "# My edit\n")
+        XCTAssertEqual(model.files.editor?.status, .conflict)
         XCTAssertEqual(try disk("Note.md"), "# External edit\n")
-        model.editorChanged(path: "Note.md", text: "# My newer edit\n")
+        model.files.editorChanged(path: "Note.md", text: "# My newer edit\n")
         XCTAssertEqual(try disk("Note.md"), "# External edit\n", "A conflict blocks each save")
 
-        model.keepEditorText()
+        model.files.keepEditorText()
         XCTAssertEqual(try disk("Note.md"), "# My newer edit\n")
-        XCTAssertEqual(model.editor?.status, .saved)
+        XCTAssertEqual(model.files.editor?.status, .saved)
     }
 
     @MainActor func testReloadDropsTheEditsAndLoadsTheDisk() throws {
         let model = try makeModel([("Note.md", "# Original\n")])
-        model.openDocument("Note.md")
-        let session = try XCTUnwrap(model.editor)
+        model.files.openDocument("Note.md")
+        let session = try XCTUnwrap(model.files.editor)
         try write("# External edit\n", to: "Note.md")
-        model.editorChanged(path: "Note.md", text: "# My edit\n")
+        model.files.editorChanged(path: "Note.md", text: "# My edit\n")
         let revision = session.revision
-        model.reloadEditorFromDisk()
+        model.files.reloadEditorFromDisk()
         XCTAssertEqual(session.text, "# External edit\n")
         XCTAssertEqual(session.revision, revision + 1, "The page loads the disk text")
         XCTAssertEqual(session.status, .opened)
@@ -103,38 +103,38 @@ final class WikiEditingTests: XCTestCase {
 
     @MainActor func testADeletedFileWithEditsIsAConflict() throws {
         let model = try makeModel([("Note.md", "# Original\n")])
-        model.openDocument("Note.md")
+        model.files.openDocument("Note.md")
         try FileManager.default.removeItem(at: root.appendingPathComponent("Note.md"))
-        model.editorChanged(path: "Note.md", text: "# My edit\n")
-        XCTAssertEqual(model.editor?.status, .conflict)
+        model.files.editorChanged(path: "Note.md", text: "# My edit\n")
+        XCTAssertEqual(model.files.editor?.status, .conflict)
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Note.md").path))
-        model.keepEditorText()
+        model.files.keepEditorText()
         XCTAssertEqual(try disk("Note.md"), "# My edit\n")
     }
 
     /// The page saves the last edit of a file after it opens the next file.
     @MainActor func testTheLastEditOfAClosedFileStillSaves() throws {
         let model = try makeModel([("First.md", "# First\n"), ("Second.md", "# Second\n")])
-        model.openDocument("First.md")
-        model.editors["First.md"]?.text = "# First, edited\n"
-        model.openDocument("Second.md")
-        XCTAssertNotNil(model.editors["First.md"], "A session with edits stays until it saves")
-        model.editorChanged(path: "First.md", text: "# First, edited\n")
+        model.files.openDocument("First.md")
+        model.files.editors["First.md"]?.text = "# First, edited\n"
+        model.files.openDocument("Second.md")
+        XCTAssertNotNil(model.files.editors["First.md"], "A session with edits stays until it saves")
+        model.files.editorChanged(path: "First.md", text: "# First, edited\n")
         XCTAssertEqual(try disk("First.md"), "# First, edited\n")
-        XCTAssertNil(model.editors["First.md"], "A saved session of a closed file goes away")
-        XCTAssertEqual(model.selectedDocument, "Second.md")
+        XCTAssertNil(model.files.editors["First.md"], "A saved session of a closed file goes away")
+        XCTAssertEqual(model.files.selectedDocument, "Second.md")
     }
 
     @MainActor func testRefreshLoadsADiskChangeIntoACleanEditor() async throws {
         let model = try makeModel([("Note.md", "# Note\n")])
-        model.openDocument("Note.md")
-        let session = try XCTUnwrap(model.editor)
-        model.reload()
+        model.files.openDocument("Note.md")
+        let session = try XCTUnwrap(model.files.editor)
+        model.library.reload()
         try await settle(model)
-        XCTAssertTrue(model.editor === session)
+        XCTAssertTrue(model.files.editor === session)
         XCTAssertEqual(session.revision, 0)
         try write("# External update\n", to: "Note.md")
-        model.reload()
+        model.library.reload()
         try await settle(model)
         XCTAssertEqual(session.text, "# External update\n")
         XCTAssertEqual(session.revision, 1)
@@ -143,39 +143,39 @@ final class WikiEditingTests: XCTestCase {
 
     @MainActor func testRefreshAfterAnOwnSaveIsNotAConflict() async throws {
         let model = try makeModel([("Note.md", "# Note\n")])
-        model.openDocument("Note.md")
-        model.editorChanged(path: "Note.md", text: "# Note\nMore.\n")
-        model.reload()
+        model.files.openDocument("Note.md")
+        model.files.editorChanged(path: "Note.md", text: "# Note\nMore.\n")
+        model.library.reload()
         try await settle(model)
-        XCTAssertEqual(model.editor?.status, .saved)
-        XCTAssertEqual(model.editor?.revision, 0)
+        XCTAssertEqual(model.files.editor?.status, .saved)
+        XCTAssertEqual(model.files.editor?.revision, 0)
     }
 
     @MainActor func testRefreshMarksAConflictWhenTheEditorHasEdits() async throws {
         let model = try makeModel([("Note.md", "# Note\n")])
-        model.openDocument("Note.md")
-        model.editors["Note.md"]?.text = "# Note\nUnsent edit.\n"
+        model.files.openDocument("Note.md")
+        model.files.editors["Note.md"]?.text = "# Note\nUnsent edit.\n"
         try write("# Agent edit\n", to: "Note.md")
-        model.reload()
+        model.library.reload()
         try await settle(model)
-        XCTAssertEqual(model.editor?.status, .conflict)
-        XCTAssertEqual(model.editor?.text, "# Note\nUnsent edit.\n")
+        XCTAssertEqual(model.files.editor?.status, .conflict)
+        XCTAssertEqual(model.files.editor?.text, "# Note\nUnsent edit.\n")
     }
 
     @MainActor func testSettlingSavesEditsAndStopsOnAConflict() throws {
         let model = try makeModel([("First.md", "# First\n"), ("Second.md", "# Second\n")])
-        model.openDocument("First.md")
-        model.editors["First.md"]?.text = "# First, edited\n"
-        XCTAssertTrue(model.settleEditors())
+        model.files.openDocument("First.md")
+        model.files.editors["First.md"]?.text = "# First, edited\n"
+        XCTAssertTrue(model.files.settleEditors())
         XCTAssertEqual(try disk("First.md"), "# First, edited\n")
 
-        model.openDocument("Second.md")
-        model.openDocument("First.md")
-        model.editors["First.md"]?.text = "# Mine\n"
-        model.openDocument("Second.md")
+        model.files.openDocument("Second.md")
+        model.files.openDocument("First.md")
+        model.files.editors["First.md"]?.text = "# Mine\n"
+        model.files.openDocument("Second.md")
         try write("# Theirs\n", to: "First.md")
-        XCTAssertFalse(model.settleEditors())
-        XCTAssertEqual(model.selectedDocument, "First.md", "Piper shows the file that needs a choice")
+        XCTAssertFalse(model.files.settleEditors())
+        XCTAssertEqual(model.files.selectedDocument, "First.md", "Piper shows the file that needs a choice")
         XCTAssertEqual(try disk("First.md"), "# Theirs\n")
         XCTAssertNotNil(model.store.errorMessage)
     }
@@ -183,14 +183,14 @@ final class WikiEditingTests: XCTestCase {
     @MainActor func testAPastedImageGoesNextToTheNote() throws {
         let model = try makeModel([("notes/Tea time.md", "# Tea\n")])
         let png = Data([0x89, 0x50, 0x4E, 0x47, 1, 2, 3])
-        let path = try model.saveEditorImage(for: "notes/Tea time.md", type: "image/png", base64: png.base64EncodedString())
+        let path = try model.files.saveEditorImage(for: "notes/Tea time.md", type: "image/png", base64: png.base64EncodedString())
         XCTAssertTrue(path.hasPrefix("Tea%20time.assets/"), path)
         XCTAssertTrue(path.hasSuffix(".png"))
         let file = root.appendingPathComponent("notes").appendingPathComponent(path.removingPercentEncoding ?? path)
         XCTAssertEqual(try Data(contentsOf: file), png)
-        XCTAssertEqual(try model.saveEditorImage(for: "notes/Tea time.md", type: "image/png", base64: png.base64EncodedString()), path,
+        XCTAssertEqual(try model.files.saveEditorImage(for: "notes/Tea time.md", type: "image/png", base64: png.base64EncodedString()), path,
                        "The same image gets the same name")
-        XCTAssertThrowsError(try model.saveEditorImage(for: "notes/Tea time.md", type: "image/png", base64: ""))
+        XCTAssertThrowsError(try model.files.saveEditorImage(for: "notes/Tea time.md", type: "image/png", base64: ""))
     }
 
     func testTheAssetSchemeServesOnlyFilesOfTheFolder() throws {

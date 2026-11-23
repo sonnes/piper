@@ -29,13 +29,13 @@ final class EditorPageTests: XCTestCase {
             try Data(raw.utf8).write(to: root.appendingPathComponent(path))
         }
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
-        model.files = try files.map { try model.vault.file($0.0) }
+        model.library.files = try files.map { try model.library.vault.file($0.0) }
         return model
     }
 
     /// Puts the page in an offscreen window and waits until it reports that it is ready.
     private func load(_ model: AppModel) async throws -> EditorPage {
-        let page = model.editorPage
+        let page = model.files.editorPage
         pageForErrors = page
         window = NSWindow(contentRect: NSRect(x: -10_000, y: -10_000, width: 900, height: 700),
                           styleMask: [.borderless], backing: .buffered, defer: false)
@@ -47,11 +47,11 @@ final class EditorPageTests: XCTestCase {
     }
 
     private func show(_ page: EditorPage, _ model: AppModel, source: Bool = false) throws {
-        let session = try XCTUnwrap(model.editor)
-        page.show(EditorPane.request(for: session, model: model, source: source), session: ObjectIdentifier(session),
+        let session = try XCTUnwrap(model.files.editor)
+        page.show(EditorPane.request(for: session, files: model.files, source: source), session: ObjectIdentifier(session),
                   revision: session.revision,
                   theme: EditorTheme(theme: "Paper", font: "Serif", size: 18, appearance: "Light"),
-                  anchorRequest: model.anchorRequest)
+                  anchorRequest: model.files.anchorRequest)
     }
 
     private func evaluate(_ page: EditorPage, _ script: String) async throws -> Any? {
@@ -72,7 +72,7 @@ final class EditorPageTests: XCTestCase {
     func testThePageShowsAFileAndSavesAnEdit() async throws {
         let raw = "---\ntitle: Tea\n---\n# Tea\n\nOriginal text.\n"
         let model = try makeModel([("Tea.md", raw)])
-        model.openDocument("Tea.md")
+        model.files.openDocument("Tea.md")
         let page = try await load(model)
         try show(page, model)
 
@@ -90,12 +90,12 @@ final class EditorPageTests: XCTestCase {
         }
         let saved = try String(contentsOf: root.appendingPathComponent("Tea.md"), encoding: .utf8)
         XCTAssertTrue(saved.hasPrefix("---\ntitle: Tea\n---\n"), "The frontmatter stays: \(saved)")
-        XCTAssertEqual(model.editor?.status, .saved)
+        XCTAssertEqual(model.files.editor?.status, .saved)
     }
 
     func testASecondFileReplacesTheFirstInTheEditor() async throws {
         let model = try makeModel([("Green tea.md", "# Green tea\n\nLess caffeine.\n"), ("Matcha.md", "# Matcha\n\nShade-grown leaves.\n")])
-        model.openDocument("Green tea.md")
+        model.files.openDocument("Green tea.md")
         let page = try await load(model)
         try show(page, model)
         try await wait("The editor shows the first file.") {
@@ -103,7 +103,7 @@ final class EditorPageTests: XCTestCase {
                 .contains("Less caffeine.") == true
         }
 
-        model.openDocument("Matcha.md")
+        model.files.openDocument("Matcha.md")
         try show(page, model)
         try await wait("The editor shows the second file.") {
             (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?
@@ -115,7 +115,7 @@ final class EditorPageTests: XCTestCase {
 
     func testThePageHasTheBrowserFeaturesThatTheEditorUses() async throws {
         let model = try makeModel([("Note.md", "# Note\n")])
-        model.openDocument("Note.md")
+        model.files.openDocument("Note.md")
         let page = try await load(model)
         let uuid = try await evaluate(page, "typeof crypto.randomUUID") as? String
         let clipboard = try await evaluate(page, "typeof navigator.clipboard?.writeText") as? String
@@ -125,10 +125,10 @@ final class EditorPageTests: XCTestCase {
 
     func testAFileWithLinkTitlesIsReadOnlyInPreview() async throws {
         let model = try makeModel([("Notes.md", "[A source](https://example.com \"Title\").\n")])
-        model.openDocument("Notes.md")
+        model.files.openDocument("Notes.md")
         let page = try await load(model)
         try show(page, model)
-        try await wait("The page reports the link titles.") { model.editor?.lossy == ["link titles"] }
+        try await wait("The page reports the link titles.") { model.files.editor?.lossy == ["link titles"] }
         let editable = try await evaluate(page, "document.querySelector('.ProseMirror').getAttribute('contenteditable')") as? String
         XCTAssertEqual(editable, "false")
     }
@@ -136,7 +136,7 @@ final class EditorPageTests: XCTestCase {
     func testAnEditKeepsTheFootnotesOfAFile() async throws {
         let raw = "A claim.[^1]\n\n[^1]: The source.\n"
         let model = try makeModel([("Notes.md", raw)])
-        model.openDocument("Notes.md")
+        model.files.openDocument("Notes.md")
         let page = try await load(model)
         try show(page, model)
         try await wait("The editor shows the footnote.") {
@@ -144,7 +144,7 @@ final class EditorPageTests: XCTestCase {
         }
         let editable = try await evaluate(page, "document.querySelector('.ProseMirror').getAttribute('contenteditable')") as? String
         XCTAssertEqual(editable, "true")
-        XCTAssertEqual(model.editor?.lossy, [])
+        XCTAssertEqual(model.files.editor?.lossy, [])
         try await Task.sleep(for: .milliseconds(500))
         XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("Notes.md"), encoding: .utf8), raw, "Opening the file does not change it.")
 
@@ -168,14 +168,14 @@ final class EditorPageTests: XCTestCase {
 
     func testADiskChangeLoadsIntoTheEditor() async throws {
         let model = try makeModel([("Note.md", "# Note\n\nFirst.\n")])
-        model.openDocument("Note.md")
+        model.files.openDocument("Note.md")
         let page = try await load(model)
         try show(page, model)
         try await wait("The editor shows the file.") {
             (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?.contains("First.") == true
         }
         try Data("# Note\n\nSecond.\n".utf8).write(to: root.appendingPathComponent("Note.md"))
-        model.editors["Note.md"]?.diskChanged(in: model.vault)
+        model.files.editors["Note.md"]?.diskChanged(in: model.library.vault)
         try show(page, model)
         try await wait("The editor shows the new text.") {
             (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?.contains("Second.") == true
@@ -187,7 +187,7 @@ final class EditorPageTests: XCTestCase {
     func testTheSourceTabEditsTheRawText() async throws {
         let raw = "A claim.[^1]\n\n[^1]: The source.\n"
         let model = try makeModel([("Notes.md", raw)])
-        model.openDocument("Notes.md")
+        model.files.openDocument("Notes.md")
         let page = try await load(model)
         try show(page, model, source: true)
         try await wait("The source editor shows the raw text.") {
@@ -203,7 +203,7 @@ final class EditorPageTests: XCTestCase {
 
     func testTheSelectionBarHighlightsAndAddsANote() async throws {
         let model = try makeModel([("Tea.md", "# Tea\n\nGreen tea has less caffeine than coffee.\n")])
-        model.openDocument("Tea.md")
+        model.files.openDocument("Tea.md")
         let page = try await load(model)
         try show(page, model)
         try await wait("The editor shows the file.") {
@@ -221,9 +221,11 @@ final class EditorPageTests: XCTestCase {
           editor.view.dom.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
         })()
         """
-        _ = try await evaluate(page, select)
+        // The selection bar listens only after the page reports its editor, so select until it shows.
         try await wait("The selection bar shows.") {
-            try await self.evaluate(page, "!!document.querySelector('.piper-selbar')") as? Bool == true
+            _ = try await self.evaluate(page, select)
+            try await Task.sleep(for: .milliseconds(100))
+            return try await self.evaluate(page, "!!document.querySelector('.piper-selbar')") as? Bool == true
         }
         _ = try await evaluate(page, "[...document.querySelectorAll('.piper-selbar button')].find(b => b.textContent === 'Highlight').click()")
         try await wait("The highlight reaches the file.") {
@@ -231,9 +233,11 @@ final class EditorPageTests: XCTestCase {
                 .contains("==less caffeine==")
         }
 
-        _ = try await evaluate(page, select)
+        // The selection bar listens only after the page reports its editor, so select until it shows.
         try await wait("The selection bar shows again.") {
-            try await self.evaluate(page, "!!document.querySelector('.piper-selbar')") as? Bool == true
+            _ = try await self.evaluate(page, select)
+            try await Task.sleep(for: .milliseconds(100))
+            return try await self.evaluate(page, "!!document.querySelector('.piper-selbar')") as? Bool == true
         }
         _ = try await evaluate(page, "[...document.querySelectorAll('.piper-selbar button')].find(b => b.textContent === 'Note').click()")
         try await wait("The note line shows.") {
@@ -252,11 +256,11 @@ final class EditorPageTests: XCTestCase {
         }
         let note = try XCTUnwrap(model.store.notes.first { $0.text.contains("Check the source.") })
         let parent = try XCTUnwrap(model.store.notes.first { $0.id == note.parent })
-        XCTAssertEqual(parent.sourceURLs, [model.fileLink("Tea.md")])
+        XCTAssertEqual(parent.sourceURLs, [model.files.fileLink("Tea.md")])
         XCTAssertEqual(note.anchor?.quote, "less caffeine")
 
-        let session = try XCTUnwrap(model.editor)
-        page.setNotes(model.fileNotes(session.document))
+        let session = try XCTUnwrap(model.files.editor)
+        page.setNotes(model.files.fileNotes(session.document))
         try await wait("The page shows the card.") {
             (try await self.evaluate(page, "document.querySelector('.piper-card.mine')?.textContent") as? String)?
                 .contains("Check the source.") == true

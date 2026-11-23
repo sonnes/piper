@@ -9,14 +9,14 @@ import SwiftUI
 /// list of open folders.
 struct FolderTreeView: View {
     @Bindable var paper: FeedPaperModel
-    @Bindable var model: AppModel
+    let library: Library
 
     private typealias Metrics = AppDefaults.Papers
 
     var body: some View {
         let rows = paper.treeRows
         let cursor = paper.treeCursor(in: rows)
-        let dates = Dictionary(model.files.map { ($0.relativePath, $0.modifiedAt) }, uniquingKeysWith: { first, _ in first })
+        let dates = Dictionary(library.files.map { ($0.relativePath, $0.modifiedAt) }, uniquingKeysWith: { first, _ in first })
         VStack(alignment: .leading, spacing: 0) {
             swatches
                 .padding(Metrics.subPadding)
@@ -39,8 +39,12 @@ struct FolderTreeView: View {
             }
         }
         .overlay {
-            if rows.isEmpty, !model.loading {
-                PaperEmpty(symbol: "folder", title: "No Files", detail: "This folder holds no files.")
+            if rows.isEmpty, !library.loading {
+                if let error = library.scanError {
+                    PaperEmpty(symbol: "exclamationmark.triangle", title: "Cannot Read the Folder", detail: error)
+                } else {
+                    PaperEmpty(symbol: "folder", title: "No Files", detail: "This folder holds no files.")
+                }
             }
         }
     }
@@ -60,9 +64,9 @@ struct FolderTreeView: View {
     }
 
     @ViewBuilder private var warnings: some View {
-        if !model.wikiProblems.isEmpty {
-            DisclosureGroup("\(model.wikiProblems.count) file warnings") {
-                Text(model.wikiProblems.joined(separator: "\n"))
+        if !library.problems.isEmpty {
+            DisclosureGroup("\(library.problems.count) file warnings") {
+                Text(library.problems.joined(separator: "\n"))
                     .textSelection(.enabled).padding(.top, 5)
             }
             .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.warning)

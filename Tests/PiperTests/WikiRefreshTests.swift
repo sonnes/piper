@@ -30,30 +30,30 @@ final class WikiRefreshTests: XCTestCase {
 
     func testChangesInNestedFoldersRefreshWithoutManualReload() async throws {
         let model = makeModel()
-        model.reload()
-        try await waitFor("The initial scan finishes.") { !model.loading }
+        model.library.reload()
+        try await waitFor("The initial scan finishes.") { !model.library.loading }
 
         let folder = root.appendingPathComponent("notes/nested")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try await waitFor("The empty folder appears.") { model.folders.contains("notes/nested") }
+        try await waitFor("The empty folder appears.") { model.library.folders.contains("notes/nested") }
 
         let url = folder.appendingPathComponent("note.md")
         try Data("# Original\n".utf8).write(to: url)
-        try await waitFor("The new file appears.") { model.files.contains { $0.id == "notes/nested/note.md" } }
-        model.openDocument("notes/nested/note.md")
+        try await waitFor("The new file appears.") { model.library.files.contains { $0.id == "notes/nested/note.md" } }
+        model.files.openDocument("notes/nested/note.md")
 
         try Data("# Updated\n".utf8).write(to: url, options: .atomic)
-        try await waitFor("The open document updates.") { model.editor?.text == "# Updated\n" }
+        try await waitFor("The open document updates.") { model.files.editor?.text == "# Updated\n" }
 
         let renamed = root.appendingPathComponent("renamed")
         try FileManager.default.moveItem(at: root.appendingPathComponent("notes"), to: renamed)
         try await waitFor("The folder move updates its descendants.") {
-            model.folders.contains("renamed/nested") && !model.folders.contains("notes") &&
-                model.files.map(\.id) == ["renamed/nested/note.md"]
+            model.library.folders.contains("renamed/nested") && !model.library.folders.contains("notes") &&
+                model.library.files.map(\.id) == ["renamed/nested/note.md"]
         }
         try FileManager.default.removeItem(at: renamed)
-        try await waitFor("The removed folder and its file disappear.") { model.files.isEmpty && model.folders.isEmpty }
-        XCTAssertNil(model.currentDocument)
+        try await waitFor("The removed folder and its file disappear.") { model.library.files.isEmpty && model.library.folders.isEmpty }
+        XCTAssertNil(model.files.currentDocument)
     }
 
     func testVisibilityChangesRefreshTheFolders() async throws {
@@ -63,46 +63,46 @@ final class WikiRefreshTests: XCTestCase {
         values.isHidden = true
         try folder.setResourceValues(values)
         let model = makeModel()
-        model.reload()
-        try await waitFor("The initial scan finishes.") { !model.loading }
-        XCTAssertFalse(model.folders.contains("raw"))
+        model.library.reload()
+        try await waitFor("The initial scan finishes.") { !model.library.loading }
+        XCTAssertFalse(model.library.folders.contains("raw"))
 
         values.isHidden = false
         try folder.setResourceValues(values)
-        try await waitFor("The unhidden folder appears.") { model.folders.contains("raw") }
+        try await waitFor("The unhidden folder appears.") { model.library.folders.contains("raw") }
         values.isHidden = true
         try folder.setResourceValues(values)
-        try await waitFor("The hidden folder disappears.") { !model.folders.contains("raw") }
+        try await waitFor("The hidden folder disappears.") { !model.library.folders.contains("raw") }
     }
 
     func testRefreshPreservesDraftWhenTheFileChangesOrDisappears() async throws {
         let url = root.appendingPathComponent("note.md")
         try Data("# Original\n".utf8).write(to: url)
         let model = makeModel()
-        model.reload()
-        try await waitFor("The editor opens.") { model.editor != nil && !model.loading }
-        let edit = try XCTUnwrap(model.editor)
+        model.library.reload()
+        try await waitFor("The editor opens.") { model.files.editor != nil && !model.library.loading }
+        let edit = try XCTUnwrap(model.files.editor)
         edit.text = "# Unsaved draft\n"
 
         try Data("# External change\n".utf8).write(to: url, options: .atomic)
         try Data("New file\n".utf8).write(to: root.appendingPathComponent("other.txt"))
         try await waitFor("Other changes appear while the draft stays open.") {
-            model.files.count == 2 && model.files.first { $0.id == "note.md" }?.raw == "# External change\n"
+            model.library.files.count == 2 && model.library.files.first { $0.id == "note.md" }?.raw == "# External change\n"
         }
-        XCTAssertTrue(model.editor === edit)
+        XCTAssertTrue(model.files.editor === edit)
         XCTAssertEqual(edit.text, "# Unsaved draft\n")
         XCTAssertEqual(edit.status, .conflict)
-        XCTAssertFalse(model.saveEditor(edit))
+        XCTAssertFalse(model.files.saveEditor(edit))
         XCTAssertEqual(try String(contentsOf: url), "# External change\n")
 
         try FileManager.default.removeItem(at: url)
-        try await waitFor("The removed file leaves the list.") { !model.files.contains { $0.id == "note.md" } }
-        XCTAssertEqual(model.currentDocument?.id, "note.md")
-        XCTAssertTrue(model.editor === edit)
+        try await waitFor("The removed file leaves the list.") { !model.library.files.contains { $0.id == "note.md" } }
+        XCTAssertEqual(model.files.currentDocument?.id, "note.md")
+        XCTAssertTrue(model.files.editor === edit)
         XCTAssertEqual(edit.text, "# Unsaved draft\n")
-        model.openDocument("other.txt")
-        XCTAssertEqual(model.currentDocument?.id, "other.txt")
-        XCTAssertTrue(model.editors["note.md"] === edit, "The draft stays until the reader chooses")
+        model.files.openDocument("other.txt")
+        XCTAssertEqual(model.files.currentDocument?.id, "other.txt")
+        XCTAssertTrue(model.files.editors["note.md"] === edit, "The draft stays until the reader chooses")
     }
 
     func testChangingRootsDuringAScanStartsWatchingTheNewRoot() async throws {
@@ -115,13 +115,24 @@ final class WikiRefreshTests: XCTestCase {
             try Data(folder.lastPathComponent.utf8).write(to: folder.appendingPathComponent("value.txt"))
         }
         let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: first.path)
-        model.reload()
-        XCTAssertTrue(model.loading)
-        model.wikiPath = second.path
-        try await waitFor("The scan uses the new root.") { !model.loading && model.files.first?.text == "second" }
+        model.library.reload()
+        XCTAssertTrue(model.library.loading)
+        model.library.wikiPath = second.path
+        try await waitFor("The scan uses the new root.") { !model.library.loading && model.library.files.first?.text == "second" }
         try Data("New root update".utf8).write(to: second.appendingPathComponent("value.txt"), options: .atomic)
-        try await waitFor("The watcher follows the new root.") { model.files.first?.text == "New root update" }
-        XCTAssertEqual(model.files.map(\.id), ["value.txt"])
+        try await waitFor("The watcher follows the new root.") { model.library.files.first?.text == "New root update" }
+        XCTAssertEqual(model.library.files.map(\.id), ["value.txt"])
+    }
+
+    func testFailedScanKeepsItsMessageForTheFolderTree() async throws {
+        let missing = root.appendingPathComponent("missing")
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: missing.path)
+        model.library.reload()
+        try await waitFor("The scan finishes.") { !model.library.loading }
+        XCTAssertEqual(model.library.scanError, "The folder is unavailable. Make sure that it exists, or remove its tab and add the folder again.")
+        try FileManager.default.createDirectory(at: missing, withIntermediateDirectories: true)
+        model.library.reload()
+        try await waitFor("The second scan finishes.") { !model.library.loading && model.library.scanError == nil }
     }
 
     func testChangingWikiResetsTheOldDocumentAndSearch() async throws {
@@ -132,28 +143,29 @@ final class WikiRefreshTests: XCTestCase {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try Data("# New\n".utf8).write(to: folder.appendingPathComponent("new.md"))
         let model = makeModel()
-        model.reload()
-        try await waitFor("The initial scan finishes.") { !model.loading }
-        model.openDocument("old.md")
-        model.initialDocument = "old.md"
-        let changed = expectation(forNotification: .vaultPathDidChange, object: model)
-        model.changeWiki(to: folder.path)
-        await fulfillment(of: [changed], timeout: 1)
-        try await waitFor("The new folder scan finishes.") { !model.loading }
-        XCTAssertEqual(model.selectedDocument, "new.md")
-        XCTAssertEqual(model.files.map(\.id), ["new.md"])
-        XCTAssertNil(model.initialDocument)
+        model.library.reload()
+        try await waitFor("The initial scan finishes.") { !model.library.loading }
+        model.files.openDocument("old.md")
+        model.files.initialDocument = "old.md"
+        var changed = false
+        model.library.folderChanged = { changed = true }
+        model.library.changeWiki(to: folder.path)
+        XCTAssertTrue(changed)
+        try await waitFor("The new folder scan finishes.") { !model.library.loading }
+        XCTAssertEqual(model.files.selectedDocument, "new.md")
+        XCTAssertEqual(model.library.files.map(\.id), ["new.md"])
+        XCTAssertNil(model.files.initialDocument)
     }
 
     func testChangingWikiSavesAnEditFirst() async throws {
         let url = root.appendingPathComponent("old.md")
         try Data("# Old\n".utf8).write(to: url)
         let model = makeModel()
-        model.reload()
-        try await waitFor("The initial scan finishes.") { !model.loading }
-        model.editor?.text += "QA draft"
-        model.changeWiki(to: root.appendingPathComponent("next").path)
-        XCTAssertEqual(model.wikiPath, root.appendingPathComponent("next").path)
+        model.library.reload()
+        try await waitFor("The initial scan finishes.") { !model.library.loading }
+        model.files.editor?.text += "QA draft"
+        model.library.changeWiki(to: root.appendingPathComponent("next").path)
+        XCTAssertEqual(model.library.wikiPath, root.appendingPathComponent("next").path)
         XCTAssertEqual(try String(contentsOf: url), "# Old\nQA draft")
     }
 
@@ -161,14 +173,14 @@ final class WikiRefreshTests: XCTestCase {
         let url = root.appendingPathComponent("old.md")
         try Data("# Old\n".utf8).write(to: url)
         let model = makeModel()
-        model.reload()
-        try await waitFor("The initial scan finishes.") { !model.loading }
-        let session = try XCTUnwrap(model.editor)
+        model.library.reload()
+        try await waitFor("The initial scan finishes.") { !model.library.loading }
+        let session = try XCTUnwrap(model.files.editor)
         session.text += "QA draft"
         try Data("# Agent edit\n".utf8).write(to: url)
-        model.changeWiki(to: root.appendingPathComponent("next").path)
-        XCTAssertEqual(model.wikiPath, root.path)
-        XCTAssertTrue(model.editor === session)
+        model.library.changeWiki(to: root.appendingPathComponent("next").path)
+        XCTAssertEqual(model.library.wikiPath, root.path)
+        XCTAssertTrue(model.files.editor === session)
         XCTAssertTrue(session.hasChanges)
         XCTAssertEqual(try String(contentsOf: url), "# Agent edit\n")
     }

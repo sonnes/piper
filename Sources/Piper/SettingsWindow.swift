@@ -75,7 +75,7 @@ private struct GeneralSettings: View {
     var body: some View {
         Form {
             Section("Folders") {
-                List(model.wikiPaths, id: \.self, selection: $selection) { path in
+                List(model.library.wikiPaths, id: \.self, selection: $selection) { path in
                     HStack(spacing: 8) {
                         Image(systemName: "folder").foregroundStyle(PiperTheme.accent)
                         Text(URL(fileURLWithPath: path).lastPathComponent)
@@ -88,13 +88,13 @@ private struct GeneralSettings: View {
                 .frame(height: 96)
                 .listStyle(.bordered(alternatesRowBackgrounds: false))
                 HStack(spacing: 0) {
-                    Button { model.chooseWiki() } label: { Image(systemName: "plus").frame(width: 20, height: 16) }
+                    Button { model.library.chooseWiki() } label: { Image(systemName: "plus").frame(width: 20, height: 16) }
                         .help("Add Folder").accessibilityLabel("Add Folder")
                     Button {
-                        if let selection { model.removeWikiFolder(selection) }
+                        if let selection { model.library.removeWikiFolder(selection) }
                         selection = nil
                     } label: { Image(systemName: "minus").frame(width: 20, height: 16) }
-                        .disabled(selection == nil || model.wikiPaths.count < 2)
+                        .disabled(selection == nil || model.library.wikiPaths.count < 2)
                         .help("Remove Folder. The folder stays on disk.").accessibilityLabel("Remove Folder")
                     Spacer()
                 }
@@ -270,7 +270,7 @@ private struct AISettings: View {
         }
         .formStyle(.grouped)
         .onAppear {
-            agents.refresh(paths: model.wikiPaths)
+            agents.refresh(paths: model.library.wikiPaths)
             agents.refreshHealth()
         }
         .sheet(item: $adding) { draft in

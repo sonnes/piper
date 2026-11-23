@@ -32,13 +32,13 @@ final class QuitSafetyTests: XCTestCase {
     /// change, so the test drives the same two guards in the same order.
     private func shouldTerminate(_ model: AppModel, resolveCapture: (CaptureEditSession) -> Bool) -> Bool {
         for session in Array(model.captureEdits.values) where !resolveCapture(session) { return false }
-        return model.settleEditors()
+        return model.files.settleEditors()
     }
 
     /// Waits for the scan that `reload()` starts.
     private func settle(_ model: AppModel) async throws {
-        for _ in 0..<100 where model.loading { try await Task.sleep(for: .milliseconds(10)) }
-        XCTAssertFalse(model.loading)
+        for _ in 0..<100 where model.library.loading { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertFalse(model.library.loading)
     }
 
     private func makeWiki() throws -> AppModel {
@@ -89,10 +89,10 @@ final class QuitSafetyTests: XCTestCase {
 
     func testQuitSavesAnEditThatTheEditorHasNotSaved() async throws {
         let model = try makeWiki()
-        model.reload()
+        model.library.reload()
         try await settle(model)
-        model.openDocument("note.md")
-        guard let session = model.editor else { return XCTFail("Opening a file must start an editor session") }
+        model.files.openDocument("note.md")
+        guard let session = model.files.editor else { return XCTFail("Opening a file must start an editor session") }
         session.text = "---\ntitle: A note\n---\n\nAn edited body.\n"
 
         XCTAssertTrue(shouldTerminate(model) { _ in true })
@@ -102,17 +102,17 @@ final class QuitSafetyTests: XCTestCase {
 
     func testAChangeOnDiskBlocksQuitAndKeepsTheDraft() async throws {
         let model = try makeWiki()
-        model.reload()
+        model.library.reload()
         try await settle(model)
-        model.openDocument("note.md")
-        guard let session = model.editor else { return XCTFail("Opening a file must start an editor session") }
+        model.files.openDocument("note.md")
+        guard let session = model.files.editor else { return XCTFail("Opening a file must start an editor session") }
         session.text = "An unsaved body."
         let url = URL(fileURLWithPath: wikiPath).appendingPathComponent("note.md")
         try Data("An agent wrote this.".utf8).write(to: url)
 
         XCTAssertFalse(shouldTerminate(model) { _ in true })
-        XCTAssertEqual(model.editor?.text, "An unsaved body.", "The draft stays in the editor")
-        XCTAssertEqual(model.editor?.status, .conflict)
+        XCTAssertEqual(model.files.editor?.text, "An unsaved body.", "The draft stays in the editor")
+        XCTAssertEqual(model.files.editor?.status, .conflict)
         XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "An agent wrote this.", "Quit must not write over the change")
     }
 }

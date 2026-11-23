@@ -197,7 +197,7 @@ struct ArticleNotebook: View {
             }
             try vault.write((text.hasSuffix("\n") ? text : text + "\n").appending(addition), to: name)
             model.store.updateReading(note.id) { $0.savedAt = Date() }
-            model.reload()
+            model.library.reload()
         } catch { model.store.report(error) }
     }
 }
@@ -297,9 +297,9 @@ private struct SaveArticleForm: View {
     @State private var parts = ArticleMarkdown.Parts()
 
     private var destinations: [Destination] {
-        model.wikiPaths.flatMap { root -> [Destination] in
-            let active = root == model.wikiPath
-            return [Destination(root: root, folder: "")] + (active ? model.folders.map { Destination(root: root, folder: $0) } : [])
+        model.library.wikiPaths.flatMap { root -> [Destination] in
+            let active = root == model.library.wikiPath
+            return [Destination(root: root, folder: "")] + (active ? model.library.folders.map { Destination(root: root, folder: $0) } : [])
         }
     }
 
@@ -372,7 +372,7 @@ private struct SaveArticleForm: View {
             model.store.updateReading(note.id) { $0.savedFile = file; $0.savedAt = Date() }
             model.store.status = "Saved to " + destination.label
             lastFolder = destination.label
-            model.reload()
+            model.library.reload()
             close()
         } catch { model.store.report(error) }
     }

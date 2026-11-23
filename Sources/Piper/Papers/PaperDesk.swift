@@ -34,6 +34,8 @@ final class PaperDesk {
         self.defaults = defaults
         frames = PaperFrames.restore(from: defaults)
         paper = FeedPaperModel(model: model, defaults: defaults)
+        // The first scan opens the file that the file paper had open when Piper last quit.
+        model.files.initialDocument = paper.state.selectedFile
         paper.open = { [weak self] item in self?.open(item) }
         paper.tidy = { [weak self] in self?.tidy() }
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
@@ -73,8 +75,8 @@ final class PaperDesk {
     func open(_ item: PaperItem) {
         if feed?.window?.isVisible != true { show() }
         if item == .file {
-            paper.state.selectedFile = model.selectedDocument
-            paper.marks.openFile = model.selectedDocument
+            paper.state.selectedFile = model.files.selectedDocument
+            paper.marks.openFile = model.files.selectedDocument
         }
         if let open = readers.first(where: { $0.item == item }) {
             open.focus()
@@ -114,7 +116,7 @@ final class PaperDesk {
 
     /// Opens a file in the file paper.
     func openFile(_ path: String) {
-        model.openDocument(path)
+        model.files.openDocument(path)
         open(.file)
     }
 
@@ -277,8 +279,8 @@ final class PaperDesk {
                   let note = model.store.article(for: url) else { return .folder }
             return .text(note.text, noteID: note.id)
         case .file:
-            guard let document = model.currentDocument else { return .folder }
-            return .page(model.vault.root.appendingPathComponent(document.relativePath).path)
+            guard let document = model.files.currentDocument else { return .folder }
+            return .page(model.library.vault.root.appendingPathComponent(document.relativePath).path)
         case .session, .newSession:
             return .folder
         }
@@ -301,7 +303,7 @@ extension PaperDesk: ReaderPaperControllerDelegate {
         paper.marks.open.remove(controller.item)
         paper.marks.flash = DeskMarks.Flash(item: controller.item)
         // The editor page stays, so the last edit of the file still saves.
-        if controller.item == .file { Task { await model.flushEditor() } }
+        if controller.item == .file { Task { await model.files.flushEditor() } }
         guard feed?.window?.isVisible == true else { return }
         (readers.last?.window ?? feed?.window)?.makeKeyAndOrderFront(nil)
     }
