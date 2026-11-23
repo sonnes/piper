@@ -70,14 +70,13 @@ Inside a text editor, Command-A, Command-C, Command-Z, and the arrow keys edit t
 | Escape | Close the reader paper with the focus. On the feed paper, go from the index back to the list. |
 | Command-` | Move the focus to the next paper |
 | T | Put each reader paper back in its place of the cascade |
-| 1 to 8 | On the feed paper, show the tab with that number. The number of the active tab shows its first scope, then opens its index. |
+| 1 to 9 | On the feed paper, show the tab with that number, in the order of the column. The number of the active tab shows its first scope, then opens its index. |
 | Left Arrow | On the feed paper, open the index of Inbox, Feeds, or Agents |
 | Up Arrow / Down Arrow | On the index, move the cursor. In the folder tree, move the cursor through the rows that show. In a list of sessions, select the previous or next row. |
 | Return / Right Arrow | On the index, show the scope at the cursor. Return in a list of sessions opens the row on a paper. |
 | Right Arrow | In the folder tree, open a closed folder. On an open folder, move to its first row. |
 | Left Arrow | In the folder tree, close an open folder. On another row, move to its folder. |
 | Return | In the folder tree, open a file on the file paper, or open or close a folder |
-| P | In the folder tree, pin the folder at the cursor as a tab, or remove its tab. The column holds 8 tabs. |
 | `[` / `]` | On the feed paper, show the previous or the next scope of the tab |
 | Option-Command-C | Open or close the session card of the reader paper with the focus. With no reader paper open, open the detached session panel. |
 | Command-K | In the Reader tab, with text selected, ask about the selected text |

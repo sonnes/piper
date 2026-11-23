@@ -352,12 +352,12 @@ final class AppModel {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
         panel.prompt = "Add"
-        panel.message = "Choose folders to add to Folders."
+        panel.message = "Choose folders. Each folder gets a tab."
         guard panel.runModal() == .OK else { return }
         addWikiFolders(panel.urls)
     }
 
-    /// Takes a folder off the Folders index. The folder on disk does not change.
+    /// Takes a folder off the folder list and its tab off the feed paper. The folder on disk does not change.
     ///
     /// The active folder moves to the next folder in the list first. The last
     /// folder stays, because the window needs one folder to show.

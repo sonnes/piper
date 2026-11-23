@@ -44,6 +44,9 @@ struct FeedPaperView: View {
                 paper.pick(.inbox(section: model.store.activeSection))
             }
         }
+        .onChange(of: model.wikiPaths, initial: true) { paper.syncFolders() }
+        .onChange(of: model.loading) { paper.recordFileCount() }
+        .onChange(of: model.files.count) { paper.recordFileCount() }
         .onChange(of: model.store.sections) { _, sections in
             if case .inbox(let section?) = paper.state.scope, !sections.contains(section) { paper.pick(.inbox(section: nil)) }
         }
@@ -53,17 +56,15 @@ struct FeedPaperView: View {
     // MARK: - Parts
 
     private func tabs(_ layer: PaperTabs.Layer) -> some View {
-        let tabs = paper.column.tabs
-        let showsAdd = tabs.count + paper.column.overflow.count < Metrics.tabLimit
+        let tabs = paper.tabs
         let lengths = tabs.map { TabColumn.labelLength(title: $0.title, count: count($0)) }
-        let needed = TabColumn.paperHeight(of: lengths, add: showsAdd)
+        let addLength = TabColumn.labelLength(title: TabColumn.addLabel, count: 0)
+        let removeFolder: ((String) -> Void)? = model.wikiPaths.count > 1 ? { model.removeWikiFolder($0) } : nil
         return PaperTabs(layer: layer, tabs: tabs, active: paper.state.tab, color: paper.color(of:), count: count,
-                         stubs: TabColumn.usesStubs(lengths: lengths, add: showsAdd, paperHeight: paper.paperHeight),
-                         showsAdd: showsAdd, choose: paper.choose, addFolder: paper.showPinHint, unpin: paper.togglePin)
+                         stubs: TabColumn.usesStubs(lengths: lengths, addLength: addLength, paperHeight: paper.paperHeight),
+                         choose: paper.choose, addFolder: paper.addFolder,
+                         removeFolder: removeFolder)
             .padding(.top, Metrics.tabsTop)
-            .onChange(of: needed, initial: true) { _, height in
-                if layer == .under { paper.fitTabs(height) }
-            }
     }
 
     private var sheet: some View {
@@ -78,7 +79,7 @@ struct FeedPaperView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(reduceMotion ? nil : .easeInOut(duration: Metrics.fade), value: paper.showsIndex)
-            if !paper.showsIndex, !paper.state.tab.showsTree, paper.state.scope != .clipboard,
+            if !paper.showsIndex, !paper.state.tab.isFolder, paper.state.scope != .clipboard,
                let entry = model.clipboard.entries.first {
                 clipboardFoot(entry)
             }
@@ -113,8 +114,7 @@ struct FeedPaperView: View {
             } else {
                 // The date leaves the header when the title needs its room.
                 ViewThatFits {
-                    Text(paper.state.tab.isPinned ? "Pinned folder"
-                         : Date().formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                    Text(Date().formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
                         .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                         .fixedSize()
                     Color.clear.frame(width: 0, height: 0)
@@ -150,10 +150,13 @@ struct FeedPaperView: View {
         Menu {
             Button("New Capture") { paper.newCapture() }
             Button("New Section…") { namingSection = true }
-            Button("Add Folder…") { model.chooseWiki() }
+            Button("Add Folder…") { paper.addFolder() }
             Button("Add Feed…") { model.addingFeed = true }
             Divider()
-            Button("Reveal in Finder") { NSWorkspace.shared.open(model.vault.root) }
+            Button("Show in Finder") { NSWorkspace.shared.open(model.vault.root) }
+            if case .folder(let path) = paper.state.tab, model.wikiPaths.count > 1 {
+                Button("Remove Folder") { model.removeWikiFolder(path) }
+            }
             Button("Refresh") { model.reload() }
             Button("Settings…") { model.openSettings?() }
         } label: {
@@ -227,17 +230,12 @@ struct FeedPaperView: View {
         case .inbox: return model.store.notes.filter { $0.parent == nil && !$0.isDone }.count
         case .clipboard: return 0
         case .feeds: return model.feeds.totalUnread
-        case .folders:
-            if model.wikiPaths.count > 1 { return model.wikiPaths.count }
-            return FolderTree.topFolderCount(paths: model.files.map(\.relativePath), folders: model.folders)
         case .agents:
             let runner = model.agents.runner
             return runner.folders().reduce(0) { total, folder in
                 total + runner.sessions(in: folder).filter { $0.state == .needsYou }.count
             }
-        case .pinned(let path):
-            guard let folder = PaperDeskState.relativePath(of: path, in: model.vault.root.path) else { return 0 }
-            return FolderTree.fileCount(paths: model.files.map(\.relativePath), in: folder)
+        case .folder(let path): return paper.fileCount(of: path)
         }
     }
 }

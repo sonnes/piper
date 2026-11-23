@@ -73,19 +73,14 @@ final class FeedPaperModel {
     var composerRequest: UUID?
     /// The selected article of the list of a feed.
     var selectedArticle: String?
-    /// The row under the cursor of the folder tree, by its absolute path, for each tab that shows a tree.
+    /// The row under the cursor of the folder tree, by its absolute path, for each folder tab.
     var treeCursors: [PaperTab: String] = [:]
-    /// The line under the title of the Folders tab after a pin, an unpin, or a click on the + tab.
-    var treeMessage: String?
     /// Opens an item as a reader paper. `PaperDesk` sets it.
     @ObservationIgnored var open: (PaperItem) -> Void = { _ in }
     /// Puts the reader papers back in their cascade. `PaperDesk` sets it.
     @ObservationIgnored var tidy: () -> Void = {}
-    /// The height of the paper as it shows, for the rule that shortens the pinned tabs.
+    /// The height of the paper as it shows, for the rule that shortens the folder tabs.
     var paperHeight = AppDefaults.Papers.feedSize.height
-    /// Makes the paper at least as tall as its column of tabs, when the
-    /// screen has the room. `FeedPaperController` sets it.
-    @ObservationIgnored var fitTabs: (CGFloat) -> Void = { _ in }
     /// The keys of the list that shows: Up Arrow, Down Arrow, and Return.
     /// A list of captures reads its keys itself and sets none.
     @ObservationIgnored var listKeys: ListKeys?
@@ -97,18 +92,49 @@ final class FeedPaperModel {
         self.model = model
         self.defaults = defaults
         state = PaperDeskState.restore(from: defaults)
+        syncFolders()
     }
 
     // MARK: - API
 
-    /// The tabs of the column, and the pinned folders that have no tab.
-    var column: (tabs: [PaperTab], overflow: [String]) {
-        PaperTab.column(pins: state.pinnedFolders, showsAgents: !model.agents.runner.folders().isEmpty)
+    /// The tabs of the column: the fixed tabs, then one tab for each folder.
+    var tabs: [PaperTab] {
+        PaperTab.column(folders: model.wikiPaths, showsAgents: !model.agents.runner.folders().isEmpty)
     }
 
     /// The color of a tab.
     func color(of tab: PaperTab) -> TabColor {
-        tab.color(pins: state.pinColors)
+        tab.color(folders: state.folderColors)
+    }
+
+    /// The number of files of a folder tab: the files of the active folder,
+    /// or the count of the last scan of another folder.
+    func fileCount(of path: String) -> Int {
+        if path == model.wikiPath, !model.loading, !model.files.isEmpty { return model.files.count }
+        return state.folderCounts[path] ?? 0
+    }
+
+    /// Gives each new folder a color, and keeps the tab of a folder on the
+    /// active folder. The feed paper calls it when the folder list changes.
+    func syncFolders() {
+        state.assignColors(to: model.wikiPaths)
+        if state.tab.isFolder, state.tab != .folder(model.wikiPath) { state.tab = .folder(model.wikiPath) }
+    }
+
+    /// Saves the number of files of the active folder after a scan.
+    func recordFileCount() {
+        guard !model.loading else { return }
+        state.folderCounts[model.wikiPath] = model.files.count
+    }
+
+    /// The + tab: adds folders with the Add Folder panel, then shows the tab
+    /// of the first new folder.
+    func addFolder() {
+        let before = model.wikiPaths
+        model.chooseWiki()
+        guard model.wikiPaths != before else { return }
+        syncFolders()
+        choose(.folder(model.wikiPath))
     }
 
     /// A click on a tab.
@@ -184,12 +210,6 @@ final class FeedPaperModel {
         }
     }
 
-    /// Shows the Folders tree with a hint, after a click on the + tab.
-    func showPinHint() {
-        if state.tab != .folders { choose(.folders) }
-        treeMessage = "To pin a folder as a tab, select it and press P."
-    }
-
     /// Shows the index of the active tab, after Left Arrow.
     func showIndex() {
         guard state.tab.hasIndex else { return }
@@ -208,7 +228,7 @@ final class FeedPaperModel {
         let folders = model.agents.runner.folders()
         let atDefault = state.scope == state.defaultScope(for: state.tab, root: root, sessionFolders: folders)
             && (state.tab != .inbox || inboxFilter == .all)
-        switch NumberKey.action(number, tabs: column.tabs, active: state.tab, showsIndex: showsIndex,
+        switch NumberKey.action(number, tabs: tabs, active: state.tab, showsIndex: showsIndex,
                                 atDefaultScope: atDefault) {
         case .toggleIndex: showsIndex.toggle()
         case .showTab(let tab):
@@ -238,34 +258,18 @@ final class FeedPaperModel {
         composerRequest = UUID()
     }
 
-    /// Pins a folder to the column of tabs, or removes its pin. The Folders
-    /// tab says what changed.
-    func togglePin(_ path: String) {
-        let name = URL(fileURLWithPath: path).lastPathComponent
-        let fixed = column.tabs.count - column.tabs.filter(\.isPinned).count
-        switch state.togglePin(path, fixedTabs: fixed) {
-        case .pinned: treeMessage = "\(name) has a tab."
-        case .unpinned: treeMessage = "\(name) has no tab now."
-        case .full:
-            treeMessage = "The edge holds \(AppDefaults.Papers.tabLimit) tabs. Remove a tab, then pin \(name)."
-        }
-    }
-
-    /// Sets the color of the active pinned folder tab.
+    /// Sets the color of the active folder tab.
     func setTabColor(_ color: TabColor) {
-        guard case .pinned(let path) = state.tab else { return }
-        state.setColor(color, of: path)
+        guard case .folder(let path) = state.tab else { return }
+        state.folderColors[path] = color
     }
 
     // MARK: - Folder Tree
 
-    /// The rows of the tree that show: the whole tree on the Folders tab, or
-    /// the folders and files in a pinned folder.
+    /// The rows of the tree of the active folder that show.
     var treeRows: [FolderTreeRow] {
-        var top: String?
-        if case .pinned(let path) = state.tab { top = path }
-        return FolderTree.rows(paths: model.files.map(\.relativePath), folders: model.folders, roots: model.wikiPaths,
-                               activeRoot: model.wikiPath, top: top, expanded: Set(state.expandedFolders))
+        FolderTree.rows(paths: model.files.map(\.relativePath), folders: model.folders, root: model.wikiPath,
+                        expanded: Set(state.expandedFolders))
     }
 
     /// The row under the cursor of the tree: the row that the reader moved
@@ -292,22 +296,11 @@ final class FeedPaperModel {
         perform(row.expanded ? .collapse(row.id) : .expand(row.id), in: [row])
     }
 
-    /// P on the tree: pins the folder under the cursor, or removes its pin.
-    func pinTreeCursor() {
-        let rows = treeRows
-        guard let cursor = treeCursor(in: rows), let row = rows.first(where: { $0.id == cursor }), row.isFolder else { return }
-        togglePin(row.id)
-    }
-
     private func perform(_ action: FolderTreeAction, in rows: [FolderTreeRow]) {
         switch action {
         case .select(let id):
             treeCursors[state.tab] = id
         case .expand(let id):
-            if rows.first(where: { $0.id == id })?.isOtherRoot == true {
-                model.changeWiki(to: URL(fileURLWithPath: id))
-                guard model.wikiPath == id else { return }
-            }
             setExpanded(id, true)
         case .collapse(let id):
             setExpanded(id, false)
@@ -325,9 +318,10 @@ final class FeedPaperModel {
         if open { state.expandedFolders.append(id) }
     }
 
-    /// Forgets the scope of the previous folder after a change of the active folder.
+    /// Forgets the state of the previous folder after a change of the active
+    /// folder. The tab of a folder moves to the new active folder.
     func vaultChanged() {
-        state.resetForVault()
+        state.resetForVault(root: model.wikiPath)
     }
 
     // MARK: - Private
@@ -351,22 +345,11 @@ final class FeedPaperModel {
         if let target, target != store.activeSection { store.chooseSection(target) }
     }
 
-    /// Prepares a tab before it shows. A pinned folder becomes part of the
-    /// active folder and opens in the shared tree. The line of the Folders tab clears.
+    /// Prepares a tab before it shows. The folder of a folder tab becomes the
+    /// active folder, because Piper scans one folder at a time.
     private func enter(_ tab: PaperTab) -> Bool {
-        treeMessage = nil
-        guard case .pinned(let path) = tab else { return true }
-        guard enterRoot(of: path) else { return false }
-        if !state.expandedFolders.contains(path) { state.expandedFolders.append(path) }
-        return true
-    }
-
-    /// Makes the folder that holds `path` the active folder. A path in no
-    /// folder of the list stays where it is.
-    private func enterRoot(of path: String) -> Bool {
-        if PaperDeskState.relativePath(of: path, in: model.vault.root.path) != nil { return true }
-        guard let root = model.wikiPaths.first(where: { PaperDeskState.relativePath(of: path, in: $0) != nil }) else { return false }
-        model.changeWiki(to: URL(fileURLWithPath: root))
-        return PaperDeskState.relativePath(of: path, in: model.vault.root.path) != nil
+        guard case .folder(let path) = tab, path != model.wikiPath else { return true }
+        model.changeWiki(to: URL(fileURLWithPath: (path as NSString).expandingTildeInPath))
+        return model.wikiPath == path
     }
 }

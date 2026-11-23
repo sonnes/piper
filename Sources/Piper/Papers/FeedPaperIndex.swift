@@ -27,7 +27,7 @@ struct FeedPaperIndex: View {
                 case .inbox: inbox
                 case .feeds: feedRows
                 case .agents: agentRows
-                case .clipboard, .folders, .pinned: EmptyView()
+                case .clipboard, .folder: EmptyView()
                 }
             }
             .padding(AppDefaults.Papers.indexPadding)
@@ -237,8 +237,7 @@ extension IndexRow {
     }
 }
 
-/// The folder of a row: a folder outline, in the color of the faint text or
-/// in the color of the tab of a pinned folder.
+/// The folder of a row: a folder outline in the color of the faint text.
 struct FolderMark: View {
     var color = PiperTheme.paperFaint
 

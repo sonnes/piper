@@ -26,7 +26,7 @@ enum IndexEntry: Equatable {
                 + feeds.map { .scope(.feed(.feed($0))) }
         case .agents:
             return sessionFolders.map { .scope(.sessions($0)) }
-        case .clipboard, .folders, .pinned:
+        case .clipboard, .folder:
             return []
         }
     }

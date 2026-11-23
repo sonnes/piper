@@ -57,7 +57,7 @@ This table describes the source on September 15, 2026. Implemented means that th
 | --- | --- | --- |
 | Feed paper with tabs, an index for each tab, and the scoped list | Implemented | `PaperDeskStateTests` (state, overflow, folder index). Checked in the app with agent-desktop. Keys not checked in the app. |
 | Reader papers: placement, cascade, focus of an open item, Escape, and Next Paper | Implemented | `PaperDeskStateTests` (placement, free places), `PaperDeskTests` (the open file). Open, focus, Put Back, and placement checked in the app with agent-desktop. Escape and Command-` not checked in the app. |
-| Pinned folders as tabs | Implemented | `PaperDeskStateTests` (pins, overflow) |
+| A tab for each folder, with its own color | Implemented | `PaperDeskStateTests` (column, colors, stubs), `PaperDeskTests` (active folder on a tab click) |
 | Folder tree with any folder structure | Implemented | `VaultTests`, `PathTreeBuilderTests`, `TreeControllerTests` |
 | Automatic refresh on file changes | Implemented | `VaultWatcherTests`, `WikiRefreshTests` |
 | Feed parsing: RSS, Atom, RSS-in-JSON, JSON Feed, and OPML | Implemented | `FeedsTests` (the upstream parser tests of NetNewsWire, with their fixtures) |

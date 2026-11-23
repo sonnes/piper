@@ -19,14 +19,12 @@ final class PaperKeysTests: XCTestCase {
         ])
     }
 
-    func testClipboardFoldersAndAPinnedTabHaveNoIndex() {
+    func testClipboardAndAFolderTabHaveNoIndex() {
         XCTAssertEqual(entries(.clipboard), [])
-        XCTAssertEqual(entries(.folders), [])
-        XCTAssertEqual(entries(.pinned("/pins/Talks")), [])
-        XCTAssertFalse(PaperTab.folders.hasIndex)
-        XCTAssertTrue(PaperTab.folders.showsTree)
-        XCTAssertTrue(PaperTab.pinned("/pins/Talks").showsTree)
-        XCTAssertFalse(PaperTab.feeds.showsTree)
+        XCTAssertEqual(entries(.folder("/notes/Talks")), [])
+        XCTAssertFalse(PaperTab.folder("/notes/Talks").hasIndex)
+        XCTAssertTrue(PaperTab.folder("/notes/Talks").isFolder)
+        XCTAssertFalse(PaperTab.feeds.isFolder)
     }
 
     func testTheCursorStartsAtAnEndAndStopsAtTheLastRow() {
@@ -50,13 +48,13 @@ final class PaperKeysTests: XCTestCase {
         XCTAssertEqual(IndexEntry.cycle(.feed(.discover), by: -1, in: rows), .feed(.feed("b")))
         // A Show row is not a scope, so the cycle skips it.
         XCTAssertEqual(IndexEntry.cycle(.inbox(section: nil), by: 1, in: entries(.inbox)), .inbox(section: "Inbox"))
-        XCTAssertNil(IndexEntry.cycle(.folder(""), by: 1, in: entries(.folders)))
+        XCTAssertNil(IndexEntry.cycle(.folder, by: 1, in: entries(.folder("/notes/Talks"))))
     }
 
     // MARK: - Number Keys
 
     func testTheNumberOfTheActiveTabTogglesItsIndexAtItsDefaultScope() {
-        let tabs: [PaperTab] = [.inbox, .clipboard, .feeds, .folders]
+        let tabs: [PaperTab] = [.inbox, .clipboard, .feeds, .folder("/notes")]
         XCTAssertEqual(NumberKey.action(1, tabs: tabs, active: .inbox, showsIndex: false, atDefaultScope: true), .toggleIndex)
         XCTAssertEqual(NumberKey.action(1, tabs: tabs, active: .inbox, showsIndex: true, atDefaultScope: false), .toggleIndex)
         XCTAssertEqual(NumberKey.action(1, tabs: tabs, active: .inbox, showsIndex: false, atDefaultScope: false), .showTab(.inbox))
@@ -87,23 +85,9 @@ final class PaperKeysTests: XCTestCase {
         let file = Hint.hints(index: false, paper: .file, article: false, papersOpen: true, tabs: 5).map(\.label)
         XCTAssertEqual(file, ["next paper", "put back", "tidy"])
         let tree = Hint.hints(index: false, tree: true, paper: nil, article: false, papersOpen: false, tabs: 8)
-        XCTAssertEqual(tree.map(\.label), ["move", "open folder", "close folder", "open file", "pin as tab", "tab"])
+        XCTAssertEqual(tree.map(\.label), ["move", "open folder", "close folder", "open file", "tab"])
         XCTAssertEqual(tree.last?.keys, ["1–8"])
-    }
-
-    func testTheFoldersTabShowsItsTreeWithNoIndexStep() throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("piper-keys-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let suite = "piper-tree-keys-tests"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defaults.removePersistentDomain(forName: suite)
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
-        let paper = FeedPaperModel(model: model, defaults: defaults)
-        paper.choose(.folders)
-        XCTAssertEqual(paper.state.tab, .folders)
-        XCTAssertFalse(paper.showsIndex)
-        XCTAssertEqual(paper.state.scope, .folder(""))
+        let many = Hint.hints(index: false, tree: true, paper: nil, article: false, papersOpen: false, tabs: 12)
+        XCTAssertEqual(many.last?.keys, ["1–9"], "The number keys reach the ninth tab.")
     }
 }

@@ -78,8 +78,6 @@ final class AppDefaults {
     /// from the Write paper of September: a text column of 600 points with
     /// 56-point margins at the sides.
     enum Papers {
-        /// The number of tabs on the edge of the feed paper. Pinned folders past this number show on the Folders index.
-        static let tabLimit = 8
         static let feedSize = NSSize(width: 520, height: 760)
         static let feedMinimumSize = NSSize(width: 420, height: 560)
         static let readerSize = NSSize(width: 712, height: 860)
@@ -155,13 +153,10 @@ final class AppDefaults {
         static let hoverTabShadow = (x: CGFloat(-3), y: CGFloat(4), radius: CGFloat(5))
         /// `drop-shadow(-4px 3px 10px)`: the soft shadow of the active tab.
         static let activeTabShadow = (x: CGFloat(-4), y: CGFloat(3), radius: CGFloat(5))
-        /// The dashed tab at the end of the column, which pins a folder.
-        static let addTabHeight: CGFloat = 40
+        /// The dashed tab at the end of the column, which adds a folder.
         static let addTabGap: CGFloat = 8
-        static let addTabRadius: CGFloat = 12
-        static let addTabSize: CGFloat = 18
 
-        /// The folder tree of the Folders tab and of a pinned folder tab.
+        /// The folder tree of a folder tab.
         static let treeRowHeight: CGFloat = 40
         static let treeRowPadding = EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 14)
         static let treePadding = EdgeInsets(top: 10, leading: 12, bottom: 8, trailing: 12)
@@ -172,7 +167,7 @@ final class AppDefaults {
         static let treeChevron: CGFloat = 16
         static let treeChevronGlyph: CGFloat = 10
         static let treeFileSize: CGFloat = 17
-        /// The line under the title: the summary of the Folders tab, or the swatches of a pinned folder.
+        /// The row of swatches under the title of a folder tab.
         static let subPadding = EdgeInsets(top: 8, leading: 32, bottom: 0, trailing: 32)
         static let swatchSize: CGFloat = 22
         static let swatchBorder: CGFloat = 2

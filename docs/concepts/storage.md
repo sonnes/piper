@@ -129,7 +129,7 @@ UserDefaults holds these keys:
 | Key | Content |
 | --- | --- |
 | `wikiPath` | The active Wiki folder |
-| `wikiPaths` | The Wiki folders at the top of the folder tree |
+| `wikiPaths` | The folders that Piper keeps, in the order of their tabs on the feed paper |
 | `captureShortcut` | `Shift, Shift` or `Control-Option-Space` |
 | `captureFloating` | True by default. Keeps the capture panel above other apps. |
 | `composerDraft` | The unsaved composer text |
@@ -144,7 +144,7 @@ UserDefaults holds these keys:
 | `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |
 | `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |
 | `articleSiteTabs` | The tab, Reader or Web, that each site of a link capture opens in |
-| `paperDeskState` | The tab and the scope of the feed paper, its frame, the open folders, the pinned folders, and the open file |
+| `paperDeskState` | The tab and the scope of the feed paper, its frame, the open folders, the tab color and the last file count of each folder, and the open file |
 | `NSWindow Frame PiperCapturePanel`, `NSWindow Frame PiperLibrary` | Window frames |
 
 ### Bundle ID Migration

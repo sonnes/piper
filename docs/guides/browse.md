@@ -2,7 +2,7 @@
 title: "Browse And Edit Files"
 summary: "Move between the tabs of the feed paper, open items on reader papers, edit files, read captures in Inbox, and keep a reading list"
 read_when:
-  - Adding or pinning a folder, or changing the color of its tab
+  - Adding or removing a folder, or changing the color of its tab
   - Opening, closing, or moving between papers
   - Searching, reading, or editing a file
   - Reading web links from captures
@@ -19,19 +19,18 @@ To open the feed paper, press Command-2, or select Feed Paper in the menu bar ic
 
 ## Add A Folder
 
-The default folder is `~/Desktop/Wiki`.
+The default folder is `~/Desktop/Wiki`. Each folder that you add gets a tab on the feed paper.
 
 1. Open the feed paper with Command-2.
-2. Select the Folders tab.
-3. Select Add Folder at the end of the folder tree.
-4. Select one or more folders.
-5. Select Add.
+2. Select the dashed + Folder tab at the end of the column of tabs.
+3. Select one or more folders.
+4. Select Add.
 
-Add Folder is also in the More menu of the feed paper and in Settings > General.
+The feed paper then shows the tab of the first new folder. Add Folder is also in the More menu of the feed paper and in Settings > General.
 
-Piper keeps the added folders across restarts. If you add more than one folder, each folder is a row at the top of the folder tree. To make a folder the active folder, open its row.
+Piper keeps the added folders across restarts. To make a folder the active folder, select its tab.
 
-To remove a folder from Piper, Control-click its row in the folder tree and select Remove Folder. You can also select it in Settings > General and select the minus button. The folder on disk does not change. You cannot remove the last folder.
+To remove a folder from Piper, Control-click its tab and select Remove Folder. Remove Folder is also in the More menu while the tab of a folder is active, and in Settings > General. The folder on disk does not change. You cannot remove the last folder.
 
 [Go to File](#go-to-a-file) searches the active folder. Before Piper changes the folder, it saves the open file. If the open file has a conflict, Piper stays in the current folder.
 
@@ -44,13 +43,16 @@ The feed paper has a column of tabs on its left edge. Each tab looks like a file
 | Inbox | Indigo | The captures that are not done | All Sections, Notes, Reading, each section, Done, and New Section |
 | Clipboard | Zinc | None | None. The tab shows the clipboard history. |
 | Feeds | Sky | The unread articles | Discover, All Unread, Starred, and each feed. See [Read feeds](feeds.md). |
-| Folders | Emerald | The folders at the top of the tree | None. The tab shows the folder tree. |
 | Agents | Plum | The sessions that wait for you | Each folder that has sessions. See [Find a session](claude.md#find-a-session). |
-| A pinned folder | Your choice | The files in the folder | None. The tab shows the tree of its folder. |
+| A folder | Teal, rose, clay, or emerald | The files in the folder | None. The tab shows the tree of the folder. |
 
 The Agents tab shows only while a folder has sessions. A count over 999 shows as 999+.
 
-Each tab lies under the tab above it. The active tab comes to the front, takes the color of the paper, and joins the paper. A line in the color of the tab stays on its outer edge. If Reduce Motion is off, the active tab slides out from under the paper. The dashed + tab at the end of the column shows the Folders tab and tells you how to pin a folder.
+The folder tabs come after the fixed tabs, in the order that you added the folders. The label of a folder tab is the name of the folder. Piper scans only the active folder, so the count on another folder tab is the count of its last scan.
+
+Each tab lies under the tab above it. The active tab comes to the front, takes the color of the paper, and joins the paper. A line in the color of the tab stays on its outer edge. If Reduce Motion is off, the active tab slides out from under the paper. The dashed + Folder tab at the end of the column adds a folder.
+
+If the column is taller than the paper, each folder tab shows only the first letter of its folder. Move the pointer over a short tab to see the name of the folder. To show the full names again, make the paper taller.
 
 ### Move Between The Index And The List
 
@@ -59,13 +61,13 @@ The feed paper shows the index of a tab or the list of one scope. A scope is one
 1. Select a tab. The paper shows the index of the tab.
 2. Select an item on the index. The paper shows its list.
 
-Clipboard, Folders, and a pinned folder have no index. A click on one of these tabs shows its list or its tree at once.
+Clipboard and the folder tabs have no index. A click on one of these tabs shows its list or its tree at once.
 
 To go back to the list, press Escape, select Back to the List, or select the active tab again. To see the index again, select the active tab. If Reduce Motion is off, the index and the list fade into each other in 0.22 seconds.
 
 These keys work while the feed paper has the focus and no text field is active:
 
-- To show a tab, press its number, from 1 to 8.
+- To show a tab, press its number, from 1 to 9. The numbers follow the order of the column.
 - To open the index of the active tab, press Left Arrow or the number of the tab.
 - On the index, press Up Arrow or Down Arrow to move the cursor. A bar at the left marks the row of the cursor.
 - To show the scope at the cursor, press Return or Right Arrow.
@@ -73,7 +75,7 @@ These keys work while the feed paper has the focus and no text field is active:
 
 If the active tab shows a scope other than its first scope, its number shows the first scope. A second press opens the index.
 
-The title of the list names the tab and the scope, for example "Feeds › All Unread". The More menu at the top right has New Capture, New Section, Add Folder, Add Feed, Reveal in Finder, Refresh, and Settings.
+The title of the list names the tab and the scope, for example "Feeds › All Unread". The More menu at the top right has New Capture, New Section, Add Folder, Add Feed, Show in Finder, Refresh, and Settings. While the tab of a folder is active, the menu also has Remove Folder.
 
 ### Open An Item On A Paper
 
@@ -101,7 +103,7 @@ While Piper is active, a strip at the bottom of the screen shows the keys for th
 
 ### Use The Folder Tree
 
-The Folders tab shows a tree of the folders and files of the active folder. Folders come first, then files. Each file and each folder shows its full name, with the extension. A folder shows the number of files in it. A file shows the date of its last change.
+The tab of a folder shows a tree of its folders and files, with the folder name as the title. Folders come first, then files. Each file and each folder shows its full name, with the extension. A folder shows the number of files in it. A file shows the date of its last change.
 
 - To open or close a folder, select it.
 - To open a file on the file paper, select it.
@@ -114,27 +116,19 @@ These keys work on the tree while the feed paper has the focus:
 | Right Arrow | Open a closed folder. On an open folder, move to its first row. |
 | Left Arrow | Close an open folder. On another row, move to its folder. |
 | Return | Open a file, or open or close a folder |
-| P | Pin the folder at the cursor as a tab, or remove its tab |
 
-The Folders tab and the pinned folder tabs share the open folders. A folder that you open on one tab is also open on the other tabs.
+Piper keeps the open folders of each tree across restarts.
 
-### Pin A Folder
+### Change The Color Of A Folder Tab
 
-A pinned folder gets a tab of its own, under the fixed tabs. The tab shows the tree of its folder, with the folder name as the title. The row of the folder in the Folders tab shows "Tab" before its count, and its folder icon has the color of the tab.
+Each new folder gets the next color of teal, rose, clay, and emerald. When each of these colors is in use, the colors start again at teal.
 
-1. Select the Folders tab.
-2. Move the cursor to the folder.
-3. Press P.
+1. Select the tab of the folder.
+2. Select a swatch in the Tab color row under the title.
 
-You can also Control-click the folder and select Pin to Tabs. To remove the pin, press P again, or Control-click the folder or its tab and select Unpin from Tabs.
+Piper keeps the color of each folder.
 
-The column holds 8 tabs. If the column is full, P does not pin the folder, and a line under the title tells you to remove a tab first.
-
-To change the color of a pinned folder tab, select the tab, then select a swatch in the Tab color row under the title. Piper keeps the color.
-
-The paper grows to hold its tabs. If the screen is too short for the full column, each pinned folder tab shows only the first letter of its folder.
-
-The feed paper restores its frame, its tab, its scope, the open folders, the pinned folders, the tab colors, and the last file.
+The feed paper restores its frame, its tab, its scope, the open folders, the tab colors, and the last file.
 
 ## Search Captures And The Clipboard
 

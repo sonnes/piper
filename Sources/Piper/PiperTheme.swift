@@ -217,8 +217,8 @@ enum PiperTheme {
         return Color(nsColor: Self.color(light: light, dark: dark))
     }
 
-    /// The line on the outer edge of the active tab, and the folder mark of a
-    /// pinned folder: the 600 or 700 shade in the light, and the 400 shade in the dark.
+    /// The line on the outer edge of the active tab: the 600 or 700 shade in
+    /// the light, and the 400 shade in the dark.
     static func tabEdge(_ color: TabColor) -> Color {
         let (light, dark) = tabEdges[color] ?? (0x52525B, 0xD4D4D8)
         return Color(nsColor: Self.color(light: light, dark: dark))

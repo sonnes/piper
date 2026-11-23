@@ -56,7 +56,7 @@ struct Hint: Equatable {
     ///   - papersOpen: True while a reader paper is open.
     ///   - tabs: The number of tabs in the column.
     static func hints(index: Bool, tree: Bool = false, paper: PaperItem?, article: Bool, papersOpen: Bool, tabs: Int) -> [Hint] {
-        let tabKeys = "1–\(tabs)"
+        let tabKeys = "1–\(min(tabs, 9))"
         if paper != nil {
             return (article ? [Hint(keys: ["H"], label: "highlight"), Hint(keys: ["N"], label: "note")] : [])
                 + [Hint(keys: ["⌘`"], label: "next paper"), Hint(keys: ["esc"], label: "put back"), Hint(keys: ["T"], label: "tidy")]
@@ -64,7 +64,7 @@ struct Hint: Equatable {
         if tree {
             return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["→"], label: "open folder"),
                     Hint(keys: ["←"], label: "close folder"), Hint(keys: ["↵"], label: "open file"),
-                    Hint(keys: ["P"], label: "pin as tab"), Hint(keys: [tabKeys], label: "tab")]
+                    Hint(keys: [tabKeys], label: "tab")]
                 + (papersOpen ? [Hint(keys: ["⌘`"], label: "next paper")] : [])
         }
         if index {
@@ -84,9 +84,9 @@ private struct HintStripView: View {
     var body: some View {
         let focused = marks.focusedPaper
         let hints = Hint.hints(index: paper.showsIndex && focused == nil,
-                               tree: paper.state.tab.showsTree && !paper.showsIndex && focused == nil, paper: focused,
+                               tree: paper.state.tab.isFolder && !paper.showsIndex && focused == nil, paper: focused,
                                article: focused.map { paper.model.isArticle($0) } ?? false,
-                               papersOpen: !marks.open.isEmpty, tabs: paper.column.tabs.count)
+                               papersOpen: !marks.open.isEmpty, tabs: paper.tabs.count)
         HStack(spacing: 20) {
             ForEach(hints, id: \.label) { hint in
                 HStack(spacing: 7) {

@@ -20,13 +20,12 @@ struct PaperTabs: View {
     let active: PaperTab
     let color: (PaperTab) -> TabColor
     let count: (PaperTab) -> Int
-    /// True when the pinned tabs show only the first letter of their folder.
+    /// True when the folder tabs show only the first letter of their folder.
     let stubs: Bool
-    /// True when the column has room for one more pin.
-    let showsAdd: Bool
     let choose: (PaperTab) -> Void
     let addFolder: () -> Void
-    let unpin: (String) -> Void
+    /// Removes a folder from the folder list. Nil when the list holds one folder.
+    let removeFolder: ((String) -> Void)?
 
     private typealias Metrics = AppDefaults.Papers
 
@@ -35,20 +34,18 @@ struct PaperTabs: View {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 let shows = (tab == active) == (layer == .over)
                 FolderTab(tab: tab, number: index + 1, color: color(tab), active: tab == active, count: count(tab),
-                          stub: stubs && tab.isPinned, action: { choose(tab) }, unpin: unpin)
+                          stub: stubs && tab.isFolder, action: { choose(tab) }, removeFolder: removeFolder)
                     .opacity(shows ? 1 : 0)
                     .allowsHitTesting(shows)
                     .accessibilityHidden(!shows)
                     // A tab lies over the tab under it.
                     .zIndex(Double(tabs.count - index))
             }
-            if showsAdd {
-                AddFolderTab(action: addFolder)
-                    .padding(.top, Metrics.tabShoulder + Metrics.addTabGap)
-                    .opacity(layer == .under ? 1 : 0)
-                    .allowsHitTesting(layer == .under)
-                    .accessibilityHidden(layer != .under)
-            }
+            AddFolderTab(action: addFolder)
+                .padding(.top, Metrics.tabShoulder + Metrics.addTabGap)
+                .opacity(layer == .under ? 1 : 0)
+                .allowsHitTesting(layer == .under)
+                .accessibilityHidden(layer != .under)
         }
         .frame(width: Metrics.tabWidth)
         .accessibilityElement(children: .contain)
@@ -58,38 +55,29 @@ struct PaperTabs: View {
 
 // MARK: - Layout
 
-/// The rule that shortens the pinned tabs when the column is taller than the paper.
+/// The rule that shortens the folder tabs when the column is taller than the paper.
 enum TabColumn {
 
-    /// The height of a column of tabs whose labels have these lengths.
-    static func height(of lengths: [CGFloat], add: Bool) -> CGFloat {
+    /// The label of the tab that adds a folder.
+    static let addLabel = "+ Folder"
+
+    /// The height of a column of tabs whose labels have these lengths, with
+    /// the + Folder tab, whose label has the length `addLength`, under the last tab.
+    static func height(of lengths: [CGFloat], addLength: CGFloat) -> CGFloat {
         let metrics = AppDefaults.Papers.self
-        guard !lengths.isEmpty else { return 0 }
+        let add = addLength + 2 * metrics.tabLabelPadding
+        guard !lengths.isEmpty else { return add }
         let tabs = lengths.reduce(0) { $0 + $1 + 2 * metrics.tabLabelPadding }
             - CGFloat(lengths.count - 1) * metrics.tabShoulder
-        return tabs + (add ? metrics.addTabGap + metrics.addTabHeight : 0)
+        return tabs + metrics.addTabGap + add
     }
 
-    /// True when the pinned tabs show only the first letter of their folder:
-    /// the column with full labels does not fit `height`, the height of the
-    /// paper less the space over the first tab and under the last tab.
-    static func usesStubs(lengths: [CGFloat], add: Bool, paperHeight: CGFloat) -> Bool {
+    /// True when the folder tabs show only the first letter of their folder:
+    /// the column with full labels does not fit the height of the paper less
+    /// the space over the first tab and under the last tab.
+    static func usesStubs(lengths: [CGFloat], addLength: CGFloat, paperHeight: CGFloat) -> Bool {
         let metrics = AppDefaults.Papers.self
-        return height(of: lengths, add: add) > paperHeight - metrics.tabsTop - metrics.tabRoom
-    }
-
-
-    /// The height of the paper that holds a column of tabs: the column, the
-    /// space over its first tab, and the room under its last tab.
-    static func paperHeight(of lengths: [CGFloat], add: Bool) -> CGFloat {
-        let metrics = AppDefaults.Papers.self
-        return height(of: lengths, add: add) + metrics.tabsTop + metrics.tabRoom
-    }
-
-    /// The height that the paper takes so that no tab hangs under it: at
-    /// least `needed`, unless the screen has less room. A taller paper stays.
-    static func fittedHeight(current: CGFloat, needed: CGFloat, screen: CGFloat) -> CGFloat {
-        max(current, min(needed, screen))
+        return height(of: lengths, addLength: addLength) > paperHeight - metrics.tabsTop - metrics.tabRoom
     }
 
     /// The length of the label of a tab: the name and the count.
@@ -181,7 +169,7 @@ private struct FolderTab: View {
     let count: Int
     let stub: Bool
     let action: () -> Void
-    let unpin: (String) -> Void
+    let removeFolder: ((String) -> Void)?
 
     @State private var hovered = false
     @State private var spring: CGFloat = 0
@@ -207,9 +195,14 @@ private struct FolderTab: View {
             }
             .help(stub ? "\(tab.title) · \(number)" : "Tab \(number)")
             .contextMenu {
-                if case .pinned(let path) = tab {
-                    Button("Unpin from Tabs") { unpin(path) }
-                    Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
+                if case .folder(let path) = tab {
+                    Button("Show in Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: (path as NSString).expandingTildeInPath)])
+                    }
+                    if let removeFolder {
+                        Divider()
+                        Button("Remove Folder") { removeFolder(path) }
+                    }
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -303,8 +296,7 @@ private struct FolderTabStyle: ButtonStyle {
     }
 }
 
-/// The dashed tab at the end of the column. It shows the Folders tab, where
-/// P pins the folder under the cursor.
+/// The dashed tab at the end of the column. It adds a folder, and each folder gets a tab.
 private struct AddFolderTab: View {
     let action: () -> Void
 
@@ -312,36 +304,33 @@ private struct AddFolderTab: View {
     private typealias Metrics = AppDefaults.Papers
 
     var body: some View {
-        let shape = UnevenRoundedRectangle(topLeadingRadius: Metrics.addTabRadius,
-                                           bottomLeadingRadius: Metrics.addTabRadius, style: .continuous)
+        let shape = FolderTabShape()
         Button(action: action) {
-            Text("+")
-                .font(.system(size: Metrics.addTabSize))
-                .foregroundStyle(PiperTheme.paperMuted)
-                .frame(width: Metrics.tabVisible, height: Metrics.addTabHeight)
-                .padding(.trailing, Metrics.tabWidth - Metrics.tabVisible)
-                .background(hovered ? PiperTheme.paperTint : .clear, in: shape)
-                .overlay {
-                    // The right edge has no border: the tab goes under the paper.
-                    shape.strokeBorder(PiperTheme.tabDash, style: StrokeStyle(lineWidth: Metrics.markLine, dash: Metrics.slotDash))
-                        .mask(alignment: .leading) {
-                            Rectangle().frame(width: Metrics.tabWidth - Metrics.markLine)
-                        }
+            Sideways {
+                Text(TabColumn.addLabel)
+                    .font(PiperTheme.paperUI(.body, weight: .semibold))
+                    .tracking(Metrics.tabLabelTracking)
+                    .foregroundStyle(PiperTheme.paperMuted)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .rotationEffect(.degrees(-90))
+            }
+            .padding(.vertical, Metrics.tabLabelPadding)
+            .frame(width: Metrics.tabVisible - Metrics.tabLabelLeading)
+            .padding(.leading, Metrics.tabLabelLeading)
+            .frame(width: Metrics.tabWidth, alignment: .leading)
+            .background {
+                ZStack {
+                    if hovered { shape.fill(PiperTheme.paperTint) }
+                    shape.stroke(PiperTheme.tabDash, style: StrokeStyle(lineWidth: Metrics.markLine, dash: Metrics.slotDash))
                 }
-                .contentShape(shape)
+            }
+            .contentShape(shape)
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
-        .help("Pin a folder as a tab")
-        .accessibilityLabel("Pin a folder as a tab")
+        .help("Add a folder. Each folder gets a tab.")
+        .accessibilityLabel("Add Folder")
         .accessibilityAction(.default, action)
-    }
-}
-
-extension PaperTab {
-    /// True for the tab of a pinned folder.
-    var isPinned: Bool {
-        if case .pinned = self { return true }
-        return false
     }
 }

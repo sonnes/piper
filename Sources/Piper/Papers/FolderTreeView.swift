@@ -1,12 +1,12 @@
 import AppKit
 import SwiftUI
 
-/// The tree of folders and files on the Folders tab and on a pinned folder tab.
+/// The tree of folders and files on the tab of a folder.
 ///
-/// Folders shows the whole tree. A pinned folder tab shows the folders and
-/// files in its folder, under a row of swatches for the color of its tab. A
-/// click on a folder opens or closes it. A click on a file opens it as a
-/// file paper. The two tabs share the open folders.
+/// The tree shows the folders and files of the active folder, under a row
+/// of swatches for the color of its tab. A click on a folder opens or closes
+/// it. A click on a file opens it as a file paper. The folder tabs share the
+/// list of open folders.
 struct FolderTreeView: View {
     @Bindable var paper: FeedPaperModel
     @Bindable var model: AppModel
@@ -16,29 +16,20 @@ struct FolderTreeView: View {
     var body: some View {
         let rows = paper.treeRows
         let cursor = paper.treeCursor(in: rows)
-        let tabs = Set(paper.column.tabs.compactMap { tab -> String? in
-            if case .pinned(let path) = tab { return path }
-            return nil
-        })
         let dates = Dictionary(model.files.map { ($0.relativePath, $0.modifiedAt) }, uniquingKeysWith: { first, _ in first })
         VStack(alignment: .leading, spacing: 0) {
-            subline(rows: rows, tabs: tabs.count)
+            swatches
                 .padding(Metrics.subPadding)
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(rows) { row in
-                            TreeRow(row: row, selected: row.id == cursor,
-                                    tabColor: tabs.contains(row.id) ? paper.color(of: .pinned(row.id)) : nil,
-                                    date: dates[row.path],
+                            TreeRow(row: row, selected: row.id == cursor, date: dates[row.path],
                                     click: { paper.clickTreeRow(row) },
-                                    toggle: { paper.toggleFolder(row) },
-                                    pin: { paper.togglePin(row.id) },
-                                    removeRoot: model.wikiPaths.count > 1 && row.path.isEmpty && row.depth == 0
-                                        ? { model.removeWikiFolder(row.id) } : nil)
+                                    toggle: { paper.toggleFolder(row) })
                                 .id(row.id)
                         }
-                        if paper.state.tab == .folders { footer }
+                        warnings
                     }
                     .padding(Metrics.treePadding)
                 }
@@ -56,36 +47,19 @@ struct FolderTreeView: View {
 
     // MARK: - Parts
 
-    /// The summary of the Folders tab, or the swatches of a pinned folder.
-    @ViewBuilder private func subline(rows: [FolderTreeRow], tabs: Int) -> some View {
-        if case .pinned(let path) = paper.state.tab {
-            let current = paper.color(of: .pinned(path))
-            HStack(spacing: 10) {
-                Text("Tab color").foregroundStyle(PiperTheme.paperFaint)
-                ForEach(TabColor.allCases) { color in
-                    Swatch(color: color, selected: color == current) { paper.setTabColor(color) }
-                }
+    /// The swatches for the color of the tab of the folder.
+    private var swatches: some View {
+        let current = paper.color(of: paper.state.tab)
+        return HStack(spacing: 10) {
+            Text("Tab color").foregroundStyle(PiperTheme.paperFaint)
+            ForEach(TabColor.allCases) { color in
+                Swatch(color: color, selected: color == current) { paper.setTabColor(color) }
             }
-            .font(PiperTheme.paperUI(.body))
-        } else {
-            Text(paper.treeMessage ?? Self.summary(folders: rows.filter { $0.depth == 0 && $0.isFolder }.count, tabs: tabs))
-                .font(PiperTheme.paperUI(.body))
-                .foregroundStyle(PiperTheme.paperMuted)
         }
+        .font(PiperTheme.paperUI(.body))
     }
 
-    /// "4 folders. 3 have a tab."
-    static func summary(folders: Int, tabs: Int) -> String {
-        let first = folders == 1 ? "1 folder." : "\(folders) folders."
-        switch tabs {
-        case 0: return first + " None has a tab."
-        case 1: return first + " 1 has a tab."
-        default: return first + " \(tabs) have a tab."
-        }
-    }
-
-    @ViewBuilder private var footer: some View {
-        IndexAction(title: "Add Folder…") { model.chooseWiki() }
+    @ViewBuilder private var warnings: some View {
         if !model.wikiProblems.isEmpty {
             DisclosureGroup("\(model.wikiProblems.count) file warnings") {
                 Text(model.wikiProblems.joined(separator: "\n"))
@@ -103,14 +77,9 @@ struct FolderTreeView: View {
 private struct TreeRow: View {
     let row: FolderTreeRow
     let selected: Bool
-    /// The color of the tab of a pinned folder, or nil for a row without a tab.
-    let tabColor: TabColor?
     let date: Date?
     let click: () -> Void
     let toggle: () -> Void
-    let pin: () -> Void
-    /// Removes a folder from the folder list. Nil for a row that is not in the list.
-    let removeRoot: (() -> Void)?
 
     @Environment(DeskMarks.self) private var marks: DeskMarks?
     private typealias Metrics = AppDefaults.Papers
@@ -121,7 +90,7 @@ private struct TreeRow: View {
         HStack(spacing: Metrics.treeSpacing) {
             chevron
             if row.isFolder {
-                FolderMark(color: tabColor.map(PiperTheme.tabEdge) ?? PiperTheme.paperFaint)
+                FolderMark()
             } else {
                 SheetMark().padding(.horizontal, 2)
             }
@@ -149,7 +118,6 @@ private struct TreeRow: View {
         .accessibilityActions {
             if row.isFolder {
                 Button(row.expanded ? "Close \(row.name)" : "Open \(row.name)", action: toggle)
-                Button(tabColor == nil ? "Pin to Tabs" : "Unpin from Tabs", action: pin)
             }
         }
     }
@@ -181,10 +149,7 @@ private struct TreeRow: View {
     @ViewBuilder private var meta: some View {
         Group {
             if row.isFolder {
-                if !row.isOtherRoot {
-                    Text(tabColor != nil ? "Tab · \(row.count)" : "\(row.count)")
-                        .foregroundStyle(tabColor != nil ? PiperTheme.paperMuted : PiperTheme.paperFaint)
-                }
+                Text("\(row.count)").foregroundStyle(PiperTheme.paperFaint)
             } else if onDesk {
                 Text("on the desk").fontWeight(.medium).foregroundStyle(PiperTheme.brand)
             } else if let date {
@@ -223,25 +188,17 @@ private struct TreeRow: View {
     }
 
     @ViewBuilder private var menu: some View {
-        if row.isFolder {
-            Button(tabColor == nil ? "Pin to Tabs" : "Unpin from Tabs", action: pin)
-        }
-        Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: row.id)]) }
-        if let removeRoot {
-            Divider()
-            Button("Remove Folder", action: removeRoot)
-        }
+        Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: row.id)]) }
     }
 
     private var accessibilityTitle: String {
         guard row.isFolder else { return row.name }
         let files = row.count == 1 ? "1 file" : "\(row.count) files"
-        if row.isOtherRoot { return "\(row.name), folder" }
-        return tabColor != nil ? "\(row.name), folder, \(files), has a tab" : "\(row.name), folder, \(files)"
+        return "\(row.name), folder, \(files)"
     }
 }
 
-/// A swatch of a tab color on a pinned folder.
+/// A swatch of a tab color on the tree of a folder.
 private struct Swatch: View {
     let color: TabColor
     let selected: Bool
