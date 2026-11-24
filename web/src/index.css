@@ -220,7 +220,7 @@ body {
 	--piper-bar: #18181b;
 	--piper-claude: #f97316;
 	--piper-card-shadow: 0 0 0 1px #e4e4e7, 0 3px 12px rgb(0 0 0 / 0.1);
-	--piper-mark-yellow: #e0e7ff;
+	--piper-mark-indigo: #e0e7ff;
 	--piper-mark-green: rgb(74 222 128 / 0.32);
 	--piper-mark-pink: rgb(244 114 182 / 0.28);
 	--piper-tertiary: #71717a;
@@ -229,7 +229,7 @@ body {
 	--piper-bar: #18181b;
 	--piper-claude: #fb923c;
 	--piper-card-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 6px 20px rgb(0 0 0 / 0.4);
-	--piper-mark-yellow: #312e81;
+	--piper-mark-indigo: #312e81;
 	--piper-mark-green: rgb(74 222 128 / 0.22);
 	--piper-mark-pink: rgb(244 114 182 / 0.24);
 	--piper-tertiary: #a1a1aa;
@@ -237,7 +237,7 @@ body {
 
 [data-hubble-editor] mark.piper-highlight {
 	color: inherit;
-	background: var(--piper-mark-yellow);
+	background: var(--piper-mark-indigo);
 	border-radius: 3px;
 	padding: 0.08em 0;
 	-webkit-box-decoration-break: clone;

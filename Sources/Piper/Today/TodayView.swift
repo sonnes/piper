@@ -279,7 +279,7 @@ struct TodayView: View {
         } else {
             switch paper.state.lens {
             case .reading: PaperEmpty(symbol: "book", title: "Nothing to Read", detail: "Paste a link above, or press Shift twice on a web page.")
-            case .kept: PaperEmpty(symbol: "star", title: "Nothing Kept", detail: "Press K on a row to keep it.")
+            case .kept: PaperEmpty(symbol: "star", title: "Nothing Kept", detail: "Press \(TodayVerb.keep.glyph) on a row to keep it.")
             case .notes, .all: PaperEmpty(symbol: "tray", title: "Nothing Today", detail: "Write a note above, or press Shift twice in another app.")
             }
         }

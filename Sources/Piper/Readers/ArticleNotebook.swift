@@ -315,32 +315,19 @@ private struct QuestionEntry: View {
 
 /// The popover of Save as File: the folder, the parts to include, and the text.
 private struct SaveArticleForm: View {
-
-    /// A folder that can take the file: a folder of the Folders index, or a folder inside the open one.
-    struct Destination: Hashable {
-        let root: String
-        let folder: String
-
-        var label: String {
-            let name = URL(fileURLWithPath: root).lastPathComponent
-            return folder.isEmpty ? name : name + " / " + folder.replacingOccurrences(of: "/", with: " / ")
-        }
-    }
-
     @Bindable var model: AppModel
     let note: Note
     let url: URL
     let title: String
     let close: () -> Void
     @AppStorage(AppDefaults.Key.articleExportFolder) private var lastFolder = ""
-    @State private var destination: Destination?
+    @State private var destination: FileTarget?
     @State private var parts = ArticleMarkdown.Parts()
 
-    private var destinations: [Destination] {
-        model.library.wikiPaths.flatMap { root -> [Destination] in
-            let active = root == model.library.wikiPath
-            return [Destination(root: root, folder: "")] + (active ? model.library.folders.map { Destination(root: root, folder: $0) } : [])
-        }
+    /// The folders that File in Today offers: each folder of the Folders index, and the folders inside the open one.
+    private var destinations: [FileTarget] {
+        FileTarget.targets(sections: [], roots: model.library.wikiPaths, active: model.library.wikiPath,
+                           folders: model.library.folders, files: [], query: "")
     }
 
     private var text: String {
@@ -354,7 +341,7 @@ private struct SaveArticleForm: View {
             Text("Save as File").font(PiperTheme.paperUI(.body, weight: .semibold))
             field("Folder") {
                 Picker("Folder", selection: $destination) {
-                    ForEach(destinations, id: \.self) { Text($0.label).tag(Optional($0)) }
+                    ForEach(destinations) { Text($0.title).tag(Optional($0)) }
                 }
                 .labelsHidden()
             }
@@ -388,7 +375,7 @@ private struct SaveArticleForm: View {
         .padding(ArticleNotebook.Metrics.formPadding)
         .frame(width: ArticleNotebook.Metrics.formWidth)
         .onAppear {
-            destination = destinations.first { $0.label == lastFolder } ?? destinations.first
+            destination = destinations.first { $0.title == lastFolder } ?? destinations.first
         }
     }
 
@@ -402,11 +389,11 @@ private struct SaveArticleForm: View {
     /// Writes a new file. A file with the same name stays, and the new file
     /// gets a number.
     private func save() {
-        guard let destination else { return }
+        guard let destination, case .folder(let root, let folder) = destination else { return }
         do {
-            try model.articleActions.saveAsFile(text, named: fileName, root: destination.root, folder: destination.folder, for: [note])
-            model.messages.show("Saved to " + destination.label)
-            lastFolder = destination.label
+            try model.articleActions.saveAsFile(text, named: fileName, root: root, folder: folder, for: [note])
+            model.messages.show("Saved to " + destination.title)
+            lastFolder = destination.title
             close()
         } catch { model.messages.report(error) }
     }

@@ -30,18 +30,18 @@ struct AgentControls: View {
     private var agentID: String { session?.agentID ?? choice.agentID }
     /// Nil for an agent that the reader removed.
     private var agent: AgentDefinition? { agents.agent(agentID) }
-    private var isClaudeCode: Bool { agents.kind(of: agentID) == .claudeCode }
+    private var connectionType: AgentConnection.Type { agents.kind(of: agentID).connectionType }
     private var canChangeAgent: Bool { session?.isNew ?? true }
 
     private var modelOption: ACP.ConfigOption? { session?.configOptions.first { $0.category == "model" } }
     /// The choice of the session, or of the next session, with the defaults of the runner.
     private var config: AgentConfig { session.map(runner.config(for:)) ?? runner.config(choice) }
-    private var models: [ACP.ConfigOption.Value] { modelOption?.values ?? (isClaudeCode ? ClaudeCodeConnection.models : []) }
+    private var models: [ACP.ConfigOption.Value] { modelOption?.values ?? connectionType.models }
     private var model: String? { config.model ?? modelOption?.currentValue }
 
     private var modes: [ACP.Mode] {
         if let session, !session.modes.isEmpty { return session.modes }
-        return isClaudeCode ? ClaudeCodeConnection.modes : []
+        return connectionType.modes
     }
     private var mode: String? { config.mode ?? session?.currentMode }
 
@@ -220,9 +220,8 @@ struct ApprovalDrawer: View {
         .accessibilityLabel("The agent asks to use \(request.toolName)")
     }
 
-    /// Claude Code keeps an Always choice as a rule in the folder settings. Another agent keeps it itself.
     private func alwaysHelp(_ request: PermissionRequest) -> String {
-        guard runner.agent(of: session)?.kind == .claudeCode,
+        guard runner.agent(of: session)?.kind.connectionType.keepsAlwaysAsRule == true,
               let rule = PermissionRule.rule(for: request) else {
             return "Allows calls like this one from now on."
         }

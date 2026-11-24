@@ -161,7 +161,7 @@ private extension CommandRunner {
     /// The reader can take the Accessibility access away while Piper runs,
     /// so Settings checks it again. QA mode never starts the capture service.
     func showSettings() {
-        if settingsWindowController == nil { settingsWindowController = SettingsWindowController(model: model) }
+        if settingsWindowController == nil { settingsWindowController = SettingsWindowController(model: model, capture: capture) }
         if !QA.isOn { capture.start() }
         settingsWindowController?.show()
     }

@@ -167,12 +167,7 @@ struct MentionCompletions: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
                 if index == 0 || options[index - 1].group != option.group {
-                    Text(option.group.title)
-                        .font(PiperTheme.paperUI(.body, weight: .semibold))
-                        .foregroundStyle(PiperTheme.paperFaint)
-                        .padding(.horizontal, PickRow.Metrics.horizontalPadding)
-                        .padding(.top, index == 0 ? CompletionListChrome.Metrics.firstHeaderTop : CompletionListChrome.Metrics.headerTop)
-                        .padding(.bottom, CompletionListChrome.Metrics.headerBottom)
+                    CompletionGroupHeader(title: option.group.title, isFirst: index == 0)
                 }
                 row(option, active: index == selected)
             }

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { type OpenRequest, type PageNote, send, type Theme } from "./bridge";
 import { EMBED_CHANGED_EVENT } from "./EmbedNode";
+import { errorFilter } from "./errorReports";
 import { lossyFeatures } from "./lossGuard";
 import { getState, latestText, setDoc, setState } from "./store";
 import { applyTheme } from "./theme";
@@ -79,10 +80,12 @@ declare global {
 
 window.piper = piper;
 
-// Piper reports each error of the page. Tests read `window.piperErrors`.
+// Piper reports each distinct error of the page once. Tests read `window.piperErrors`.
 const errors: string[] = [];
 (window as { piperErrors?: string[] }).piperErrors = errors;
+const shouldReport = errorFilter();
 function reportError(message: string) {
+	if (!shouldReport(message)) return;
 	errors.push(message);
 	// A report that fails must not report itself again.
 	send({ action: "error", message }).catch(() => undefined);

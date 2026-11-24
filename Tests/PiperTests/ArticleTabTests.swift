@@ -12,7 +12,7 @@ final class ArticleTabTests: XCTestCase {
         XCTAssertEqual(model.articleTabs.tab(for: article), .web)
         XCTAssertEqual(model.articleTabs.openingTab(for: article), .web)
 
-        model.articleTabs.scroll = ReaderScroll(block: 4, in: article.id)
+        model.articleTabs.scrollToBlock(4, in: article.id)
         XCTAssertEqual(model.articleTabs.openingTab(for: article), .web)
 
         let highlight = UUID()

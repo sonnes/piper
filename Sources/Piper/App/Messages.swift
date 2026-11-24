@@ -25,8 +25,13 @@ struct Message {
 final class Messages {
     private(set) var last: Message?
 
-    /// Shows a message. The app sets it to the toast.
-    @ObservationIgnored var present: (Message) -> Void = { _ in }
+    /// Shows a message. The app sets it to the toast. Messages posted before
+    /// the app sets it wait, and show in order when it is set.
+    @ObservationIgnored var present: ((Message) -> Void)? {
+        didSet { flush() }
+    }
+
+    @ObservationIgnored private var waiting: [Message] = []
 
     func show(_ text: String, undo: (() -> Void)? = nil) {
         show(text, action: undo.map { Message.Action(title: "Undo", perform: $0) })
@@ -51,6 +56,17 @@ final class Messages {
 
     private func post(_ message: Message) {
         last = message
-        present(message)
+        if let present {
+            present(message)
+        } else {
+            waiting.append(message)
+        }
+    }
+
+    private func flush() {
+        guard let present else { return }
+        let messages = waiting
+        waiting = []
+        messages.forEach(present)
     }
 }

@@ -1,6 +1,5 @@
 import AppKit
 import Agents
-import ApplicationServices
 import Observation
 import PiperCore
 import Captures
@@ -46,7 +45,6 @@ final class AppModel {
     var composerDraft: String {
         didSet { preferences.set(composerDraft, forKey: AppDefaults.Key.composerDraft) }
     }
-    var accessibilityEnabled = AXIsProcessTrusted()
     var captureShortcut: CaptureShortcut {
         didSet {
             preferences.set(captureShortcut.rawValue, forKey: AppDefaults.Key.captureShortcut)
@@ -117,12 +115,6 @@ final class AppModel {
                            preferences: preferences, open: open)
         siteScan = SiteScan(feeds: self.feeds, messages: messages, preferences: preferences)
         do { try store.archiveFinishedReading() } catch { messages.report(error) }
-    }
-
-    func requestAccessibility() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
 
     /// Saves the text of the clipboard as a note in the active section.

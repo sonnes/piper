@@ -14,7 +14,7 @@ final class ArticleTabs {
     // MARK: - Properties
 
     /// The place that the Reader tab scrolls to.
-    var scroll: ReaderScroll?
+    private(set) var scroll: ReaderScroll?
     /// The tab of each open link capture, by the id of the capture.
     private var tabs: [UUID: ArticleTab] = [:]
     /// The tab, Reader or Web, that the reader last chose for each site, by `Site.key`.
@@ -61,7 +61,22 @@ final class ArticleTabs {
     /// Shows a highlight or a question of a link capture in the Reader tab.
     func showHighlight(_ note: UUID, in article: UUID) {
         tabs[article] = .reader
+        scrollToNote(note, in: article)
+    }
+
+    /// Scrolls the Reader tab of a link capture to a block. Zero is the top.
+    func scrollToBlock(_ block: Int, in article: UUID) {
+        scroll = ReaderScroll(block: block, in: article)
+    }
+
+    /// Scrolls the Reader tab of a link capture to a child note.
+    func scrollToNote(_ note: UUID, in article: UUID) {
         scroll = ReaderScroll(note: note, in: article)
+    }
+
+    /// Ends a scroll request after the page ran it. A newer request stays.
+    func clearScroll(_ request: ReaderScroll) {
+        if scroll == request { scroll = nil }
     }
 
     /// Shows the place that a paper of a link capture opens at.

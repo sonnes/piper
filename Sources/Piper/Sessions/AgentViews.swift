@@ -143,12 +143,8 @@ struct SkillCompletions: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
                 if index == 0 || actions[index - 1].folder != action.folder {
-                    Text(action.folder.name.uppercased())
-                        .font(PiperTheme.paperUI(.body, weight: .semibold)).tracking(Metrics.headerTracking)
-                        .foregroundStyle(PiperTheme.paperFaint)
-                        .padding(.horizontal, PickRow.Metrics.horizontalPadding)
-                        .padding(.top, index == 0 ? CompletionListChrome.Metrics.firstHeaderTop : CompletionListChrome.Metrics.headerTop)
-                        .padding(.bottom, CompletionListChrome.Metrics.headerBottom)
+                    CompletionGroupHeader(title: action.folder.name.uppercased(), isFirst: index == 0,
+                                          tracking: Metrics.headerTracking)
                 }
                 row(action, active: index == selected)
             }

@@ -20,11 +20,11 @@ struct PaperKey {
         PaperKey(key: CommandKey("t", []), title: "tidy", run: run)
     }
 
-    /// K keeps an article and B opens it in the browser, on its row of a
-    /// feed and on its paper.
+    /// The key of Keep in Today keeps an article, and B opens it in the
+    /// browser, on its row of a feed and on its paper.
     @MainActor static func articleKeys(actions: ArticleActions, article: @escaping () -> Article?) -> [PaperKey] {
         [
-            PaperKey(key: CommandKey("k", []), title: "keep", isOn: { article() != nil }) {
+            PaperKey(key: TodayVerb.keep.keys[0], title: TodayVerb.keep.id, isOn: { article() != nil }) {
                 if let article = article() { actions.keep([article]) }
             },
             PaperKey(key: CommandKey("b", []), title: "open in browser", isOn: { article() != nil }) {

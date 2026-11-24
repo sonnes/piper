@@ -284,7 +284,7 @@ struct SendItems: View {
 
     var body: some View {
         if !model.skills.folders.isEmpty {
-            Button("Send with the Default Skill") { verbs.send(nil) }.keyboardShortcut("s", modifiers: [])
+            Button("Send with the Default Skill") { verbs.send(nil) }.keyboardShortcut(TodayVerb.send.keys[0].keyboardShortcut)
             Divider()
             SendMenuItems(skills: model.skills) { verbs.send($0) }
             Divider()

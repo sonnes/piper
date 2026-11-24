@@ -132,6 +132,16 @@ public protocol AgentConnection: AnyObject {
     /// True when the agent asks questions that `answer` replies to. The runner
     /// calls `answer` only for such an agent.
     nonisolated static var answersQuestions: Bool { get }
+    /// True when the agent keeps an Always choice as a rule in the folder
+    /// settings. Another agent keeps it itself.
+    nonisolated static var keepsAlwaysAsRule: Bool { get }
+    /// The models that Piper offers before the agent reports its own.
+    nonisolated static var models: [ACP.ConfigOption.Value] { get }
+    /// The modes that Piper offers before the agent reports its own.
+    nonisolated static var modes: [ACP.Mode] { get }
+    /// The model of a margin answer when the reader chose none. Empty leaves
+    /// the choice to the agent.
+    nonisolated static var defaultMarginModel: String { get }
     /// True when a margin session of the agent can run read-only, given what
     /// the agent offers when its session opens.
     nonisolated static func hasReadOnlyMode(_ setup: ACP.SessionSetup) -> Bool

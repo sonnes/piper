@@ -296,7 +296,6 @@ struct RowNotes: View {
         }
         .padding(Metrics.rowNotesPadding)
         .overlay(alignment: .leading) { Rectangle().fill(PiperTheme.quoteBar).frame(width: Metrics.quoteBarWidth) }
-        .padding(.top, 0)
     }
 
     /// The quote of a highlight, or the first paragraph of another note.

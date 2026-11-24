@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Captures
+import Observation
 import PiperCore
 
 struct ShiftGesture {
@@ -65,11 +66,13 @@ enum CaptureShortcut: String, CaseIterable {
     }
 }
 
-@MainActor
+@MainActor @Observable
 final class CaptureService {
-    private var global: Any?
-    private var local: Any?
-    private lazy var hotkey = GlobalHotkey(key: CaptureShortcut.spaceKey) { [weak self] in self?.capture() }
+    /// True when Piper has Accessibility access. The service updates it each time it checks the access.
+    private(set) var isAccessibilityEnabled: Bool
+    @ObservationIgnored private var global: Any?
+    @ObservationIgnored private var local: Any?
+    @ObservationIgnored private lazy var hotkey = GlobalHotkey(key: CaptureShortcut.spaceKey) { [weak self] in self?.capture() }
     /// Checks the Accessibility access until Piper has it.
     private var accessibilityPoll: Timer?
     /// True while the service checks the Accessibility access every `accessibilityInterval`.
@@ -79,7 +82,6 @@ final class CaptureService {
     private let store: CaptureStore
     private let messages: Messages
     private let shortcut: () -> CaptureShortcut
-    private let accessibilityChanged: (Bool) -> Void
     private let isTrusted: () -> Bool
     private let queue = DispatchQueue(label: "piper.capture")
     private var busy = false
@@ -91,15 +93,14 @@ final class CaptureService {
 
     /// - Parameters:
     ///   - shortcut: The capture shortcut that Settings shows.
-    ///   - accessibilityChanged: Takes the Accessibility access of Piper each time the service checks it.
     ///   - isTrusted: Reads the Accessibility access of Piper.
     init(store: CaptureStore, messages: Messages, shortcut: @escaping () -> CaptureShortcut,
-         accessibilityChanged: @escaping (Bool) -> Void, isTrusted: @escaping () -> Bool = { AXIsProcessTrusted() }) {
+         isTrusted: @escaping () -> Bool = { AXIsProcessTrusted() }) {
         self.store = store
         self.messages = messages
         self.shortcut = shortcut
-        self.accessibilityChanged = accessibilityChanged
         self.isTrusted = isTrusted
+        isAccessibilityEnabled = isTrusted()
     }
 
     /// The time between two checks of the Accessibility access.
@@ -111,9 +112,8 @@ final class CaptureService {
     /// away at any time, so Piper calls this again when it becomes active,
     /// when Settings shows, and when a capture finds no access.
     func start() {
-        let trusted = isTrusted()
-        accessibilityChanged(trusted)
-        guard trusted else {
+        isAccessibilityEnabled = isTrusted()
+        guard isAccessibilityEnabled else {
             stop()
             if accessibilityPoll == nil {
                 accessibilityPoll = Timer.scheduledTimer(withTimeInterval: Self.accessibilityInterval, repeats: true) { [weak self] _ in
@@ -141,6 +141,13 @@ final class CaptureService {
             self?.gesture.cancel()
             return event
         }
+    }
+
+    /// Asks macOS for Accessibility access and opens its pane in System Settings.
+    func requestAccessibility() {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        isAccessibilityEnabled = AXIsProcessTrustedWithOptions(options)
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
     }
 
     func stop() {

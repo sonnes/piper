@@ -36,7 +36,7 @@ struct ArticleReader: View {
                     Text(resume).foregroundStyle(PiperTheme.paperMuted)
                     Spacer(minLength: Metrics.resumeGap)
                     Button("Start from the top") {
-                        model.articleTabs.scroll = ReaderScroll(block: 0, in: note.id)
+                        model.articleTabs.scrollToBlock(0, in: note.id)
                         self.resume = nil
                     }
                     .buttonStyle(.plain).fontWeight(.medium).foregroundStyle(PiperTheme.brand)
@@ -92,11 +92,11 @@ struct ArticleReader: View {
         if let scroll, let id = scroll.note, let target = children.first(where: { $0.id == id }) {
             resume = target.sources.first.flatMap { $0 == ReaderAssistant.source ? nil : "Continued from \($0), at your highlight" }
         } else if let block = start.block, block > 0 {
-            model.articleTabs.scroll = ReaderScroll(block: block, in: note.id)
+            model.articleTabs.scrollToBlock(block, in: note.id)
             resume = "Continued where you stopped"
         } else if start.block == nil, let last = highlights.max(by: { $0.createdAt < $1.createdAt }),
                   let source = last.sources.first, source != ReaderAssistant.source {
-            model.articleTabs.scroll = ReaderScroll(note: last.id, in: note.id)
+            model.articleTabs.scrollToNote(last.id, in: note.id)
             resume = "Continued from \(source), at your latest highlight"
         }
     }
@@ -105,7 +105,7 @@ struct ArticleReader: View {
     /// tab opens at the saved place and not at the old request.
     private func scrolled(_ request: ReaderScroll) {
         DispatchQueue.main.async {
-            if model.articleTabs.scroll == request { model.articleTabs.scroll = nil }
+            model.articleTabs.clearScroll(request)
         }
     }
 

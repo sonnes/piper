@@ -27,9 +27,9 @@ enum PiperTheme {
     // appearance and shade 400 in the dark, unless a comment names others.
 
     /// Amber 500 and 400. A kept article.
-    private static let starNS = color(light: 0xF59E0B, dark: 0xFBBF24)
+    static let starNS = color(light: 0xF59E0B, dark: 0xFBBF24)
     /// Orange. The tile of a sessions folder, its count of sessions that wait, and the mark of Claude Code.
-    private static let claudeNS = color(light: 0xF97316, dark: 0xFB923C)
+    static let claudeNS = color(light: 0xF97316, dark: 0xFB923C)
     /// Teal 600 and 400. The mark of an agent that speaks ACP.
     private static let acpAgentNS = color(light: 0x0D9488, dark: 0x2DD4BF)
 

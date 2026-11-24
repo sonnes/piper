@@ -24,6 +24,22 @@ struct CompletionListChrome: ViewModifier {
     }
 }
 
+/// The name of a group in a completion list, over the first row of the group.
+struct CompletionGroupHeader: View {
+    let title: String
+    let isFirst: Bool
+    var tracking: CGFloat = 0
+
+    var body: some View {
+        Text(title)
+            .font(PiperTheme.paperUI(.body, weight: .semibold)).tracking(tracking)
+            .foregroundStyle(PiperTheme.paperFaint)
+            .padding(.horizontal, PickRow.Metrics.horizontalPadding)
+            .padding(.top, isFirst ? CompletionListChrome.Metrics.firstHeaderTop : CompletionListChrome.Metrics.headerTop)
+            .padding(.bottom, CompletionListChrome.Metrics.headerBottom)
+    }
+}
+
 extension CompletionListChrome {
     enum Metrics {
         static let padding: CGFloat = 6

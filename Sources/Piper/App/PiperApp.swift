@@ -42,8 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         self.model = model
         let desk = PaperDesk(model: model)
         self.desk = desk
-        let capture = CaptureService(store: model.store, messages: model.messages, shortcut: { [weak model] in model?.captureShortcut ?? .shiftShift },
-                                     accessibilityChanged: { [weak model] enabled in model?.accessibilityEnabled = enabled })
+        let capture = CaptureService(store: model.store, messages: model.messages, shortcut: { [weak model] in model?.captureShortcut ?? .shiftShift })
         self.capture = capture
         commands = CommandRunner(model: model, desk: desk, capture: capture)
         super.init()

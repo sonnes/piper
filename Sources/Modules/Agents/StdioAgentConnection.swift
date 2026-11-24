@@ -57,6 +57,10 @@ public final class StdioAgentConnection: AgentConnection {
     public nonisolated static let localCommands: Set<String> = []
     public nonisolated static let readsDenialMessage = false
     public nonisolated static let answersQuestions = false
+    public nonisolated static let keepsAlwaysAsRule = false
+    public nonisolated static let models: [ACP.ConfigOption.Value] = []
+    public nonisolated static let modes: [ACP.Mode] = []
+    public nonisolated static let defaultMarginModel = ""
 
     public nonisolated static func hasReadOnlyMode(_ setup: ACP.SessionSetup) -> Bool {
         ACP.Mode.readOnly(in: setup.modes) != nil

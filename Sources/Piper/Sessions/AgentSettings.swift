@@ -128,7 +128,7 @@ final class AgentSettings {
     /// another agent with its own default model.
     func setMarginAgent(_ id: String) {
         marginAgentID = id
-        marginModel = kind(of: id) == .claudeCode ? ClaudeCodeConnection.defaultMarginModel : ""
+        marginModel = kind(of: id).connectionType.defaultMarginModel
     }
 
     func canAnswerInMargin(_ id: String) -> Bool {

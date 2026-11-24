@@ -213,8 +213,16 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
   const collapsed = new Set();
 
   const post = message => window.webkit?.messageHandlers?.piper?.postMessage(message);
-  window.addEventListener('error', event => post({ action: 'error', message: String(event.message) }));
-  window.addEventListener('unhandledrejection', event => post({ action: 'error', message: String(event.reason) }));
+  // Each distinct error goes to Piper once. The browser reports a
+  // ResizeObserver loop for layout that settles in the next frame.
+  const reportedErrors = new Set();
+  const reportError = message => {
+    if (message.includes('ResizeObserver loop') || reportedErrors.has(message)) return;
+    reportedErrors.add(message);
+    post({ action: 'error', message });
+  };
+  window.addEventListener('error', event => reportError(String(event.message)));
+  window.addEventListener('unhandledrejection', event => reportError(String(event.reason)));
 
   // ---------- article ----------
 

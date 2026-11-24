@@ -45,9 +45,9 @@ extension SiteIcon {
         /// Tailwind shade 500 in the light appearance and 400 in the dark.
         static let tags: [NSColor] = [
             PiperTheme.color(light: 0x8B5CF6, dark: 0xA78BFA), PiperTheme.color(light: 0x10B981, dark: 0x34D399),
-            PiperTheme.color(light: 0xF97316, dark: 0xFB923C), PiperTheme.color(light: 0x0EA5E9, dark: 0x38BDF8),
+            PiperTheme.claudeNS, PiperTheme.color(light: 0x0EA5E9, dark: 0x38BDF8),
             PiperTheme.color(light: 0xF43F5E, dark: 0xFB7185), PiperTheme.color(light: 0x84CC16, dark: 0xA3E635),
-            PiperTheme.color(light: 0xD946EF, dark: 0xE879F9), PiperTheme.color(light: 0xF59E0B, dark: 0xFBBF24)
+            PiperTheme.color(light: 0xD946EF, dark: 0xE879F9), PiperTheme.starNS
         ]
     }
 

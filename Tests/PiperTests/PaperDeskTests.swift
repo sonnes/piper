@@ -569,7 +569,7 @@ final class PaperDeskTests: XCTestCase {
         XCTAssertEqual(model.articleTabs.scroll?.note, highlight)
         XCTAssertEqual(desk.paper.marks.open, [.note(note.id)])
 
-        model.articleTabs.scroll = nil
+        model.articleTabs.clearScroll(try XCTUnwrap(model.articleTabs.scroll))
         model.articleTabs.choose(.notes, for: note)
         model.papers.open(.note(note.id, show: .openingTab))
         XCTAssertEqual(model.articleTabs.tab(for: note), .web)

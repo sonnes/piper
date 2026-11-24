@@ -395,8 +395,7 @@ extension PaperTabs {
         /// The line on the outer edge of the active tab: the 600 or 700 shade in
         /// the light, and the 400 shade in the dark.
         static func edge(_ color: TabColor) -> Color {
-            guard let (light, dark) = edges[color] else { return PiperTheme.paperMuted }
-            return Color(nsColor: PiperTheme.color(light: light, dark: dark))
+            edges[color] ?? PiperTheme.paperMuted
         }
 
         /// Zinc 900, and white. The label of a tab that is not active.
@@ -436,10 +435,14 @@ extension PaperTabs {
             .rose: (0xFFE4E6, 0x6C1A2E), .clay: (0xFFEDD5, 0x703315)
         ]
 
-        private static let edges: [TabColor: (UInt32, UInt32)] = [
-            .indigo: (0x4F46E5, 0x818CF8), .zinc: (0x52525B, 0xD4D4D8), .sky: (0x0369A1, 0x38BDF8),
-            .emerald: (0x047857, 0x34D399), .plum: (0x86198F, 0xE879F9), .teal: (0x0F766E, 0x2DD4BF),
-            .rose: (0xBE123C, 0xFB7185), .clay: (0xC2410C, 0xFB923C)
+        private static let edges: [TabColor: Color] = [
+            .indigo: PiperTheme.brand, .zinc: PiperTheme.paperMuted,
+            .sky: Color(nsColor: PiperTheme.color(light: 0x0369A1, dark: 0x38BDF8)),
+            .emerald: Color(nsColor: PiperTheme.color(light: 0x047857, dark: 0x34D399)),
+            .plum: Color(nsColor: PiperTheme.color(light: 0x86198F, dark: 0xE879F9)),
+            .teal: Color(nsColor: PiperTheme.color(light: 0x0F766E, dark: 0x2DD4BF)),
+            .rose: Color(nsColor: PiperTheme.color(light: 0xBE123C, dark: 0xFB7185)),
+            .clay: Color(nsColor: PiperTheme.color(light: 0xC2410C, dark: 0xFB923C))
         ]
     }
 }

@@ -11,13 +11,13 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSWindowController {
 
-    init(model: AppModel) {
+    init(model: AppModel, capture: CaptureService) {
         let tabs = SettingsTabViewController()
         tabs.tabStyle = .toolbar
         tabs.addTab("General", symbol: "gearshape", size: Metrics.generalSize,
                     content: GeneralSettings(model: model))
         tabs.addTab("Capture", symbol: "text.cursor", size: Metrics.captureSize,
-                    content: CaptureSettings(model: model))
+                    content: CaptureSettings(model: model, capture: capture))
         tabs.addTab("Reading", symbol: "book", size: Metrics.readingSize,
                     content: ReadingPane())
         tabs.addTab("AI", symbol: "sparkles", size: Metrics.aiSize,
@@ -146,6 +146,7 @@ private struct GeneralSettings: View {
 /// The selection shortcut, Accessibility access, and clipboard fallback.
 private struct CaptureSettings: View {
     @Bindable var model: AppModel
+    let capture: CaptureService
 
     var body: some View {
         Form {
@@ -159,10 +160,10 @@ private struct CaptureSettings: View {
                     Text("Saves the selected text from the app in front.")
                 }
                 LabeledContent {
-                    Button("Open System Settings…") { model.requestAccessibility() }
+                    Button("Open System Settings…") { capture.requestAccessibility() }
                 } label: {
                     Text("Accessibility")
-                    Text(model.accessibilityEnabled ? "Enabled. Piper can read a selection." : "Not enabled. Piper cannot read a selection.")
+                    Text(capture.isAccessibilityEnabled ? "Enabled. Piper can read a selection." : "Not enabled. Piper cannot read a selection.")
                 }
             }
             Section("Clipboard") {
@@ -241,9 +242,10 @@ private struct AISettings: View {
                     Text("Margin answers")
                     Text("Answers in the reader margin can read files and the web, and change nothing. An ACP agent must offer a read-only mode, such as Plan.")
                 }
-                if agents.kind(of: agents.marginAgentID) == .claudeCode {
+                let marginModels = agents.kind(of: agents.marginAgentID).connectionType.models
+                if !marginModels.isEmpty {
                     Picker("Margin model", selection: Binding(get: { agents.marginModel }, set: { agents.marginModel = $0 })) {
-                        ForEach(ClaudeCodeConnection.models) { Text($0.name).tag($0.id) }
+                        ForEach(marginModels) { Text($0.name).tag($0.id) }
                     }
                 }
             } header: {

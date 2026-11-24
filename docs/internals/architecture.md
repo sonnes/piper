@@ -60,7 +60,7 @@ A view or a controller takes the part that it uses. For example, `FolderTreeView
 
 A store in a module throws its errors and returns what it made. For example, `CaptureStore.add` returns the new `Note`, and `CaptureStore.merge` returns the merged note. A store has no status text. The caller in the application target picks the words.
 
-`Messages` in `AppModel` is the one channel for the messages of the app. `show(_:undo:)` shows a line, with an optional Undo button. `show(_:action:)` shows a line with another button, such as Send or Show. `report(_:)` shows an error. `AppDelegate` sets `Messages.present` to the toast. A test reads `Messages.last`.
+`Messages` in `AppModel` is the one channel for the messages of the app. `show(_:undo:)` shows a line, with an optional Undo button. `show(_:action:)` shows a line with another button, such as Send or Show. `report(_:)` shows an error. `AppDelegate` sets `Messages.present` to the toast. A message that comes before the toast waits, and it shows in order when `present` is set. A test reads `Messages.last`.
 
 Some errors happen where no caller waits:
 
@@ -68,7 +68,7 @@ Some errors happen where no caller waits:
 - `CaptureStore` sends the error of an undo or a redo that cannot save to `reportUndoError`. `AppModel` sets it to `Messages.report`.
 - `FeedStore` and `ClipboardInbox` take a `report` closure. Their timers and their reads report each database error through it. A failed feed read then gives an empty value.
 - `SessionRunner` reports a storage error through the closure that `AgentSettings` gives it.
-- `WebPageBridge` runs each call on the editor page and the reader page with a completion handler that reports a JavaScript exception. It also reports a message from a page that does not decode. The editor page and the reader page post an `error` message for each uncaught error and unhandled rejection. `EditorPage` and `ReaderPageView` report it through the bridge. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
+- `WebPageBridge` runs each call on the editor page and the reader page with a completion handler that reports a JavaScript exception. It also reports a message from a page that does not decode. The editor page and the reader page post an `error` message for each uncaught error and unhandled rejection. Each page posts a message once per page load, and it ignores "ResizeObserver loop" messages. `EditorPage` and `ReaderPageView` report it through the bridge. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
 - `SiteScan` reports each browser history that it cannot read, and then scans the others.
 
 ## Windows
@@ -167,7 +167,7 @@ The reader paper table scrolls the Reader tab with the arrows, sends H and N to 
 
 ## Capture
 
-`CaptureService` detects double Shift with `NSEvent` monitors. Control-Option-Space is a registered system hotkey, so the source app does not receive the keystroke. Without Accessibility access, `CaptureService` checks the access every 4 seconds, and it stops when Piper has the access. The user can take the access away later, so `CaptureService.start()` checks again when Piper becomes active, when Settings shows, and when a capture finds no access. Settings shows the result.
+`CaptureService` detects double Shift with `NSEvent` monitors. Control-Option-Space is a registered system hotkey, so the source app does not receive the keystroke. Without Accessibility access, `CaptureService` checks the access every 4 seconds, and it stops when Piper has the access. The user can take the access away later, so `CaptureService.start()` checks again when Piper becomes active, when Settings shows, and when a capture finds no access. `CaptureService.isAccessibilityEnabled` holds the result, and Settings shows it. `CaptureService.requestAccessibility()` asks macOS for the access.
 
 `GlobalHotkey` registers one Carbon hotkey and gives it its own id, so the handler of one hotkey ignores the other. It takes a `CommandKey` and converts it to the Carbon key code. The capture shortcut (`CaptureShortcut.spaceKey`) and `SendShortcut` (the key of `Command.sendClipboard`) use it. `SendShortcut` holds its hotkey only while a folder has skills. `SkillFolders.foldersChanged` tells it when that changes.
 
@@ -244,7 +244,7 @@ The runner reads only Agent Client Protocol (ACP) v1 terms. Each session has one
 | `permission` | Adds a request. The session changes to `needsYou`, and the approval drawer shows the options of the agent. |
 | `turnEnded` | Adds a result block with the time, the cost, and the failure, and ends the turn |
 
-Each connection type tells the runner what the agent supports: `localCommands` take no context items, `readsDenialMessage` keeps a reply to a card in the same turn, `answersQuestions` allows `answer`, and `hasReadOnlyMode` tells whether a margin session can run. A tool call and a request carry neutral fields: `kind`, `isQuestion`, the path, and the diffs. Only `ClaudeCodeConnection` knows the tool names of Claude Code. A session that an older Piper stored gets these fields from `restored` of its connection type when the runner loads it.
+Each connection type tells the runner what the agent supports: `localCommands` take no context items, `readsDenialMessage` keeps a reply to a card in the same turn, `answersQuestions` allows `answer`, and `hasReadOnlyMode` tells whether a margin session can run. The views read the rest through `kind.connectionType`: `models` and `modes` fill the menus before the agent reports its own, `defaultMarginModel` is the first margin model, and `keepsAlwaysAsRule` tells whether an Always choice becomes a rule in the folder settings. A tool call and a request carry neutral fields: `kind`, `isQuestion`, the path, and the diffs. Only `ClaudeCodeConnection` knows the tool names of Claude Code. A session that an older Piper stored gets these fields from `restored` of its connection type when the runner loads it.
 
 Parts of a message in a row join into one text block. A tool call keeps its ACP kind, and the transcript folds the calls of a finished turn by kind. A path stays only for a call that writes a file inside the folder.
 
@@ -387,7 +387,7 @@ The editor adds an empty paragraph after a last block that is not a paragraph, s
 
 ## Link Reader
 
-`NoteDetail` shows a capture. `CaptureLinks` finds HTTP and HTTPS URLs with `NSDataDetector` and keeps the original text. If the capture is only a URL, the reader opens it at once. `AppModel.articleTabs` is an `ArticleTabs`. It holds the tab of each link capture and the scroll request of the Reader tab. `ArticleTabs.tab(for:)` picks the Reader tab, the Web tab, or the Notes tab. `ArticleTabs.choose(_:for:)` records a choice of Reader or Web for the site of the link. `ArticleTabs.openingTab(for:)` then opens the next link of that site in the same tab. A link from a new site opens in the Web tab. `NoteDetail` shows Reader, Web, and Notes in a `TabIsland` at the bottom of the paper.
+`NoteDetail` shows a capture. `CaptureLinks` finds HTTP and HTTPS URLs with `NSDataDetector` and keeps the original text. If the capture is only a URL, the reader opens it at once. `AppModel.articleTabs` is an `ArticleTabs`. It holds the tab of each link capture and the scroll request of the Reader tab. `scrollToBlock(_:in:)` and `scrollToNote(_:in:)` make a request, and `clearScroll(_:)` ends it after the page ran it. `ArticleTabs.tab(for:)` picks the Reader tab, the Web tab, or the Notes tab. `ArticleTabs.choose(_:for:)` records a choice of Reader or Web for the site of the link. `ArticleTabs.openingTab(for:)` then opens the next link of that site in the same tab. A link from a new site opens in the Web tab. `NoteDetail` shows Reader, Web, and Notes in a `TabIsland` at the bottom of the paper.
 
 `NoteWebReader` embeds `WKWebView` through `NSViewRepresentable`, which works on macOS 14. It keeps the requested URL apart from the current URL, so a view update does not restart navigation after a redirect. A new capture selection resets the reader.
 

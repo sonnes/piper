@@ -74,6 +74,7 @@ public final class ClaudeCodeConnection: AgentConnection {
     public nonisolated static let localCommands: Set<String> = ["compact", "clear", "context", "usage"]
     public nonisolated static let readsDenialMessage = true
     public nonisolated static let answersQuestions = true
+    public nonisolated static let keepsAlwaysAsRule = true
 
     /// The tool that asks the reader questions.
     private nonisolated static let questionTool = "AskUserQuestion"
