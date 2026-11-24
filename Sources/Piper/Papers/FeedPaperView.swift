@@ -47,10 +47,10 @@ struct FeedPaperView: View {
 
     private func tabs(_ layer: PaperTabs.Layer) -> some View {
         let tabs = paper.tabs
-        let lengths = tabs.map { TabColumn.labelLength(title: $0.title, count: count($0)) }
+        let lengths = tabs.map { TabColumn.labelLength(title: $0.title, count: paper.count(of: $0)) }
         let addLength = TabColumn.labelLength(title: TabColumn.addLabel, count: 0)
-        let removeFolder: ((String) -> Void)? = model.library.wikiPaths.count > 1 ? { model.library.removeWikiFolder($0) } : nil
-        return PaperTabs(layer: layer, tabs: tabs, active: paper.state.tab, color: paper.color(of:), count: count,
+        let removeFolder: ((String) -> Void)? = model.library.canRemoveFolder ? { model.library.removeWikiFolder($0) } : nil
+        return PaperTabs(layer: layer, tabs: tabs, active: paper.state.tab, color: paper.color(of:), count: paper.count(of:),
                          stubs: TabColumn.usesStubs(lengths: lengths, addLength: addLength, paperHeight: paper.paperHeight),
                          choose: paper.choose, addFolder: paper.addFolder,
                          removeFolder: removeFolder)
@@ -120,7 +120,7 @@ struct FeedPaperView: View {
             Button("Add Feed…") { paper.addFeed() }
             Divider()
             Button("Show in Finder") { NSWorkspace.shared.open(model.library.vault.root) }
-            if case .folder(let path) = paper.state.tab, model.library.wikiPaths.count > 1 {
+            if case .folder(let path) = paper.state.tab, model.library.canRemoveFolder {
                 Button("Remove Folder") { model.library.removeWikiFolder(path) }
             }
             Button("Refresh") { model.library.reload() }
@@ -164,20 +164,6 @@ struct FeedPaperView: View {
         case .folder:
             return tab.title
         case .sessions(let folder): return "Agents › " + URL(fileURLWithPath: folder).lastPathComponent
-        }
-    }
-
-    /// The count on a tab.
-    private func count(_ tab: PaperTab) -> Int {
-        switch tab {
-        case .today: return model.store.notes.filter { $0.parent == nil && !$0.isDone }.count
-        case .feeds: return model.feeds.unreadCounts().values.reduce(0, +)
-        case .agents:
-            let runner = model.agents.runner
-            return runner.folders().reduce(0) { total, folder in
-                total + runner.sessions(in: folder).filter { $0.state == .needsYou }.count
-            }
-        case .folder(let path): return paper.fileCount(of: path)
         }
     }
 }

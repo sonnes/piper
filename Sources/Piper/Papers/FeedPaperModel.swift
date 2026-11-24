@@ -160,6 +160,22 @@ final class FeedPaperModel {
         tab.color(folders: state.folderColors)
     }
 
+    /// The count on a tab: the open captures, the unread articles, the
+    /// sessions that wait for the reader, or the files of a folder.
+    func count(of tab: PaperTab) -> Int {
+        switch tab {
+        case .today: return today.counts().open
+        case .feeds: return model.feeds.unreadCounts().values.reduce(0, +)
+        case .agents: return model.agents.runner.folders().reduce(0) { $0 + waitingSessions(in: $1) }
+        case .folder(let path): return fileCount(of: path)
+        }
+    }
+
+    /// The sessions of a folder that wait for the reader.
+    func waitingSessions(in folder: String) -> Int {
+        model.agents.runner.sessions(in: folder).filter { $0.state == .needsYou }.count
+    }
+
     /// The number of files of a folder tab: the files of the active folder,
     /// or the count of the last scan of another folder.
     func fileCount(of path: String) -> Int {

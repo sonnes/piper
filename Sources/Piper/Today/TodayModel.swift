@@ -62,9 +62,38 @@ struct UndoOffer: Identifiable {
     let message: String
 }
 
+/// What the list of Today shows: the stream of a scope, or the done captures.
+struct TodayList {
+    /// The stream of the scope. Nil on Done, which shows the done captures by month.
+    let stream: UnifiedStream?
+    let groups: [UnifiedStream.Group]
+    /// The rows of the groups and then of the tray, in the order of the list.
+    let order: [StreamItem.Ref]
+    let items: [StreamItem.Ref: StreamItem]
+
+    var tray: [StreamItem] { stream?.tray ?? [] }
+    var doneToday: [StreamItem] { stream?.doneToday ?? [] }
+
+    init(stream: UnifiedStream?, groups: [UnifiedStream.Group]) {
+        self.stream = stream
+        self.groups = groups
+        let rows = groups.flatMap(\.items) + (stream?.tray ?? [])
+        order = rows.map(\.id)
+        items = Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// The rows of the references, in the order of the list.
+    func rows(_ refs: Set<StreamItem.Ref>) -> [StreamItem] {
+        order.filter(refs.contains).compactMap { items[$0] }
+    }
+}
+
 /// The state of Today and the verbs of its rows, such as Keep, Done, File, and Send.
 ///
-/// The selection holds the rows of the stream, of any kind. The verbs act on
+/// The model holds the list and the counts. It builds them again only when
+/// an input changes: the feeds, the captures, the clipboard, the files, the
+/// read articles that stay, the lens, the scope, the search, or the day.
+/// The selection holds the rows of the list, of any kind. The verbs act on
 /// the selected rows, or on one row from its buttons and menus.
 @MainActor @Observable
 final class TodayModel {
@@ -84,13 +113,18 @@ final class TodayModel {
     var query = ""
     /// The read articles that stay in the list until the list shows again,
     /// as in NetNewsWire.
-    var keeping: Set<String> = []
+    private(set) var keeping: Set<String> = []
     /// The Undo button after Done or Delete.
     var undo: UndoOffer?
     /// The rows that the File picker files. The picker shows while it is not empty.
     var filing: [StreamItem] = []
     @ObservationIgnored private var undoTimer: Timer?
-    @ObservationIgnored private var relevanceCache: (key: [Int], value: Relevance)?
+    /// The count of stream builds, for the tests.
+    @ObservationIgnored private(set) var builds = 0
+    @ObservationIgnored private var inputCache: (key: InputKey, value: UnifiedStream.Input)?
+    @ObservationIgnored private var listCache: (key: ListKey, value: TodayList)?
+    @ObservationIgnored private var countsCache: (key: CountsKey, value: UnifiedStream.Counts)?
+    @ObservationIgnored private var relevanceCache: (key: RelevanceKey, value: Relevance)?
 
     private var store: CaptureStore { model.store }
     private var feeds: FeedStore { model.feeds }
@@ -105,28 +139,79 @@ final class TodayModel {
 
     // MARK: - Stream
 
+    /// The list of a scope with a lens.
+    func list(lens: UnifiedStream.Lens, scope: PaperScope, now: Date = Date()) -> TodayList {
+        let key = ListKey(input: inputKey, lens: lens, scope: scope, query: query, day: Calendar.current.startOfDay(for: now))
+        if let listCache, listCache.key == key { return listCache.value }
+        let value: TodayList
+        switch scope {
+        case .done:
+            value = TodayList(stream: nil, groups: UnifiedStream.done(notes: store.notes, query: query))
+        case .today(let section):
+            let stream = build(lens: lens, section: section, query: query, now: now)
+            value = TodayList(stream: stream, groups: stream.groups)
+        case .feed, .sources, .folder, .sessions:
+            value = TodayList(stream: nil, groups: [])
+        }
+        listCache = (key, value)
+        return value
+    }
+
+    /// The counts of everything, with no search: the Today tab and the Today index show them.
+    func counts(now: Date = Date()) -> UnifiedStream.Counts {
+        let key = CountsKey(input: inputKey, day: Calendar.current.startOfDay(for: now))
+        if let countsCache, countsCache.key == key { return countsCache.value }
+        let counts: UnifiedStream.Counts
+        if let listCache, listCache.key.counts == key, listCache.key.scope == .today(section: nil), listCache.key.query.isEmpty,
+           let stream = listCache.value.stream {
+            counts = stream.counts
+        } else {
+            counts = build(lens: .all, section: nil, query: "", now: now).counts
+        }
+        countsCache = (key, counts)
+        return counts
+    }
+
+    /// The reader opens an article row. The row stays in the list, read,
+    /// until the list shows again.
+    func open(article id: String) {
+        if !keeping.contains(id) { keeping.insert(id) }
+    }
+
+    /// The list shows again, or shows another scope. The read articles leave it.
+    func resetKeeping() {
+        if !keeping.isEmpty { keeping.removeAll() }
+    }
+
+    private var inputKey: InputKey {
+        InputKey(feeds: feeds.revision, store: store.revision, clipboard: model.clipboard.revision,
+                 files: model.library.filesRevision, keeping: keeping)
+    }
+
+    private func build(lens: UnifiedStream.Lens, section: String?, query: String, now: Date) -> UnifiedStream {
+        builds += 1
+        return UnifiedStream(input(), lens: lens, section: section, query: query, now: now)
+    }
+
     /// Everything that the stream reads.
-    func input() -> UnifiedStream.Input {
-        UnifiedStream.Input(notes: store.notes, clips: model.clipboard.entries,
-                            articles: feeds.articles(.allUnread, keeping: keeping), feeds: feeds.feeds,
-                            relevance: relevance())
+    private func input() -> UnifiedStream.Input {
+        let key = inputKey
+        if let inputCache, inputCache.key == key { return inputCache.value }
+        let value = UnifiedStream.Input(notes: store.notes, clips: model.clipboard.entries,
+                                        articles: feeds.articles(.allUnread, keeping: keeping), feeds: feeds.feeds,
+                                        relevance: relevance())
+        inputCache = (key, value)
+        return value
     }
 
     /// The relevance from local data. It changes when the feeds, the captures,
     /// or the files change.
-    func relevance() -> Relevance {
-        let key = [feeds.revision, store.notes.count, model.library.files.count]
+    private func relevance() -> Relevance {
+        let key = RelevanceKey(feeds: feeds.revision, store: store.revision, files: model.library.filesRevision)
         if let relevanceCache, relevanceCache.key == key { return relevanceCache.value }
-        let stats = FeedStats.compute(feeds: feeds.feeds, counts: feeds.articleCounts(days: FeedStats.days), notes: store.notes)
-        let history = Dictionary(feeds.suggestions.map { ($0.host, $0.score) }, uniquingKeysWith: max)
-        let value = Relevance(stats: stats, history: history, fileNames: model.library.files.map(\.relativePath))
+        let value = Relevance(feeds: feeds, notes: store.notes, fileNames: model.library.files.map(\.relativePath))
         relevanceCache = (key, value)
         return value
-    }
-
-    /// The stats of each feed, for the Sources paper.
-    func stats() -> [String: FeedStats] {
-        FeedStats.compute(feeds: feeds.feeds, counts: feeds.articleCounts(days: FeedStats.days), notes: store.notes)
     }
 
     // MARK: - Selection
@@ -192,7 +277,7 @@ final class TodayModel {
         } catch {
             return messages.report(error)
         }
-        let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles)
+        let articles = items.flatMap(\.articles)
         if !articles.isEmpty, !model.keep(articles) { return }
         messages.show("Kept")
     }
@@ -244,7 +329,7 @@ final class TodayModel {
         switch target {
         case .section(let section):
             try store.move(Set(items.compactMap(\.note).map(\.id)), to: section)
-            let articles = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles)
+            let articles = items.flatMap(\.articles)
             if !articles.isEmpty {
                 try store.keep(links: model.keptLinks(articles), to: section)
                 markRead(items)
@@ -303,7 +388,7 @@ final class TodayModel {
     /// Opens a new session about the item in the default folder, with the
     /// text of the item in the message field.
     func ask(_ item: StreamItem) {
-        guard let folder = model.agents.defaultFolder ?? model.agents.folders.first, let note = sendable(item) else {
+        guard let folder = model.agents.defaultFolder, let note = sendable(item) else {
             return messages.report(PiperError("Add a folder with Claude skills in Settings > AI before you ask about a note."))
         }
         let session = model.agents.newSession(in: folder.path, noteID: note.id)
@@ -405,7 +490,7 @@ final class TodayModel {
 
     /// Marks the unread articles of the items as read, with an undo step.
     private func markRead(_ items: [StreamItem]) {
-        let ids = items.filter { $0.kind == .article || $0.kind == .digest }.flatMap(\.articles).filter { !$0.read }.map(\.id)
+        let ids = items.flatMap(\.articles).filter { !$0.read }.map(\.id)
         setRead(true, ids: ids)
     }
 
@@ -482,5 +567,39 @@ final class TodayModel {
 
     static func count(_ value: Int) -> String {
         value == 1 ? "1 item" : "\(value) items"
+    }
+}
+
+// MARK: - Keys
+
+private extension TodayModel {
+    struct InputKey: Equatable {
+        let feeds: Int
+        let store: Int
+        let clipboard: Int
+        let files: Int
+        let keeping: Set<String>
+    }
+
+    struct ListKey: Equatable {
+        let input: InputKey
+        let lens: UnifiedStream.Lens
+        let scope: PaperScope
+        let query: String
+        let day: Date
+
+        var counts: CountsKey { CountsKey(input: input, day: day) }
+    }
+
+    /// The counts do not change with the lens, the scope, or the search.
+    struct CountsKey: Equatable {
+        let input: InputKey
+        let day: Date
+    }
+
+    struct RelevanceKey: Equatable {
+        let feeds: Int
+        let store: Int
+        let files: Int
     }
 }

@@ -204,6 +204,43 @@ final class TodayModelTests: XCTestCase {
                                 .file("Harbor/plan.markdown"), .file("Harbor/talk.md")])
     }
 
+    // MARK: - Stream
+
+    func testTheListIsBuiltAgainOnlyWhenAnInputChanges() throws {
+        let first = today.list(lens: .all, scope: .today(section: nil))
+        let builds = today.builds
+        today.select(first.order[0])
+        today.move(1, extending: true, in: today.list(lens: .all, scope: .today(section: nil)).order)
+        _ = today.list(lens: .all, scope: .today(section: nil))
+        XCTAssertEqual(today.builds, builds)
+        _ = try note("Crane 3 is down")
+        XCTAssertEqual(today.list(lens: .all, scope: .today(section: nil)).groups.flatMap(\.items).count, 3)
+        XCTAssertEqual(today.builds, builds + 1)
+        _ = today.list(lens: .notes, scope: .today(section: nil))
+        today.query = "crane"
+        _ = today.list(lens: .notes, scope: .today(section: nil))
+        XCTAssertEqual(today.builds, builds + 3)
+    }
+
+    func testTheCountsGiveTheDoneCaptures() throws {
+        _ = try note("Crane 3 is down")
+        let done = try note("Gate 4 closes at six")
+        today.done([done])
+        let counts = today.counts()
+        XCTAssertEqual(counts.done, 1)
+        XCTAssertEqual(counts.open, 1)
+        XCTAssertEqual(counts.sections["Inbox"], 1)
+        XCTAssertEqual(today.list(lens: .all, scope: .done).order, [done.id])
+    }
+
+    func testAnOpenedArticleStaysUntilTheListShowsAgain() throws {
+        today.open(article: "one")
+        model.feeds.setRead(true, ids: ["one"])
+        XCTAssertTrue(today.list(lens: .all, scope: .today(section: nil)).order.contains(.article("one")))
+        today.resetKeeping()
+        XCTAssertFalse(today.list(lens: .all, scope: .today(section: nil)).order.contains(.article("one")))
+    }
+
     // MARK: - Selection
 
     func testCommandClickShiftClickAndShiftArrowSelectSeveralRows() {

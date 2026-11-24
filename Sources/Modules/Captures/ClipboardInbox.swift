@@ -50,7 +50,11 @@ public final class ClipboardInbox {
     private let pasteboard: NSPasteboard
     private let retention: TimeInterval
     private let report: @MainActor (Error) -> Void
-    private var items: [ClipboardEntry] = []
+    private var items: [ClipboardEntry] = [] {
+        didSet { revision += 1 }
+    }
+    /// Changes on each change of the history. The entries also change with the notes of the store.
+    public private(set) var revision = 0
     @ObservationIgnored private var changeCount: Int?
     @ObservationIgnored private var timer: Timer?
 

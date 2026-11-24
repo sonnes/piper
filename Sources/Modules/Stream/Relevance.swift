@@ -43,6 +43,12 @@ public struct FeedStats: Equatable, Sendable {
         }
         return stats
     }
+
+    /// The stats of each feed of the store, by feed ID, from its counts of the last `days` days.
+    @MainActor
+    public static func compute(_ feeds: FeedStore, notes: [Note]) -> [String: FeedStats] {
+        compute(feeds: feeds.feeds, counts: feeds.articleCounts(days: days), notes: notes)
+    }
 }
 
 /// A score from 0 to 1 that tells how relevant an article is to the reader.
@@ -83,6 +89,15 @@ public struct Relevance: Equatable, Sendable {
         self.init(keepRates: stats.mapValues(\.keepRate),
                   sites: top > 0 ? Dictionary(uniqueKeysWithValues: history.map { (Site(host: $0.key).key, $0.value / top) }) : [:],
                   terms: fileNames.reduce(into: Set<String>()) { $0.formUnion(Self.words(in: Self.stem($1))) })
+    }
+
+    /// The relevance from the feeds of the store, its browser history
+    /// suggestions, the captures, and the file names of the folders.
+    @MainActor
+    public init(feeds: FeedStore, notes: [Note], fileNames: [String]) {
+        self.init(stats: FeedStats.compute(feeds, notes: notes),
+                  history: Dictionary(feeds.suggestions.map { ($0.host, $0.score) }, uniquingKeysWith: max),
+                  fileNames: fileNames)
     }
 
     // MARK: - API

@@ -42,7 +42,7 @@ final class UnifiedStreamTests: XCTestCase {
         XCTAssertEqual(stream.groups[1].items.map(\.title), ["one", "A note"])
         XCTAssertEqual(stream.groups[1].items.map(\.kind), [.article, .note])
         XCTAssertEqual(stream.tray.map(\.title), ["ssh harbor"])
-        XCTAssertEqual(stream.counts[.all], 4)
+        XCTAssertEqual(stream.counts.lenses[.all], 4)
     }
 
     func testAKeptArticleAndItsLinkCaptureShowAsOneRow() {
@@ -76,7 +76,36 @@ final class UnifiedStreamTests: XCTestCase {
         let keptLens = UnifiedStream(input, lens: .kept, now: now, calendar: calendar)
         XCTAssertEqual(keptLens.items.map(\.title), ["Kept note", "https://a.example/marked"])
         XCTAssertEqual(keptLens.items.last?.children.map(\.text), ["A quote"])
-        XCTAssertEqual(notes.counts, [.all: 5, .notes: 2, .reading: 2, .kept: 2])
+        XCTAssertEqual(notes.counts.lenses, [.all: 5, .notes: 2, .reading: 2, .kept: 2])
+    }
+
+    func testCountsGiveTheOpenCapturesOfEachSectionAndTheDoneCaptures() {
+        let input = UnifiedStream.Input(notes: [
+            note("One", hoursAgo: 1), note("Two", hoursAgo: 2, section: "Research"),
+            note("Three", hoursAgo: 3, section: "Research"), note("Done", hoursAgo: 1, done: true),
+            note("Done too", hoursAgo: 1, section: "Research", done: true)
+        ], articles: [article("one")], feeds: [feed()])
+        let counts = UnifiedStream(input, lens: .all, section: "Research", now: now, calendar: calendar).counts
+        XCTAssertEqual(counts.sections, ["Inbox": 1, "Research": 2])
+        XCTAssertEqual(counts.open, 3)
+        XCTAssertEqual(counts.done, 2)
+        XCTAssertEqual(counts.lenses[.all], 2)
+    }
+
+    func testDoneTodayFollowsTheLensAndTheSearch() {
+        let doneNote = note("Done note", hoursAgo: 1, done: true)
+        let doneLink = note("https://a.example/read", hoursAgo: 1, reading: Reading(finishedAt: now), done: true)
+        var lastWeek = note("Done last week", hoursAgo: 200, done: true)
+        lastWeek.modifiedAt = now.addingTimeInterval(-200 * 3_600)
+        let input = UnifiedStream.Input(notes: [doneNote, doneLink, lastWeek])
+        func done(_ lens: UnifiedStream.Lens, query: String = "") -> [String] {
+            UnifiedStream(input, lens: lens, query: query, now: now, calendar: calendar).doneToday.map(\.title)
+        }
+        XCTAssertEqual(Set(done(.all)), ["Done note", "https://a.example/read"])
+        XCTAssertEqual(done(.notes), ["Done note"])
+        XCTAssertEqual(done(.kept), ["Done note"])
+        XCTAssertEqual(done(.reading), [])
+        XCTAssertEqual(done(.all, query: "note"), [])
     }
 
     func testDoneGroupsByMonth() {

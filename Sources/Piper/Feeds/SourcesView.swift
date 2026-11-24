@@ -28,7 +28,7 @@ struct SourcesView: View {
     private var scan: SiteScan { model.siteScan }
 
     var body: some View {
-        let stats = paper.today.stats()
+        let stats = FeedStats.compute(feeds, notes: model.store.notes)
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 header

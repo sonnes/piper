@@ -32,7 +32,11 @@ final class Library {
             if let watcher, watcher.vault.root != vault.root { reload() }
         }
     }
-    var files: [VaultFile] = []
+    var files: [VaultFile] = [] {
+        didSet { filesRevision += 1 }
+    }
+    /// Changes on each scan of the files.
+    private(set) var filesRevision = 0
     /// Every folder of the vault, including the ones that hold no file.
     var folders: [String] = []
     var problems: [String] = []
@@ -110,12 +114,15 @@ final class Library {
         addWikiFolders(panel.urls.map(\.path))
     }
 
+    /// True while a folder can leave the list. The last folder stays, because
+    /// the window needs one folder to show.
+    var canRemoveFolder: Bool { wikiPaths.count > 1 }
+
     /// Takes a folder off the folder list and its tab off the feed paper. The folder on disk does not change.
     ///
-    /// The active folder moves to the next folder in the list first. The last
-    /// folder stays, because the window needs one folder to show.
+    /// The active folder moves to the next folder in the list first.
     func removeWikiFolder(_ path: String) {
-        guard wikiPaths.count > 1, let index = wikiPaths.firstIndex(of: path) else { return }
+        guard canRemoveFolder, let index = wikiPaths.firstIndex(of: path) else { return }
         if path == wikiPath {
             let next = wikiPaths[index == 0 ? 1 : index - 1]
             changeWiki(to: next)

@@ -46,6 +46,19 @@ public struct UnifiedStream: Equatable {
         public let items: [StreamItem]
     }
 
+    /// The counts of the lens row, of the Today tab, and of the Today index.
+    public struct Counts: Equatable {
+        /// The rows of each lens, in the section and for the search of the stream.
+        public let lenses: [Lens: Int]
+        /// The open captures of each section.
+        public let sections: [String: Int]
+        /// The done captures of every section.
+        public let done: Int
+
+        /// The open captures of every section: the count on the Today tab.
+        public var open: Int { sections.values.reduce(0, +) }
+    }
+
     /// Everything that the stream reads.
     public struct Input {
         public var notes: [Note]
@@ -72,10 +85,12 @@ public struct UnifiedStream: Equatable {
     public static let articleDays = 7
 
     public let groups: [Group]
-    /// The count of rows of each lens.
-    public let counts: [Lens: Int]
+    public let counts: Counts
     /// The clipboard texts of the tray at the foot of the list.
     public let tray: [StreamItem]
+    /// The captures that the reader marked as done today, the newest first.
+    /// The list shows them under its groups.
+    public let doneToday: [StreamItem]
     /// The rows in the order of the list.
     public var items: [StreamItem] { groups.flatMap(\.items) }
 
@@ -98,12 +113,19 @@ public struct UnifiedStream: Equatable {
             notes.map { StreamItem.capture($0, children: children[$0.id] ?? []) }
         }
 
-        counts = [
-            .all: items.count + feedRows.count,
-            .notes: items.filter { $0.kind == .note }.count,
-            .reading: reading.count,
-            .kept: items.filter { $0.state == .kept }.count
-        ]
+        let open = input.notes.filter { $0.parent == nil && !$0.isDone }
+        counts = Counts(
+            lenses: [
+                .all: items.count + feedRows.count,
+                .notes: items.filter { $0.kind == .note }.count,
+                .reading: reading.count,
+                .kept: items.filter { $0.state == .kept }.count
+            ],
+            sections: Dictionary(grouping: open, by: \.section).mapValues(\.count),
+            done: input.notes.filter { $0.parent == nil && $0.isDone }.count)
+        doneToday = lens == .reading || !query.isEmpty ? []
+            : rows(Self.doneToday(notes: input.notes, section: section, now: now, calendar: calendar)
+                .filter { lens == .all || !$0.isArticle })
         tray = input.clips.filter { query.isEmpty || $0.text.localizedCaseInsensitiveContains(query) }.map(StreamItem.clip)
 
         switch lens {
@@ -149,13 +171,14 @@ public struct UnifiedStream: Equatable {
         }
     }
 
+    // MARK: - Private
+
     /// The captures of one section, or of every section when the section is
     /// nil, that the reader marked as done today. The newest is first.
     ///
     /// An article that Piper moved to Done a week after the reader finished
     /// it is not in the list, because the reader did not mark it today.
-    public static func doneToday(notes: [Note], section: String?, now: Date = Date(),
-                                 calendar: Calendar = .current) -> [Note] {
+    private static func doneToday(notes: [Note], section: String?, now: Date, calendar: Calendar) -> [Note] {
         notes.filter { note in
             guard note.parent == nil, note.isDone, section.map({ note.section == $0 }) ?? true else { return false }
             let finished = note.reading?.finishedAt ?? note.modifiedAt
@@ -163,8 +186,6 @@ public struct UnifiedStream: Equatable {
         }
         .sorted { $0.modifiedAt > $1.modifiedAt }
     }
-
-    // MARK: - Private
 
     private static func matches(_ note: Note, children: [Note], query: String) -> Bool {
         guard !query.isEmpty else { return true }

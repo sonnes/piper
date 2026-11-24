@@ -90,21 +90,19 @@ struct TodayView: View {
         return agents.action(for: command)
     }
 
+    /// The list that shows. The model builds it again only when an input changes.
+    private var shown: TodayList { today.list(lens: paper.state.lens, scope: scope) }
+
     var body: some View {
-        // The stream is built once for each drawing of the list.
-        let stream = isDone ? nil : UnifiedStream(today.input(), lens: paper.state.lens, section: section, query: today.query)
-        let groups = stream?.groups ?? UnifiedStream.done(notes: store.notes, query: today.query)
-        let tray = stream?.tray ?? []
-        let order = Self.order(groups, tray)
-        let items = Self.index(groups, tray)
+        let shown = shown
         VStack(spacing: 0) {
-            if searchMode { searchField(matches: groups.flatMap(\.items).count) }
+            if searchMode { searchField(matches: shown.groups.flatMap(\.items).count) }
             if !isDone { composer }
-            if let stream { lenses(stream.counts) }
-            list(groups, items: items, order: order)
+            if let stream = shown.stream { lenses(stream.counts.lenses) }
+            list(shown)
                 .overlay(alignment: .bottom) { skillList }
-                .overlay(alignment: .bottom) { floating(items: items, order: order) }
-            if !tray.isEmpty { trayView(tray, items: items, order: order) }
+                .overlay(alignment: .bottom) { floating(shown) }
+            if !shown.tray.isEmpty { trayView(shown) }
         }
         .background(PiperTheme.paper)
         .sheet(item: $editing) { session in
@@ -115,11 +113,11 @@ struct TodayView: View {
         .sheet(isPresented: Binding(get: { !today.filing.isEmpty }, set: { if !$0 { today.filing = [] } })) {
             FilePicker(today: today, items: today.filing)
         }
-        .onChange(of: order) { _, order in today.keepSelection(in: order) }
+        .onChange(of: shown.order) { _, order in today.keepSelection(in: order) }
         .onChange(of: today.query) { _, _ in today.clearSelection() }
         .onChange(of: scope) { _, scope in
             today.clearSelection()
-            today.keeping.removeAll()
+            today.resetKeeping()
             if scope.showsCaptures { paper.listKeys = keys }
         }
         .onChange(of: model.composerDraft) { _, _ in completionIndex = 0 }
@@ -129,7 +127,7 @@ struct TodayView: View {
             endSearch()
         }
         .onAppear {
-            today.keeping.removeAll()
+            today.resetKeeping()
             paper.listKeys = keys
         }
     }
@@ -238,12 +236,10 @@ struct TodayView: View {
 
     // MARK: - List
 
-    private func list(_ groups: [UnifiedStream.Group], items: [StreamItem.Ref: StreamItem],
-                      order: [StreamItem.Ref]) -> some View {
-        let doneToday = isDone || paper.state.lens == .reading || !today.query.isEmpty ? []
-            : UnifiedStream.doneToday(notes: store.notes, section: section)
-                .filter { paper.state.lens == .all || !$0.isArticle }
-                .map { StreamItem.capture($0, children: store.children(of: $0.id)) }
+    private func list(_ shown: TodayList) -> some View {
+        let groups = shown.groups
+        let order = shown.order
+        let doneToday = shown.doneToday
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
@@ -292,7 +288,7 @@ struct TodayView: View {
 
     private func row(_ item: StreamItem, order: [StreamItem.Ref]) -> some View {
         TodayRow(item: item, selected: today.selection.contains(item.id), model: model,
-                 verbs: verbs(for: item, order: order),
+                 verbs: verbs(for: item),
                  section: section == nil && item.note?.section != Note.inbox ? item.note?.section : nil) {
             click(item, order: order)
         }
@@ -301,7 +297,9 @@ struct TodayView: View {
     // MARK: - Tray
 
     /// The clipboard texts at the foot of the paper, the newest first.
-    private func trayView(_ tray: [StreamItem], items: [StreamItem.Ref: StreamItem], order: [StreamItem.Ref]) -> some View {
+    private func trayView(_ shown: TodayList) -> some View {
+        let tray = shown.tray
+        let order = shown.order
         let limit = showsWholeTray ? tray.count : min(tray.count, Metrics.trayLimit)
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -338,15 +336,16 @@ struct TodayView: View {
 
     // MARK: - Floating Bar And Undo
 
-    @ViewBuilder private func floating(items: [StreamItem.Ref: StreamItem], order: [StreamItem.Ref]) -> some View {
+    @ViewBuilder private func floating(_ shown: TodayList) -> some View {
         VStack(spacing: 8) {
             if let undo = today.undo {
                 UndoToast(offer: undo, run: today.runUndo)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if today.multiple, !today.selection.isEmpty {
-                SelectionBar(count: today.selection.count, canMerge: selected(items, order).compactMap(\.note).count > 1,
-                             model: model, verbs: verbs(for: selected(items, order), order: order),
+                let selected = shown.rows(today.selection)
+                SelectionBar(count: today.selection.count, canMerge: selected.compactMap(\.note).count > 1,
+                             model: model, verbs: verbs(for: selected),
                              cancel: today.clearSelection)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -358,14 +357,9 @@ struct TodayView: View {
 
     // MARK: - Actions
 
-    /// The selected rows in the order of the list.
-    private func selected(_ items: [StreamItem.Ref: StreamItem], _ order: [StreamItem.Ref]) -> [StreamItem] {
-        order.filter(today.selection.contains).compactMap { items[$0] }
-    }
-
     /// The verbs of one row. A row that is part of a selection of several
     /// acts on the whole selection.
-    private func verbs(for item: StreamItem, order: [StreamItem.Ref]) -> RowVerbs {
+    private func verbs(for item: StreamItem) -> RowVerbs {
         RowVerbs(
             open: { open(item) },
             keep: { withAnimation(motion) { today.keep(targets(item)) } },
@@ -386,7 +380,7 @@ struct TodayView: View {
     }
 
     /// The verbs of the selection bar.
-    private func verbs(for items: [StreamItem], order: [StreamItem.Ref]) -> RowVerbs {
+    private func verbs(for items: [StreamItem]) -> RowVerbs {
         RowVerbs(open: {}, keep: { withAnimation(motion) { today.keep(items) } },
                  done: { withAnimation(motion) { today.done(items) } },
                  file: { today.filing = items }, send: { today.send(items, action: $0) },
@@ -404,29 +398,7 @@ struct TodayView: View {
 
     /// The selected rows, in the order of the list.
     private func chosen() -> [StreamItem] {
-        let (groups, tray) = current()
-        let items = Self.index(groups, tray)
-        return Self.order(groups, tray).filter(today.selection.contains).compactMap { items[$0] }
-    }
-
-    /// The groups and the tray as the list shows them now.
-    private func current() -> (groups: [UnifiedStream.Group], tray: [StreamItem]) {
-        guard !isDone else { return (UnifiedStream.done(notes: store.notes, query: today.query), []) }
-        let stream = UnifiedStream(today.input(), lens: paper.state.lens, section: section, query: today.query)
-        return (stream.groups, stream.tray)
-    }
-
-    private func currentOrder() -> [StreamItem.Ref] {
-        let (groups, tray) = current()
-        return Self.order(groups, tray)
-    }
-
-    private static func order(_ groups: [UnifiedStream.Group], _ tray: [StreamItem]) -> [StreamItem.Ref] {
-        groups.flatMap(\.items).map(\.id) + tray.map(\.id)
-    }
-
-    private static func index(_ groups: [UnifiedStream.Group], _ tray: [StreamItem]) -> [StreamItem.Ref: StreamItem] {
-        Dictionary((groups.flatMap(\.items) + tray).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        shown.rows(today.selection)
     }
 
     /// A click selects the row. Command-click and Shift-click select several
@@ -454,7 +426,7 @@ struct TodayView: View {
         switch item.id {
         case .note(let id): desk?.open(.note(id))
         case .article(let id):
-            today.keeping.insert(id)
+            today.open(article: id)
             desk?.open(.article(id))
         case .digest(let feed, _): paper.pick(.feed(feed))
         case .clip:
@@ -540,10 +512,10 @@ struct TodayView: View {
             PaperKey(key: CommandKey(String(offset + 1), []), title: "lens", isOn: { !isDone }) { setLens(lens) }
         }
         let keys = [
-            PaperKey(key: .up, title: "move") { today.move(-1, extending: false, in: currentOrder()) },
-            PaperKey(key: .down, title: "move") { today.move(1, extending: false, in: currentOrder()) },
-            PaperKey(key: CommandKey.up.shifted, title: "add to the selection") { today.move(-1, extending: true, in: currentOrder()) },
-            PaperKey(key: CommandKey.down.shifted, title: "add to the selection") { today.move(1, extending: true, in: currentOrder()) },
+            PaperKey(key: .up, title: "move") { today.move(-1, extending: false, in: shown.order) },
+            PaperKey(key: .down, title: "move") { today.move(1, extending: false, in: shown.order) },
+            PaperKey(key: CommandKey.up.shifted, title: "add to the selection") { today.move(-1, extending: true, in: shown.order) },
+            PaperKey(key: CommandKey.down.shifted, title: "add to the selection") { today.move(1, extending: true, in: shown.order) },
             PaperKey(key: .enter, title: "open as a paper", isOn: selected) { if let first = chosen().first { open(first) } },
             PaperKey(key: CommandKey("k", []), title: "keep", isOn: selected) { withAnimation(motion) { today.keep(chosen()) } },
             PaperKey(key: CommandKey("e", []), title: "done", isOn: selected) { withAnimation(motion) { today.done(chosen()) } },
@@ -559,7 +531,7 @@ struct TodayView: View {
             PaperKey(key: .escape, title: "end the search", isOn: { searchMode }) { endSearch() },
             PaperKey(key: CommandKey("f"), title: "search", inText: true) { beginSearch() },
             PaperKey(key: CommandKey("a"), title: "select all") {
-                let order = currentOrder()
+                let order = shown.order
                 today.selection = Set(order)
                 today.multiple = !order.isEmpty
             },

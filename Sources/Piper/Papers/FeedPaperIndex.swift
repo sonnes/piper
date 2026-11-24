@@ -70,14 +70,13 @@ struct FeedPaperIndex: View {
     // MARK: - Today
 
     @ViewBuilder private var todayRows: some View {
-        let stream = UnifiedStream(paper.today.input(), lens: .all)
-        let open = store.notes.filter { $0.parent == nil && !$0.isDone }
+        let counts = paper.today.counts()
         ForEach(UnifiedStream.Lens.allCases, id: \.self) { lens in
-            row(.lens(lens), title: lens.title, count: stream.counts[lens] ?? 0)
+            row(.lens(lens), title: lens.title, count: counts.lenses[lens] ?? 0)
         }
         IndexHeader(title: "Sections")
         ForEach(store.sections, id: \.self) { section in
-            row(.scope(.today(section: section)), title: section, count: open.filter { $0.section == section }.count)
+            row(.scope(.today(section: section)), title: section, count: counts.sections[section] ?? 0)
                 .contextMenu {
                     Button("Edit Section…") {
                         sectionName = section
@@ -87,7 +86,7 @@ struct FeedPaperIndex: View {
                 }
         }
         IndexHeader(title: "Finished")
-        row(.scope(.done), title: "Done", count: 0)
+        row(.scope(.done), title: "Done", count: counts.done)
         IndexAction(title: "New Section…") { namingSection = true }
     }
 
@@ -118,11 +117,9 @@ struct FeedPaperIndex: View {
     // MARK: - Agents
 
     @ViewBuilder private var agentRows: some View {
-        let runner = model.agents.runner
-        ForEach(runner.folders(), id: \.self) { folder in
+        ForEach(model.agents.runner.folders(), id: \.self) { folder in
             row(.scope(.sessions(folder)), title: URL(fileURLWithPath: folder).lastPathComponent,
-                leading: AnyView(FolderMark()),
-                count: runner.sessions(in: folder).filter { $0.state == .needsYou }.count)
+                leading: AnyView(FolderMark()), count: paper.waitingSessions(in: folder))
                 .help(folder)
         }
     }

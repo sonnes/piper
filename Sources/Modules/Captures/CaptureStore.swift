@@ -19,8 +19,13 @@ public final class CaptureStore {
     // MARK: - Properties
 
     public private(set) var state = SavedState() {
-        didSet { childIndex = Note.childrenByParent(state.notes) }
+        didSet {
+            childIndex = Note.childrenByParent(state.notes)
+            revision += 1
+        }
     }
+    /// Changes on each saved change of the state.
+    public private(set) var revision = 0
     /// The child notes of each parent, oldest first. Each change of the state rebuilds it.
     private var childIndex: [UUID: [Note]] = [:]
     /// The error that stopped the database from opening. Each change then fails.
