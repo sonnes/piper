@@ -1,5 +1,4 @@
 import AppKit
-import PiperCore
 import SwiftUI
 import Vault
 

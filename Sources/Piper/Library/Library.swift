@@ -46,8 +46,6 @@ final class Library {
     private(set) var scanError: String?
     private(set) var loading = false
     @ObservationIgnored weak var delegate: LibraryDelegate?
-    /// Called after the active folder changes, before its first scan.
-    @ObservationIgnored var folderChanged: (() -> Void)?
     @ObservationIgnored private var watcher: VaultWatcher?
     @ObservationIgnored private var reloadPending = false
     @ObservationIgnored private let preferences: UserDefaults
@@ -158,7 +156,6 @@ final class Library {
         files = []
         folders = []
         delegate?.libraryDidChangeFolder(self)
-        folderChanged?()
         reload()
     }
 

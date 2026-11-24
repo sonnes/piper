@@ -52,7 +52,7 @@ final class WebPageBridgeTests: XCTestCase {
             EditorTheme(theme: WikiReadingTheme.allCases[index], font: fonts[index], size: 16 + 2 * Double(index),
                         appearance: appearances[index])
         }
-        func note(_ id: String, kind: String, color: String = "yellow", block: Int = 0, offset: Int = 5, comment: String = "",
+        func note(_ id: String, kind: ReaderPageNote.Kind, color: String = "yellow", block: Int = 0, offset: Int = 5, comment: String = "",
                   origin: String, turns: [ReaderPageNote.Turn] = [], pending: Bool = false, failure: String? = nil,
                   agent: String = "", tools: String = "") -> ReaderPageNote {
             ReaderPageNote(id: id + "-8B86-D011-B42D-00C04FC964FF", kind: kind, color: color, block: block, offset: offset,
@@ -66,9 +66,9 @@ final class WebPageBridgeTests: XCTestCase {
                 header: "May 1, 2026 · 1 min read · Saved", title: "Green tea"),
             themes: themes,
             notes: [
-                note("6F9619FF", kind: "highlight", origin: "Safari · 9:41 AM"),
-                note("7F9619FF", kind: "note", color: "green", comment: "Check the source.", origin: "9:42 AM"),
-                note("8F9619FF", kind: "question", block: -1, offset: 0, origin: "9:43 AM",
+                note("6F9619FF", kind: .highlight, origin: "Safari · 9:41 AM"),
+                note("7F9619FF", kind: .note, color: "green", comment: "Check the source.", origin: "9:42 AM"),
+                note("8F9619FF", kind: .question, block: -1, offset: 0, origin: "9:43 AM",
                      turns: [ReaderPageNote.Turn(question: "How much less?", answer: "About half."),
                              ReaderPageNote.Turn(question: nil, answer: "It depends on the leaf.")],
                      pending: true, failure: "The agent stopped.", agent: "Haiku · Claude Code", tools: "Read · WebSearch")
@@ -88,6 +88,7 @@ final class WebPageBridgeTests: XCTestCase {
             .key("t"),
             .position(block: 3, progress: 0.42),
             .link(try XCTUnwrap(URL(string: "https://example.com/tides"))),
+            .error(message: "TypeError: null is not an object"),
             .mark(.highlight(anchor, color: "yellow")),
             .mark(.explain(anchor)),
             .mark(.define(NoteAnchor(quote: "tide", block: 0, offset: 4))),

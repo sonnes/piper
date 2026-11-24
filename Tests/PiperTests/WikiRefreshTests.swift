@@ -79,7 +79,7 @@ final class WikiRefreshTests: XCTestCase {
         try Data("# External change\n".utf8).write(to: url, options: .atomic)
         try Data("New file\n".utf8).write(to: root.appendingPathComponent("other.txt"))
         try await waitFor("Other changes appear while the draft stays open.") {
-            model.library.files.count == 2 && model.library.files.first { $0.id == "note.md" }?.raw == "# External change\n"
+            model.library.files.count == 2 && model.library.files.first { $0.id == "note.md" }?.text == "# External change\n"
         }
         XCTAssertTrue(model.files.editor === edit)
         XCTAssertEqual(edit.text, "# Unsaved draft\n")
@@ -155,10 +155,8 @@ final class WikiRefreshTests: XCTestCase {
         try await waitFor("The initial scan finishes.") { !model.library.loading }
         model.files.openDocument("old.md")
         model.files.initialDocument = "old.md"
-        var changed = false
-        model.library.folderChanged = { changed = true }
         model.library.changeWiki(to: folder.path)
-        XCTAssertTrue(changed)
+        XCTAssertNil(model.files.selectedDocument, "The old file closes before the scan.")
         try await waitFor("The new folder scan finishes.") { !model.library.loading }
         XCTAssertEqual(model.files.selectedDocument, "new.md")
         XCTAssertEqual(model.library.files.map(\.id), ["new.md"])

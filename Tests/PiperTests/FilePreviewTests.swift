@@ -8,7 +8,7 @@ final class FilePreviewTests: XCTestCase {
     func testRawMarkdownKeepsFrontmatter() {
         let prefix = "---\r\ntitle: 'QA'\r\n---\r\n"
         let file = makeFile(prefix + "# Original\r\n", path: "note.MD")
-        XCTAssertEqual(FilePresentation.sourceText(for: file), file.raw)
+        XCTAssertEqual(FilePresentation.sourceText(for: file), prefix + "# Original\r\n")
     }
 
     func testRawHTMLKeepsLiteralMarkupAndRejectsUnavailableText() {

@@ -195,7 +195,7 @@ enum ReaderMarks {
                 .compactMap { $0 }.joined(separator: " · ")
             return ReaderPageNote(
                 id: child.id.uuidString,
-                kind: isQuestion ? "question" : comment.isEmpty ? "highlight" : "note",
+                kind: isQuestion ? .question : comment.isEmpty ? .highlight : .note,
                 color: child.tags.first(where: ReaderAssistant.colors.contains) ?? ReaderAssistant.colors[0],
                 block: place?.block ?? -1,
                 offset: place?.offset ?? 0,
@@ -332,9 +332,16 @@ struct ReaderPageNote: Codable, Equatable {
         let answer: String
     }
 
+    /// The raw values match `PageNote.kind` in `web/src/bridge.ts`.
+    enum Kind: String, Codable {
+        case highlight
+        /// A highlight with a note of the reader.
+        case note
+        case question
+    }
+
     let id: String
-    /// `highlight`, `note` for a highlight with a note of the reader, or `question`.
-    let kind: String
+    let kind: Kind
     let color: String
     /// The block of the mark. -1 means that the article no longer holds the quote.
     let block: Int
@@ -591,9 +598,11 @@ enum ReaderPageMessage: Decodable, Equatable {
     /// The first block on the screen, and the part of the page above it.
     case position(block: Int, progress: Double)
     case link(URL)
+    /// An uncaught error or an unhandled rejection of the page.
+    case error(message: String)
     case mark(ReaderAction)
 
-    private enum Key: String, CodingKey { case action, key, block, progress, url }
+    private enum Key: String, CodingKey { case action, key, block, progress, url, message }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: Key.self)
@@ -606,6 +615,8 @@ enum ReaderPageMessage: Decodable, Equatable {
             self = .position(block: try values.decode(Int.self, forKey: .block), progress: try values.decode(Double.self, forKey: .progress))
         case "link":
             self = .link(try values.decode(URL.self, forKey: .url))
+        case "error":
+            self = .error(message: try values.decode(String.self, forKey: .message))
         default:
             self = .mark(try ReaderAction(from: decoder))
         }
@@ -717,6 +728,8 @@ struct ReaderPageView: NSViewRepresentable {
                 positioned(block, progress)
             case .link(let url):
                 if url.isWeb { NSWorkspace.shared.open(url) }
+            case .error(let message):
+                bridge.report(PiperError("The reader page failed. \(message)"))
             case .mark(let action):
                 perform(action)
             }

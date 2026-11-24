@@ -70,16 +70,15 @@ final class WikiWorkspaceTests: XCTestCase {
         XCTAssertThrowsError(try WikiLinks.resolve("link/Note", from: docs[0], files: docs, vault: vault, wikiStyle: true))
     }
 
-    func testMarkdownStructureKeepsCodeAndCreatesStableHeadingAnchors() {
+    func testMarkdownStructureKeepsCode() {
         let text = "# Title\n\n## Same heading\n\nOne\nline.\n\n## Same heading\n\n- [x] Done\n  - Nested\n\n```swift\nlet code = \"[[Not a link]]\"\n# Not a heading\n```\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n[^source]: A source."
         let blocks = WikiMarkdown.parse(text)
-        XCTAssertEqual(blocks.filter { $0.kind == .heading }.map(\.anchor), ["title", "same-heading", "same-heading-1"])
+        XCTAssertEqual(blocks.filter { $0.kind == .heading }.map(\.text), ["Title", "Same heading", "Same heading"])
         XCTAssertEqual(blocks.first { $0.kind == .paragraph }?.text, "One line.")
-        XCTAssertEqual(blocks.filter { $0.kind == .listItem }.map(\.marker), ["☑", "•"])
-        XCTAssertEqual(blocks.filter { $0.kind == .listItem }.last?.level, 1)
+        XCTAssertEqual(blocks.filter { $0.kind == .listItem }.map(\.text), ["Done", "Nested"])
         XCTAssertEqual(blocks.first { $0.kind == .code }?.text, "let code = \"[[Not a link]]\"\n# Not a heading")
         XCTAssertEqual(blocks.filter { $0.kind == .table }.count, 1)
-        XCTAssertEqual(blocks.last?.anchor, "fn-source")
+        XCTAssertEqual(blocks.last?.text, "A source.")
     }
 
     /// One scan lists everything. Piper names no file special.

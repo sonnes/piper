@@ -3,6 +3,7 @@
 	{ "action": "key", "key": "t" },
 	{ "action": "position", "block": 3, "progress": 0.42 },
 	{ "action": "link", "url": "https://example.com/tides" },
+	{ "action": "error", "message": "TypeError: null is not an object" },
 	{ "action": "highlight", "color": "yellow", "anchor": { "quote": "twice a day", "block": 0, "offset": 15 } },
 	{ "action": "explain", "anchor": { "quote": "twice a day", "block": 0, "offset": 15 } },
 	{ "action": "define", "anchor": { "quote": "tide", "block": 0, "offset": 4 } },

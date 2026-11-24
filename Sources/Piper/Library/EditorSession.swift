@@ -62,8 +62,8 @@ final class EditorSession {
     init(document: VaultFile) {
         path = document.id
         self.document = document
-        baseline = document.raw
-        text = document.raw
+        baseline = document.text ?? ""
+        text = document.text ?? ""
     }
 
     /// Writes the editor text if the file on disk did not change. Returns false

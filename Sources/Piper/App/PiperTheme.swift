@@ -19,19 +19,19 @@ enum PiperTheme {
 
     // MARK: Colors
 
-    static let warningNS = NSColor.systemOrange
-    static let dangerNS = NSColor.systemRed
-    static let successNS = NSColor.systemGreen
+    private static let warningNS = NSColor.systemOrange
+    private static let dangerNS = NSColor.systemRed
+    private static let successNS = NSColor.systemGreen
 
     // These colors use the Tailwind CSS palette: shade 500 in the light
     // appearance and shade 400 in the dark, unless a comment names others.
 
     /// Amber 500 and 400. A kept article.
-    static let starNS = color(light: 0xF59E0B, dark: 0xFBBF24)
+    private static let starNS = color(light: 0xF59E0B, dark: 0xFBBF24)
     /// Orange. The tile of a sessions folder, its count of sessions that wait, and the mark of Claude Code.
-    static let claudeNS = color(light: 0xF97316, dark: 0xFB923C)
+    private static let claudeNS = color(light: 0xF97316, dark: 0xFB923C)
     /// Teal 600 and 400. The mark of an agent that speaks ACP.
-    static let acpAgentNS = color(light: 0x0D9488, dark: 0x2DD4BF)
+    private static let acpAgentNS = color(light: 0x0D9488, dark: 0x2DD4BF)
 
     /// Yellow 400. The bar beside a highlight.
     static let markYellow = Color(nsColor: hex(0xFACC15))
@@ -63,28 +63,28 @@ enum PiperTheme {
     /// Zinc 900, and white.
     static let paperInkNS = color(light: 0x18181B, dark: 0xFFFFFF)
     /// Zinc 600 and 300.
-    static let paperMutedNS = color(light: 0x52525B, dark: 0xD4D4D8)
+    private static let paperMutedNS = color(light: 0x52525B, dark: 0xD4D4D8)
     /// Zinc 500 and 400.
     static let paperFaintNS = color(light: 0x71717A, dark: 0xA1A1AA)
     /// Zinc 200 and 700.
-    static let paperRuleNS = color(light: 0xE4E4E7, dark: 0x3F3F46)
+    private static let paperRuleNS = color(light: 0xE4E4E7, dark: 0x3F3F46)
     /// Zinc 100 and 700. A row under the pointer, and a field.
-    static let paperTintNS = color(light: 0xF4F4F5, dark: 0x3F3F46)
+    private static let paperTintNS = color(light: 0xF4F4F5, dark: 0x3F3F46)
     /// Indigo 600 and 400. Links, the current mark, and the focus line.
     static let brandNS = color(light: 0x4F46E5, dark: 0x818CF8)
     /// Indigo 100 and 900. The current row of an index.
-    static let currentRowNS = color(light: 0xE0E7FF, dark: 0x312E81)
+    private static let currentRowNS = color(light: 0xE0E7FF, dark: 0x312E81)
     /// Indigo 500 at 26 percent. Selected text on a paper.
     static let paperSelectionNS = NSColor(srgbRed: 0x63 / 255, green: 0x66 / 255, blue: 0xF1 / 255, alpha: 0.26)
     /// Indigo 600 in both appearances. The check of a done capture, and the fill of a pill.
-    static let indigoNS = hex(0x4F46E5)
+    private static let indigoNS = hex(0x4F46E5)
 
     /// Zinc 300 and 600. The dashed slot of a row whose item is open as a paper.
-    static let paperSlotNS = color(light: 0xD4D4D8, dark: 0x52525B)
+    private static let paperSlotNS = color(light: 0xD4D4D8, dark: 0x52525B)
     /// Zinc 400 and 500. The selection bar of a row while the paper has no focus, and the ring of a read article.
     static let paperBarNS = color(light: 0xA1A1AA, dark: 0x71717A)
     /// Indigo 300. The bar beside the notes under a row, and beside a quote.
-    static let quoteBarNS = hex(0xA5B4FC)
+    private static let quoteBarNS = hex(0xA5B4FC)
 
     static let paperSlot = Color(nsColor: paperSlotNS)
     static let quoteBar = Color(nsColor: quoteBarNS)
@@ -117,14 +117,14 @@ enum PiperTheme {
     /// that the window server counts, so that the band takes a click.
     static let resizeBand = NSColor(white: 0, alpha: 1 / 255)
     /// The fill of a row under the pointer: zinc 900 at 4 percent, and white at 6 percent.
-    static let rowHoverNS = NSColor(name: nil) { appearance in
+    private static let rowHoverNS = NSColor(name: nil) { appearance in
         isDark(appearance)
             ? NSColor.white.withAlphaComponent(0.06) : NSColor(srgbRed: 0x18 / 255, green: 0x18 / 255, blue: 0x1B / 255, alpha: 0.04)
     }
     static let rowHover = Color(nsColor: rowHoverNS)
     /// The fill of the selected row while its paper has the focus: indigo at
     /// 14 percent, and indigo 400 at 24 percent in the dark.
-    static let rowSelectionNS = NSColor(name: nil) { appearance in
+    private static let rowSelectionNS = NSColor(name: nil) { appearance in
         isDark(appearance)
             ? NSColor(srgbRed: 0x81 / 255, green: 0x8C / 255, blue: 0xF8 / 255, alpha: 0.24)
             : NSColor(srgbRed: 0x4F / 255, green: 0x46 / 255, blue: 0xE5 / 255, alpha: 0.12)
@@ -145,7 +145,7 @@ enum PiperTheme {
     })
 
     /// The thin line around a floating bar, such as the toolbar of a reader paper.
-    static let barEdgeNS = NSColor(name: nil) { appearance in
+    private static let barEdgeNS = NSColor(name: nil) { appearance in
         isDark(appearance)
             ? NSColor.white.withAlphaComponent(0.12) : NSColor.black.withAlphaComponent(0.08)
     }
@@ -219,7 +219,7 @@ enum PiperTheme {
 
     /// Iowan Old Style, the serif of text that the reader reads: a quote and
     /// the body of an article.
-    static func paperSerifNS(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+    private static func paperSerifNS(_ size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
         let descriptor = NSFontDescriptor(fontAttributes: [
             .family: "Iowan Old Style",
             .traits: [NSFontDescriptor.TraitKey.weight: weight]

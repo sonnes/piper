@@ -114,9 +114,21 @@ final class FeedPaperModel {
     // MARK: - Properties
 
     let model: AppModel
+    /// The saved state. A folder tab reads as the tab of the active folder,
+    /// because Piper scans one folder at a time.
     var state: PaperDeskState {
-        didSet { if state != oldValue { state.save(to: defaults) } }
+        get {
+            var state = savedState
+            if state.tab.isFolder { state.tab = .folder(model.library.wikiPath) }
+            return state
+        }
+        set {
+            guard newValue != savedState else { return }
+            savedState = newValue
+            newValue.save(to: defaults)
+        }
     }
+    private var savedState: PaperDeskState
     /// True while the paper shows the index of the active tab in place of the list.
     var showsIndex = false {
         didSet { if showsIndex && !oldValue { indexCursor = currentEntry } }
@@ -149,10 +161,8 @@ final class FeedPaperModel {
         self.model = model
         self.defaults = defaults
         today = TodayModel(model: model)
-        state = PaperDeskState.restore(from: defaults)
+        savedState = PaperDeskState.restore(from: defaults)
         assignColors()
-        followActiveFolder()
-        model.library.folderChanged = { [weak self] in self?.followActiveFolder() }
     }
 
     // MARK: - API
@@ -386,11 +396,6 @@ final class FeedPaperModel {
     }
 
     // MARK: - Private
-
-    /// Keeps the tab of a folder on the active folder, because Piper scans one folder at a time.
-    private func followActiveFolder() {
-        if state.tab.isFolder, state.tab != .folder(model.library.wikiPath) { state.tab = .folder(model.library.wikiPath) }
-    }
 
     /// Shows a scope. A move to another scope clears the search and the selection.
     private func setScope(_ scope: PaperScope) {

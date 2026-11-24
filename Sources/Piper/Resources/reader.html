@@ -213,6 +213,8 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
   const collapsed = new Set();
 
   const post = message => window.webkit?.messageHandlers?.piper?.postMessage(message);
+  window.addEventListener('error', event => post({ action: 'error', message: String(event.message) }));
+  window.addEventListener('unhandledrejection', event => post({ action: 'error', message: String(event.reason) }));
 
   // ---------- article ----------
 

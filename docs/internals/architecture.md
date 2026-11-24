@@ -68,7 +68,7 @@ Some errors happen where no caller waits:
 - `CaptureStore` sends the error of an undo or a redo that cannot save to `reportUndoError`. `AppModel` sets it to `Messages.report`.
 - `FeedStore` and `ClipboardInbox` take a `report` closure. Their timers and their reads report each database error through it. A failed feed read then gives an empty value.
 - `SessionRunner` reports a storage error through the closure that `AgentSettings` gives it.
-- `WebPageBridge` runs each call on the editor page and the reader page with a completion handler that reports a JavaScript exception. It also reports a message from a page that does not decode. The editor page posts an `error` message for each uncaught error and unhandled rejection, and `EditorPage` reports it through the bridge. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
+- `WebPageBridge` runs each call on the editor page and the reader page with a completion handler that reports a JavaScript exception. It also reports a message from a page that does not decode. The editor page and the reader page post an `error` message for each uncaught error and unhandled rejection. `EditorPage` and `ReaderPageView` report it through the bridge. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
 - `SiteScan` reports each browser history that it cannot read, and then scans the others.
 
 ## Windows
@@ -93,7 +93,7 @@ The feed paper is the main window. Piper shows it at launch, and `PaperDesk.show
 
 `CommandKey` gives the glyph of a key, such as ⇧⌘K, and its name, such as Shift-Command-K. Views that show a key read it from the table, for example the session pill and the toast. A test makes sure that no two commands share a key.
 
-`CaptureShortcut` is the capture shortcut that Settings sets: Shift twice or Control-Option-Space. `CaptureShortcut(stored:)` reads the stored preference, and it reads the old value `Control-Option-C` as Control-Option-Space.
+`CaptureShortcut` is the capture shortcut that Settings sets: Shift twice or Control-Option-Space. An unknown stored value reads as Shift twice.
 
 ### Papers
 
@@ -111,7 +111,7 @@ The system resize edges of the window lie at the outer edge of the shadow margin
 
 `PaperTab.column(folders:showsAgents:)` gives the tabs. The fixed tabs come first: Today, Feeds, and Agents. Agents shows only while a folder has sessions. Then each folder of `Library.wikiPaths` has a `.folder(path)` tab, in the order of the list. The column has no limit. `FeedPaperModel.assignColors()` runs when the folder list changes. It calls `PaperDeskState.assignColors(to:)`, which gives a new folder the first free color of `TabColor.folderOrder` and forgets the colors of removed folders.
 
-A click on a folder tab calls `Library.changeWiki(to:)`, because Piper scans one folder at a time. After the change, `Library.folderChanged` calls `FeedPaperModel`, which moves the folder tab to the new active folder. This is the one trigger that moves the folder tab. `FeedPaperModel.recordFileCount()` saves the file count of the active folder after each scan, so the other folder tabs show the count of their last scan.
+A click on a folder tab calls `Library.changeWiki(to:)`, because Piper scans one folder at a time. `FeedPaperModel.state` reads a folder tab as the tab of the active folder, so the folder tab moves when the active folder changes. `LibraryDelegate` is the one channel out of `Library`: `FileEditor` saves its edits before the change, closes the old file, and follows each scan. `FeedPaperModel.recordFileCount()` saves the file count of the active folder after each scan, so the other folder tabs show the count of their last scan.
 
 `PaperTabs` draws the column as file-folder tabs, as in variant C of the mock. `FolderTabShape` is the outline of a tab. The feed paper draws the column twice: the tabs that are not active lie under the sheet, and the active tab lies over it, so it joins the paper. `TabColumn` measures the labels and the dashed + Folder tab. When the column is taller than the paper, the folder tabs show one letter. The rule reads the height of the paper as it shows, so a resize changes the tabs at once. `PaperTabs.Metrics.fill(_:)` and `PaperTabs.Metrics.edge(_:)` give the colors of each `TabColor`.
 
@@ -465,26 +465,25 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 
 | Source | Responsibility |
 | --- | --- |
-| [PiperApp.swift](../../Sources/Piper/PiperApp.swift) | `AppDelegate`, menus, the menu bar item, the toast, and quit |
-| [CommandRunner.swift](../../Sources/Piper/CommandRunner.swift) | `CommandRunner`, which runs each `Command` and owns Settings, the command palette, and the note editor windows |
-| [Command.swift](../../Sources/Piper/Command.swift) | `Command`, the table of app actions with their titles, keys, and menus, and `CommandKey` |
-| [AppModel.swift](../../Sources/Piper/AppModel.swift) | The container of the stores, `Library`, and `FileEditor`, with the state that the papers share |
-| [Library/](../../Sources/Piper/Library) | `Library` (the folder list, the scan, and the watcher) and `FileEditor` (the open file, its history, its editor sessions, the editor page, its margin notes, and its links) |
-| [AppDefaults.swift](../../Sources/Piper/AppDefaults.swift) | The preference keys |
-| [PiperTheme.swift](../../Sources/Piper/PiperTheme.swift) | The shared colors, fonts, type sizes, and the dark appearance test. Each feature keeps its own sizes, times, and colors in a `Metrics` enum next to its views. |
+| [App/PiperApp.swift](../../Sources/Piper/App/PiperApp.swift) | `AppDelegate`, menus, the menu bar item, the toast, and quit |
+| [App/CommandRunner.swift](../../Sources/Piper/App/CommandRunner.swift) | `CommandRunner`, which runs each `Command` and owns Settings, the command palette, and the note editor windows |
+| [App/Command.swift](../../Sources/Piper/App/Command.swift) | `Command`, the table of app actions with their titles, keys, and menus, and `CommandKey` |
+| [App/AppModel.swift](../../Sources/Piper/App/AppModel.swift) | The container of the stores, `Library`, and `FileEditor`, with the state that the papers share |
+| [Library/](../../Sources/Piper/Library) | `Library` (the folder list, the scan, and the watcher), `FileEditor` (the open file, its history, its editor sessions, the editor page, its margin notes, and its links), and `EditorSession` |
+| [App/AppDefaults.swift](../../Sources/Piper/App/AppDefaults.swift) | The preference keys |
+| [App/PiperTheme.swift](../../Sources/Piper/App/PiperTheme.swift) | The shared colors, fonts, type sizes, and the dark appearance test. Each feature keeps its own sizes, times, and colors in a `Metrics` enum next to its views. |
 | [SharedViews.swift](../../Sources/Piper/SharedViews.swift) | `IconButton`, `Rule`, and `EmptyPane`, which views in several folders use |
-| [FileReadState.swift](../../Sources/Piper/FileReadState.swift) | Read timestamps for each file |
-| [CaptureService.swift](../../Sources/Piper/CaptureService.swift) | `CaptureShortcut`, global shortcuts, Accessibility selection, and web page capture |
-| [GlobalHotkey.swift](../../Sources/Piper/GlobalHotkey.swift) | One Carbon system hotkey with its own id |
-| [Messages.swift](../../Sources/Piper/Messages.swift) | `Messages`, the one channel for messages and errors |
-| [Toast.swift](../../Sources/Piper/Toast.swift) | `Toast`, the one panel that shows messages and the cards of a web page capture |
-| [ReadingToast.swift](../../Sources/Piper/ReadingToast.swift) | The cards of a web page capture and the note field |
+| [Capture/CaptureService.swift](../../Sources/Piper/Capture/CaptureService.swift) | `CaptureShortcut`, global shortcuts, Accessibility selection, and web page capture |
+| [App/GlobalHotkey.swift](../../Sources/Piper/App/GlobalHotkey.swift) | One Carbon system hotkey with its own id |
+| [App/Messages.swift](../../Sources/Piper/App/Messages.swift) | `Messages`, the one channel for messages and errors |
+| [App/Toast.swift](../../Sources/Piper/App/Toast.swift) | `Toast`, the one panel that shows messages and the cards of a web page capture |
+| [Capture/ReadingToast.swift](../../Sources/Piper/Capture/ReadingToast.swift) | The cards of a web page capture and the note field |
 | [Sessions/](../../Sources/Piper/Sessions) | The agent feature: `AgentSettings`, `SkillFolders`, `Send`, `ReaderAssistant` (the highlights, notes, and questions of the Reader tab), the state labels, the session pane, the transcript views, the message field, the session card, the detached session panel, and the system hotkey of Send Clipboard |
 | [Readers/ReaderArticle.swift](../../Sources/Piper/Readers/ReaderArticle.swift) | `ReaderArticle`, the clean text of a web page |
 | [Modules/Agents/](../../Sources/Modules/Agents) | Skill discovery, command parsing, sessions, the JSON stream, allow rules, and the session runner |
 | [Today/](../../Sources/Piper/Today) | `TodayModel`, `TodayVerb`, `TodayView`, `TodayRow`, `FilePicker`, and `SegmentedCapsule` |
-| [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | `RowTime`, and the section and note sheets |
-| [CaptureEditor.swift](../../Sources/Piper/CaptureEditor.swift) | The composer text view |
+| [Capture/CaptureRows.swift](../../Sources/Piper/Capture/CaptureRows.swift) | `RowTime`, and the section and note sheets |
+| [Capture/CaptureEditor.swift](../../Sources/Piper/Capture/CaptureEditor.swift) | The composer text view |
 | [Papers/PaperDesk.swift](../../Sources/Piper/Papers/PaperDesk.swift) | The one way to open a paper, the feed paper, the reader papers, the session panel, their placement, and the focus |
 | [Papers/PaperFrames.swift](../../Sources/Piper/Papers/PaperFrames.swift) | The saved frames of the feed paper and the reader papers, the rules that keep a paper on the screen, and the double-click setting |
 | [Papers/PaperDeskState.swift](../../Sources/Piper/Papers/PaperDeskState.swift) | `PaperTab`, `PaperScope`, and the restored state of the feed paper |
@@ -497,13 +496,12 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [Modules/Stream/](../../Sources/Modules/Stream) | The stream of Today, the feed rows, and the relevance score |
 | [Readers/EditorPage.swift](../../Sources/Piper/Readers/EditorPage.swift) | The editor page, its messages, the asset scheme, and the conflict bar |
 | [Readers/WebPageBridge.swift](../../Sources/Piper/Readers/WebPageBridge.swift) | The calls, the ready queue, the crash reload, and the navigation rule of the editor page and the reader page |
-| [EditorSession.swift](../../Sources/Piper/EditorSession.swift) | The save of a Markdown file and the conflict rules |
+| [Library/EditorSession.swift](../../Sources/Piper/Library/EditorSession.swift) | The save of a Markdown file and the conflict rules |
 | [CommandPalette.swift](../../Sources/Piper/CommandPalette.swift) | The command palette |
 | [ReadingAppearance.swift](../../Sources/Piper/ReadingAppearance.swift) | Reading themes, fonts, and appearance, and `ReadingSettings`, the four reading preferences with their defaults |
 | [web/](../../web) | The source of the editor page |
 | [WikiWorkspace.swift](../../Sources/Piper/WikiWorkspace.swift) | Navigation history and link resolution |
-| [WikiMarkdown.swift](../../Sources/Piper/WikiMarkdown.swift) | Block parsing and heading anchors |
-| [Wiki.swift](../../Sources/Piper/Wiki.swift) | The whole text of a file |
-| [SettingsWindow.swift](../../Sources/Piper/SettingsWindow.swift) | The Settings window and its panes |
+| [WikiMarkdown.swift](../../Sources/Piper/WikiMarkdown.swift) | The blocks of a Markdown file that a note anchor counts |
+| [App/SettingsWindow.swift](../../Sources/Piper/App/SettingsWindow.swift) | The Settings window and its panes |
 | [QAHooks.swift](../../Sources/Piper/QAHooks.swift) | QA mode: no activation, and scripts in the editor page |
 

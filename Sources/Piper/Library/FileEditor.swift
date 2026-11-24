@@ -332,7 +332,7 @@ extension FileEditor: LibraryDelegate {
         var paths = Set(files.map(\.id))
         for (path, session) in editors {
             if let file = files.first(where: { $0.id == path }) {
-                if file.raw != session.baseline { session.diskChanged(in: library.vault) }
+                if (file.text ?? "") != session.baseline { session.diskChanged(in: library.vault) }
                 if !session.hasChanges { session.document = file }
             } else if session.hasChanges {
                 // A deleted file stays open while the editor holds text that is not on disk.

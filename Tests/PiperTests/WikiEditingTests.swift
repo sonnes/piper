@@ -68,7 +68,7 @@ final class WikiEditingTests: XCTestCase {
         XCTAssertEqual(try disk("Other.md"), "untouched")
         XCTAssertEqual(model.files.editor?.status, .saved)
         XCTAssertFalse(try XCTUnwrap(model.files.editor).hasChanges)
-        XCTAssertEqual(model.library.files.first { $0.id == "Tea.md" }?.raw, edited)
+        XCTAssertEqual(model.library.files.first { $0.id == "Tea.md" }?.text, edited)
     }
 
     @MainActor func testAChangeOnDiskStopsSavesUntilTheReaderChooses() throws {

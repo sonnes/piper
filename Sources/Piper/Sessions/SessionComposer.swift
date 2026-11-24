@@ -164,7 +164,7 @@ struct SessionComposer: View {
             }
             ForEach(mentions, id: \.item) { mention in
                 if mention.item != screen?.item || screen?.pending == false {
-                    ContextChip(item: mention.item, pending: true) { removeMention(mention) }
+                    ContextChip(item: mention.item, pending: true, remove: { removeMention(mention) })
                 }
             }
         }
