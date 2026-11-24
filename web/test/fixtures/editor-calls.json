@@ -1,0 +1,36 @@
+{
+	"open": {
+		"path": "Tea/Green tea.md",
+		"text": "---\ntitle: Green tea\n---\nLess caffeine than [[Matcha]].\n",
+		"mode": "rich",
+		"wikiTargets": [{ "path": "Tea/Matcha.md", "target": "Tea/Matcha", "title": "Matcha" }],
+		"header": "May 1, 2026 · 1 min read · Saved",
+		"title": "Green tea"
+	},
+	"themes": [
+		{ "theme": "Paper", "font": "Monospace", "size": 16, "appearance": "System", "background": { "light": "#ffffff", "dark": "#27272a" } },
+		{ "theme": "Sepia", "font": "Serif", "size": 18, "appearance": "Light", "background": { "light": "#f4edde", "dark": "#29231e" } },
+		{ "theme": "Slate", "font": "Sans Serif", "size": 20, "appearance": "Dark", "background": { "light": "#edf1f5", "dark": "#1e252d" } }
+	],
+	"notes": [
+		{
+			"id": "6F9619FF-8B86-D011-B42D-00C04FC964FF", "kind": "highlight", "color": "yellow",
+			"block": 0, "offset": 5, "length": 13, "quote": "less caffeine", "comment": "",
+			"origin": "Safari · 9:41 AM", "label": "Ask", "turns": [], "pending": false,
+			"agent": "", "tools": ""
+		},
+		{
+			"id": "7F9619FF-8B86-D011-B42D-00C04FC964FF", "kind": "note", "color": "green",
+			"block": 0, "offset": 5, "length": 13, "quote": "less caffeine", "comment": "Check the source.",
+			"origin": "9:42 AM", "label": "Ask", "turns": [], "pending": false,
+			"agent": "", "tools": ""
+		},
+		{
+			"id": "8F9619FF-8B86-D011-B42D-00C04FC964FF", "kind": "question", "color": "yellow",
+			"block": -1, "offset": 0, "length": 13, "quote": "less caffeine", "comment": "",
+			"origin": "9:43 AM", "label": "Ask",
+			"turns": [{ "question": "How much less?", "answer": "About half." }, { "answer": "It depends on the leaf." }],
+			"pending": true, "failure": "The agent stopped.", "agent": "Haiku · Claude Code", "tools": "Read · WebSearch"
+		}
+	]
+}

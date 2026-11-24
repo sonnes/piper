@@ -4,6 +4,7 @@ import ApplicationServices
 import Observation
 import PiperCore
 import Captures
+import CapturesDatabase
 import Feeds
 import Vault
 
@@ -124,35 +125,31 @@ final class AppModel {
     /// The preferences of every key that the model and its parts keep.
     @ObservationIgnored let preferences: UserDefaults
 
-    /// - Parameter feeds: The feed store. A test that gives a capture store and no
-    ///   feed store gets a feed store in a temporary folder.
-    init(store: CaptureStore? = nil, wikiPath: String? = nil, preferences: UserDefaults = .standard, feeds: FeedStore? = nil) {
+    /// - Parameters:
+    ///   - databaseURL: The note database. Nil uses the one in the data folder.
+    ///   - feeds: The feed store. A test that gives a database and no feed
+    ///     store gets a feed store in a temporary folder.
+    init(databaseURL: URL? = nil, wikiPath: String? = nil, preferences: UserDefaults = .standard, feeds: FeedStore? = nil) {
         self.preferences = preferences
         let messages = Messages()
         self.messages = messages
-        if Bundle.main.bundleIdentifier == "com.piper", !preferences.bool(forKey: AppDefaults.Key.migratedLocalPreferences) {
-            let previous = preferences.persistentDomain(forName: "local.piper") ?? [:]
-            let keys = [AppDefaults.Key.vaultPath, AppDefaults.Key.captureShortcut, AppDefaults.Key.composerDraft, AppDefaults.Key.readerSize]
-            for key in keys {
-                if preferences.object(forKey: key) == nil, let value = previous[key] { preferences.set(value, forKey: key) }
-            }
-            preferences.set(true, forKey: AppDefaults.Key.migratedLocalPreferences)
-        }
         composerDraft = preferences.string(forKey: AppDefaults.Key.composerDraft) ?? ""
         sessionPresentation = SessionPresentation(rawValue: preferences.string(forKey: AppDefaults.Key.sessionPresentation) ?? "") ?? .pill
         siteTabs = (preferences.dictionary(forKey: AppDefaults.Key.siteTabs) as? [String: Int] ?? [:])
             .compactMapValues { ArticleTab(rawValue: $0) }
-        self.feeds = feeds ?? FeedStore(url: store == nil ? nil : FileManager.default.temporaryDirectory
+        self.feeds = feeds ?? FeedStore(url: databaseURL == nil ? nil : FileManager.default.temporaryDirectory
             .appendingPathComponent("PiperFeeds-\(UUID().uuidString)/Feeds.sqlite")) { [weak messages] in messages?.report($0) }
-        favicons = FaviconStore(folder: store == nil ? nil : FileManager.default.temporaryDirectory
+        favicons = FaviconStore(folder: databaseURL == nil ? nil : FileManager.default.temporaryDirectory
             .appendingPathComponent("PiperFavicons-\(UUID().uuidString)"))
-        let store = store ?? CaptureStore(undoManager: UndoManager())
+        let database = Result { try Database(url: databaseURL ?? DataFolder.url.appendingPathComponent("notes.sqlite")) }
+        // A test store makes each change its own undo step, because a test runs no events.
+        let store = CaptureStore(database: database, undoManager: databaseURL == nil ? UndoManager() : nil)
         self.store = store
         store.reportUndoError = { [weak messages] in messages?.report($0) }
         if let error = store.loadError { messages.report(error) }
-        clipboard = ClipboardInbox(store: store) { [weak messages] in messages?.report($0) }
+        clipboard = ClipboardInbox(store: store, database: try? database.get()) { [weak messages] in messages?.report($0) }
         articleActions = ArticleActions(store: store, feeds: self.feeds, messages: messages)
-        let agents = AgentSettings(store: store, messages: messages, preferences: preferences)
+        let agents = AgentSettings(storage: try? database.get(), messages: messages, preferences: preferences)
         self.agents = agents
         let skills = SkillFolders(preferences: preferences)
         self.skills = skills
@@ -176,12 +173,8 @@ final class AppModel {
 
     /// Saves the text of the clipboard as a note in the active section.
     @discardableResult func captureClipboard(from pasteboard: NSPasteboard = .general) -> Note? {
-        guard let text = pasteboard.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            messages.show("The clipboard has no text")
-            return nil
-        }
         do {
-            let note = try store.add(text, section: store.activeSection, source: Note.clipboardSource)
+            let note = try store.add(pasteboard.text(), section: store.activeSection, source: Note.clipboardSource)
             messages.show("Saved to \(note.section)")
             return note
         } catch {

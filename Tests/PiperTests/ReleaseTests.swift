@@ -20,8 +20,8 @@ final class ReleaseTests: XCTestCase {
     override func tearDown() async throws { try FileManager.default.removeItem(at: folder) }
 
     func testFreshAppHasOnlyInboxAndNoSeededContent() {
-        let store = CaptureStore(url: databaseURL)
-        let model = AppModel(store: store, wikiPath: folder.appendingPathComponent("Wiki").path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: databaseURL, wikiPath: folder.appendingPathComponent("Wiki").path, preferences: temporaryDefaults())
+        let store = model.store
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
         XCTAssertTrue(store.notes.isEmpty)
@@ -33,8 +33,8 @@ final class ReleaseTests: XCTestCase {
     func testExplicitClipboardCapturePreservesTextAndPasteboard() {
         let pasteboard = NSPasteboard(name: .init("com.piper.release-test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
-        let store = CaptureStore(url: databaseURL)
-        let model = AppModel(store: store, wikiPath: folder.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: databaseURL, wikiPath: folder.path, preferences: temporaryDefaults())
+        let store = model.store
         let text = "# Literal heading\n  你好 👋🏽\n\tlet x = 1\n"
         pasteboard.setString(text, forType: .string)
         let version = pasteboard.changeCount
@@ -47,14 +47,15 @@ final class ReleaseTests: XCTestCase {
         pasteboard.clearContents()
         XCTAssertNil(model.captureClipboard(from: pasteboard))
         XCTAssertEqual(model.messages.last?.text, "The clipboard has no text")
+        XCTAssertEqual(model.messages.last?.isError, true)
         XCTAssertEqual(store.notes.count, 1)
     }
 
     func testClipboardCaptureSavesWithoutAnAppDelegate() {
         let pasteboard = NSPasteboard(name: .init("com.piper.model-test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
-        let store = CaptureStore(url: databaseURL)
-        let model = AppModel(store: store, wikiPath: folder.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: databaseURL, wikiPath: folder.path, preferences: temporaryDefaults())
+        let store = model.store
         pasteboard.setString("A fictional field note", forType: .string)
         let version = pasteboard.changeCount
 
@@ -157,7 +158,6 @@ final class ReleaseTests: XCTestCase {
 
     func testInvalidStoredSectionsBlockWrites() throws {
         let database = try Database(url: databaseURL)
-        _ = try database.load()
         // `Database` stores an opaque blob, so the test encodes the invalid
         // state the way `CaptureStore` does.
         try database.save(JSONEncoder().encode(SavedState(notes: [Note(text: "preserve", section: "Missing")])))
@@ -169,9 +169,9 @@ final class ReleaseTests: XCTestCase {
     }
 
     func testCaptureEditorConflictPreservesDraft() throws {
-        let store = CaptureStore(url: databaseURL)
+        let model = AppModel(databaseURL: databaseURL, wikiPath: folder.path, preferences: temporaryDefaults())
+        let store = model.store
         XCTAssertNoThrow(try store.add("original", section: store.activeSection))
-        let model = AppModel(store: store, wikiPath: folder.path, preferences: temporaryDefaults())
         let first = model.editCapture(store.notes[0])
         let second = model.editCapture(store.notes[0])
         first.text = "saved edit"

@@ -12,7 +12,7 @@ final class AppModelTests: XCTestCase {
                     AppDefaults.Key.sessionPresentation, AppDefaults.Key.captureShortcut]
         let before = keys.map { UserDefaults.standard.object(forKey: $0) as? NSObject }
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("piper-model-tests-" + UUID().uuidString)
-        let model = AppModel(store: CaptureStore(url: folder.appendingPathComponent(".captures.sqlite")),
+        let model = AppModel(databaseURL: folder.appendingPathComponent(".captures.sqlite"),
                              wikiPath: folder.path, preferences: preferences)
 
         model.composerDraft = "Draft " + suite

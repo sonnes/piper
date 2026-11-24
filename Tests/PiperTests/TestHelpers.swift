@@ -1,3 +1,5 @@
+import Captures
+import CapturesDatabase
 import XCTest
 
 /// Checks the condition every 20 ms for up to 10 seconds. A condition that
@@ -12,7 +14,7 @@ func waitFor(_ message: String = "The condition did not hold in time", file: Sta
         try await Task.sleep(for: .milliseconds(20))
     }
     XCTFail(message, file: file, line: line)
-    throw XCTSkip(message)
+    throw WaitTimeout()
 }
 
 extension XCTestCase {
@@ -23,3 +25,13 @@ extension XCTestCase {
         return UserDefaults(suiteName: suite)!
     }
 }
+
+extension CaptureStore {
+    /// A store on the database at a URL, as the app opens it.
+    convenience init(url: URL) {
+        self.init(database: Result { try Database(url: url) })
+    }
+}
+
+/// Stops a test after `XCTFail` has recorded a wait that timed out.
+private struct WaitTimeout: Error {}

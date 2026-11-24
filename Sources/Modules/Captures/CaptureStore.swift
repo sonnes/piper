@@ -28,10 +28,9 @@ public final class CaptureStore {
     public private(set) var revision = 0
     /// The child notes of each parent, oldest first. Each change of the state rebuilds it.
     private var childIndex: [UUID: [Note]] = [:]
-    /// The error that stopped the database from opening. Each change then fails.
+    /// The error that stopped the notes from loading. Each change then fails.
     public private(set) var loadError: Error?
-    /// The note database. The app also keeps the agent sessions in it.
-    public private(set) var database: Database?
+    @ObservationIgnored private var database: Database?
     @ObservationIgnored public let undoManager: UndoManager
     /// Takes the error of an undo or a redo that cannot save.
     @ObservationIgnored public var reportUndoError: (Error) -> Void = { _ in }
@@ -41,20 +40,21 @@ public final class CaptureStore {
 
     // MARK: - Initialization
 
-    /// - Parameter undoManager: The undo stack of the app. Nil makes a stack
-    ///   in which each change is its own undo step.
-    public init(url: URL? = nil, undoManager: UndoManager? = nil) {
+    /// - Parameters:
+    ///   - database: The note database, or the error that stopped it from opening.
+    ///   - undoManager: The undo stack of the app. Nil makes a stack in which
+    ///     each change is its own undo step.
+    public init(database: Result<Database, Error>, undoManager: UndoManager? = nil) {
         self.undoManager = undoManager ?? {
             let manager = UndoManager()
             manager.groupsByEvent = false
             return manager
         }()
         do {
-            let location = url ?? DataFolder.url.appendingPathComponent("notes.sqlite")
-            let db = try Database(url: location)
-            state = try Self.decode(db.load())
+            let database = try database.get()
+            state = try Self.decode(database.notes)
             childIndex = Note.childrenByParent(state.notes)
-            database = db
+            self.database = database
             try prunePages()
         } catch { loadError = error }
     }
@@ -278,9 +278,7 @@ public final class CaptureStore {
     /// in tracking parameters, the fragment, or `www.` name one article.
     public func article(for url: URL) -> Note? {
         let key = CaptureLinks.canonical(url)
-        return notes.first { note in
-            note.isArticle && note.articleURL.map(CaptureLinks.canonical) == key
-        }
+        return notes.first { $0.articleKey == key }
     }
 
     /// Finds the link capture of a web link, or adds one.
@@ -374,10 +372,7 @@ public final class CaptureStore {
     /// only, because Undo can bring back a deleted capture until Piper quits.
     private func prunePages() throws {
         let database = try openDatabase()
-        let kept = Set(state.notes.compactMap { note -> String? in
-            guard note.parent == nil, note.isArticle else { return nil }
-            return note.articleURL.map(CaptureLinks.canonical)
-        })
+        let kept = Set(state.notes.compactMap(\.articleKey))
         for url in try database.pageURLs() where !kept.contains(url) {
             try database.deletePage(url: url)
         }
@@ -501,8 +496,9 @@ private struct Revert {
     }
 }
 
-private extension Note {
+extension Note {
     /// Sets each field that differs between the two notes to its value in `before`.
+    /// A test checks that it covers every field.
     mutating func revert(_ after: Note, to before: Note) {
         func put<Value: Equatable>(_ field: WritableKeyPath<Note, Value>) {
             if before[keyPath: field] != after[keyPath: field] { self[keyPath: field] = before[keyPath: field] }

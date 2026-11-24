@@ -1,6 +1,6 @@
 import AppKit
 import Captures
-import Feeds
+@testable import Feeds
 import Stream
 import Vault
 import XCTest
@@ -25,7 +25,7 @@ final class TodayModelTests: XCTestCase {
             Article(id: $0, feedID: "https://f.example/feed", url: "https://f.example/\($0)", title: "Post \($0)",
                     summary: "", published: Date(), arrived: Date())
         })
-        model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults(),
+        model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults(),
                          feeds: FeedStore(url: feedsURL) { XCTFail("\($0)") })
         model.library.reload()
         today = TodayModel(model: model)
@@ -284,7 +284,7 @@ final class TodayModelTests: XCTestCase {
         let item = try note("Gate 4 closes at six")
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("com.piper.test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
-        let tray = ClipboardInbox(store: model.store, pasteboard: pasteboard) { XCTFail("\($0)") }
+        let tray = ClipboardInbox(store: model.store, database: nil, pasteboard: pasteboard) { XCTFail("\($0)") }
         tray.poll()
         XCTAssertNoThrow(try model.store.delete([try XCTUnwrap(item.note?.id)]))
         today.copy([item], to: pasteboard)

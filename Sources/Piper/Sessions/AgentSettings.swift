@@ -1,13 +1,12 @@
 import AppKit
 import Agents
-import Captures
 import Observation
 import PiperCore
 
 /// The agents that Piper runs, their settings, and the runner of every session.
 ///
-/// Each setting is kept in the preferences. A setting of Claude Code also goes
-/// into the runner, which fills it in for a session that has none of its own.
+/// Each setting is kept in the preferences. The settings of Claude Code also go
+/// into its agent in the runner, which fills them in for a session that has none of its own.
 @MainActor @Observable
 final class AgentSettings {
 
@@ -23,28 +22,31 @@ final class AgentSettings {
     var claudePath: String? {
         didSet {
             preferences.set(claudePath, forKey: AppDefaults.Key.claudePath)
-            runner.executable = Self.executable(chosen: claudePath)
+            executable = Self.executable(chosen: claudePath)
+            refreshHealth()
         }
+    }
+    /// The `claude` executable that Claude Code sessions run. Nil when Piper finds none.
+    var executable: URL? {
+        didSet { updateClaudeCode() }
     }
     /// The model of a Claude Code session that has none of its own. An empty
     /// string leaves the choice to Claude Code.
     var model: String {
-        get { runner.model ?? "" }
-        set {
-            runner.model = newValue
-            preferences.set(newValue, forKey: AppDefaults.Key.claudeModel)
+        didSet {
+            preferences.set(model, forKey: AppDefaults.Key.claudeModel)
+            updateClaudeCode()
         }
     }
     /// The mode of a Claude Code session that has none of its own.
-    var permissionMode: PermissionMode {
-        get { runner.permissionMode }
-        set {
-            runner.permissionMode = newValue
-            preferences.set(newValue.rawValue, forKey: AppDefaults.Key.claudePermissionMode)
+    var permissionMode: ClaudeCodeConnection.PermissionMode {
+        didSet {
+            preferences.set(permissionMode.rawValue, forKey: AppDefaults.Key.claudePermissionMode)
+            updateClaudeCode()
         }
     }
     /// The agents that speak ACP, which the reader added in Settings.
-    var acpAgents: [AgentDefinition] { runner.agents }
+    var acpAgents: [AgentDefinition] { runner.agents.filter { $0.kind == .acp } }
     /// True when the stored agent list did not decode. Piper then keeps the
     /// stored list as it is, and an added agent lasts until Piper quits.
     @ObservationIgnored private var keepsStoredAgents = false
@@ -64,36 +66,47 @@ final class AgentSettings {
     private(set) var health: [String: AgentStatus] = [:]
 
     /// Claude Code, then the agents that the reader added.
-    var allAgents: [AgentDefinition] { [.claudeCode] + acpAgents }
+    var allAgents: [AgentDefinition] { runner.agents }
+
+    var claudeCode: AgentDefinition {
+        ClaudeCodeConnection.agent(executable: executable, model: model, mode: permissionMode)
+    }
 
     // MARK: - Initialization
 
-    init(store: CaptureStore, messages: Messages, preferences: UserDefaults = .standard) {
+    /// - Parameter storage: The store of the sessions. Nil keeps them only until Piper quits.
+    init(storage: SessionStorage?, messages: Messages, preferences: UserDefaults = .standard) {
         self.messages = messages
         self.preferences = preferences
-        claudePath = preferences.string(forKey: AppDefaults.Key.claudePath)
+        let claudePath = preferences.string(forKey: AppDefaults.Key.claudePath)
+        self.claudePath = claudePath
+        executable = Self.executable(chosen: claudePath)
+        model = preferences.string(forKey: AppDefaults.Key.claudeModel) ?? ClaudeCodeConnection.defaultModel
+        permissionMode = preferences.string(forKey: AppDefaults.Key.claudePermissionMode)
+            .flatMap(ClaudeCodeConnection.PermissionMode.init(rawValue:)) ?? .auto
         sessionAgentID = preferences.string(forKey: AppDefaults.Key.sessionAgent) ?? AgentDefinition.claudeCodeID
         marginAgentID = preferences.string(forKey: AppDefaults.Key.marginAgent) ?? AgentDefinition.claudeCodeID
         marginModel = preferences.string(forKey: AppDefaults.Key.marginModel) ?? ClaudeCodeConnection.defaultMarginModel
-        runner = SessionRunner(storage: store.database) { [weak messages] error in messages?.report(error) }
-        runner.executable = Self.executable(chosen: claudePath)
-        runner.permissionMode = preferences.string(forKey: AppDefaults.Key.claudePermissionMode)
-            .flatMap(PermissionMode.init(rawValue:)) ?? .auto
-        runner.model = preferences.string(forKey: AppDefaults.Key.claudeModel) ?? ClaudeCodeConnection.defaultModel
+        runner = SessionRunner(storage: storage) { [weak messages] error in messages?.report(error) }
+        var acpAgents: [AgentDefinition] = []
         if let data = preferences.data(forKey: AppDefaults.Key.acpAgents) {
             do {
-                runner.agents = try JSONDecoder().decode([AgentDefinition].self, from: data)
+                acpAgents = try JSONDecoder().decode([AgentDefinition].self, from: data)
             } catch {
                 keepsStoredAgents = true
                 messages.report(PiperError("Piper cannot read the stored list of agents, so it does not change it. \(error.localizedDescription)"))
             }
         }
+        runner.agents = [claudeCode] + acpAgents
     }
 
     // MARK: - Agents
 
     /// The agent with an id. Nil for an agent that the reader removed.
     func agent(_ id: String) -> AgentDefinition? { allAgents.first { $0.id == id } }
+
+    /// The kind of the agent with an id. A removed agent counts as an ACP agent.
+    func kind(of id: String) -> AgentDefinition.Kind { agent(id)?.kind ?? .acp }
 
     /// The agents that can answer in the margin: Claude Code, and each ACP
     /// agent that is not known to lack a read-only mode.
@@ -112,11 +125,11 @@ final class AgentSettings {
     /// another agent with its own default model.
     func setMarginAgent(_ id: String) {
         marginAgentID = id
-        marginModel = id == AgentDefinition.claudeCodeID ? ClaudeCodeConnection.defaultMarginModel : ""
+        marginModel = kind(of: id) == .claudeCode ? ClaudeCodeConnection.defaultMarginModel : ""
     }
 
     func canAnswerInMargin(_ id: String) -> Bool {
-        id == AgentDefinition.claudeCodeID || (agent(id) != nil && !runner.agentsWithoutReadOnlyMode.contains(id))
+        agent(id) != nil && !runner.agentsWithoutReadOnlyMode.contains(id)
     }
 
     func addAgent(name: String, command: String, arguments: [String]) {
@@ -190,8 +203,12 @@ final class AgentSettings {
 
     // MARK: - Private
 
+    private func updateClaudeCode() {
+        runner.agents = [claudeCode] + acpAgents
+    }
+
     private func setAgents(_ agents: [AgentDefinition]) {
-        runner.agents = agents
+        runner.agents = [claudeCode] + agents
         guard !keepsStoredAgents else { return }
         do {
             preferences.set(try JSONEncoder().encode(agents), forKey: AppDefaults.Key.acpAgents)
@@ -200,12 +217,12 @@ final class AgentSettings {
 
     private func checkHealth(of agent: AgentDefinition) {
         health[agent.id] = .checking
-        let executable = runner.executable
+        let executable = executable
         Task {
-            let status = agent.isClaudeCode
-                ? await AgentProbe.claudeCode(executable: executable)
-                : await AgentProbe.acp(agent)
-            health[agent.id] = status
+            switch agent.kind {
+            case .claudeCode: health[agent.id] = await AgentProbe.claudeCode(executable: executable)
+            case .acp: health[agent.id] = await AgentProbe.acp(agent)
+            }
         }
     }
 }

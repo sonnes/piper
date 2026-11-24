@@ -125,7 +125,9 @@ function end(block: TextBlock) {
 /**
  * The document range of a note. The stored block and offset win when they
  * still hold the quote. If not, the first match in the stored block wins, then
- * the first match in the document. `NoteAnchor.locate` in Swift has the same rule.
+ * the first match in the document. `NoteAnchor.locate` in Swift has the same
+ * order, and then also looks for a quote that spans blocks. This function does
+ * not, so such a note gets no mark in the editor.
  */
 export function findQuote(doc: PMNode, anchor: Anchor): { from: number; to: number } | null {
 	const { quote } = anchor;
@@ -397,7 +399,7 @@ function SelectionBar({ editor, viewport, editable }: { editor: Editor; viewport
 						onClick={() => {
 							close();
 							editor.commands.focus();
-							(editor.commands as unknown as { toggleLinkAtSelection: () => boolean }).toggleLinkAtSelection();
+							editor.commands.toggleLinkAtSelection();
 						}}
 					>
 						Link

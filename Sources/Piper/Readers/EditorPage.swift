@@ -1,5 +1,6 @@
 import AppKit
 import Captures
+import PiperCore
 import SwiftUI
 import UniformTypeIdentifiers
 import Vault
@@ -7,10 +8,25 @@ import WebKit
 
 /// The reading preferences that the editor page applies.
 struct EditorTheme: Encodable, Equatable {
-    let theme: String
-    let font: String
+    struct Background: Encodable, Equatable {
+        let light: String
+        let dark: String
+    }
+
+    let theme: WikiReadingTheme
+    let font: WikiReadingFont
     let size: Double
-    let appearance: String
+    let appearance: WikiReadingAppearance
+    /// The paper color of the theme as CSS. The page has no colors of its own for a theme.
+    let background: Background
+
+    init(theme: WikiReadingTheme, font: WikiReadingFont, size: Double, appearance: WikiReadingAppearance) {
+        self.theme = theme
+        self.font = font
+        self.size = size
+        self.appearance = appearance
+        background = Background(light: theme.cssBackground(dark: false), dark: theme.cssBackground(dark: true))
+    }
 }
 
 /// The file that the editor page shows. The page reads the whole file, with its frontmatter.
@@ -34,16 +50,21 @@ struct EditorOpenRequest: Encodable, Equatable {
 
 /// A message of the editor page. See `Outgoing` in `web/src/bridge.ts`.
 enum EditorMessage: Decodable, Equatable {
+    enum LinkKind: String, Decodable {
+        case url, wiki
+    }
+
     case ready
     case change(path: String, text: String)
-    /// `kind` is `url` or `wiki`.
-    case link(kind: String, target: String)
+    case link(kind: LinkKind, target: String)
     /// A pasted or dropped image, in base64. The answer is its path for the Markdown.
     case image(path: String, type: String, data: String)
     case lossy(path: String, reasons: [String])
+    /// An uncaught error or an unhandled rejection of the page.
+    case error(message: String)
     case mark(ReaderAction)
 
-    private enum Key: String, CodingKey { case action, path, text, kind, target, type, data, reasons }
+    private enum Key: String, CodingKey { case action, path, text, kind, target, type, data, reasons, message }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: Key.self)
@@ -53,12 +74,14 @@ enum EditorMessage: Decodable, Equatable {
         case "change":
             self = .change(path: try values.decode(String.self, forKey: .path), text: try values.decode(String.self, forKey: .text))
         case "link":
-            self = .link(kind: try values.decode(String.self, forKey: .kind), target: try values.decode(String.self, forKey: .target))
+            self = .link(kind: try values.decode(LinkKind.self, forKey: .kind), target: try values.decode(String.self, forKey: .target))
         case "image":
             self = .image(path: try values.decode(String.self, forKey: .path), type: try values.decode(String.self, forKey: .type),
                           data: try values.decode(String.self, forKey: .data))
         case "lossy":
             self = .lossy(path: try values.decode(String.self, forKey: .path), reasons: try values.decode([String].self, forKey: .reasons))
+        case "error":
+            self = .error(message: try values.decode(String.self, forKey: .message))
         default:
             self = .mark(try ReaderAction(from: decoder))
         }
@@ -115,7 +138,7 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply {
         configuration.userContentController.addScriptMessageHandler(WeakMessageHandler(self), contentWorld: .page, name: "editor")
         webView.underPageBackgroundColor = PiperTheme.paperNS
         webView.setAccessibilityLabel("Page")
-        webView.find = { [weak self] in self?.bridge.call("command", "find") }
+        webView.find = { [weak self] in self?.bridge.call("find") }
         bridge.reloaded = { [weak self] in self?.reload() }
         bridge.load()
     }
@@ -199,6 +222,8 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply {
             }
         case .lossy(let path, let reasons):
             files.editors[path]?.lossy = reasons
+        case .error(let message):
+            bridge.report(PiperError("The editor page failed. \(message)"))
         case .mark(let action):
             if let path = shown?.path { files.performFileAction(action, path: path) }
         }

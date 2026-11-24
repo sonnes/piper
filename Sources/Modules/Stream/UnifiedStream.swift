@@ -197,10 +197,7 @@ public struct UnifiedStream: Equatable {
     /// article older than `articleDays` have no row.
     /// A search gives each article that matches its own row.
     private static func feedRows(_ input: Input, query: String, now: Date, calendar: Calendar) -> [StreamItem] {
-        let held = Set(input.notes.compactMap { note -> String? in
-            guard note.parent == nil, note.isArticle else { return nil }
-            return note.articleURL.map(CaptureLinks.canonical)
-        })
+        let held = Set(input.notes.compactMap(\.articleKey))
         let since = now.addingTimeInterval(-Double(articleDays) * 86_400)
         let articles = input.articles.filter { article in
             guard article.date >= since else { return false }

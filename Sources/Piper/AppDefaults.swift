@@ -10,7 +10,6 @@ enum AppDefaults {
         static let wikiPaths = "wikiPaths"
         static let captureShortcut = "captureShortcut"
         static let composerDraft = "composerDraft"
-        static let migratedLocalPreferences = "migratedLocalPreferences"
         static let showsFileSource = "showsFileSource"
         /// Turns on the QA hooks of a debug build. See `QA`.
         static let qaMode = "PiperQA"

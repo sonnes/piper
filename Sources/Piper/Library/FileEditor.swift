@@ -73,10 +73,9 @@ final class FileEditor {
     /// The file can be newer than the last scan. The editor then opens it when
     /// the next scan finds it.
     func openRunFile(_ path: String, in folder: String) {
-        let root = Vault(path: folder).root
-        if root != library.vault.root {
+        if !library.isActive(folder) {
             library.changeWiki(to: folder)
-            guard library.vault.root == root else { return }
+            guard library.isActive(folder) else { return }
         }
         if library.files.contains(where: { $0.id == path }) {
             openDocument(path)
@@ -245,18 +244,19 @@ final class FileEditor {
     // MARK: - Links and images
 
     /// Follows a link that the reader clicked in the editor.
-    func openEditorLink(kind: String, target: String) {
+    func openEditorLink(kind: EditorMessage.LinkKind, target: String) {
         guard let document = currentDocument else { return }
-        if kind == "wiki" {
+        switch kind {
+        case .wiki:
             do {
                 let location = try WikiLinks.resolve(target, from: document, files: library.files, vault: library.vault, wikiStyle: true)
                 openDocument(location.path, anchor: location.anchor)
             } catch { messages.report(error) }
-            return
+        case .url:
+            let encoded = target.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed)
+            guard let url = URL(string: target) ?? encoded.flatMap(URL.init(string:)) else { return }
+            openLink(url, from: document)
         }
-        let encoded = target.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed)
-        guard let url = URL(string: target) ?? encoded.flatMap(URL.init(string:)) else { return }
-        openLink(url, from: document)
     }
 
     private func openLink(_ url: URL, from document: VaultFile) {

@@ -40,10 +40,12 @@ final class SkillFolders {
     var paths: [String] = [] {
         didSet {
             guard paths != oldValue else { return }
+            vaults = paths.map(Vault.init(path:))
             watch()
             scan()
         }
     }
+    @ObservationIgnored private var vaults: [Vault] = []
     /// Every folder of the Folders index with skills, including the folders that are off.
     private(set) var available: [Folder] = [] {
         didSet { foldersChanged?() }
@@ -75,11 +77,18 @@ final class SkillFolders {
 
     // MARK: - Initialization
 
+    /// A `Folder` has the root path of its `Vault`, with symbolic links resolved.
+    /// A stored path can be the same folder through a link, so it loads as that root.
     init(preferences: UserDefaults = .standard) {
         self.preferences = preferences
-        disabledPaths = Set(preferences.stringArray(forKey: AppDefaults.Key.agentDisabledFolders) ?? [])
-        lastFolderPath = preferences.string(forKey: AppDefaults.Key.agentLastFolder)
-        defaultSkills = preferences.dictionary(forKey: AppDefaults.Key.agentDefaultSkills) as? [String: String] ?? [:]
+        let root = { (path: String) in Vault(path: path).root.path }
+        disabledPaths = Set((preferences.stringArray(forKey: AppDefaults.Key.agentDisabledFolders) ?? []).map(root))
+        lastFolderPath = preferences.string(forKey: AppDefaults.Key.agentLastFolder).map(root)
+        let stored = preferences.dictionary(forKey: AppDefaults.Key.agentDefaultSkills) as? [String: String] ?? [:]
+        defaultSkills = Dictionary(stored.map { key, skill in
+            guard let separator = key.firstIndex(of: "|") else { return (key, skill) }
+            return (String(key[...separator]) + root(String(key[key.index(after: separator)...])), skill)
+        }, uniquingKeysWith: { first, _ in first })
     }
 
     // MARK: - Folders
@@ -88,6 +97,11 @@ final class SkillFolders {
 
     func setEnabled(_ enabled: Bool, for folder: Folder) {
         if enabled { disabledPaths.remove(folder.path) } else { disabledPaths.insert(folder.path) }
+    }
+
+    /// Reads the skills of each folder again, for Refresh.
+    func reload() {
+        scan()
     }
 
     /// Makes a folder the default of the Send buttons.
@@ -152,18 +166,16 @@ final class SkillFolders {
 
     private func watch() {
         watchers.forEach { $0.stop() }
-        watchers = paths.map { path in
-            let watcher = VaultWatcher(vault: Vault(path: path), part: "/.claude") { [weak self] in self?.scan() }
+        watchers = vaults.map { vault in
+            let watcher = VaultWatcher(vault: vault, part: "/.claude") { [weak self] in self?.scan() }
             watcher.start()
             return watcher
         }
     }
 
     private func scan() {
-        let updated = paths.map { path -> Folder in
-            let root = Vault(path: path).root
-            return Folder(path: root.path, skills: FolderSkill.load(from: root))
-        }.filter { !$0.skills.isEmpty }
+        let updated = vaults.map { Folder(path: $0.root.path, skills: FolderSkill.load(from: $0.root)) }
+            .filter { !$0.skills.isEmpty }
         if updated != available { available = updated }
     }
 }

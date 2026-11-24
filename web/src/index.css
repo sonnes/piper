@@ -73,8 +73,6 @@
 	--piper-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 	--font-size-content: 18px;
 }
-:root[data-theme="sepia"] { --piper-paper: #f4edde; }
-:root[data-theme="slate"] { --piper-paper: #edf1f5; }
 
 :root.dark {
 	color-scheme: dark;
@@ -92,8 +90,6 @@
 	--input: #52525b;
 	--piper-code: #3f3f46;
 }
-:root.dark[data-theme="sepia"] { --piper-paper: #29231e; }
-:root.dark[data-theme="slate"] { --piper-paper: #1e252d; }
 
 html,
 body,

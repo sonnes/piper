@@ -177,8 +177,7 @@ enum Command: CaseIterable {
         }
     }
 
-    /// The menu of the main menu that holds the command. Mark All as Read is
-    /// in no menu, because the list of a feed binds its key while it shows.
+    /// The menu of the main menu that holds the command.
     var menu: Menu? {
         Menu.allCases.first { $0.groups.joined().contains(self) }
     }
@@ -187,6 +186,28 @@ enum Command: CaseIterable {
     /// opens the palette itself.
     var isInPalette: Bool {
         standardAction == nil && self != .goToFile && (menu != nil || self == .toggleFileSource)
+    }
+
+    /// The state of the app that enables a command.
+    struct Context {
+        /// True while the file editor is in the paper with the keyboard focus.
+        var editorHasFocus: Bool
+        /// True while the feed paper shows the list of one feed.
+        var showsFeedList: Bool
+    }
+
+    /// The menus and the command palette show a command only while it is enabled.
+    func isEnabled(in context: Context) -> Bool {
+        switch self {
+        case .find: return context.editorHasFocus
+        case .markAllAsRead: return context.showsFeedList
+        default: return true
+        }
+    }
+
+    /// The commands of the command palette, in the order of `allCases`.
+    static func palette(in context: Context) -> [Command] {
+        allCases.filter { $0.isInPalette && $0.isEnabled(in: context) }
     }
 
     /// Today and Feeds always lead the column of tabs, so their numbers do not change.

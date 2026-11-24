@@ -35,6 +35,13 @@ public struct Feed: Equatable, Hashable, Identifiable, Sendable {
     public var host: String {
         URL(string: home ?? id).flatMap(Site.init)?.key ?? id
     }
+
+    /// True while the title is the one that Piper gave before the first fetch:
+    /// the host of the feed URL, or the URL.
+    public var hasPlaceholderTitle: Bool { title == URL(string: id)?.host || title == id }
+
+    /// The title of a new feed that has no title of its own.
+    public static func placeholderTitle(for url: String) -> String { URL(string: url)?.host ?? url }
 }
 
 /// One article of a feed.

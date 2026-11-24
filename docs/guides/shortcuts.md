@@ -70,7 +70,7 @@ In the File list, Up Arrow and Down Arrow choose a place, Return files the rows,
 | Command-S | Save the open Markdown file at once. Piper also saves 120 ms after an edit. |
 | Command-K | Open the command palette. In the editor, with text selected, make a link. |
 | Command-F | Find and replace text in the open Markdown file |
-| Command-R | Scan the folder again |
+| Command-R | Scan the folder and read the skills of each folder again |
 | Command-[ | Go back |
 | Command-] | Go forward |
 | Command-Z | Undo an edit in a text field. Outside a text field, undo the last change to the notes. |

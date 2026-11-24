@@ -2,43 +2,6 @@ import Foundation
 import Observation
 import PiperCore
 
-/// How much Claude Code does without a card, in menu order. The raw value is
-/// the value of `--permission-mode`, and the id of the mode in the mode menu.
-public enum PermissionMode: String, CaseIterable, Sendable {
-    /// Claude Code allows or asks for each tool call by its risk.
-    case auto
-    /// Edits files without a card. Other tools show a card.
-    case acceptEdits
-    /// Every tool call that the folder settings do not allow shows a card.
-    case ask = "manual"
-    /// Reads and plans, and edits nothing.
-    case plan
-    /// Runs every tool without a card.
-    case bypassPermissions
-
-    /// The name in the mode menu.
-    public var name: String {
-        switch self {
-        case .auto: return "Auto"
-        case .acceptEdits: return "Edit Files Only"
-        case .ask: return "Ask Every Time"
-        case .plan: return "Plan"
-        case .bypassPermissions: return "Allow Every Tool"
-        }
-    }
-
-    /// One line about the mode, for a tooltip.
-    public var detail: String {
-        switch self {
-        case .auto: return "Claude Code allows safe tools and asks about risky ones."
-        case .acceptEdits: return "File edits run with no card. Other tools ask."
-        case .ask: return "Each tool that the folder settings do not allow asks."
-        case .plan: return "Claude Code reads and plans, and edits nothing."
-        case .bypassPermissions: return "Any tool runs with no card, including shell commands."
-        }
-    }
-}
-
 /// Runs agent sessions in folders and keeps every session.
 ///
 /// A session has one agent process, behind an `AgentConnection`: Claude Code
@@ -52,22 +15,15 @@ public final class SessionRunner {
 
     /// Every session, newest first.
     public private(set) var sessions: [AgentSession] = []
-    /// The `claude` executable. A Claude Code turn fails when it is nil.
-    public var executable: URL?
-    /// The mode of a Claude Code session that has no mode of its own.
-    public var permissionMode = PermissionMode.auto
-    /// The model of a Claude Code session that has none of its own, for
-    /// example `sonnet`. Nil leaves the choice to Claude Code.
-    public var model: String?
-    /// The agents that speak ACP, which the reader added.
-    public var agents: [AgentDefinition] = []
+    /// Every agent that a session can use: Claude Code and the ACP agents that the reader added.
+    public var agents = [ClaudeCodeConnection.agent(executable: nil)]
     /// The ACP agents that offer no read-only mode, by id. Such an agent
     /// cannot answer in the margin. Piper learns this when a session opens.
     public private(set) var agentsWithoutReadOnlyMode: Set<String> = []
     /// Processes start through `zsh -l`, so the child gets the reader's PATH. Tests turn it off.
     public var usesLoginShell = true
     /// The time a turn can run. The time a card waits for the reader does not count.
-    public var turnTimeout: TimeInterval = 10 * 60
+    nonisolated static let turnTimeout: TimeInterval = 10 * 60
     /// The number of turns that run at the same time.
     public var concurrency = 2
     public static let storedSessionLimit = 500
@@ -82,20 +38,25 @@ public final class SessionRunner {
         let context: [ContextItem]
     }
 
+    /// What the runner keeps about one session while Piper runs.
+    private struct LiveSession {
+        var connection: AgentConnection?
+        /// The messages that wait for the next turn.
+        var queued: [Message] = []
+        var turnTimer: Task<Void, Never>?
+        var turnStart: Date?
+        var save: Task<Void, Never>?
+        /// Why Piper ended the turn, for the result block.
+        var stopReason: String?
+        /// The cost so far that the agent reported, and the cost at the end of the last turn.
+        var cost: (now: Double, atTurnStart: Double)?
+        /// True when the model or the mode changed while a process ran. The next turn starts a new process.
+        var relaunches = false
+    }
+
     @ObservationIgnored private let storage: SessionStorage?
     @ObservationIgnored private let report: (Error) -> Void
-    @ObservationIgnored private var connections: [UUID: AgentConnection] = [:]
-    /// The messages that wait for the next turn of a session.
-    @ObservationIgnored private var queued: [UUID: [Message]] = [:]
-    @ObservationIgnored private var turnTimers: [UUID: Task<Void, Never>] = [:]
-    @ObservationIgnored private var turnStarts: [UUID: Date] = [:]
-    @ObservationIgnored private var saves: [UUID: Task<Void, Never>] = [:]
-    /// Why Piper ended a turn, for the result block.
-    @ObservationIgnored private var stopReasons: [UUID: String] = [:]
-    /// The cost so far that each agent reported, and the cost at the end of the last turn.
-    @ObservationIgnored private var costs: [UUID: (now: Double, atTurnStart: Double)] = [:]
-    /// The sessions whose model or mode changed while a process ran. The next turn starts a new process.
-    @ObservationIgnored private var relaunches: Set<UUID> = []
+    @ObservationIgnored private var live: [UUID: LiveSession] = [:]
 
     public var activeCount: Int { sessions.filter(\.isActive).count }
 
@@ -118,7 +79,12 @@ public final class SessionRunner {
                         return nil
                     }
                 }
-                .map(AgentSession.init)
+                .map { snapshot in
+                    let session = AgentSession(snapshot)
+                    session.blocks = connectionType(of: session).restored(session.blocks,
+                                                                          in: URL(fileURLWithPath: session.folder))
+                    return session
+                }
                 .sorted { $0.createdAt > $1.createdAt }
             if unreadable > 0 {
                 report(PiperError(unreadable == 1
@@ -153,18 +119,17 @@ public final class SessionRunner {
 
     /// The agent of a session. Nil for an agent that the reader removed.
     public func agent(of session: AgentSession) -> AgentDefinition? {
-        session.agentID == AgentDefinition.claudeCodeID ? .claudeCode : agents.first { $0.id == session.agentID }
+        agents.first { $0.id == session.agentID }
     }
 
     public func config(for session: AgentSession) -> AgentConfig {
         config(AgentConfig(agentID: session.agentID, model: session.model, mode: session.mode))
     }
 
-    /// A choice with the defaults filled in. Claude Code takes the model and
-    /// the mode of the runner. Another agent keeps its own defaults.
+    /// A choice with the model and the mode of its agent filled in where the choice has none.
     public func config(_ choice: AgentConfig) -> AgentConfig {
-        guard choice.agentID == AgentDefinition.claudeCodeID else { return choice }
-        return AgentConfig(agentID: choice.agentID, model: choice.model ?? model, mode: choice.mode ?? permissionMode.rawValue)
+        guard let agent = agents.first(where: { $0.id == choice.agentID }) else { return choice }
+        return AgentConfig(agentID: choice.agentID, model: choice.model ?? agent.model, mode: choice.mode ?? agent.mode)
     }
 
     // MARK: - Sessions
@@ -219,17 +184,17 @@ public final class SessionRunner {
         guard !text.isEmpty else { return }
         if session.blocks.isEmpty { session.command = SlashCommand(text) }
         session.draft = ""
-        let connectionType = Self.connectionType(of: session.agentID)
+        let connectionType = connectionType(of: session)
         let context = connectionType.localCommands.contains(SlashCommand(text)?.name ?? "") ? [] : context
         session.append(.user(id: UUID().uuidString, text: text, context: context))
         session.unread = false
         let waiting = session.pendingRequests
-        if !waiting.isEmpty, connections[session.id] != nil {
+        if !waiting.isEmpty, live[session.id]?.connection != nil {
             let reply = Self.replyPrefix + Self.messageBody(text, context: context)
             for request in waiting { deny(request, message: reply, in: session) }
             if connectionType.readsDenialMessage { return }
         }
-        queued[session.id, default: []].append(Message(text: text, context: context))
+        live[session.id, default: LiveSession()].queued.append(Message(text: text, context: context))
         if !session.isActive { session.state = .waiting }
         persist(session, now: true)
         startWaitingSessions()
@@ -238,7 +203,7 @@ public final class SessionRunner {
     public func respond(_ request: PermissionRequest, with option: ACP.PermissionOption, message: String? = nil,
                         in session: AgentSession) {
         guard isPending(request, in: session) else { return }
-        connections[session.id]?.respond(to: request, with: option, message: message)
+        live[session.id]?.connection?.respond(to: request, with: option, message: message)
         let decision: PermissionDecision = switch option.kind {
         case .allowOnce: .allowed
         case .allowAlways: .allowedAlways
@@ -272,7 +237,7 @@ public final class SessionRunner {
     /// of the chosen options, joined with commas.
     public func answer(_ request: PermissionRequest, answers: [String: String], in session: AgentSession) {
         guard isPending(request, in: session) else { return }
-        if let connection = connections[session.id], type(of: connection).answersQuestions {
+        if let connection = live[session.id]?.connection, type(of: connection).answersQuestions {
             connection.answer(request, answers: answers)
         }
         session.update(TranscriptBlock.question(request, answers: nil).id) {
@@ -284,9 +249,9 @@ public final class SessionRunner {
     /// Stops the turn of a session. The next message continues the session.
     public func stop(_ session: AgentSession) {
         guard session.isActive else { return }
-        queued.removeValue(forKey: session.id)
-        if session.state != .waiting, let connection = connections[session.id] {
-            stopReasons[session.id] = Self.stopMessage
+        live[session.id]?.queued = []
+        if session.state != .waiting, let connection = live[session.id]?.connection {
+            live[session.id]?.stopReason = Self.stopMessage
             connection.cancel()
         } else {
             endTurn(session, TurnResult(failure: Self.stopMessage), state: .idle)
@@ -298,21 +263,17 @@ public final class SessionRunner {
     public func stopAll() {
         for session in sessions where session.isActive { stop(session) }
         for session in sessions where !session.isActive {
-            connections.removeValue(forKey: session.id)?.close()
+            takeConnection(of: session.id)?.close()
         }
     }
 
     /// Stops a session and removes it from the list and the storage.
     public func delete(_ session: AgentSession) {
         stop(session)
-        connections.removeValue(forKey: session.id)?.terminate()
-        stopReasons.removeValue(forKey: session.id)
-        saves.removeValue(forKey: session.id)?.cancel()
-        turnTimers.removeValue(forKey: session.id)?.cancel()
-        turnStarts.removeValue(forKey: session.id)
-        costs.removeValue(forKey: session.id)
-        relaunches.remove(session.id)
-        queued.removeValue(forKey: session.id)
+        let removed = live.removeValue(forKey: session.id)
+        removed?.connection?.terminate()
+        removed?.save?.cancel()
+        removed?.turnTimer?.cancel()
         sessions.removeAll { $0.id == session.id }
         do { try storage?.deleteSession(id: session.id) } catch { report(error) }
     }
@@ -335,13 +296,18 @@ public final class SessionRunner {
     /// Starts a turn with every queued message. The messages go to the agent
     /// as one prompt, because an agent runs one prompt at a time.
     private func beginTurn(_ session: AgentSession) {
-        let messages = queued.removeValue(forKey: session.id) ?? []
-        if relaunches.remove(session.id) != nil { connections.removeValue(forKey: session.id)?.close() }
-        guard connections[session.id] != nil || launch(session) else { return }
+        let id = session.id
+        let messages = live[id]?.queued ?? []
+        live[id]?.queued = []
+        if live[id]?.relaunches == true {
+            live[id]?.relaunches = false
+            takeConnection(of: id)?.close()
+        }
+        guard live[id]?.connection != nil || launch(session) else { return }
         session.state = .running
-        turnStarts[session.id] = Date()
-        if let now = costs[session.id]?.now { costs[session.id] = (now: now, atTurnStart: now) }
-        if let message = Self.joined(messages) { connections[session.id]?.prompt(message.text, context: message.context) }
+        live[id]?.turnStart = Date()
+        if let now = live[id]?.cost?.now { live[id]?.cost = (now: now, atTurnStart: now) }
+        if let message = Self.joined(messages) { live[id]?.connection?.prompt(message.text, context: message.context) }
         startTurnTimer(for: session)
         persist(session, now: true)
     }
@@ -352,27 +318,23 @@ public final class SessionRunner {
         let config = SessionConfig(folder: URL(fileURLWithPath: session.folder, isDirectory: true),
                                    resumeToken: session.resumeToken, model: choice.model, mode: choice.mode,
                                    purpose: session.purpose)
+        guard let agent = agent(of: session) else {
+            endTurn(session, TurnResult(failure: "Piper cannot find the agent of this session. Add it in Settings > AI."),
+                    state: .failed)
+            return false
+        }
         let connection: AgentConnection
-        if Self.connectionType(of: session.agentID) == ClaudeCodeConnection.self {
-            guard let executable else {
-                endTurn(session, TurnResult(failure: "Piper cannot find the claude command. Choose it in Settings > AI."),
-                        state: .failed)
-                return false
-            }
-            connection = ClaudeCodeConnection(executable: executable, config: config, usesLoginShell: usesLoginShell,
-                                              report: report)
-        } else {
-            guard let agent = agent(of: session) else {
-                endTurn(session, TurnResult(failure: "Piper cannot find the agent of this session. Add it in Settings > AI."),
-                        state: .failed)
-                return false
-            }
-            connection = StdioAgentConnection(agent: agent, config: config, usesLoginShell: usesLoginShell)
+        do {
+            connection = try agent.kind.connectionType.init(agent: agent, config: config, usesLoginShell: usesLoginShell,
+                                                            report: report)
+        } catch {
+            endTurn(session, TurnResult(failure: error.localizedDescription), state: .failed)
+            return false
         }
         let id = session.id
         do {
             try connection.start(event: { [weak self, weak connection] event in
-                guard let self, let connection, self.connections[id] === connection else { return }
+                guard let self, let connection, self.live[id]?.connection === connection else { return }
                 self.receive(event, for: id)
             }, exit: { [weak self, weak connection] status, errors in
                 guard let self, let connection else { return }
@@ -382,19 +344,25 @@ public final class SessionRunner {
             endTurn(session, TurnResult(failure: "Cannot start the agent: \(error.localizedDescription)"), state: .failed)
             return false
         }
-        connections[id] = connection
+        live[id, default: LiveSession()].connection = connection
         return true
     }
 
-    private static func connectionType(of agentID: String) -> AgentConnection.Type {
-        agentID == AgentDefinition.claudeCodeID ? ClaudeCodeConnection.self : StdioAgentConnection.self
+    /// The connection type of the agent of a session. A removed agent counts as an ACP agent.
+    private func connectionType(of session: AgentSession) -> AgentConnection.Type {
+        (agent(of: session)?.kind ?? .acp).connectionType
+    }
+
+    private func takeConnection(of id: UUID) -> AgentConnection? {
+        defer { live[id]?.connection = nil }
+        return live[id]?.connection
     }
 
     private func receive(_ event: AgentEvent, for id: UUID) {
         guard let session = session(id) else { return }
         switch event {
         case .ready(let setup):
-            if Self.connectionType(of: session.agentID).hasReadOnlyMode(setup) {
+            if connectionType(of: session).hasReadOnlyMode(setup) {
                 agentsWithoutReadOnlyMode.remove(session.agentID)
             } else {
                 agentsWithoutReadOnlyMode.insert(session.agentID)
@@ -455,7 +423,7 @@ public final class SessionRunner {
             session.configOptions = options
         case .usage(_, _, let cost):
             guard let cost else { return }
-            costs[session.id] = (now: cost, atTurnStart: costs[session.id]?.atTurnStart ?? 0)
+            live[session.id, default: LiveSession()].cost = (now: cost, atTurnStart: live[session.id]?.cost?.atTurnStart ?? 0)
         case .agentThought, .userMessage, .plan, .other:
             return
         }
@@ -487,11 +455,14 @@ public final class SessionRunner {
 
     private func finish(_ session: AgentSession, _ end: TurnEnd) {
         let id = session.id
-        let stopped = stopReasons.removeValue(forKey: id)
+        let stopped = live[id]?.stopReason
+        let started = live[id]?.turnStart
+        live[id]?.stopReason = nil
+        live[id]?.turnStart = nil
         var failure = end.failure
         if end.stopReason == .cancelled { failure = stopped ?? Self.stopMessage }
-        let measured = turnStarts.removeValue(forKey: id).map { Int(Date().timeIntervalSince($0) * 1000) } ?? 0
-        let cost = end.costUSD ?? costs[id].map { max(0, $0.now - $0.atTurnStart) } ?? 0
+        let measured = started.map { Int(Date().timeIntervalSince($0) * 1000) } ?? 0
+        let cost = end.costUSD ?? live[id]?.cost.map { max(0, $0.now - $0.atTurnStart) } ?? 0
         let result = TurnResult(text: end.text ?? "", durationMs: end.durationMs ?? measured, costUSD: cost, failure: failure)
         let turn = session.blocks.reversed().prefix {
             if case .user = $0 { return false }
@@ -503,7 +474,7 @@ public final class SessionRunner {
         }
         let state: AgentSession.State = failure == nil || failure == Self.stopMessage ? .idle : .failed
         endTurn(session, result, state: state)
-        if queued[id]?.isEmpty == false { session.state = .waiting }
+        if live[id]?.queued.isEmpty == false { session.state = .waiting }
         startWaitingSessions()
     }
 
@@ -513,13 +484,13 @@ public final class SessionRunner {
         if session.purpose == .margin {
             let readOnly = !request.isQuestion && request.kind.isReadOnly
             let option = readOnly ? request.options.first { $0.kind == .allowOnce } : request.options.first { !$0.kind.allows }
-            if let option { connections[session.id]?.respond(to: request, with: option, message: nil) }
+            if let option { live[session.id]?.connection?.respond(to: request, with: option, message: nil) }
             return
         }
         session.append(request.isQuestion ? .question(request, answers: nil) : .permission(request, decision: .pending))
         session.state = .needsYou
         session.unread = true
-        turnTimers.removeValue(forKey: session.id)?.cancel()
+        cancelTurnTimer(of: session.id)
         persist(session, now: true)
     }
 
@@ -540,22 +511,23 @@ public final class SessionRunner {
     /// start gets a new process at the next turn.
     private func applyChoices(_ session: AgentSession) {
         persist(session, now: true)
-        guard let connection = connections[session.id],
+        guard let connection = live[session.id]?.connection,
               !connection.apply(model: session.model, mode: session.mode) else { return }
         if session.isActive {
-            relaunches.insert(session.id)
+            live[session.id]?.relaunches = true
         } else {
-            connections.removeValue(forKey: session.id)?.close()
+            takeConnection(of: session.id)?.close()
         }
     }
 
     private func exited(_ id: UUID, connection: AgentConnection, status: Int32, errors: String) {
-        guard connections[id] === connection else { return }
-        connections.removeValue(forKey: id)
-        let reason = stopReasons.removeValue(forKey: id)
-        turnStarts.removeValue(forKey: id)
+        guard live[id]?.connection === connection else { return }
+        let reason = live[id]?.stopReason
+        live[id]?.connection = nil
+        live[id]?.stopReason = nil
+        live[id]?.turnStart = nil
         guard let session = session(id), session.isActive else { return }
-        queued.removeValue(forKey: id)
+        live[id]?.queued = []
         let detail = errors.trimmingCharacters(in: .whitespacesAndNewlines)
         let failure = reason ?? (detail.isEmpty ? "The agent exited with status \(status) and no result." : detail)
         endTurn(session, TurnResult(failure: failure), state: reason == Self.stopMessage ? .idle : .failed)
@@ -575,7 +547,7 @@ public final class SessionRunner {
                 continue
             }
         }
-        turnTimers.removeValue(forKey: session.id)?.cancel()
+        cancelTurnTimer(of: session.id)
         session.append(.result(id: UUID().uuidString, result))
         session.state = state
         session.unread = true
@@ -584,17 +556,22 @@ public final class SessionRunner {
 
     // MARK: - Timers
 
-    private func startTurnTimer(for session: AgentSession) {
+    /// Starts the timer of a turn. Tests give a short limit.
+    func startTurnTimer(for session: AgentSession, limit: TimeInterval = turnTimeout) {
         let id = session.id
-        let limit = turnTimeout
-        turnTimers[id]?.cancel()
-        turnTimers[id] = Task { [weak self] in
+        cancelTurnTimer(of: id)
+        live[id, default: LiveSession()].turnTimer = Task { [weak self] in
             try? await Task.sleep(for: .seconds(limit))
-            guard !Task.isCancelled, let self, let connection = self.connections[id] else { return }
-            self.stopReasons[id] = "Stopped after "
+            guard !Task.isCancelled, let self, let connection = self.live[id]?.connection else { return }
+            self.live[id]?.stopReason = "Stopped after "
                 + Duration.seconds(limit).formatted(.units(allowed: [.minutes, .seconds], width: .wide)) + "."
             connection.terminate()
         }
+    }
+
+    private func cancelTurnTimer(of id: UUID) {
+        live[id]?.turnTimer?.cancel()
+        live[id]?.turnTimer = nil
     }
 
     // MARK: - Storage
@@ -603,12 +580,13 @@ public final class SessionRunner {
     /// calls wait a short time, so a fast stream writes less often.
     private func persist(_ session: AgentSession, now: Bool = false) {
         guard storage != nil, !session.blocks.isEmpty else { return }
-        saves.removeValue(forKey: session.id)?.cancel()
+        live[session.id]?.save?.cancel()
+        live[session.id]?.save = nil
         guard !now else { return save(session) }
-        saves[session.id] = Task { [weak self, weak session] in
+        live[session.id, default: LiveSession()].save = Task { [weak self, weak session] in
             try? await Task.sleep(for: Self.saveDelay)
             guard !Task.isCancelled, let self, let session else { return }
-            self.saves.removeValue(forKey: session.id)
+            self.live[session.id]?.save = nil
             self.save(session)
         }
     }

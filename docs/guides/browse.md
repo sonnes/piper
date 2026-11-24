@@ -164,7 +164,7 @@ Wiki links use `[[Note]]`, `[[folder/Note|Label]]`, and `[[Note#Heading]]`. Rela
 
 To ask an agent about the open file, press Option-Command-C while its paper has the focus. See [Talk to an agent in a session](claude.md#talk-to-an-agent-in-a-session).
 
-Use Command-[ and Command-] to go back and forward. To scan the folder again, press Command-R, or select Refresh in the More menu.
+Use Command-[ and Command-] to go back and forward. To scan the folder again, press Command-R, or select Refresh in the More menu. Command-R also reads the Claude skills of each folder again.
 
 ## Change Reading Preferences
 
@@ -259,7 +259,7 @@ The find bar also replaces text. Press Escape to close it.
 2. Type a part of the file name or the title.
 3. Use Up and Down to select a row, then press Return.
 
-With an empty field, the palette lists the files that you opened last. With 3 characters or more, it also lists lines in files that hold the text. Type `/` to list commands, such as Find in File and Refresh. The commands that you ran last show first. Press Escape to close the palette.
+With an empty field, the palette lists the files that you opened last. With 3 characters or more, it also lists lines in files that hold the text. Type `/` to list commands, such as Find in File and Refresh. The palette lists a command only when the menu enables it. For example, Mark All as Read shows only while the list of a feed shows. The commands that you ran last show first. Press Escape to close the palette.
 
 ## Add An Image Or An HTML File
 

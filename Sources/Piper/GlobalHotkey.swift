@@ -24,14 +24,12 @@ final class GlobalHotkey {
 
     // MARK: - Initialization
 
-    /// - Parameters:
-    ///   - keyCode: The Carbon code of the key, such as `kVK_Space`.
-    ///   - modifiers: The Carbon modifiers, such as `controlKey | optionKey`.
-    init(keyCode: Int, modifiers: Int, action: @escaping () -> Void) {
+    init(key: CommandKey, action: @escaping () -> Void) {
         Self.lastID += 1
         id = Self.lastID
-        self.keyCode = UInt32(keyCode)
-        self.modifiers = UInt32(modifiers)
+        let carbon = Self.carbon(key)
+        keyCode = carbon.keyCode
+        modifiers = carbon.modifiers
         self.action = action
     }
 
@@ -69,4 +67,16 @@ final class GlobalHotkey {
         hotKey = nil
         handler = nil
     }
+
+    /// The Carbon key code and modifiers of a key. Carbon names a key by its
+    /// place on the keyboard, not by its character.
+    static func carbon(_ key: CommandKey) -> (keyCode: UInt32, modifiers: UInt32) {
+        guard let code = keyCodes[key.character] else { preconditionFailure("No Carbon key code for \(key.name)") }
+        let flags: [(NSEvent.ModifierFlags, Int)] = [(.control, controlKey), (.option, optionKey), (.shift, shiftKey), (.command, cmdKey)]
+        let modifiers = flags.filter { key.modifiers.contains($0.0) }.reduce(0) { $0 | $1.1 }
+        return (UInt32(code), UInt32(modifiers))
+    }
+
+    /// The keys of the global hotkeys of Piper.
+    private static let keyCodes = [" ": kVK_Space, "w": kVK_ANSI_W]
 }

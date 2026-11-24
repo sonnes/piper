@@ -140,16 +140,12 @@ UserDefaults holds these keys:
 | `blockedSites`, `disabledHistorySources` | The sites that the history scan never reads, and the history sources that are off |
 | `siteScanDate` | The time of the last history scan for Sites You Read Often |
 | `claudePath`, `claudeModel`, `claudePermissionMode` | The `claude` command that you chose, and the default model and permissions of Claude Code |
-| `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the name, the command, and the arguments |
+| `acpAgents` | The ACP agents in Settings > AI, as JSON: the id, the kind (`acp`), the name, the command, and the arguments. An entry with no kind is an ACP agent. |
 | `sessionAgent`, `marginAgent`, `marginModel` | The agent of a new session, and the agent and the model of a margin answer |
 | `articleSiteTabs` | The tab, Reader or Web, that each site of a link capture opens in |
 | `paperDeskState` | The tab, the scope, and the lens of the feed paper, the open folders, the tab color and the last file count of each folder, and the open file |
 | `readerFrames` | The frame of the feed paper, and the frame of each reader paper that you moved or resized, by its item. Piper keeps the 200 newest frames of reader papers. It also keeps the last size of each kind of paper, for the next new paper of that kind. |
 | `NSWindow Frame PiperSessionPanel` | The frame of the detached session card |
-
-### Bundle ID Migration
-
-The release bundle ID is `com.piper`. On the first launch, Piper copies missing keys from the earlier `local.piper` domain. It copies `wikiPath`, `captureShortcut`, `composerDraft`, `wikiReaderSize`, and `NSWindow Frame PiperLibrary`. The database path does not change.
 
 ## Back Up Piper
 

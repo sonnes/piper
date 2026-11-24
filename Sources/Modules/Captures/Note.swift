@@ -95,6 +95,11 @@ public struct Note: Identifiable, Equatable, Codable {
     public var articleURL: URL? {
         CaptureLinks(text).standaloneURL ?? sourceURLs.first.flatMap(URL.init(string:))
     }
+
+    /// The canonical link of a link capture, which names its article. Nil for any other note.
+    public var articleKey: String? {
+        isArticle ? articleURL.map(CaptureLinks.canonical) : nil
+    }
 }
 
 /// The tags that give a note its role. A highlight also has a color tag.

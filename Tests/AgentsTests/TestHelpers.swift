@@ -12,6 +12,9 @@ extension XCTestCase {
             try await Task.sleep(for: .milliseconds(20))
         }
         XCTFail(message, file: file, line: line)
-        throw XCTSkip(message)
+        throw WaitTimeout()
     }
 }
+
+/// Stops a test after `XCTFail` has recorded a wait that timed out.
+private struct WaitTimeout: Error {}

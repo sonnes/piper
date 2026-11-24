@@ -1,7 +1,7 @@
 import AppKit
 import CSQLite
 import XCTest
-import Captures
+@testable import Captures
 
 @MainActor
 final class CaptureStoreTests: XCTestCase {
@@ -22,6 +22,23 @@ final class CaptureStoreTests: XCTestCase {
     private func url(_ name: String = "notes.sqlite") -> URL { folder.appendingPathComponent(name) }
 
     // MARK: - Tests
+
+    func testRevertCoversEveryFieldOfANote() {
+        let before = Note(text: "a", section: "Inbox", sources: ["A"], sourceURLs: ["https://a.example"], isDone: false,
+                          createdAt: Date(timeIntervalSince1970: 1), modifiedAt: Date(timeIntervalSince1970: 2), parent: UUID(),
+                          tags: ["kept"], anchor: NoteAnchor(quote: "a", block: 1, offset: 2), reading: Reading(title: "A"))
+        let after = Note(id: before.id, text: "b", section: "Research", sources: ["B"], sourceURLs: ["https://b.example"],
+                         isDone: true, createdAt: Date(timeIntervalSince1970: 3), modifiedAt: Date(timeIntervalSince1970: 4),
+                         parent: UUID(), tags: ["highlight"], anchor: NoteAnchor(quote: "b", block: 3, offset: 4),
+                         reading: Reading(title: "B"))
+        // A new field of `Note` fails here until the notes above differ in it.
+        for (old, new) in zip(Mirror(reflecting: before).children, Mirror(reflecting: after).children) where old.label != "id" {
+            XCTAssertNotEqual(String(describing: old.value), String(describing: new.value), old.label ?? "")
+        }
+        var reverted = after
+        reverted.revert(after, to: before)
+        XCTAssertEqual(reverted, before)
+    }
 
     func testVerbsChangeSeveralCapturesWithOneUndoStep() throws {
         let store = CaptureStore(url: url())

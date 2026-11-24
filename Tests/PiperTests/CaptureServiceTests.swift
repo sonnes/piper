@@ -84,13 +84,38 @@ final class CaptureServiceTests: XCTestCase {
     func testACaptureWithPiperInFrontAsksForAnotherApp() {
         let store = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
         let messages = Messages()
-        let service = CaptureService(store: store, messages: messages, shortcut: { .shiftShift }, accessibilityChanged: { _ in })
-        service.capture(trusted: true, frontmost: nil)
+        let service = CaptureService(store: store, messages: messages, shortcut: { .shiftShift }, accessibilityChanged: { _ in },
+                                     isTrusted: { true })
+        service.capture(frontmost: nil)
         XCTAssertEqual(messages.last?.text, "Select text in another app first")
-        service.capture(trusted: true, frontmost: .current)
+        service.capture(frontmost: .current)
         XCTAssertEqual(messages.last?.text, "Select text in another app first")
-        service.capture(trusted: false, frontmost: nil)
+        XCTAssertTrue(store.notes.isEmpty)
+    }
+
+    /// The user can take the Accessibility access away after Piper had it. A
+    /// capture then reports it, and the service checks again until Piper has it.
+    func testACaptureAfterARevokeChecksTheAccessAgain() {
+        let store = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
+        let messages = Messages()
+        var trusted = true
+        var reported: [Bool] = []
+        let service = CaptureService(store: store, messages: messages, shortcut: { .shiftShift },
+                                     accessibilityChanged: { reported.append($0) }, isTrusted: { trusted })
+        defer { service.stop() }
+        service.start()
+        XCTAssertFalse(service.waitsForAccessibility)
+
+        trusted = false
+        service.capture(frontmost: nil)
         XCTAssertEqual(messages.last?.text, "Enable Accessibility in Settings")
+        XCTAssertEqual(reported, [true, false])
+        XCTAssertTrue(service.waitsForAccessibility)
+
+        trusted = true
+        service.start()
+        XCTAssertEqual(reported, [true, false, true])
+        XCTAssertFalse(service.waitsForAccessibility)
         XCTAssertTrue(store.notes.isEmpty)
     }
 

@@ -1,12 +1,14 @@
 import AppKit
 import XCTest
 import Captures
+import CapturesDatabase
 import CSQLite
 
 @MainActor
 final class ClipboardInboxTests: XCTestCase {
     private var folder: URL!
     private var pasteboard: NSPasteboard!
+    private var database: Database!
     private var store: CaptureStore!
     private var inbox: ClipboardInbox!
 
@@ -14,8 +16,9 @@ final class ClipboardInboxTests: XCTestCase {
         folder = FileManager.default.temporaryDirectory.appendingPathComponent("piper-clipboard-tests-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         pasteboard = NSPasteboard(name: NSPasteboard.Name("com.piper.test." + UUID().uuidString))
-        store = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
-        inbox = ClipboardInbox(store: store, pasteboard: pasteboard, report: { XCTFail("\($0)") })
+        database = try Database(url: folder.appendingPathComponent("notes.sqlite"))
+        store = CaptureStore(database: .success(database))
+        inbox = ClipboardInbox(store: store, database: database, pasteboard: pasteboard, report: { XCTFail("\($0)") })
     }
 
     override func tearDown() async throws {
@@ -23,6 +26,7 @@ final class ClipboardInboxTests: XCTestCase {
         pasteboard.releaseGlobally()
         inbox = nil
         store = nil
+        database = nil
         try FileManager.default.removeItem(at: folder)
     }
 
@@ -40,10 +44,10 @@ final class ClipboardInboxTests: XCTestCase {
         let entry = inbox.entries[0]
         XCTAssertEqual(inbox.dismiss(entry.id), entry)
         XCTAssertTrue(inbox.entries.isEmpty)
-        XCTAssertTrue(ClipboardInbox(store: store, pasteboard: pasteboard, report: { XCTFail("\($0)") }).entries.isEmpty)
+        XCTAssertTrue(ClipboardInbox(store: store, database: database, pasteboard: pasteboard, report: { XCTFail("\($0)") }).entries.isEmpty)
         inbox.restore(entry)
         XCTAssertEqual(inbox.entries, [entry])
-        XCTAssertEqual(ClipboardInbox(store: store, pasteboard: pasteboard, report: { XCTFail("\($0)") }).entries.map(\.text), ["first"])
+        XCTAssertEqual(ClipboardInbox(store: store, database: database, pasteboard: pasteboard, report: { XCTFail("\($0)") }).entries.map(\.text), ["first"])
     }
 
     func testClipboardStaysTemporaryUntilClickedAndSavesExactText() throws {
@@ -154,7 +158,7 @@ final class ClipboardInboxTests: XCTestCase {
 
     func testFailedSaveKeepsTheGhostAvailable() throws {
         let failed = CaptureStore(url: folder)
-        let previews = ClipboardInbox(store: failed, pasteboard: pasteboard, report: { _ in })
+        let previews = ClipboardInbox(store: failed, database: nil, pasteboard: pasteboard, report: { _ in })
         previews.receive(["keep until saved"])
         let id = previews.entries[0].id
         XCTAssertThrowsError(try previews.save(id))
@@ -190,8 +194,9 @@ final class ClipboardInboxTests: XCTestCase {
     // MARK: - Stored History
 
     private func reopen(now: Date = Date()) -> ClipboardInbox {
-        let reopened = CaptureStore(url: folder.appendingPathComponent("notes.sqlite"))
-        return ClipboardInbox(store: reopened, pasteboard: pasteboard, now: now, report: { XCTFail("\($0)") })
+        let database = Result { try Database(url: folder.appendingPathComponent("notes.sqlite")) }
+        return ClipboardInbox(store: CaptureStore(database: database), database: try? database.get(), pasteboard: pasteboard,
+                              now: now, report: { XCTFail("\($0)") })
     }
 
     func testHistorySurvivesARestartWithItsIdentityTimeAndSource() {
@@ -232,11 +237,15 @@ final class ClipboardInboxTests: XCTestCase {
         let state = #"{"notes":[],"sections":["Inbox"],"activeSection":"Inbox"}"#
         XCTAssertEqual(sqlite3_exec(db, "CREATE TABLE state (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL, data BLOB NOT NULL); INSERT INTO state VALUES(1,1,CAST('\(state)' AS BLOB));", nil, nil, nil), SQLITE_OK)
         sqlite3_close(db)
-        let oldStore = CaptureStore(url: url)
+        let oldDatabase = try Database(url: url)
+        let oldStore = CaptureStore(database: .success(oldDatabase))
         XCTAssertNil(oldStore.loadError)
-        ClipboardInbox(store: oldStore, pasteboard: pasteboard, report: { XCTFail("\($0)") }).receive(["after upgrade"])
+        ClipboardInbox(store: oldStore, database: oldDatabase, pasteboard: pasteboard, report: { XCTFail("\($0)") })
+            .receive(["after upgrade"])
         XCTAssertNil(oldStore.loadError)
-        XCTAssertEqual(ClipboardInbox(store: CaptureStore(url: url), pasteboard: pasteboard, report: { XCTFail("\($0)") }).entries.map(\.text), ["after upgrade"])
+        let reopened = try Database(url: url)
+        XCTAssertEqual(ClipboardInbox(store: CaptureStore(database: .success(reopened)), database: reopened, pasteboard: pasteboard,
+                                      report: { XCTFail("\($0)") }).entries.map(\.text), ["after upgrade"])
     }
 
     func testSavingANoteKeepsTheStoredText() throws {

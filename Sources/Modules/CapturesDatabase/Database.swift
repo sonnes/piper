@@ -2,12 +2,13 @@ import CSQLite
 import Foundation
 
 /// A single-row store for the capture state, with the tables of clipboard texts,
-/// agent sessions, and page texts. The database creates every table when it opens,
-/// unless the stored version is newer than this build reads.
+/// agent sessions, and page texts. The database creates every table and reads
+/// the notes when it opens. It refuses to open when the stored version is newer
+/// than this build reads.
 ///
 /// The database keeps one versioned blob for the notes. It does not read the blob, so the
 /// caller chooses the encoding. Every save compares the stored blob against the
-/// blob that the last load or save returned. A different blob means another
+/// blob that the open or the last save found. A different blob means another
 /// Piper instance wrote first, and the save fails instead of overwriting.
 ///
 /// Every save writes the current version. A build that does not know the
@@ -24,8 +25,9 @@ public final class Database {
     public static let readableVersions: ClosedRange<Int32> = 1...version
 
     private var handle: OpaquePointer?
-    private var savedData: Data?
-    /// The version of the stored blob, from the last load or save.
+    /// The stored blob of the notes, from the open or the last save. Nil when the database holds no record yet.
+    public private(set) var notes: Data?
+    /// The version of the stored blob, from the open or the last save.
     private var savedVersion = Database.version
 
     // MARK: - Initialization
@@ -39,35 +41,17 @@ public final class Database {
         }
         sqlite3_busy_timeout(handle, 3000)
         try execute(Table.notes.schema, .notes)
-        // A database from a newer version of Piper stays unchanged.
-        guard try storedVersion().map(Self.readableVersions.contains) ?? true else { return }
+        try load()
         for table in Table.allCases { try execute(table.schema, table) }
     }
 
     deinit { sqlite3_close(handle) }
 
-    // MARK: - Reading And Writing
-
-    /// Returns the stored blob, or nil when the database holds no record yet.
-    public func load() throws -> Data? {
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(handle, "SELECT version, data FROM state WHERE id=1", -1, &statement, nil) == SQLITE_OK else { throw failure(.notes) }
-        defer { sqlite3_finalize(statement) }
-        let result = sqlite3_step(statement)
-        if result == SQLITE_DONE { savedData = nil; return nil }
-        guard result == SQLITE_ROW else { throw failure(.notes) }
-        let version = sqlite3_column_int(statement, 0)
-        guard Self.readableVersions.contains(version) else { throw DatabaseError("This database needs a newer version of Piper. Notes remain unchanged.") }
-        guard let bytes = sqlite3_column_blob(statement, 1) else { throw DatabaseError("The note database has no readable data.") }
-        let data = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 1)))
-        savedData = data
-        savedVersion = version
-        return data
-    }
+    // MARK: - Writing
 
     public func save(_ data: Data) throws {
         var statement: OpaquePointer?
-        let sql = savedData == nil
+        let sql = notes == nil
             ? "INSERT INTO state VALUES(1,?2,?1) ON CONFLICT(id) DO NOTHING"
             : "UPDATE state SET data=?1, version=?2 WHERE id=1 AND version=?3 AND data=?4"
         guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK else { throw failure(.notes) }
@@ -76,17 +60,32 @@ public final class Database {
             sqlite3_bind_blob(statement, 1, bytes.baseAddress, Int32(bytes.count), unsafeBitCast(-1, to: sqlite3_destructor_type.self))
         }
         guard sqlite3_bind_int(statement, 2, Self.version) == SQLITE_OK else { throw failure(.notes) }
-        if let savedData {
+        if let notes {
             guard sqlite3_bind_int(statement, 3, savedVersion) == SQLITE_OK else { throw failure(.notes) }
-            let bound = savedData.withUnsafeBytes { bytes in
+            let bound = notes.withUnsafeBytes { bytes in
                 sqlite3_bind_blob(statement, 4, bytes.baseAddress, Int32(bytes.count), unsafeBitCast(-1, to: sqlite3_destructor_type.self))
             }
             guard bound == SQLITE_OK else { throw failure(.notes) }
         }
         guard result == SQLITE_OK, sqlite3_step(statement) == SQLITE_DONE else { throw failure(.notes) }
         guard sqlite3_changes(handle) == 1 else { throw DatabaseError("Notes changed in another Piper instance. Restart Piper before saving. Your existing notes remain unchanged.") }
-        savedData = data
+        notes = data
         savedVersion = Self.version
+    }
+
+    /// Reads the stored blob. A database from a newer version of Piper stays unchanged.
+    private func load() throws {
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(handle, "SELECT version, data FROM state WHERE id=1", -1, &statement, nil) == SQLITE_OK else { throw failure(.notes) }
+        defer { sqlite3_finalize(statement) }
+        let result = sqlite3_step(statement)
+        if result == SQLITE_DONE { return }
+        guard result == SQLITE_ROW else { throw failure(.notes) }
+        let version = sqlite3_column_int(statement, 0)
+        guard Self.readableVersions.contains(version) else { throw DatabaseError("This database needs a newer version of Piper. Notes remain unchanged.") }
+        guard let bytes = sqlite3_column_blob(statement, 1) else { throw DatabaseError("The note database has no readable data.") }
+        notes = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 1)))
+        savedVersion = version
     }
 }
 
@@ -276,15 +275,6 @@ private extension Database {
             case .pages: "CREATE TABLE IF NOT EXISTS pages (url TEXT PRIMARY KEY, text TEXT NOT NULL, saved_at REAL NOT NULL)"
             }
         }
-    }
-
-    func storedVersion() throws -> Int32? {
-        let statement = try prepare("SELECT version FROM state WHERE id=1", .notes)
-        defer { sqlite3_finalize(statement) }
-        let result = sqlite3_step(statement)
-        if result == SQLITE_DONE { return nil }
-        guard result == SQLITE_ROW else { throw failure(.notes) }
-        return sqlite3_column_int(statement, 0)
     }
 
     func prepare(_ sql: String, _ table: Table) throws -> OpaquePointer? {

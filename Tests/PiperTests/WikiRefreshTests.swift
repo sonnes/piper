@@ -1,5 +1,6 @@
 import AppKit
 import Captures
+import Vault
 import XCTest
 @testable import Piper
 
@@ -16,7 +17,7 @@ final class WikiRefreshTests: XCTestCase {
     override func tearDown() async throws { try FileManager.default.removeItem(at: root) }
 
     private func makeModel() -> AppModel {
-        AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults())
     }
 
     func testChangesInNestedFoldersRefreshWithoutManualReload() async throws {
@@ -103,19 +104,39 @@ final class WikiRefreshTests: XCTestCase {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try Data(folder.lastPathComponent.utf8).write(to: folder.appendingPathComponent("value.txt"))
         }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: first.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: first.path, preferences: temporaryDefaults())
         model.library.reload()
         XCTAssertTrue(model.library.loading)
-        model.library.wikiPath = second.path
+        model.library.changeWiki(to: second.path)
         try await waitFor("The scan uses the new root.") { !model.library.loading && model.library.files.first?.text == "second" }
         try Data("New root update".utf8).write(to: second.appendingPathComponent("value.txt"), options: .atomic)
         try await waitFor("The watcher follows the new root.") { model.library.files.first?.text == "New root update" }
         XCTAssertEqual(model.library.files.map(\.id), ["value.txt"])
     }
 
+    func testChangingTheFolderScansItOnce() async throws {
+        let next = root.appendingPathComponent("next")
+        try FileManager.default.createDirectory(at: next, withIntermediateDirectories: true)
+        try Data("# Next\n".utf8).write(to: next.appendingPathComponent("next.md"))
+        let library = Library(wikiPath: root.path, preferences: temporaryDefaults(), skills: SkillFolders(preferences: temporaryDefaults()))
+        let scans = ScanCounter()
+        library.delegate = scans
+        library.start()
+        try await waitFor("The first scan finishes.") { scans.count > 0 && !library.loading }
+        // The watcher can report the files that the test just wrote, after its latency.
+        try await Task.sleep(for: .seconds(1))
+        try await waitFor("The scans settle.") { !library.loading }
+        let before = scans.count
+
+        library.changeWiki(to: next.path)
+        try await waitFor("The scan of the new folder finishes.") { scans.count > before && !library.loading }
+        XCTAssertEqual(scans.count, before + 1)
+        XCTAssertEqual(library.files.map(\.id), ["next.md"])
+    }
+
     func testFailedScanKeepsItsMessageForTheFolderTree() async throws {
         let missing = root.appendingPathComponent("missing")
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: missing.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: missing.path, preferences: temporaryDefaults())
         model.library.reload()
         try await waitFor("The scan finishes.") { !model.library.loading }
         XCTAssertEqual(model.library.scanError, "The folder is unavailable. Make sure that it exists, or remove its tab and add the folder again.")
@@ -171,4 +192,14 @@ final class WikiRefreshTests: XCTestCase {
         XCTAssertTrue(session.hasChanges)
         XCTAssertEqual(try String(contentsOf: url), "# Agent edit\n")
     }
+}
+
+/// Counts the scans of a library.
+@MainActor
+private final class ScanCounter: LibraryDelegate {
+    private(set) var count = 0
+
+    func librarySettle(_ library: Library) -> Bool { true }
+    func libraryDidChangeFolder(_ library: Library) {}
+    func library(_ library: Library, didScan previous: [VaultFile]) { count += 1 }
 }

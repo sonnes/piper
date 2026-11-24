@@ -22,7 +22,7 @@ final class WikiFoldersTests: XCTestCase {
     }
 
     private func makeModel() -> AppModel {
-        AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), preferences: preferences)
+        AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), preferences: preferences)
     }
 
     private func waitForScan(_ model: AppModel) async throws {

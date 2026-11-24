@@ -5,6 +5,7 @@
 	{ "action": "link", "kind": "wiki", "target": "Matcha#Shade" },
 	{ "action": "image", "path": "Tea.md", "type": "image/png", "data": "iVBORw0KGgo=" },
 	{ "action": "lossy", "path": "Tea.md", "reasons": ["link titles"] },
+	{ "action": "error", "message": "TypeError: null is not an object" },
 	{ "action": "explain", "anchor": { "quote": "less caffeine", "block": 1, "offset": 14 } },
 	{ "action": "define", "anchor": { "quote": "caffeine", "block": 1, "offset": 19 } },
 	{ "action": "ask", "anchor": { "quote": "less caffeine", "block": 1, "offset": 14 }, "question": "How much less?" },

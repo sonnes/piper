@@ -3,9 +3,8 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { type OpenRequest, type PageNote, send, type Theme } from "./bridge";
 import { EMBED_CHANGED_EVENT } from "./EmbedNode";
-import { latestText, noteLocalChange } from "./latest";
 import { lossyFeatures } from "./lossGuard";
-import { getState, setState } from "./store";
+import { getState, latestText, setDoc, setState } from "./store";
 import { applyTheme } from "./theme";
 import "./index.css";
 
@@ -15,9 +14,8 @@ const piper = {
 	/** Shows a file. A new open starts a new undo history. */
 	open(request: OpenRequest) {
 		const lossy = lossyFeatures(request.text);
-		noteLocalChange(request.path, request.text);
 		seq += 1;
-		setState({ doc: { ...request, seq, lossy } });
+		setDoc({ ...request, seq, lossy });
 		window.scrollTo(0, 0);
 		void send({ action: "lossy", path: request.path, reasons: lossy });
 	},
@@ -26,7 +24,6 @@ const piper = {
 	replace(text: string) {
 		const doc = getState().doc;
 		if (!doc) return;
-		noteLocalChange(doc.path, text);
 		const lossy = lossyFeatures(text);
 		const next = { ...doc, text, lossy };
 		// The source editor reads its text only when it mounts.
@@ -34,7 +31,7 @@ const piper = {
 			seq += 1;
 			next.seq = seq;
 		}
-		setState({ doc: next });
+		setDoc(next);
 		if (lossy.join() !== doc.lossy.join()) {
 			void send({ action: "lossy", path: doc.path, reasons: lossy });
 		}
@@ -61,8 +58,7 @@ const piper = {
 	},
 
 	flush(): string | null {
-		const doc = getState().doc;
-		return doc ? (latestText(doc.path) ?? doc.text) : null;
+		return latestText();
 	},
 
 	/** Reloads each embed of this file. */
@@ -70,10 +66,8 @@ const piper = {
 		window.dispatchEvent(new CustomEvent(EMBED_CHANGED_EVENT, { detail: path }));
 	},
 
-	command(name: string) {
-		const editor = getActiveEditor();
-		if (!editor) return;
-		if (name === "find") editor.commands.openFind();
+	find() {
+		getActiveEditor()?.commands.openFind();
 	},
 };
 
@@ -84,11 +78,18 @@ declare global {
 }
 
 window.piper = piper;
+
+// Piper reports each error of the page. Tests read `window.piperErrors`.
 const errors: string[] = [];
 (window as { piperErrors?: string[] }).piperErrors = errors;
-window.addEventListener("error", (event) => errors.push(String(event.message)));
-window.addEventListener("unhandledrejection", (event) => errors.push(String(event.reason)));
+function reportError(message: string) {
+	errors.push(message);
+	// A report that fails must not report itself again.
+	send({ action: "error", message }).catch(() => undefined);
+}
+window.addEventListener("error", (event) => reportError(String(event.message)));
+window.addEventListener("unhandledrejection", (event) => reportError(String(event.reason)));
 createRoot(document.getElementById("root") as HTMLElement, {
-	onUncaughtError: (error) => errors.push(error instanceof Error ? `${error.message}\n${error.stack}` : String(error)),
+	onUncaughtError: (error) => reportError(error instanceof Error ? `${error.message}\n${error.stack}` : String(error)),
 }).render(<App />);
 void send({ action: "ready" });

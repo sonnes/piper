@@ -1,5 +1,5 @@
-import PiperCore
 import XCTest
+@testable import Piper
 
 final class PaletteSearchTests: XCTestCase {
     func testScoresRankExactOverPrefixOverSubstringOverSubsequence() {

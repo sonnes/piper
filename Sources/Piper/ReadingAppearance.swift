@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-enum WikiReadingTheme: String, CaseIterable {
+enum WikiReadingTheme: String, CaseIterable, Encodable {
     case paper = "Paper", sepia = "Sepia", slate = "Slate"
 
     func background(dark: Bool) -> NSColor {
@@ -11,13 +11,23 @@ enum WikiReadingTheme: String, CaseIterable {
         case .slate: return PiperTheme.hex(dark ? 0x1e252d : 0xedf1f5)
         }
     }
+
+    /// The background as a CSS color, such as `#f4edde`, for the editor page.
+    func cssBackground(dark: Bool) -> String {
+        var rgb = NSColor.black
+        NSAppearance(named: dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+            rgb = background(dark: dark).usingColorSpace(.sRGB) ?? .black
+        }
+        let channels = [rgb.redComponent, rgb.greenComponent, rgb.blueComponent].map { Int(($0 * 255).rounded()) }
+        return "#" + channels.map { String(format: "%02x", $0) }.joined()
+    }
 }
 
-enum WikiReadingFont: String, CaseIterable {
+enum WikiReadingFont: String, CaseIterable, Encodable {
     case mono = "Monospace", serif = "Serif", sans = "Sans Serif"
 }
 
-enum WikiReadingAppearance: String, CaseIterable {
+enum WikiReadingAppearance: String, CaseIterable, Encodable {
     case system = "System", light = "Light", dark = "Dark"
     var colorScheme: ColorScheme? {
         switch self { case .system: return nil; case .light: return .light; case .dark: return .dark }

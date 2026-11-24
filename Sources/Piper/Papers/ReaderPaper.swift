@@ -316,8 +316,7 @@ struct FilePaperContent: View {
     }
 
     private var theme: EditorTheme {
-        EditorTheme(theme: reading.theme.rawValue, font: reading.font.rawValue, size: reading.size,
-                    appearance: reading.appearance.rawValue)
+        EditorTheme(theme: reading.theme, font: reading.font, size: reading.size, appearance: reading.appearance)
     }
 
     private var paper: Color {

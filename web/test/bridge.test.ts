@@ -1,34 +1,20 @@
 import { describe, expect, it } from "vitest";
-import type { Outgoing } from "../src/bridge";
-import samples from "./fixtures/editor-messages.json";
+import type { OpenRequest, Outgoing, PageNote, Theme } from "../src/bridge";
+import calls from "./fixtures/editor-calls.json";
+import messages from "./fixtures/editor-messages.json";
+import { type Json, values } from "./json";
 
-// The Swift test `testEachEditorMessageSampleDecodes` decodes the same fixture.
-// TypeScript widens the strings of a JSON import, so the fixture itself cannot
-// satisfy `Outgoing[]`. This copy does, and the test keeps it equal to the fixture.
-const typed = [
-	{ action: "ready" },
-	{ action: "change", path: "Tea.md", text: "# Tea\n\nGreen tea.\n" },
-	{ action: "link", kind: "url", target: "https://example.com/tea" },
-	{ action: "link", kind: "wiki", target: "Matcha#Shade" },
-	{ action: "image", path: "Tea.md", type: "image/png", data: "iVBORw0KGgo=" },
-	{ action: "lossy", path: "Tea.md", reasons: ["link titles"] },
-	{ action: "explain", anchor: { quote: "less caffeine", block: 1, offset: 14 } },
-	{ action: "define", anchor: { quote: "caffeine", block: 1, offset: 19 } },
-	{ action: "ask", anchor: { quote: "less caffeine", block: 1, offset: 14 }, question: "How much less?" },
-	{ action: "note", anchor: { quote: "less caffeine", block: 1, offset: 14 }, text: "Check the source." },
-	{ action: "capture", text: "less caffeine" },
-	{ action: "open", id: "6F9619FF-8B86-D011-B42D-00C04FC964FF" },
-	{ action: "copy", id: "6F9619FF-8B86-D011-B42D-00C04FC964FF" },
-	{ action: "continue", id: "6F9619FF-8B86-D011-B42D-00C04FC964FF" },
-	{ action: "followup", id: "6F9619FF-8B86-D011-B42D-00C04FC964FF", question: "And green tea?" },
-] satisfies Outgoing[];
+// Swift tests decode `editor-messages.json` and encode `editor-calls.json`.
+messages satisfies Json<Outgoing>[];
+calls satisfies { open: Json<OpenRequest>; themes: Json<Theme>[]; notes: Json<PageNote>[] };
 
-const actions = {
+const actions = values<Outgoing["action"]>({
 	ready: true,
 	change: true,
 	link: true,
 	image: true,
 	lossy: true,
+	error: true,
 	explain: true,
 	define: true,
 	ask: true,
@@ -38,14 +24,39 @@ const actions = {
 	copy: true,
 	continue: true,
 	followup: true,
-} satisfies Record<Outgoing["action"], true>;
+});
 
 describe("editor messages", () => {
-	it("are the messages of the bridge", () => {
-		expect(samples).toEqual(typed);
+	it("have a sample for each action", () => {
+		expect(new Set(messages.map((message) => message.action))).toEqual(actions);
 	});
 
-	it("have a sample for each action", () => {
-		expect(new Set(samples.map((sample) => sample.action))).toEqual(new Set(Object.keys(actions)));
+	it("have a sample for each kind of link", () => {
+		const kinds = messages.flatMap((message) => (message.action === "link" ? [message.kind] : []));
+		expect(new Set(kinds)).toEqual(values<Extract<Outgoing, { action: "link" }>["kind"]>({ url: true, wiki: true }));
+	});
+});
+
+describe("editor calls", () => {
+	it("open in a mode of the editor", () => {
+		expect(values<OpenRequest["mode"]>({ rich: true, source: true })).toContain(calls.open.mode);
+	});
+
+	it("have a theme sample for each theme, font, and appearance", () => {
+		expect(new Set(calls.themes.map((theme) => theme.theme))).toEqual(
+			values<Theme["theme"]>({ Paper: true, Sepia: true, Slate: true }),
+		);
+		expect(new Set(calls.themes.map((theme) => theme.font))).toEqual(
+			values<Theme["font"]>({ Serif: true, "Sans Serif": true, Monospace: true }),
+		);
+		expect(new Set(calls.themes.map((theme) => theme.appearance))).toEqual(
+			values<Theme["appearance"]>({ System: true, Light: true, Dark: true }),
+		);
+	});
+
+	it("have a note sample for each kind of note", () => {
+		expect(new Set(calls.notes.map((note) => note.kind))).toEqual(
+			values<PageNote["kind"]>({ highlight: true, note: true, question: true }),
+		);
 	});
 });

@@ -1,6 +1,7 @@
 import AppKit
 import Agents
 import Captures
+import CapturesDatabase
 import Vault
 import XCTest
 @testable import Piper
@@ -10,6 +11,7 @@ final class AgentSettingsTests: XCTestCase {
     private var root: URL!
     private var preferences: UserDefaults!
     private var suite: String!
+    private var database: Database!
     private var store: CaptureStore!
     private var wiki: URL!
     private var notes: URL!
@@ -19,7 +21,8 @@ final class AgentSettingsTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         suite = "AgentSettingsTests." + UUID().uuidString
         preferences = UserDefaults(suiteName: suite)!
-        store = CaptureStore(url: root.appendingPathComponent("notes.sqlite"))
+        database = try Database(url: root.appendingPathComponent("notes.sqlite"))
+        store = CaptureStore(database: .success(database))
         wiki = try folder("wiki", skills: ["capture": "<url> [note]", "new": "<type> <title>",
                                            "verify": "<path> [--stale-after DATE]", "stale": "[--within 14d]"])
         notes = try folder("notes", skills: ["capture": "<url>", "tidy": nil])
@@ -29,6 +32,7 @@ final class AgentSettingsTests: XCTestCase {
     override func tearDown() async throws {
         preferences.removePersistentDomain(forName: suite)
         store = nil
+        database = nil
         try FileManager.default.removeItem(at: root)
     }
 
@@ -67,8 +71,8 @@ final class AgentSettingsTests: XCTestCase {
     }
 
     private func makeParts() throws -> Parts {
-        let agents = AgentSettings(store: store, messages: Messages(), preferences: preferences)
-        agents.runner.executable = try fakeClaude()
+        let agents = AgentSettings(storage: database, messages: Messages(), preferences: preferences)
+        agents.executable = try fakeClaude()
         agents.runner.usesLoginShell = false
         let skills = makeSkills()
         return Parts(agents: agents, skills: skills, send: Send(store: store, agents: agents, skills: skills))
@@ -81,7 +85,7 @@ final class AgentSettingsTests: XCTestCase {
     }
 
     private func newAgents(_ messages: Messages? = nil) -> AgentSettings {
-        AgentSettings(store: store, messages: messages ?? Messages(), preferences: preferences)
+        AgentSettings(storage: database, messages: messages ?? Messages(), preferences: preferences)
     }
 
     private func waitForRuns(_ agents: AgentSettings) async throws {
@@ -109,6 +113,38 @@ final class AgentSettingsTests: XCTestCase {
         let restored = SkillFolders(preferences: preferences)
         restored.paths = [wiki.path, notes.path]
         XCTAssertEqual(restored.folders.map(\.name), ["notes"])
+    }
+
+    /// Settings stored by a path through a symbolic link still apply to the folder.
+    func testStoredSettingsOfAFolderThroughALinkStillApply() throws {
+        let link = root.appendingPathComponent("linked-notes")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: notes)
+        preferences.set([link.path], forKey: AppDefaults.Key.agentDisabledFolders)
+        preferences.set(["link|" + link.path: SkillFolders.noSkill], forKey: AppDefaults.Key.agentDefaultSkills)
+
+        let skills = SkillFolders(preferences: preferences)
+        skills.paths = [link.path]
+        let folder = try XCTUnwrap(skills.available.first)
+        XCTAssertFalse(skills.isEnabled(folder))
+        skills.setEnabled(true, for: folder)
+        XCTAssertNil(skills.defaultSkill(forLink: true, in: folder))
+    }
+
+    func testRefreshReadsTheSkillsAgain() throws {
+        let plain = root.appendingPathComponent("plain")
+        let skills = SkillFolders(preferences: preferences)
+        skills.paths = [plain.path]
+        let directory = plain.appendingPathComponent(".claude/skills/later")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try "---\nname: later\n---\nRun".write(to: directory.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
+        skills.reload()
+        XCTAssertEqual(skills.available.first?.skills.map(\.name), ["later"])
+    }
+
+    func testChoosingTheClaudeCommandChecksItsHealth() {
+        let agents = newAgents()
+        agents.claudePath = root.appendingPathComponent("missing-claude").path
+        XCTAssertEqual(agents.health[AgentDefinition.claudeCodeID], .checking)
     }
 
     func testReadsTheSkillsAgainWhenASkillFileChanges() async throws {
@@ -215,7 +251,7 @@ final class AgentSettingsTests: XCTestCase {
 
     func testSendingAClipboardTextSavesItFirst() async throws {
         let parts = try makeParts()
-        let clipboard = ClipboardInbox(store: store, pasteboard: NSPasteboard(name: .init("com.piper.test." + UUID().uuidString))) {
+        let clipboard = ClipboardInbox(store: store, database: database, pasteboard: NSPasteboard(name: .init("com.piper.test." + UUID().uuidString))) {
             XCTFail("\($0)")
         }
         clipboard.receive(["https://example.com/copied"])
@@ -279,18 +315,18 @@ final class AgentSettingsTests: XCTestCase {
     // MARK: - Executable
 
     func testSessionsDefaultToSonnetInAutoModeAndKeepTheChoice() {
+        let claudeCode = AgentConfig(agentID: AgentDefinition.claudeCodeID)
         let agents = newAgents()
         XCTAssertEqual(agents.model, "sonnet")
-        XCTAssertEqual(agents.runner.model, "sonnet")
-        XCTAssertEqual(agents.runner.permissionMode, .auto)
+        XCTAssertEqual(agents.runner.config(claudeCode), AgentConfig(agentID: claudeCode.agentID, model: "sonnet", mode: "auto"))
 
         agents.permissionMode = .ask
-        XCTAssertEqual(newAgents().runner.permissionMode, .ask)
+        XCTAssertEqual(newAgents().runner.config(claudeCode).mode, "manual")
         XCTAssertEqual(preferences.string(forKey: AppDefaults.Key.claudePermissionMode), "manual")
 
         agents.model = "opus"
-        XCTAssertEqual(agents.runner.model, "opus")
-        XCTAssertEqual(newAgents().runner.model, "opus")
+        XCTAssertEqual(agents.runner.config(claudeCode).model, "opus")
+        XCTAssertEqual(newAgents().runner.config(claudeCode).model, "opus")
 
         agents.model = ""
         XCTAssertEqual(newAgents().model, "")
@@ -300,11 +336,12 @@ final class AgentSettingsTests: XCTestCase {
         let agents = newAgents()
         agents.addAgent(name: "Fake", command: "/usr/bin/true", arguments: ["acp"])
         let added = try XCTUnwrap(agents.acpAgents.first)
-        XCTAssertEqual(agents.runner.agents, [added])
+        XCTAssertEqual(added.kind, .acp)
+        XCTAssertEqual(agents.runner.agents.map(\.id), [AgentDefinition.claudeCodeID, added.id])
 
         let reloaded = newAgents()
         XCTAssertEqual(reloaded.acpAgents, [added])
-        XCTAssertEqual(reloaded.runner.agents, [added])
+        XCTAssertEqual(reloaded.runner.config(AgentConfig(agentID: added.id)), AgentConfig(agentID: added.id))
 
         reloaded.sessionAgentID = added.id
         let session = reloaded.newSession(in: wiki.path, mode: "plan")
@@ -346,7 +383,15 @@ final class AgentSettingsTests: XCTestCase {
         XCTAssertEqual(agents.agent(added.id), added)
         agents.removeAgent(added)
         XCTAssertNil(agents.agent(added.id))
-        XCTAssertEqual(agents.agent(AgentDefinition.claudeCodeID), .claudeCode)
+        XCTAssertEqual(agents.agent(AgentDefinition.claudeCodeID)?.kind, .claudeCode)
+    }
+
+    func testAnAgentListFromAnOlderPiperReadsAsACPAgents() {
+        let stored = #"[{"id":"a1","name":"OpenCode","command":"opencode","arguments":["acp"]}]"#
+        preferences.set(Data(stored.utf8), forKey: AppDefaults.Key.acpAgents)
+        let agents = newAgents()
+        XCTAssertEqual(agents.acpAgents, [AgentDefinition(id: "a1", name: "OpenCode", command: "opencode", arguments: ["acp"])])
+        XCTAssertEqual(agents.kind(of: "a1"), .acp)
     }
 
     func testAgentWithoutAReadOnlyModeCannotAnswerInTheMargin() async throws {
@@ -396,7 +441,7 @@ final class AgentSettingsTests: XCTestCase {
     func testOpeningARunFileWaitsForTheScanThatFindsIt() async throws {
         try "# Home".write(to: wiki.appendingPathComponent("index.md"), atomically: true, encoding: .utf8)
         preferences.set(notes.path, forKey: AppDefaults.Key.vaultPath)
-        let model = AppModel(store: store, preferences: preferences)
+        let model = AppModel(databaseURL: root.appendingPathComponent("notes.sqlite"), preferences: preferences)
         let desk = PaperDesk(model: model, defaults: preferences)
         defer { desk.hide() }
 

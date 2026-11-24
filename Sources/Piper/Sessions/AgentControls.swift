@@ -4,13 +4,12 @@ import SwiftUI
 
 /// The mark of an agent: the Claude sparkle, or a hexagon for an ACP agent.
 struct AgentMark: View {
-    let agentID: String
+    let kind: AgentDefinition.Kind
 
     var body: some View {
-        if agentID == AgentDefinition.claudeCodeID {
-            Image(systemName: "asterisk").foregroundStyle(PiperTheme.claude)
-        } else {
-            Image(systemName: "hexagon").foregroundStyle(PiperTheme.acpAgent)
+        switch kind {
+        case .claudeCode: Image(systemName: "asterisk").foregroundStyle(PiperTheme.claude)
+        case .acp: Image(systemName: "hexagon").foregroundStyle(PiperTheme.acpAgent)
         }
     }
 }
@@ -31,7 +30,7 @@ struct AgentControls: View {
     private var agentID: String { session?.agentID ?? choice.agentID }
     /// Nil for an agent that the reader removed.
     private var agent: AgentDefinition? { agents.agent(agentID) }
-    private var isClaudeCode: Bool { agentID == AgentDefinition.claudeCodeID }
+    private var isClaudeCode: Bool { agents.kind(of: agentID) == .claudeCode }
     private var canChangeAgent: Bool { session?.isNew ?? true }
 
     private var modelOption: ACP.ConfigOption? { session?.configOptions.first { $0.category == "model" } }
@@ -67,7 +66,7 @@ struct AgentControls: View {
         } label: {
             HStack(spacing: Metrics.footerAgentSpacing) {
                 if let agent {
-                    AgentMark(agentID: agentID)
+                    AgentMark(kind: agents.kind(of: agentID))
                     Text(agent.name)
                 } else {
                     Image(systemName: "exclamationmark.triangle").foregroundStyle(PiperTheme.warning)
@@ -223,7 +222,7 @@ struct ApprovalDrawer: View {
 
     /// Claude Code keeps an Always choice as a rule in the folder settings. Another agent keeps it itself.
     private func alwaysHelp(_ request: PermissionRequest) -> String {
-        guard session.agentID == AgentDefinition.claudeCodeID,
+        guard runner.agent(of: session)?.kind == .claudeCode,
               let rule = PermissionRule.rule(for: request) else {
             return "Allows calls like this one from now on."
         }

@@ -33,13 +33,13 @@ flowchart LR
 | Module | Responsibility | Depends on |
 | --- | --- | --- |
 | `CSQLite` | System SQLite, through `pkg-config` | nothing |
-| `PiperCore` | `PiperError`, the frontmatter parser, `PaletteSearch`, `Site`, `URL.isWeb`, and `DataFolder` | Yams |
-| `CapturesDatabase` | One versioned blob in SQLite, with compare-and-swap, and the `clipboard`, `sessions`, and `pages` tables | `CSQLite` |
+| `PiperCore` | `PiperError`, the frontmatter parser, `Site`, `URL.isWeb`, and `DataFolder` | Yams |
+| `CapturesDatabase` | One versioned blob in SQLite, read when the database opens, with compare-and-swap, and the `clipboard`, `sessions`, and `pages` tables | `CSQLite` |
 | `Captures` | `Note`, `NoteTag`, `CaptureStore`, `ClipboardInbox`, `Clipboard`, `CaptureLinks`, `ReadingTime`, and edit sessions | `PiperCore`, `CapturesDatabase` |
 | `Vault` | One folder: scan, read, write, and watch | `PiperCore`, Yams |
 | `Agents` | `SessionRunner`, `AgentSession`, `AgentConnection` with `ClaudeCodeConnection` and `StdioAgentConnection`, the `ACP` types, `AgentProbe`, `SessionEvent`, `FolderSkill`, `SlashCommand`, `PermissionRule`, and the `SessionStorage` protocol | `PiperCore` |
 | `History` | `BrowserCatalog`, `HistoryReader`, `DatabaseCopy`, `HistoryDigest`, `Decay`, and `BlockedSites` | `PiperCore`, `CSQLite` |
-| `Feeds` | The RSParser port of NetNewsWire, `FeedStore`, `FeedDatabase`, `FeedFetch`, `FeedDiscovery`, `FeedMode`, and `OPMLImport` | `PiperCore`, `CSQLite` |
+| `Feeds` | The RSParser port of NetNewsWire, `FeedStore` with its internal `FeedDatabase`, `FeedFetch`, `FeedDiscovery`, `FeedMode`, and `OPMLImport` | `PiperCore`, `CSQLite` |
 | `Stream` | `UnifiedStream`, `StreamItem`, `FeedRows`, `Relevance`, and `FeedStats` | `PiperCore`, `Captures`, `Feeds` |
 | `Piper` | Windows, views, and app state | All modules and Yams |
 
@@ -64,11 +64,11 @@ A store in a module throws its errors and returns what it made. For example, `Ca
 
 Some errors happen where no caller waits:
 
-- `CaptureStore` keeps the error that stopped its database from opening in `loadError`. `AppModel` reports it at launch.
+- `AppModel` opens the note `Database` one time and gives it to `CaptureStore`, `ClipboardInbox`, and the `SessionRunner` of `AgentSettings`. `CaptureStore` keeps the error that stopped the database from opening, or the notes from loading, in `loadError`. `AppModel` reports it at launch.
 - `CaptureStore` sends the error of an undo or a redo that cannot save to `reportUndoError`. `AppModel` sets it to `Messages.report`.
 - `FeedStore` and `ClipboardInbox` take a `report` closure. Their timers and their reads report each database error through it. A failed feed read then gives an empty value.
 - `SessionRunner` reports a storage error through the closure that `AgentSettings` gives it.
-- `WebPageBridge` runs each call on the editor page and the reader page with a completion handler that reports a JavaScript exception. It also reports a message from a page that does not decode. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
+- `WebPageBridge` runs each call on the editor page and the reader page with a completion handler that reports a JavaScript exception. It also reports a message from a page that does not decode. The editor page posts an `error` message for each uncaught error and unhandled rejection, and `EditorPage` reports it through the bridge. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
 - `SiteScan` reports each browser history that it cannot read, and then scans the others.
 
 ## Windows
@@ -86,9 +86,9 @@ The feed paper is the main window. Piper shows it at launch, and `showLibrary()`
 
 ### Commands
 
-`Command` in `Command.swift` is the table of the app actions. Each case has a title, an optional `CommandKey`, and the menu that holds it. `AppDelegate` builds the main menu and the menu of the menu bar item from `Command.Menu.groups` and `Command.statusMenu`. The command palette lists each command where `isInPalette` is true. `AppDelegate.perform(_:)` runs a command from a menu item or from the palette. A command with a `standardAction`, such as Copy, goes to the responder chain.
+`Command` in `Command.swift` is the table of the app actions. Each case has a title, an optional `CommandKey`, and the menu that holds it. `AppDelegate` builds the main menu and the menu of the menu bar item from `Command.Menu.groups` and `Command.statusMenu`. The command palette lists each command where `isInPalette` is true and `isEnabled(in:)` is true. The menus use the same `isEnabled(in:)` check, so the palette and the menus offer the same commands. `AppDelegate.perform(_:)` runs a command from a menu item or from the palette. A command with a `standardAction`, such as Copy, goes to the responder chain.
 
-`CommandKey` gives the glyph of a key, such as ⇧⌘K, and its name, such as Shift-Command-K. Views that show a key read it from the table, for example the session pill and the toast. Mark All as Read is in no menu. The list of a feed binds its key while the list shows. A test makes sure that no two commands share a key.
+`CommandKey` gives the glyph of a key, such as ⇧⌘K, and its name, such as Shift-Command-K. Views that show a key read it from the table, for example the session pill and the toast. A test makes sure that no two commands share a key.
 
 `CaptureShortcut` is the capture shortcut that Settings sets: Shift twice or Control-Option-Space. `CaptureShortcut(stored:)` reads the stored preference, and it reads the old value `Control-Option-C` as Control-Option-Space.
 
@@ -164,9 +164,9 @@ The reader paper table scrolls the Reader tab with the arrows, sends H and N to 
 
 ## Capture
 
-`CaptureService` detects double Shift with `NSEvent` monitors. Control-Option-Space is a registered system hotkey, so the source app does not receive the keystroke. Without Accessibility access, `CaptureService` checks the access every 4 seconds, and it stops when Piper has the access. Settings shows the result.
+`CaptureService` detects double Shift with `NSEvent` monitors. Control-Option-Space is a registered system hotkey, so the source app does not receive the keystroke. Without Accessibility access, `CaptureService` checks the access every 4 seconds, and it stops when Piper has the access. The user can take the access away later, so `CaptureService.start()` checks again when Piper becomes active, when Settings shows, and when a capture finds no access. Settings shows the result.
 
-`GlobalHotkey` registers one Carbon hotkey and gives it its own id, so the handler of one hotkey ignores the other. The capture shortcut and `SendShortcut` (Control-Option-W) use it. `SendShortcut` holds its hotkey only while a folder has skills. `SkillFolders.foldersChanged` tells it when that changes.
+`GlobalHotkey` registers one Carbon hotkey and gives it its own id, so the handler of one hotkey ignores the other. It takes a `CommandKey` and converts it to the Carbon key code. The capture shortcut (`CaptureShortcut.spaceKey`) and `SendShortcut` (the key of `Command.sendClipboard`) use it. `SendShortcut` holds its hotkey only while a folder has skills. `SkillFolders.foldersChanged` tells it when that changes.
 
 The service records the source app and the active section before it reads Accessibility text. A serial queue reads the focused element with a 0.4-second timeout. If the selected text attribute is empty, the service uses the selected range. Secure fields produce no note.
 
@@ -188,11 +188,11 @@ The service then looks for a web page. It reads `AXDocument` from the focused el
 
 `Toast` owns one borderless, non-activating `NSPanel` at the bottom right corner of the screen. It owns the placement and the dismiss timer, and its `Toast.Metrics` hold its sizes and times. A message stays for 3 seconds, and a message with a button stays for 6 seconds. A new toast replaces the one on the screen. `ReadingToast` gives the toast its cards: a new highlight, a saved page, or the note field. Only the note field makes the panel the key window. Piper never becomes the active application, so the browser gets the keyboard back when the panel closes. `CaptureService.shownHighlight` reads the highlight on the toast, so a second capture of it asks for a note.
 
-`CaptureStore` builds a candidate state and saves it before it replaces the current state. `Database` compares the stored blob with the last loaded blob on every save. A database error or a stale snapshot leaves the current notes as they are, and the change throws the error. See [Local storage](../concepts/storage.md).
+`CaptureStore` builds a candidate state and saves it before it replaces the current state. `Database` reads the blob when it opens, so no save can come before the read. It compares the stored blob with the last read or saved blob on every save. A database error or a stale snapshot leaves the current notes as they are, and the change throws the error. See [Local storage](../concepts/storage.md).
 
 ### Undo
 
-The app has one undo stack: the `UndoManager` that `AppModel` gives to `CaptureStore` at init. `AppModel.undoManager` returns it. A change that records undo registers its inverse on this stack. The inverse names only the notes that the change touched. It removes the notes that the change added, and puts back the notes that the change removed. It sets each field that the change edited back to its old value. The other notes and fields stay as they are, so a later change without undo survives an undo. Examples are reading progress, Claude answers, `saveArticle`, and `archiveFinishedReading`.
+The app has one undo stack: the `UndoManager` that `AppModel` gives to `CaptureStore` at init. `AppModel.undoManager` returns it. A change that records undo registers its inverse on this stack. The inverse names only the notes that the change touched. It removes the notes that the change added, and puts back the notes that the change removed. It sets each field that the change edited back to its old value, through `Note.revert`. A test fails when `Note` gets a field that `revert` does not cover. The other notes and fields stay as they are, so a later change without undo survives an undo. Examples are reading progress, Claude answers, `saveArticle`, and `archiveFinishedReading`.
 
 An undo is itself a change, so it registers the redo on the same stack. The active section is not part of an undo step. If an undo removes the active section, the section that was active before the change becomes active.
 
@@ -228,7 +228,9 @@ Three types in `Sessions/` of the application target hold the agent feature:
 
 `Library.agentFolder` is the one rule that chooses the folder of a new session: the default folder of `SkillFolders`, or else the open folder. A question of the Reader tab, Ask of Today, and the session card use it. An extension of `AgentSession.State` gives the label, the color, and the symbol of each state, and each view that shows a state uses it.
 
-`SessionRunner` in the `Agents` module owns every `AgentSession`. Each session is an `@Observable` object, so a view of one session redraws only when that session changes. A session records its agent, its purpose, its model, its mode, and the ACP session id in `resumeToken`. `SessionRunner.config(for:)` gives the agent, the model, and the mode that a session uses. For Claude Code, it fills a model or a mode that the session leaves open with `SessionRunner.model` and `SessionRunner.permissionMode`. `AgentSettings` reads and writes these settings on the runner, and keeps them in the preferences. A stored session that does not decode stays in the database, and the runner reports it.
+`SessionRunner` in the `Agents` module owns every `AgentSession`. Each session is an `@Observable` object, so a view of one session redraws only when that session changes. A session records its agent, its purpose, its model, its mode, and the ACP session id in `resumeToken`. While Piper runs, the runner keeps one `LiveSession` for each session: the connection, the queued messages, the turn timer, the pending save, the stop reason, the cost, and the relaunch flag.
+
+`SessionRunner.agents` holds each `AgentDefinition`. The `kind` of a definition, `claudeCode` or `acp`, gives its connection type. A definition can carry the model and the mode of a session that has none of its own. `SessionRunner.config(for:)` gives the agent, the model, and the mode that a session uses, with these defaults filled in. `ClaudeCodeConnection.agent(executable:model:mode:)` makes the Claude Code definition. Its command is the `claude` executable, and an empty command makes a turn fail with a message. `AgentSettings` keeps the executable, the model, and the `ClaudeCodeConnection.PermissionMode` in the preferences, and puts them into the Claude Code definition of the runner. An agent list that an older Piper stored has no kind, and reads as ACP agents. A stored session that does not decode stays in the database, and the runner reports it.
 
 The runner reads only Agent Client Protocol (ACP) v1 terms. Each session has one `AgentConnection`, and the connection sends `AgentEvent` values to the runner:
 
@@ -239,7 +241,7 @@ The runner reads only Agent Client Protocol (ACP) v1 terms. Each session has one
 | `permission` | Adds a request. The session changes to `needsYou`, and the approval drawer shows the options of the agent. |
 | `turnEnded` | Adds a result block with the time, the cost, and the failure, and ends the turn |
 
-Each connection type tells the runner what the agent supports: `localCommands` take no context items, `readsDenialMessage` keeps a reply to a card in the same turn, `answersQuestions` allows `answer`, and `hasReadOnlyMode` tells whether a margin session can run. A tool call and a request carry neutral fields: `kind`, `isQuestion`, the path, and the diffs. Only `ClaudeCodeConnection` knows the tool names of Claude Code. A Claude Code session that an older Piper stored gets these fields from `ClaudeCodeConnection.completed` when it loads.
+Each connection type tells the runner what the agent supports: `localCommands` take no context items, `readsDenialMessage` keeps a reply to a card in the same turn, `answersQuestions` allows `answer`, and `hasReadOnlyMode` tells whether a margin session can run. A tool call and a request carry neutral fields: `kind`, `isQuestion`, the path, and the diffs. Only `ClaudeCodeConnection` knows the tool names of Claude Code. A session that an older Piper stored gets these fields from `restored` of its connection type when the runner loads it.
 
 Parts of a message in a row join into one text block. A tool call keeps its ACP kind, and the transcript folds the calls of a finished turn by kind. A path stays only for a call that writes a file inside the folder.
 
@@ -253,7 +255,7 @@ claude -p --input-format stream-json --output-format stream-json --verbose \
   [--tools <tools> --allowedTools <tools>] [--resume <id>]
 ```
 
-The mode is `auto` and the model is `sonnet` by default. `ClaudeCodeConnection.models` lists the models, with `defaultModel` and `defaultMarginModel`. An empty model omits `--model`. A margin session adds `--tools` and `--allowedTools` with `Read,Grep,Glob,WebSearch,WebFetch`, and `--strict-mcp-config`. `--tools` limits only the built-in tools, so `--strict-mcp-config` removes the MCP servers of the user settings. The process then has no other tool. Claude Code takes a new model or mode only at start, so the runner closes an idle process after a change.
+The mode is `auto` and the model is `sonnet` by default. `ClaudeCodeConnection.models` lists the models, with `defaultModel` and `defaultMarginModel`. An empty model omits `--model`. A margin session adds `--tools` and `--allowedTools` with `Read,Grep,Glob,WebSearch,WebFetch`, and `--strict-mcp-config`. `--tools` limits only the built-in tools, so `--strict-mcp-config` removes the MCP servers of the user settings. The process then has no other tool. Claude Code takes a new model or mode only at start, so the runner closes an idle process after a change. A line of input that cannot be encoded ends the turn with the error and stops the process, because Claude Code would wait for it.
 
 Each message is one JSON line on standard input: `{"type":"user","message":{"role":"user","content":[{"type":"text","text":...}]}}`. Each `ContextItem` goes after the text as a `Context file: <path>`, `Context link: <url>`, or `Context note:` line. A slash command takes the path, the address, or the note text as its argument. A transcript stores each item as one string: the path, the address, or `note:` and the text. `SessionPane` takes the item on the screen from `SessionTarget.screenItem`, and `AgentSession.sharedContext` tells it whether the session already has the item.
 
@@ -306,7 +308,9 @@ The session composer handles Return, Tab, the arrows, and Escape in `textView(_:
 
 Each read and write of a folder file goes through `Vault`: `read` and `write` for bytes or text, `file` for a `VaultFile`, and `freeName` for a new file name that no file has. `VaultFile.isMarkdown` is the one test for a Markdown file.
 
-`Library` stores the folder list and the active root in preferences. `removeWikiFolder` moves the active root to another folder before it removes a root.
+`Library` stores the folder list and the active root in preferences. It keeps the `Vault` of the active root, and `Library.isActive(_:)` compares a path with that root. `removeWikiFolder` moves the active root to another folder before it removes a root. Only `changeWiki(to:)` changes the active root, and it scans the new root once.
+
+`SkillFolders` keys its stored settings by the `Vault` root of each folder. A stored path through a symbolic link loads as that root, so the off switch and the default skills of the folder stay.
 
 `Library` starts the watcher with the first scan and replaces it when the active root changes. A scan runs in the background. A change during a scan requests one more scan. A failed scan keeps its message in `Library.scanError`, and the folder tree shows this message in place of the file list. After each scan, `Library` calls its `LibraryDelegate`, which is `FileEditor`. `FileEditor` keeps unsaved edit sessions and updates clean editors and previews. Before the active root changes, `Library` asks `FileEditor` to save each edit. See [Wiki files](../concepts/files.md).
 
@@ -362,7 +366,9 @@ The anchor of a note has a block and an offset. Both sides count the same blocks
 - After a crash of the web content process, the bridge loads the page again. The owner then forgets what the page shows and shows its last state again, with the margin notes.
 - Only the page loads in the main frame. The editor page also lets a frame load `piper-asset:` addresses, for embeds.
 
-`web/src/bridge.ts` holds the TypeScript types of the protocol of the editor page: `OpenRequest`, `Theme`, `PageNote`, `Anchor`, `MarkAction`, and `Outgoing`. `PageNote` has the fields of `ReaderPageNote`. `web/test/fixtures/` holds a sample of each message of each page. `WebPageBridgeTests` decodes each sample. `web/test/bridge.test.ts` checks the editor samples against `Outgoing`.
+`web/src/bridge.ts` holds the TypeScript types of the protocol of the editor page: `OpenRequest`, `Theme`, `PageNote`, `Anchor`, `MarkAction`, and `Outgoing`. `PageNote` has the fields of `ReaderPageNote`. `web/test/fixtures/` holds a sample of each message of each page. `WebPageBridgeTests` decodes each sample. `editor-calls.json` holds a sample of each argument that Swift sends to the editor page: an `EditorOpenRequest`, a theme for each `WikiReadingTheme`, and a note of each kind. `WebPageBridgeTests` checks that Swift encodes the same JSON. `web/test/bridge.test.ts` checks both editor fixtures against the types of `bridge.ts`, and checks that the fixtures have each value of each string union.
+
+The theme payload has the background color of the theme, so the colors of Sepia and Slate are only in `WikiReadingTheme`.
 
 ### Saving
 
@@ -372,7 +378,7 @@ The editor adds an empty paragraph after a last block that is not a paragraph, s
 
 ### Command Palette
 
-`CommandPaletteController` shows `CommandPaletteView` in a borderless child panel of the paper with the focus, or of the feed paper. `PaletteResults` ranks files with `PaletteSearch.score` and finds lines with `PaletteSearch.excerpts`, off the main thread. The scores copy `fuzzy.ts` of Hubble.md.
+`CommandPaletteController` shows `CommandPaletteView` in a borderless child panel of the paper with the focus, or of the feed paper. `PaletteResults` ranks files with `PaletteSearch.score` (in the app target) and finds lines with `PaletteSearch.excerpts`, off the main thread. The scores copy `fuzzy.ts` of Hubble.md.
 
 `WikiWorkspace` owns the navigation history. `WikiLinks` resolves links. `WikiMarkdown` parses the blocks of a file for the margin agent.
 
@@ -424,7 +430,7 @@ After each refresh, `FeedStore` prunes the read articles that arrived more than 
 
 `OPMLImport` reads an OPML file and returns each feed, also the feeds in folders. `OPMLImport.netNewsWireFile` is the OPML file of the On My Mac account of NetNewsWire.
 
-`FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` draws the icon.
+`FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. It reads and writes the files off the main actor. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` draws the icon.
 
 `SourcesView` lists the feeds with their `FeedStats` and their `FeedMode`, adds a feed with `FeedDiscovery`, imports OPML, and shows the history suggestions. `FeedArticleList` fills the list of one feed. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderTabPage` and `NoteWebReader` under the same `TabIsland` as `ArticleReader`. `ReaderTabPage` is the Reader tab of both, with Show Web Page when the article does not load. `NoteWebReader` saves a Capture of the Web tab to Inbox. The header of the article paper has Keep. `ArticleActions`, at `AppModel.articleActions`, holds the article verbs for Today, the feed list, and the article paper: keep, open in the browser, copy the link, and open as a paper. Both open verbs mark the article as read. `ArticleActions.capture(_:to:)` is the one way that an article becomes a kept link capture: by Keep, by File to a section, and before the first highlight or question on an article. `FeedStore.revision` changes after each write, so the views read again.
 

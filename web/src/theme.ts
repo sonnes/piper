@@ -11,6 +11,7 @@ export function applyTheme(theme: Theme) {
 	root.style.setProperty("--font-size-content", `${theme.size}px`);
 	const isDark = theme.appearance === "Dark" || (theme.appearance === "System" && dark.matches);
 	root.classList.toggle("dark", isDark);
+	root.style.setProperty("--piper-paper", isDark ? theme.background.dark : theme.background.light);
 }
 
 dark.addEventListener("change", () => {

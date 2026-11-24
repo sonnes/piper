@@ -45,8 +45,8 @@ final class ReaderAssistantTests: XCTestCase {
     }
 
     private func makeAssistant(executable: URL?) -> (ReaderAssistant, AgentSettings) {
-        let agents = AgentSettings(store: store, messages: Messages(), preferences: preferences)
-        agents.runner.executable = executable
+        let agents = AgentSettings(storage: nil, messages: Messages(), preferences: preferences)
+        agents.executable = executable
         agents.runner.usesLoginShell = false
         let folder = root.path
         let assistant = ReaderAssistant(store: store, agents: agents, messages: Messages()) { folder }

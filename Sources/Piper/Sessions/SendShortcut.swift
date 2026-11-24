@@ -1,5 +1,4 @@
 import AppKit
-import Carbon
 
 /// The system hotkey of Send Clipboard, which sends the clipboard to the default folder.
 ///
@@ -18,8 +17,7 @@ final class SendShortcut {
     // MARK: - Initialization
 
     init(action: @escaping () -> Void) {
-        // Carbon names the key of Command.sendClipboard with its own codes.
-        hotkey = GlobalHotkey(keyCode: kVK_ANSI_W, modifiers: controlKey | optionKey, action: action)
+        hotkey = GlobalHotkey(key: Command.sendClipboard.key!, action: action)
     }
 
     // MARK: - API

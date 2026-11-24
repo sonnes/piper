@@ -49,10 +49,7 @@ final class Send {
     @discardableResult
     func pasteboard(_ pasteboard: NSPasteboard = .general) throws -> AgentSession {
         guard skills.defaultFolder != nil else { throw Self.noSkill }
-        guard let text = pasteboard.string(forType: .string),
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw PiperError("The clipboard has no text")
-        }
+        let text = try pasteboard.text()
         if let saved = store.notes.last(where: { $0.text == text }) {
             if let session = agents.runner.latestSession(for: saved.id), session.state != .failed {
                 guard session.blocks.isEmpty else { throw PiperError("Already sent to \(session.folderName)") }
@@ -76,5 +73,15 @@ final class Send {
         let session = agents.runner.newSession(in: action.folder.path, noteID: saved.id, command: command)
         agents.runner.send(command.prompt, to: session)
         return session
+    }
+}
+
+extension NSPasteboard {
+    /// The text of the pasteboard. Throws when it holds no text, or only white space.
+    func text() throws -> String {
+        guard let text = string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw PiperError("The clipboard has no text")
+        }
+        return text
     }
 }

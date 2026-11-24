@@ -1,6 +1,6 @@
 import AppKit
 import Captures
-import Feeds
+@testable import Feeds
 import Vault
 import XCTest
 @testable import Piper
@@ -496,7 +496,7 @@ final class PaperDeskTests: XCTestCase {
     /// restores follow each change.
     func testTheDeskFollowsBackForwardAndLinks() async throws {
         try Data("# Harbor\n".utf8).write(to: root.appendingPathComponent("notes/harbor.md"))
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults())
         model.library.reload()
         try await waitFor("The scan finds both files.") { !model.library.loading && model.library.files.count == 2 }
         let suite = "piper-paper-desk-window-tests-" + UUID().uuidString
@@ -519,7 +519,7 @@ final class PaperDeskTests: XCTestCase {
         XCTAssertEqual(desk.paper.state.selectedFile, "notes/harbor.md")
         XCTAssertTrue(desk.paper.marks.isOpenFile("notes/harbor.md"))
 
-        model.files.openEditorLink(kind: "link", target: "journal.md")
+        model.files.openEditorLink(kind: .url, target: "journal.md")
         XCTAssertEqual(model.files.selectedDocument, "notes/journal.md")
         XCTAssertEqual(PaperDeskState.restore(from: defaults).selectedFile, "notes/journal.md")
         XCTAssertTrue(desk.paper.marks.isOpenFile("notes/journal.md"))
@@ -533,7 +533,7 @@ final class PaperDeskTests: XCTestCase {
         try database.save(Feed(id: "https://example.com/feed", title: "Example", nextFetch: .distantFuture))
         try database.insert([Article(id: "a1", feedID: "https://example.com/feed", url: "https://example.com/harbor",
                                      title: "Harbor", summary: "", published: Date(), arrived: Date())])
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults(),
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults(),
                              feeds: FeedStore(url: feedsURL) { XCTFail("\($0)") })
         let article = PaperItem.article("a1")
         XCTAssertEqual(article.identity(in: model), article, "An article that nobody kept is its own paper.")
@@ -553,7 +553,7 @@ final class PaperDeskTests: XCTestCase {
     /// Window > Feeds, the command palette, and a pasted feed address open
     /// Sources on the Feeds tab. A pasted address waits for Sources to look it up.
     func testShowSourcesOpensSourcesOnTheFeedsTabWithTheAddress() async throws {
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults())
         let suite = "piper-paper-desk-sources-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -588,7 +588,7 @@ final class PaperDeskTests: XCTestCase {
     /// New Capture, Window > Today, and the menu bar item show the feed paper
     /// on Today with an empty search and a request for the capture field.
     func testNewCaptureShowsTodayWithTheCaptureField() async throws {
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults())
         let suite = "piper-paper-desk-capture-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -620,7 +620,7 @@ final class PaperDeskTests: XCTestCase {
             try FileManager.default.createDirectory(at: root.appendingPathComponent(folder), withIntermediateDirectories: true)
             try Data("x\n".utf8).write(to: root.appendingPathComponent("\(folder)/x.md"))
         }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults())
         model.library.reload()
         try await waitFor("The scan finds the files.") { !model.library.loading && !model.library.files.isEmpty }
         let suite = "piper-paper-tree-tests-" + UUID().uuidString
@@ -660,7 +660,7 @@ final class PaperDeskTests: XCTestCase {
         let preferences = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { preferences.removePersistentDomain(forName: suite) }
         preferences.set(roots[0].path, forKey: AppDefaults.Key.vaultPath)
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), preferences: preferences)
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), preferences: preferences)
         model.library.addWikiFolders(roots.dropFirst().map(\.path))
         let paper = FeedPaperModel(model: model, defaults: preferences)
         XCTAssertEqual(paper.tabs.filter(\.isFolder), roots.map { .folder($0.path) })
@@ -691,7 +691,7 @@ final class PaperDeskTests: XCTestCase {
     /// The paper fills its frame in the window. The hidden title bar takes no
     /// room, so the column of tabs has the whole height of the paper.
     func testTheFeedPaperFillsItsFrame() async throws {
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults())
         let suite = "piper-paper-frame-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }

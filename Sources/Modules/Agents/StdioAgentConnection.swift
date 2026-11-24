@@ -45,7 +45,7 @@ public final class StdioAgentConnection: AgentConnection {
 
     // MARK: - Initialization
 
-    public init(agent: AgentDefinition, config: SessionConfig, usesLoginShell: Bool) {
+    public init(agent: AgentDefinition, config: SessionConfig, usesLoginShell: Bool, report: @escaping (Error) -> Void) {
         self.config = config
         agentName = agent.name
         process = AgentProcess(command: agent.command, arguments: agent.arguments,
@@ -61,6 +61,8 @@ public final class StdioAgentConnection: AgentConnection {
     public nonisolated static func hasReadOnlyMode(_ setup: ACP.SessionSetup) -> Bool {
         ACP.Mode.readOnly(in: setup.modes) != nil
     }
+
+    public nonisolated static func restored(_ blocks: [TranscriptBlock], in folder: URL) -> [TranscriptBlock] { blocks }
 
     public func start(event: @escaping @MainActor (AgentEvent) -> Void,
                       exit: @escaping @MainActor (Int32, String) -> Void) throws {

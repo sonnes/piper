@@ -7,9 +7,8 @@ import { createEmbedExtension } from "./EmbedNode";
 import { FootnoteDefinition, FootnoteReference } from "./Footnote";
 import { HighlightMark } from "./HighlightMark";
 import { createImageExtension, handleImageDrop, handleImagePaste } from "./ImageNode";
-import { noteLocalChange } from "./latest";
 import { QuestionMarks, ReaderLayer } from "./ReaderLayer";
-import { useStore } from "./store";
+import { noteLocalChange, useStore } from "./store";
 
 export function App() {
 	const { doc, notes, scroll } = useStore();

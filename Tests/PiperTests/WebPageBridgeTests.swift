@@ -3,8 +3,9 @@ import XCTest
 @testable import Piper
 
 /// Reads the samples of `web/test/fixtures`. The Vitest file
-/// `web/test/bridge.test.ts` checks the editor samples against `Outgoing`, and
-/// `web/test/anchors.test.ts` checks the anchor samples in the editor.
+/// `web/test/bridge.test.ts` checks the editor samples against the types of
+/// `web/src/bridge.ts`, and `web/test/anchors.test.ts` checks the anchor
+/// samples in the editor.
 final class WebPageBridgeTests: XCTestCase {
     private let fixtures = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -22,10 +23,11 @@ final class WebPageBridgeTests: XCTestCase {
         XCTAssertEqual(messages, [
             .ready,
             .change(path: "Tea.md", text: "# Tea\n\nGreen tea.\n"),
-            .link(kind: "url", target: "https://example.com/tea"),
-            .link(kind: "wiki", target: "Matcha#Shade"),
+            .link(kind: .url, target: "https://example.com/tea"),
+            .link(kind: .wiki, target: "Matcha#Shade"),
             .image(path: "Tea.md", type: "image/png", data: "iVBORw0KGgo="),
             .lossy(path: "Tea.md", reasons: ["link titles"]),
+            .error(message: "TypeError: null is not an object"),
             .mark(.explain(anchor)),
             .mark(.define(NoteAnchor(quote: "caffeine", block: 1, offset: 19))),
             .mark(.ask(anchor, question: "How much less?")),
@@ -36,6 +38,45 @@ final class WebPageBridgeTests: XCTestCase {
             .mark(.continue(id: id)),
             .mark(.followup(id: id, question: "And green tea?"))
         ])
+    }
+
+    func testEachEditorCallEncodesAsItsSample() throws {
+        struct Calls: Encodable {
+            let open: EditorOpenRequest
+            let themes: [EditorTheme]
+            let notes: [ReaderPageNote]
+        }
+        let fonts: [WikiReadingFont] = [.mono, .serif, .sans]
+        let appearances: [WikiReadingAppearance] = [.system, .light, .dark]
+        let themes = WikiReadingTheme.allCases.indices.map { index in
+            EditorTheme(theme: WikiReadingTheme.allCases[index], font: fonts[index], size: 16 + 2 * Double(index),
+                        appearance: appearances[index])
+        }
+        func note(_ id: String, kind: String, color: String = "yellow", block: Int = 0, offset: Int = 5, comment: String = "",
+                  origin: String, turns: [ReaderPageNote.Turn] = [], pending: Bool = false, failure: String? = nil,
+                  agent: String = "", tools: String = "") -> ReaderPageNote {
+            ReaderPageNote(id: id + "-8B86-D011-B42D-00C04FC964FF", kind: kind, color: color, block: block, offset: offset,
+                           length: 13, quote: "less caffeine", comment: comment, origin: origin, label: "Ask", turns: turns,
+                           pending: pending, failure: failure, agent: agent, tools: tools)
+        }
+        let calls = Calls(
+            open: EditorOpenRequest(
+                path: "Tea/Green tea.md", text: "---\ntitle: Green tea\n---\nLess caffeine than [[Matcha]].\n", mode: "rich",
+                wikiTargets: [EditorOpenRequest.WikiTarget(path: "Tea/Matcha.md", target: "Tea/Matcha", title: "Matcha")],
+                header: "May 1, 2026 · 1 min read · Saved", title: "Green tea"),
+            themes: themes,
+            notes: [
+                note("6F9619FF", kind: "highlight", origin: "Safari · 9:41 AM"),
+                note("7F9619FF", kind: "note", color: "green", comment: "Check the source.", origin: "9:42 AM"),
+                note("8F9619FF", kind: "question", block: -1, offset: 0, origin: "9:43 AM",
+                     turns: [ReaderPageNote.Turn(question: "How much less?", answer: "About half."),
+                             ReaderPageNote.Turn(question: nil, answer: "It depends on the leaf.")],
+                     pending: true, failure: "The agent stopped.", agent: "Haiku · Claude Code", tools: "Read · WebSearch")
+            ])
+        let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(calls)) as? NSDictionary
+        let data = try Data(contentsOf: fixtures.appendingPathComponent("editor-calls.json"))
+        let sample = try JSONSerialization.jsonObject(with: data) as? NSDictionary
+        XCTAssertEqual(encoded, sample)
     }
 
     func testEachReaderPageMessageSampleDecodes() throws {

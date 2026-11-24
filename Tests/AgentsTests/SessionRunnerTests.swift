@@ -42,9 +42,10 @@ final class SessionRunnerTests: XCTestCase {
 
     private static let result = #"echo '{"type":"result","subtype":"success","is_error":false,"result":"ok","duration_ms":1200,"total_cost_usd":0.01}'"#
 
-    private func runner(_ executable: URL?, storage: SessionStorage? = nil) -> SessionRunner {
+    private func runner(_ executable: URL?, model: String? = nil, mode: ClaudeCodeConnection.PermissionMode = .auto,
+                        storage: SessionStorage? = nil) -> SessionRunner {
         let runner = SessionRunner(storage: storage)
-        runner.executable = executable
+        runner.agents = [ClaudeCodeConnection.agent(executable: executable, model: model, mode: mode)]
         runner.usesLoginShell = false
         return runner
     }
@@ -96,8 +97,7 @@ final class SessionRunnerTests: XCTestCase {
         echo '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"written"}]}}'
         \(Self.result)
         """)
-        let runner = runner(claude)
-        runner.model = "sonnet"
+        let runner = runner(claude, model: "sonnet")
         let session = start(runner, "Save this page")
         XCTAssertEqual(session.state, .running)
 
@@ -120,8 +120,7 @@ final class SessionRunnerTests: XCTestCase {
     }
 
     func testMessageAfterAStopResumesTheSession() async throws {
-        let runner = runner(try fakeClaude(turn: ""))
-        runner.permissionMode = .ask
+        let runner = runner(try fakeClaude(turn: ""), mode: .ask)
         let session = start(runner)
         try await wait { lines("inputs.txt").count == 1 }
         runner.stop(session)
@@ -256,8 +255,8 @@ final class SessionRunnerTests: XCTestCase {
 
     func testTurnTimeoutStopsTheTurn() async throws {
         let runner = runner(try fakeClaude(turn: ""))
-        runner.turnTimeout = 0.3
         let session = start(runner)
+        runner.startTurnTimer(for: session, limit: 0.3)
         try await wait { session.state == .failed }
         XCTAssertTrue(session.failure?.hasPrefix("Stopped after ") == true, session.failure ?? "")
     }
@@ -290,7 +289,7 @@ final class SessionRunnerTests: XCTestCase {
         let done = runner.newSession(in: folder.path, noteID: note, command: SlashCommand(name: "capture", arguments: "x"))
         runner.send("/capture x", to: done)
         try await wait { done.state == .idle }
-        runner.executable = try fakeClaude(turn: "")
+        runner.agents = [ClaudeCodeConnection.agent(executable: try fakeClaude(turn: ""))]
         let active = start(runner, "Slow")
         _ = runner.newSession(in: folder.path)
 
@@ -320,6 +319,23 @@ final class SessionRunnerTests: XCTestCase {
         XCTAssertTrue(runner.sessions.isEmpty)
         XCTAssertEqual(errors, ["Piper cannot read a stored session. It stays in the database."])
         XCTAssertEqual(try storage.loadSessions(), [Data("{}".utf8)])
+    }
+
+    func testAnOlderClaudeCodeSessionGetsItsDefaultsWhenItLoads() throws {
+        let storage = MemorySessionStorage()
+        let stored = #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","folder":"/w","state":"idle","createdAt":0,"updatedAt":0,"unread":false,"blocks":[{"toolCall":{"_0":{"id":"t1","name":"Bash","detail":"ls","isFinished":true,"isError":false}}},{"permission":{"_0":{"requestID":"r1","toolName":"Edit","input":{"file_path":"/w/a.md","old_string":"a","new_string":"b"}},"decision":"allowed"}},{"question":{"_0":{"requestID":"q1","toolName":"AskUserQuestion","input":{}},"answers":{}}}]}"#
+        try storage.saveSession(id: UUID(), folder: "/w", updatedAt: Date(), data: Data(stored.utf8))
+
+        let session = try XCTUnwrap(SessionRunner(storage: storage).sessions.first)
+
+        XCTAssertEqual(session.agentID, AgentDefinition.claudeCodeID)
+        guard case .toolCall(let call) = session.blocks[0], case .permission(let request, _) = session.blocks[1],
+              case .question(let question, _) = session.blocks[2] else { return XCTFail("The blocks changed") }
+        XCTAssertEqual(call.kind, .execute)
+        XCTAssertEqual(request.kind, .edit)
+        XCTAssertEqual(request.options.map(\.id), ["allow", "always", "deny"])
+        XCTAssertEqual(request.diffs, [ACP.Diff(path: "/w/a.md", oldText: "a", newText: "b")])
+        XCTAssertTrue(question.isQuestion)
     }
 }
 

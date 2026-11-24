@@ -25,12 +25,15 @@ final class Library {
             skills.paths = wikiPaths
         }
     }
-    var wikiPath: String {
+    /// The active folder. `changeWiki(to:)` changes it.
+    private(set) var wikiPath: String {
         didSet {
             preferences.set(wikiPath, forKey: AppDefaults.Key.vaultPath)
-            if let watcher, watcher.vault.root != vault.root { reload() }
+            vault = Vault(path: wikiPath)
         }
     }
+    /// The vault of the active folder.
+    private(set) var vault: Vault
     var files: [VaultFile] = [] {
         didSet { filesRevision += 1 }
     }
@@ -56,13 +59,17 @@ final class Library {
         self.skills = skills
         let activePath = wikiPath ?? preferences.string(forKey: AppDefaults.Key.vaultPath) ?? Vault.defaultPath
         self.wikiPath = activePath
+        vault = Vault(path: activePath)
         var savedPaths = wikiPath == nil ? preferences.stringArray(forKey: AppDefaults.Key.wikiPaths) ?? [] : []
         if !savedPaths.contains(activePath) { savedPaths.append(activePath) }
         self.wikiPaths = savedPaths
         skills.paths = savedPaths
     }
 
-    var vault: Vault { Vault(path: wikiPath) }
+    /// True when the path names the active folder, also through a symbolic link.
+    func isActive(_ path: String) -> Bool {
+        Vault(path: path).root == vault.root
+    }
 
     /// The folder that a new agent session works in: the folder of the Send
     /// buttons, or else the open folder.

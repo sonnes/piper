@@ -46,18 +46,33 @@ public final class FaviconStore {
         let session = session
         let folder = folder
         let task = Task { () -> Data? in
-            if let data = try? Data(contentsOf: file), Self.isImage(data) {
+            if let data = await Self.readKept(file) {
                 icons[host] = data
                 return data
             }
             guard let data = await Self.find(host, session: session) else { return nil }
-            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            try? data.write(to: file, options: .atomic)
+            await Self.keep(data, in: folder, as: file)
             icons[host] = data
             return data
         }
         loads[host] = task
         return task
+    }
+
+    /// The kept icon file, read off the main actor. Nil when the file is missing or is no image.
+    private nonisolated static func readKept(_ file: URL) async -> Data? {
+        await Task.detached {
+            guard let data = try? Data(contentsOf: file), isImage(data) else { return nil }
+            return data
+        }.value
+    }
+
+    /// Writes the icon file off the main actor. A failed write costs only a fetch at the next launch.
+    private nonisolated static func keep(_ data: Data, in folder: URL, as file: URL) async {
+        await Task.detached {
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try? data.write(to: file, options: .atomic)
+        }.value
     }
 
     /// The first icon of the site that loads as an image.

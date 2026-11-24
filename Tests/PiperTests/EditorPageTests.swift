@@ -27,7 +27,7 @@ final class EditorPageTests: XCTestCase {
         for (path, raw) in files {
             try Data(raw.utf8).write(to: root.appendingPathComponent(path))
         }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: root.appendingPathComponent("captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults())
         model.library.files = try files.map { try model.library.vault.file($0.0) }
         return model
     }
@@ -48,7 +48,7 @@ final class EditorPageTests: XCTestCase {
         let session = try XCTUnwrap(model.files.editor)
         page.show(EditorPane.request(for: session, files: model.files, source: source), session: ObjectIdentifier(session),
                   revision: session.revision,
-                  theme: EditorTheme(theme: "Paper", font: "Serif", size: 18, appearance: "Light"),
+                  theme: EditorTheme(theme: .paper, font: .serif, size: 18, appearance: .light),
                   anchor: model.files.requestedAnchor, anchorRequest: model.files.anchorRequest,
                   notes: model.files.fileNotes(session.document))
     }

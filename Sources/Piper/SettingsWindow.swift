@@ -170,15 +170,15 @@ private struct AISettings: View {
     var body: some View {
         Form {
             Section {
-                AgentRow(agent: .claudeCode, status: agents.health[AgentDefinition.claudeCodeID]) {
+                AgentRow(agent: agents.claudeCode, status: agents.health[agents.claudeCode.id]) {
                     HStack(spacing: 6) {
-                        Text(agents.runner.executable.map { ($0.path as NSString).abbreviatingWithTildeInPath }
+                        Text(agents.executable.map { ($0.path as NSString).abbreviatingWithTildeInPath }
                              ?? "No claude command")
-                            .foregroundStyle(agents.runner.executable == nil ? PiperTheme.danger : PiperTheme.paperMuted)
+                            .foregroundStyle(agents.executable == nil ? PiperTheme.danger : PiperTheme.paperMuted)
                             .lineLimit(1).truncationMode(.middle)
                         Spacer(minLength: 4)
                         if agents.claudePath != nil {
-                            Button("Find Automatically") { agents.claudePath = nil; agents.refreshHealth() }
+                            Button("Find Automatically") { agents.claudePath = nil }
                         }
                         Button("Choose…", action: chooseExecutable)
                     }
@@ -223,7 +223,7 @@ private struct AISettings: View {
                     Text("Margin answers")
                     Text("Answers in the reader margin can read files and the web, and change nothing. An ACP agent must offer a read-only mode, such as Plan.")
                 }
-                if agents.marginAgentID == AgentDefinition.claudeCodeID {
+                if agents.kind(of: agents.marginAgentID) == .claudeCode {
                     Picker("Margin model", selection: Binding(get: { agents.marginModel }, set: { agents.marginModel = $0 })) {
                         ForEach(ClaudeCodeConnection.models) { Text($0.name).tag($0.id) }
                     }
@@ -242,7 +242,7 @@ private struct AISettings: View {
                     Text("Claude Code Default uses the model in your Claude Code settings.")
                 }
                 Picker(selection: Binding(get: { agents.permissionMode }, set: { agents.permissionMode = $0 })) {
-                    ForEach(PermissionMode.allCases, id: \.self) { Text($0.name).tag($0) }
+                    ForEach(ClaudeCodeConnection.PermissionMode.allCases, id: \.self) { Text($0.name).tag($0) }
                 } label: {
                     Text("Permissions")
                     Text(agents.permissionMode.detail)
@@ -297,7 +297,6 @@ private struct AISettings: View {
         panel.prompt = "Choose"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         agents.claudePath = url.path
-        agents.refreshHealth()
     }
 }
 
@@ -321,7 +320,7 @@ private struct AgentRow<Controls: View>: View {
             HStack(spacing: 6) {
                 Circle().fill(color).frame(width: 8, height: 8)
                     .accessibilityLabel(status?.headline ?? "Not checked")
-                AgentMark(agentID: agent.id)
+                AgentMark(kind: agent.kind)
                 Text(agent.name).font(PiperTheme.paperUI(.body, weight: .semibold))
                 Text(status?.headline ?? "Not checked")
                     .foregroundStyle(PiperTheme.paperMuted)

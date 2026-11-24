@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import XCTest
 @testable import Piper
 
@@ -51,6 +52,25 @@ final class CommandTests: XCTestCase {
         }
         XCTAssertTrue(Command.find.isInPalette)
         XCTAssertFalse(Command.copy.isInPalette)
+    }
+
+    /// The palette offers a command only while the menu enables it.
+    func testThePaletteOffersOnlyTheEnabledCommands() {
+        let idle = Command.palette(in: Command.Context(editorHasFocus: false, showsFeedList: false))
+        XCTAssertFalse(idle.contains(.markAllAsRead))
+        XCTAssertFalse(idle.contains(.find))
+        XCTAssertTrue(idle.contains(.refresh))
+        let feedList = Command.palette(in: Command.Context(editorHasFocus: false, showsFeedList: true))
+        XCTAssertTrue(feedList.contains(.markAllAsRead))
+    }
+
+    func testTheGlobalHotkeysTakeTheirCarbonKeysFromTheKeyTable() throws {
+        let send = GlobalHotkey.carbon(try XCTUnwrap(Command.sendClipboard.key))
+        XCTAssertEqual(send.keyCode, UInt32(kVK_ANSI_W))
+        XCTAssertEqual(send.modifiers, UInt32(controlKey | optionKey))
+        let capture = GlobalHotkey.carbon(CaptureShortcut.spaceKey)
+        XCTAssertEqual(capture.keyCode, UInt32(kVK_Space))
+        XCTAssertEqual(capture.modifiers, UInt32(controlKey | optionKey))
     }
 
     private func command(for event: NSEvent) -> Command? {

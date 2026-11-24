@@ -16,7 +16,7 @@ final class WebPageBridge: NSObject {
     private(set) weak var view: WKWebView?
     private let page: URL?
     private let allowsFrame: (URL) -> Bool
-    private let report: (Error) -> Void
+    let report: (Error) -> Void
     /// Runs after a crash, when the page loads again. The owner forgets what
     /// the page shows and shows its last state again.
     var reloaded: () -> Void = {}

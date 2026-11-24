@@ -207,6 +207,10 @@ final class SessionHelperTests: XCTestCase {
         XCTAssertEqual(try text(ClaudeCodeConnection.userLine("/verify", context: ["/w/a.md"])), "/verify /w/a.md")
     }
 
+    func testALineThatCannotBeEncodedThrowsInsteadOfWritingNothing() {
+        XCTAssertThrowsError(try ClaudeCodeConnection.line(["type": "user", "sent": Date()]))
+    }
+
     func testContextNamesLinksAndNotesAndSkipsWhatTheTextHolds() {
         let link = ContextItem.link(URL(string: "https://exe.dev/blog")!)
         XCTAssertEqual(SessionRunner.messageBody("Sum it up", context: [link, .note("Line one\nLine two")]),
@@ -276,18 +280,5 @@ final class AgentSessionTests: XCTestCase {
         let oldData = try JSONSerialization.data(withJSONObject: old)
         let restored = AgentSession(try JSONDecoder().decode(AgentSession.Snapshot.self, from: oldData))
         XCTAssertNil(restored.slashCommands)
-    }
-
-    func testAnOlderClaudeCodeSessionGetsItsDefaultsWhenItLoads() throws {
-        let stored = #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","folder":"/w","state":"idle","createdAt":0,"updatedAt":0,"unread":false,"blocks":[{"toolCall":{"_0":{"id":"t1","name":"Bash","detail":"ls","isFinished":true,"isError":false}}},{"permission":{"_0":{"requestID":"r1","toolName":"Edit","input":{"file_path":"/w/a.md","old_string":"a","new_string":"b"}},"decision":"allowed"}},{"question":{"_0":{"requestID":"q1","toolName":"AskUserQuestion","input":{}},"answers":{}}}]}"#
-        let session = AgentSession(try JSONDecoder().decode(AgentSession.Snapshot.self, from: Data(stored.utf8)))
-        XCTAssertEqual(session.agentID, AgentDefinition.claudeCodeID)
-        guard case .toolCall(let call) = session.blocks[0], case .permission(let request, _) = session.blocks[1],
-              case .question(let question, _) = session.blocks[2] else { return XCTFail("The blocks changed") }
-        XCTAssertEqual(call.kind, .execute)
-        XCTAssertEqual(request.kind, .edit)
-        XCTAssertEqual(request.options.map(\.id), ["allow", "always", "deny"])
-        XCTAssertEqual(request.diffs, [ACP.Diff(path: "/w/a.md", oldText: "a", newText: "b")])
-        XCTAssertTrue(question.isQuestion)
     }
 }

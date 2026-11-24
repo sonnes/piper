@@ -3,11 +3,11 @@ import Foundation
 /// Ranks files and commands for the command palette. The scores copy the
 /// palette of Hubble.md (`packages/ui/src/lib/fuzzy.ts`): an exact match ranks
 /// over a prefix, a prefix over a substring, and a substring over a subsequence.
-public enum PaletteSearch {
+enum PaletteSearch {
 
     /// 1 for an exact match, 0.9 for a prefix, 0.75 for a substring, 0.45 for a
     /// subsequence, and 0 for no match. Case, spaces, `_`, and `-` do not count.
-    public static func score(_ query: String, _ text: String) -> Double {
+    static func score(_ query: String, _ text: String) -> Double {
         let needle = normalize(query)
         if needle.isEmpty { return 1 }
         let haystack = normalize(text)
@@ -19,24 +19,24 @@ public enum PaletteSearch {
     }
 
     /// A match in the file name ranks over a match in a folder name only.
-    public static func score(_ query: String, path: String, title: String) -> Double {
+    static func score(_ query: String, path: String, title: String) -> Double {
         let name = (path as NSString).lastPathComponent
         return max(score(query, title), score(query, name), 0.8 * score(query, path))
     }
 
     /// A line of a file that holds the query.
-    public struct Excerpt: Equatable, Sendable {
+    struct Excerpt: Equatable, Sendable {
         /// The line, cut to the context around the match, with `…` where it is cut.
-        public let text: String
+        let text: String
         /// The match in `text`.
-        public let match: Range<String.Index>
+        let match: Range<String.Index>
         /// The line number, from zero.
-        public let line: Int
+        let line: Int
     }
 
     /// The lines that hold the query, in a literal search with no case. A
     /// query shorter than `minimumQueryLength` finds nothing.
-    public static func excerpts(of query: String, in content: String,
+    static func excerpts(of query: String, in content: String,
                                 limit: Int = 3, context: Int = 40) -> [Excerpt] {
         let needle = query.trimmingCharacters(in: .whitespaces)
         guard needle.count >= minimumQueryLength else { return [] }
@@ -58,7 +58,7 @@ public enum PaletteSearch {
         return result
     }
 
-    public static let minimumQueryLength = 3
+    static let minimumQueryLength = 3
 
     private static func normalize(_ text: String) -> String {
         String(text.lowercased().filter { !$0.isWhitespace && $0 != "_" && $0 != "-" })

@@ -2,7 +2,8 @@
 // `window.piper` through `WebPageBridge`. The page sends messages to the
 // `editor` handler, and Piper answers each message. `EditorMessage` in Swift
 // decodes each message. `web/test/fixtures/editor-messages.json` holds a
-// sample of each message, which a Swift test and a Vitest test both read.
+// sample of each message, and `web/test/fixtures/editor-calls.json` holds a
+// sample of each argument of Piper. A Swift test and a Vitest test read both.
 
 import type { WikiTarget } from "@hubble.md/ui";
 
@@ -17,8 +18,8 @@ export type OpenRequest = {
 	wikiTargets: WikiTarget[];
 	/** The byline: the date, the reading time, and the save state. */
 	header: string;
-	/** The title over a file whose body has no heading. */
-	title: string | null;
+	/** The title over a file whose body has no heading. `open` leaves it out, and `header` sends null. */
+	title?: string | null;
 };
 
 export type Theme = {
@@ -26,9 +27,11 @@ export type Theme = {
 	font: "Serif" | "Sans Serif" | "Monospace";
 	size: number;
 	appearance: "System" | "Light" | "Dark";
+	/** The paper color of the theme, as a CSS color for each appearance. */
+	background: { light: string; dark: string };
 };
 
-/** A margin note from Piper. The fields match `ReaderPageNote` in Swift. */
+/** A margin note from Piper. The fields match `ReaderPageNote` in Swift, which leaves out each nil field. */
 export type PageNote = {
 	id: string;
 	kind: "highlight" | "note" | "question";
@@ -41,9 +44,9 @@ export type PageNote = {
 	comment: string;
 	origin: string;
 	label: string;
-	turns: { question: string | null; answer: string }[];
+	turns: { question?: string; answer: string }[];
 	pending: boolean;
-	failure: string | null;
+	failure?: string;
 	agent: string;
 	tools: string;
 };
@@ -65,6 +68,7 @@ export type Outgoing =
 	| { action: "link"; kind: "url" | "wiki"; target: string }
 	| { action: "image"; path: string; type: string; data: string }
 	| { action: "lossy"; path: string; reasons: string[] }
+	| { action: "error"; message: string }
 	| MarkAction;
 
 type Handler = { postMessage(message: unknown): Promise<unknown> };

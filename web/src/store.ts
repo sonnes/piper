@@ -15,6 +15,8 @@ type State = { doc: DocState | null; notes: PageNote[]; scroll: ScrollRequest | 
 
 let state: State = { doc: null, notes: [], scroll: null };
 const listeners = new Set<() => void>();
+/** The text of the last edit, which can be newer than `doc.text`. */
+let latest: { path: string; text: string } | null = null;
 
 export function getState() {
 	return state;
@@ -23,6 +25,23 @@ export function getState() {
 export function setState(next: Partial<State>) {
 	state = { ...state, ...next };
 	for (const listener of listeners) listener();
+}
+
+/** Shows a file with new text. The text is the latest text of the file until the next edit. */
+export function setDoc(doc: DocState) {
+	latest = { path: doc.path, text: doc.text };
+	setState({ doc });
+}
+
+export function noteLocalChange(path: string, text: string) {
+	latest = { path, text };
+}
+
+/** The text in the editor now, for `window.piper.flush`. Null when the page shows no file. */
+export function latestText(): string | null {
+	const { doc } = state;
+	if (!doc) return null;
+	return latest?.path === doc.path ? latest.text : doc.text;
 }
 
 export function useStore(): State {

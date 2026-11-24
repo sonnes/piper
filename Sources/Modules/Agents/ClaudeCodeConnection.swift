@@ -1,4 +1,5 @@
 import Foundation
+import PiperCore
 
 /// Runs `claude -p` with stream-json in both directions, and turns its stream
 /// into ACP events. Claude Code needs no adapter and no Node this way.
@@ -8,10 +9,47 @@ import Foundation
 @MainActor
 public final class ClaudeCodeConnection: AgentConnection {
 
+    /// How much Claude Code does without a card, in menu order. The raw value is
+    /// the value of `--permission-mode`, and the id of the mode in the mode menu.
+    public enum PermissionMode: String, CaseIterable, Sendable {
+        /// Claude Code allows or asks for each tool call by its risk.
+        case auto
+        /// Edits files without a card. Other tools show a card.
+        case acceptEdits
+        /// Every tool call that the folder settings do not allow shows a card.
+        case ask = "manual"
+        /// Reads and plans, and edits nothing.
+        case plan
+        /// Runs every tool without a card.
+        case bypassPermissions
+
+        /// The name in the mode menu.
+        public var name: String {
+            switch self {
+            case .auto: return "Auto"
+            case .acceptEdits: return "Edit Files Only"
+            case .ask: return "Ask Every Time"
+            case .plan: return "Plan"
+            case .bypassPermissions: return "Allow Every Tool"
+            }
+        }
+
+        /// One line about the mode, for a tooltip.
+        public var detail: String {
+            switch self {
+            case .auto: return "Claude Code allows safe tools and asks about risky ones."
+            case .acceptEdits: return "File edits run with no card. Other tools ask."
+            case .ask: return "Each tool that the folder settings do not allow asks."
+            case .plan: return "Claude Code reads and plans, and edits nothing."
+            case .bypassPermissions: return "Any tool runs with no card, including shell commands."
+            }
+        }
+    }
+
     // MARK: - Properties
 
     /// The tools of a margin session: they read files and the web, and they change nothing.
-    public nonisolated static let marginTools = "Read,Grep,Glob,WebSearch,WebFetch"
+    nonisolated static let marginTools = "Read,Grep,Glob,WebSearch,WebFetch"
     static let denyMessage = "The reader denied this tool call in Piper."
 
     /// The modes that `--permission-mode` takes, in menu order.
@@ -60,11 +98,22 @@ public final class ClaudeCodeConnection: AgentConnection {
 
     // MARK: - Initialization
 
-    public init(executable: URL, config: SessionConfig, usesLoginShell: Bool, report: @escaping (Error) -> Void) {
+    /// The Claude Code agent. A nil executable means that Piper did not find `claude`.
+    public nonisolated static func agent(executable: URL?, model: String? = nil,
+                                         mode: PermissionMode = .auto) -> AgentDefinition {
+        AgentDefinition(id: AgentDefinition.claudeCodeID, kind: .claudeCode, name: "Claude Code",
+                        command: executable?.path ?? "", model: model, mode: mode.rawValue)
+    }
+
+    public init(agent: AgentDefinition, config: SessionConfig, usesLoginShell: Bool,
+                report: @escaping (Error) -> Void) throws {
+        guard !agent.command.isEmpty else {
+            throw PiperError("Piper cannot find the claude command. Choose it in Settings > AI.")
+        }
         self.folder = config.folder
         self.config = config
         self.report = report
-        process = AgentProcess(command: executable.path, arguments: Self.arguments(for: config),
+        process = AgentProcess(command: agent.command, arguments: Self.arguments(for: config),
                                folder: config.folder, usesLoginShell: usesLoginShell)
     }
 
@@ -95,7 +144,7 @@ public final class ClaudeCodeConnection: AgentConnection {
 
     public func prompt(_ text: String, context: [ContextItem]) {
         hasText = false
-        process.write(Self.userLine(text, context: context))
+        write { try Self.userLine(text, context: context) }
     }
 
     public func respond(to request: PermissionRequest, with option: ACP.PermissionOption, message: String?) {
@@ -128,11 +177,16 @@ public final class ClaudeCodeConnection: AgentConnection {
     // MARK: - Messages
 
     /// One user message of the stream-json input.
-    nonisolated static func userLine(_ text: String, context: [ContextItem]) -> String {
+    nonisolated static func userLine(_ text: String, context: [ContextItem]) throws -> String {
         let body = SessionRunner.messageBody(text, context: context)
-        let object: [String: Any] = ["type": "user",
-                                     "message": ["role": "user", "content": [["type": "text", "text": body]]]]
-        let data = (try? JSONSerialization.data(withJSONObject: object, options: [.withoutEscapingSlashes])) ?? Data()
+        return try line(["type": "user", "message": ["role": "user", "content": [["type": "text", "text": body]]]])
+    }
+
+    nonisolated static func line(_ object: [String: Any]) throws -> String {
+        guard JSONSerialization.isValidJSONObject(object) else {
+            throw PiperError("Piper cannot write the message for Claude Code.")
+        }
+        let data = try JSONSerialization.data(withJSONObject: object, options: [.withoutEscapingSlashes])
         return String(decoding: data, as: UTF8.self)
     }
 
@@ -174,9 +228,7 @@ public final class ClaudeCodeConnection: AgentConnection {
         return request
     }
 
-    /// The blocks of a Claude Code session that an older Piper stored, with
-    /// the fields that it did not store.
-    public nonisolated static func completed(_ blocks: [TranscriptBlock], in folder: URL) -> [TranscriptBlock] {
+    public nonisolated static func restored(_ blocks: [TranscriptBlock], in folder: URL) -> [TranscriptBlock] {
         blocks.map { block in
             switch block {
             case .toolCall(var call):
@@ -256,8 +308,18 @@ public final class ClaudeCodeConnection: AgentConnection {
         let object: [String: Any] = ["type": "control_response",
                                      "response": ["subtype": "success", "request_id": request.requestID,
                                                   "response": response]]
-        guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.withoutEscapingSlashes]) else { return }
-        process.write(String(decoding: data, as: UTF8.self))
+        write { try Self.line(object) }
+    }
+
+    /// Writes one line of input. A line that cannot be written ends the turn
+    /// and the process, because Claude Code would wait for it.
+    private func write(_ line: () throws -> String) {
+        do {
+            process.write(try line())
+        } catch {
+            send(.turnEnded(TurnEnd(failure: error.localizedDescription)))
+            process.terminate()
+        }
     }
 
     private func send(_ value: AgentEvent) { event?(value) }

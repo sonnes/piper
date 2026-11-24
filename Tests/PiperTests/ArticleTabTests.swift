@@ -38,7 +38,8 @@ final class ArticleTabTests: XCTestCase {
         XCTAssertEqual(model.articleTab(for: post), .notes)
         XCTAssertEqual(model.openingTab(for: link("https://blog.example/other")), .reader)
 
-        let restored = AppModel(store: model.store, wikiPath: model.library.wikiPath, preferences: preferences)
+        let restored = AppModel(databaseURL: URL(fileURLWithPath: model.library.wikiPath).appendingPathComponent("captures.sqlite"),
+                                wikiPath: model.library.wikiPath, preferences: preferences)
         XCTAssertEqual(restored.openingTab(for: link("https://blog.example/third")), .reader)
 
         restored.chooseArticleTab(.web, for: post)
@@ -72,7 +73,7 @@ final class ArticleTabTests: XCTestCase {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let suite = "ArticleTabTests." + UUID().uuidString
         preferences = UserDefaults(suiteName: suite)
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")),
+        let model = AppModel(databaseURL: root.appendingPathComponent("captures.sqlite"),
                              wikiPath: root.path, preferences: preferences)
         return (model, {
             UserDefaults().removePersistentDomain(forName: suite)

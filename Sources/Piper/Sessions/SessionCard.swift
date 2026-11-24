@@ -133,7 +133,7 @@ struct SessionCard: View {
 
     private func header(_ session: AgentSession?, folder: String) -> some View {
         HStack(spacing: 6) {
-            AgentMark(agentID: session?.agentID ?? model.agents.sessionAgentID)
+            AgentMark(kind: model.agents.kind(of: session?.agentID ?? model.agents.sessionAgentID))
                 .font(.system(size: 14, weight: .semibold))
                 .accessibilityHidden(true)
             sessionMenu(session, folder: folder)
@@ -308,7 +308,7 @@ struct SessionPill: View {
         case .needsYou?:
             Image(systemName: AgentSession.State.needsYou.symbol ?? "").font(.system(size: 12)).foregroundStyle(PiperTheme.onAccent)
         default:
-            AgentMark(agentID: session?.agentID ?? model.agents.sessionAgentID).font(.system(size: 14, weight: .semibold))
+            AgentMark(kind: model.agents.kind(of: session?.agentID ?? model.agents.sessionAgentID)).font(.system(size: 14, weight: .semibold))
         }
     }
 

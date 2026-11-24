@@ -133,18 +133,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         perform(command)
     }
 
-    /// Find works on the file editor, while its paper has the focus.
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        switch menuItem.representedObject as? Command {
-        case .find:
-            let window = model.files.loadedEditorPage?.webView.window
-            return window != nil && window === PaperWindow.focusedWindow
-        case .markAllAsRead:
-            if case .feed = desk.paper.state.scope { return true }
-            return false
-        default:
-            return true
-        }
+        (menuItem.representedObject as? Command)?.isEnabled(in: commandContext) ?? true
+    }
+
+    private var commandContext: Command.Context {
+        let window = model.files.loadedEditorPage?.webView.window
+        var showsFeedList = false
+        if case .feed = desk.paper.state.scope { showsFeedList = true }
+        return Command.Context(editorHasFocus: window != nil && window === PaperWindow.focusedWindow, showsFeedList: showsFeedList)
     }
 
     /// Performs a command of a menu item or of the command palette.
@@ -158,7 +155,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         case .addFeed: desk.addFeed()
         // The editor also saves by itself 120 ms after an edit.
         case .save: Task { @MainActor in await model.files.save() }
-        case .refresh: model.library.reload()
+        case .refresh:
+            model.library.reload()
+            model.skills.reload()
         case .back: model.files.navigate(-1)
         case .forward: model.files.navigate(1)
         case .goToFile: showPalette()
@@ -169,7 +168,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         case .captureClipboard: model.captureClipboard()
         case .sendClipboard: sendClipboard()
         case .toggleFileSource: model.files.showsFileSource.toggle()
-        // The list of a feed binds the key of Mark All as Read while it shows.
         case .markAllAsRead:
             if case .feed(let id) = desk.paper.state.scope { model.feeds.markAllRead(.feed(id)) }
         }
@@ -215,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
 
     private var paletteCommands: [PaletteCommand] {
-        Command.allCases.filter(\.isInPalette).map { command in
+        Command.palette(in: commandContext).map { command in
             let title = command == .toggleFileSource && model.files.showsFileSource ? "Show Preview" : command.title
             return PaletteCommand(title: title, shortcut: command.key?.glyph ?? "") { [weak self] in self?.perform(command) }
         }
@@ -223,7 +221,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     private func settings() {
         if settingsWindowController == nil { settingsWindowController = SettingsWindowController(model: model) }
+        checkAccessibility()
         settingsWindowController?.show()
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        checkAccessibility()
+    }
+
+    /// The user can take the Accessibility access away while Piper runs.
+    /// QA mode never starts the capture service.
+    private func checkAccessibility() {
+        if !QA.isOn { capture?.start() }
     }
 
     /// Names the default folder in the menu bar item, and hides the item when

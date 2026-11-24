@@ -41,8 +41,7 @@ final class QuitSafetyTests: XCTestCase {
     }
 
     private func makeWiki() throws -> AppModel {
-        let store = CaptureStore(url: databaseURL)
-        let model = AppModel(store: store, wikiPath: wikiPath, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: databaseURL, wikiPath: wikiPath, preferences: temporaryDefaults())
         let root = URL(fileURLWithPath: wikiPath)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try Data("---\ntitle: A note\n---\n\nOriginal body.\n".utf8)
@@ -53,9 +52,9 @@ final class QuitSafetyTests: XCTestCase {
     // MARK: Capture edits
 
     func testAnUnresolvedCaptureEditBlocksQuit() {
-        let store = CaptureStore(url: databaseURL)
+        let model = AppModel(databaseURL: databaseURL, wikiPath: wikiPath, preferences: temporaryDefaults())
+        let store = model.store
         XCTAssertNoThrow(try store.add("original", section: store.activeSection))
-        let model = AppModel(store: store, wikiPath: wikiPath, preferences: temporaryDefaults())
         let session = model.editCapture(store.notes[0])
         session.text = "an unsaved change"
 
@@ -65,10 +64,10 @@ final class QuitSafetyTests: XCTestCase {
     }
 
     func testEveryCaptureEditIsOfferedBeforeQuit() {
-        let store = CaptureStore(url: databaseURL)
+        let model = AppModel(databaseURL: databaseURL, wikiPath: wikiPath, preferences: temporaryDefaults())
+        let store = model.store
         XCTAssertNoThrow(try store.add("first", section: store.activeSection))
         XCTAssertNoThrow(try store.add("second", section: store.activeSection))
-        let model = AppModel(store: store, wikiPath: wikiPath, preferences: temporaryDefaults())
         for note in store.notes {
             model.editCapture(note).text = note.text + " edited"
         }

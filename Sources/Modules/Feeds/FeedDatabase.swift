@@ -4,17 +4,17 @@ import Foundation
 /// The subscriptions, their articles, and the sites of browser history, in one
 /// SQLite file. Each call runs on the thread of the caller. `FeedStore` calls
 /// it on the main thread.
-public final class FeedDatabase {
+final class FeedDatabase {
 
     // MARK: - Properties
 
-    public static let summaryLimit = 500
+    static let summaryLimit = 500
 
     private var handle: OpaquePointer?
 
     // MARK: - Initialization
 
-    public init(url: URL) throws {
+    init(url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard sqlite3_open(url.path, &handle) == SQLITE_OK else {
             if let handle { sqlite3_close(handle) }
@@ -49,7 +49,7 @@ public final class FeedDatabase {
 
     // MARK: - Feeds
 
-    public func feeds() throws -> [Feed] {
+    func feeds() throws -> [Feed] {
         let statement = try prepare("SELECT id, title, home, etag, last_modified, failures, next_fetch, error, mode FROM feeds ORDER BY title COLLATE NOCASE")
         defer { sqlite3_finalize(statement) }
         var feeds: [Feed] = []
@@ -65,7 +65,7 @@ public final class FeedDatabase {
     }
 
     /// Adds the feed, or replaces the stored fields of a feed with the same URL.
-    public func save(_ feed: Feed) throws {
+    func save(_ feed: Feed) throws {
         let statement = try prepare("""
         INSERT INTO feeds (id, title, home, etag, last_modified, failures, next_fetch, error, mode)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -87,7 +87,7 @@ public final class FeedDatabase {
     }
 
     /// Removes the feed and each of its articles.
-    public func delete(feed id: String) throws {
+    func delete(feed id: String) throws {
         try run("DELETE FROM feeds WHERE id = ?", id)
     }
 
@@ -96,7 +96,7 @@ public final class FeedDatabase {
     /// Adds each article that the database does not hold. The read mark of a
     /// known article stays. Returns the count of new articles.
     @discardableResult
-    public func insert(_ articles: [Article]) throws -> Int {
+    func insert(_ articles: [Article]) throws -> Int {
         try execute("BEGIN")
         do {
             let statement = try prepare("""
@@ -134,7 +134,7 @@ public final class FeedDatabase {
     ///
     /// - Parameter keeping: Articles that the list shows already. They stay in
     ///   the result after the reader marks them as read, as in NetNewsWire.
-    public func articles(_ filter: FeedFilter, keeping: Set<String> = [], limit: Int = 500) throws -> [Article] {
+    func articles(_ filter: FeedFilter, keeping: Set<String> = [], limit: Int = 500) throws -> [Article] {
         var condition: String
         var arguments: [String] = []
         switch filter {
@@ -158,7 +158,7 @@ public final class FeedDatabase {
         return articles
     }
 
-    public func article(_ id: String) throws -> Article? {
+    func article(_ id: String) throws -> Article? {
         let statement = try prepare("""
         SELECT id, feed_id, url, title, summary, published, arrived, read FROM articles WHERE id = ?
         """)
@@ -168,7 +168,7 @@ public final class FeedDatabase {
     }
 
     /// The count of articles of each feed that arrived after the date, by feed ID.
-    public func articleCounts(since date: Date) throws -> [String: Int] {
+    func articleCounts(since date: Date) throws -> [String: Int] {
         let statement = try prepare("SELECT feed_id, COUNT(*) FROM articles WHERE COALESCE(published, arrived) >= ? GROUP BY feed_id")
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_double(statement, 1, date.timeIntervalSince1970)
@@ -180,7 +180,7 @@ public final class FeedDatabase {
     }
 
     /// The count of unread articles of each feed, by feed ID.
-    public func unreadCounts() throws -> [String: Int] {
+    func unreadCounts() throws -> [String: Int] {
         let statement = try prepare("SELECT feed_id, COUNT(*) FROM articles WHERE read = 0 GROUP BY feed_id")
         defer { sqlite3_finalize(statement) }
         var counts: [String: Int] = [:]
@@ -190,7 +190,7 @@ public final class FeedDatabase {
         return counts
     }
 
-    public func setRead(_ read: Bool, ids: [String]) throws {
+    func setRead(_ read: Bool, ids: [String]) throws {
         try execute("BEGIN")
         do {
             for id in ids { try run("UPDATE articles SET read = \(read ? 1 : 0) WHERE id = ?", id) }
@@ -202,7 +202,7 @@ public final class FeedDatabase {
     }
 
     /// Removes the read articles that arrived before the date.
-    public func prune(before date: Date) throws {
+    func prune(before date: Date) throws {
         let statement = try prepare("DELETE FROM articles WHERE read = 1 AND arrived < ?")
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_double(statement, 1, date.timeIntervalSince1970)
@@ -211,7 +211,7 @@ public final class FeedDatabase {
 
     // MARK: - Suggestions
 
-    public func suggestions() throws -> [Suggestion] {
+    func suggestions() throws -> [Suggestion] {
         let statement = try prepare("SELECT host, feed_url, title, visits, score, ignored FROM suggestions ORDER BY score DESC")
         defer { sqlite3_finalize(statement) }
         var suggestions: [Suggestion] = []
@@ -224,7 +224,7 @@ public final class FeedDatabase {
     }
 
     /// Replaces the suggestions that are not ignored. An ignored host stays ignored.
-    public func replaceSuggestions(_ suggestions: [Suggestion]) throws {
+    func replaceSuggestions(_ suggestions: [Suggestion]) throws {
         try execute("BEGIN")
         do {
             try execute("DELETE FROM suggestions WHERE ignored = 0")
@@ -248,7 +248,7 @@ public final class FeedDatabase {
         }
     }
 
-    public func ignore(host: String) throws {
+    func ignore(host: String) throws {
         try run("UPDATE suggestions SET ignored = 1 WHERE host = ?", host)
     }
 }

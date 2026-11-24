@@ -3,22 +3,59 @@ import Foundation
 /// An agent that Piper can run: Claude Code, or a command that speaks ACP on
 /// standard input and output.
 public struct AgentDefinition: Codable, Equatable, Hashable, Sendable, Identifiable {
+    /// How Piper talks to an agent.
+    public enum Kind: String, Codable, Sendable {
+        /// Claude Code, through its stream-json mode.
+        case claudeCode
+        /// A command that speaks ACP.
+        case acp
+
+        public var connectionType: AgentConnection.Type {
+            switch self {
+            case .claudeCode: return ClaudeCodeConnection.self
+            case .acp: return StdioAgentConnection.self
+            }
+        }
+    }
+
     public static let claudeCodeID = "claude-code"
-    public static let claudeCode = AgentDefinition(id: claudeCodeID, name: "Claude Code", command: "claude")
 
     public let id: String
+    public let kind: Kind
     public var name: String
     /// The executable, as a path or a name to find on the PATH of the login shell.
     public var command: String
     public var arguments: [String]
+    /// The model of a session that has none of its own. Nil leaves the choice to the agent.
+    public var model: String?
+    /// The mode of a session that has none of its own. Nil leaves the choice to the agent.
+    public var mode: String?
 
-    public var isClaudeCode: Bool { id == Self.claudeCodeID }
+    private enum CodingKeys: String, CodingKey {
+        case id, kind, name, command, arguments, model, mode
+    }
 
-    public init(id: String = UUID().uuidString, name: String, command: String, arguments: [String] = []) {
+    public init(id: String = UUID().uuidString, kind: Kind = .acp, name: String, command: String,
+                arguments: [String] = [], model: String? = nil, mode: String? = nil) {
         self.id = id
+        self.kind = kind
         self.name = name
         self.command = command
         self.arguments = arguments
+        self.model = model
+        self.mode = mode
+    }
+
+    /// An agent that an older Piper stored has no kind, and speaks ACP.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        kind = try container.decodeIfPresent(Kind.self, forKey: .kind) ?? .acp
+        name = try container.decode(String.self, forKey: .name)
+        command = try container.decode(String.self, forKey: .command)
+        arguments = try container.decode([String].self, forKey: .arguments)
+        model = try container.decodeIfPresent(String.self, forKey: .model)
+        mode = try container.decodeIfPresent(String.self, forKey: .mode)
     }
 }
 
@@ -98,6 +135,11 @@ public protocol AgentConnection: AnyObject {
     /// True when a margin session of the agent can run read-only, given what
     /// the agent offers when its session opens.
     nonisolated static func hasReadOnlyMode(_ setup: ACP.SessionSetup) -> Bool
+    /// The blocks of a stored session, with the fields that an older Piper did not store.
+    nonisolated static func restored(_ blocks: [TranscriptBlock], in folder: URL) -> [TranscriptBlock]
+
+    /// Makes the connection. It throws when the agent cannot run, such as when its command is missing.
+    init(agent: AgentDefinition, config: SessionConfig, usesLoginShell: Bool, report: @escaping (Error) -> Void) throws
 
     /// Starts the process. `event` gets each event on the main actor. `exit`
     /// gets the exit status and the start of standard error, after the last event.

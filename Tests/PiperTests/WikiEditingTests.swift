@@ -22,7 +22,7 @@ final class WikiEditingTests: XCTestCase {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try Data(raw.utf8).write(to: url)
         }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let model = AppModel(databaseURL: root.appendingPathComponent("captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults())
         model.library.files = files.map { makeFile($0.1, path: $0.0) }
         return model
     }

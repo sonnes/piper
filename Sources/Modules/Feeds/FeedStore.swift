@@ -63,7 +63,7 @@ public final class FeedStore {
     @discardableResult
     public func subscribe(url: String, title: String?, home: String? = nil) -> Task<Void, Never>? {
         guard feed(url) == nil else { return nil }
-        let feed = Feed(id: url, title: title?.nilIfEmptyOrWhitespace ?? URL(string: url)?.host ?? url, home: home)
+        let feed = Feed(id: url, title: title?.nilIfEmptyOrWhitespace ?? Feed.placeholderTitle(for: url), home: home)
         write { try $0.save(feed) }
         return refresh([feed])
     }
@@ -195,8 +195,7 @@ public final class FeedStore {
             feed.lastModified = lastModified
             feed.nextFetch = FeedFetch.nextFetch(after: 0, now: now)
             if feed.home == nil { feed.home = parsed.homePageURL }
-            if feed.title == URL(string: feed.id)?.host || feed.title == feed.id,
-               let title = parsed.title?.nilIfEmptyOrWhitespace {
+            if feed.hasPlaceholderTitle, let title = parsed.title?.nilIfEmptyOrWhitespace {
                 feed.title = title
             }
             let articles = FeedFetch.articles(of: parsed, feedID: feed.id, now: now)

@@ -51,7 +51,7 @@ Piper reads selected text through the macOS Accessibility API. Without this perm
 3. Select Open System Settings.
 4. Turn on Piper in the Accessibility list.
 
-Until Piper has the permission, it checks for it every four seconds. You do not need to restart it. Settings > Capture shows the state of the permission.
+Until Piper has the permission, it checks for it every four seconds. You do not need to restart it. Settings > Capture shows the state of the permission. Piper also checks again when it becomes active, when Settings opens, and when a capture finds no permission. If you turn off the permission, a capture tells you to enable it again.
 
 To use selection capture, see [Capture notes](capture.md#capture-a-selection).
 
