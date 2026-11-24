@@ -22,8 +22,6 @@ public struct HistorySource: Identifiable, Hashable, Sendable {
 /// Finds each source under the Library folder of the user.
 public enum BrowserCatalog {
 
-    // MARK: - Properties
-
     private struct BrowserFolder {
         let name: String
         let path: String
@@ -40,8 +38,6 @@ public enum BrowserCatalog {
         BrowserFolder(name: "Firefox", path: "Firefox/Profiles", format: .firefox),
         BrowserFolder(name: "Zen", path: "zen/Profiles", format: .firefox)
     ]
-
-    // MARK: - Finding
 
     public static func sources(library: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library")) -> [HistorySource] {
         let support = library.appendingPathComponent("Application Support")

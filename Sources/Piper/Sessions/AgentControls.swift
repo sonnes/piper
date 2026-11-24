@@ -55,8 +55,6 @@ struct AgentControls: View {
         .font(PiperTheme.paperUI(.body))
     }
 
-    // MARK: Menus
-
     private var agentMenu: some View {
         Menu {
             ForEach(agents.allAgents) { agent in
@@ -118,8 +116,6 @@ struct AgentControls: View {
         if agent == nil { return "This agent was removed. Add it again in Settings > AI." }
         return canChangeAgent ? "The agent of this session" : "A session keeps its agent after the first message"
     }
-
-    // MARK: Actions
 
     private func setAgent(_ id: String) {
         if let session { runner.setAgent(id, for: session) } else { choice = AgentConfig(agentID: id) }

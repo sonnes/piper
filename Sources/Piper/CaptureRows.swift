@@ -12,8 +12,6 @@ enum RowTime {
     }
 }
 
-// MARK: Sheets
-
 /// Names a new section. Return creates it and makes it the target of new notes.
 struct NewSectionSheet: View {
     let sections: [String]

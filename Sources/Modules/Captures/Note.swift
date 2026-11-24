@@ -78,13 +78,11 @@ public struct Note: Identifiable, Equatable, Codable {
     public var isArticle: Bool {
         guard parent == nil else { return false }
         if reading != nil { return true }
-        // A link has no white space and a dot. The detector runs only then.
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.contains("."), !trimmed.contains(where: \.isWhitespace) else { return false }
         return CaptureLinks(trimmed).standaloneURL != nil
     }
 
-    /// True when the reader kept the capture with Keep.
     public var isKept: Bool { has(.kept) }
 
     public func has(_ tag: NoteTag) -> Bool { tags.contains(tag.rawValue) }
@@ -94,7 +92,6 @@ public struct Note: Identifiable, Equatable, Codable {
         Dictionary(grouping: notes.filter { $0.parent != nil }, by: { $0.parent! })
     }
 
-    /// The web link of a link capture.
     public var articleURL: URL? {
         CaptureLinks(text).standaloneURL ?? sourceURLs.first.flatMap(URL.init(string:))
     }
@@ -102,7 +99,6 @@ public struct Note: Identifiable, Equatable, Codable {
 
 /// The tags that give a note its role. A highlight also has a color tag.
 public enum NoteTag: String, Sendable {
-    /// A capture that the reader kept with Keep.
     case kept
     /// A child note that marks a quote in its article.
     case highlight
@@ -114,8 +110,6 @@ public enum NoteTag: String, Sendable {
 
 /// How far the reader got in the article of a link capture.
 public struct Reading: Codable, Equatable, Sendable {
-
-    // MARK: - Properties
 
     /// The title of the page, from the browser or from the Reader tab.
     public var title: String?
@@ -130,8 +124,6 @@ public struct Reading: Codable, Equatable, Sendable {
     /// The absolute path of the Markdown file that Save as File wrote.
     public var savedFile: String?
     public var savedAt: Date?
-
-    // MARK: - Initialization
 
     public init(title: String? = nil, minutes: Int? = nil, block: Int? = nil, progress: Double = 0,
                 openedAt: Date? = nil, finishedAt: Date? = nil, savedFile: String? = nil, savedAt: Date? = nil) {
@@ -155,13 +147,9 @@ public struct Reading: Codable, Equatable, Sendable {
 /// Everything that the capture database holds.
 public struct SavedState: Codable, Equatable {
 
-    // MARK: - Properties
-
     public var notes: [Note] = []
     public var sections = [Note.inbox]
     public var activeSection = Note.inbox
-
-    // MARK: - Initialization
 
     public init(notes: [Note] = [], sections: [String] = [Note.inbox], activeSection: String = Note.inbox) {
         self.notes = notes

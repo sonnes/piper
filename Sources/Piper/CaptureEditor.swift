@@ -183,7 +183,6 @@ extension CaptureEditor {
         static let height = textInset.height * 2 + lineHeight + regionInset * 2
         /// The width of the card before its first layout.
         static let width: CGFloat = 572
-        /// The width available to the text.
         static let textWidth = width - textInset.width * 2
     }
 }

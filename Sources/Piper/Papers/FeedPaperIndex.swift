@@ -127,7 +127,6 @@ struct FeedPaperIndex: View {
 
 // MARK: - Rows
 
-/// A group header on an index.
 struct IndexHeader: View {
     let title: String
 

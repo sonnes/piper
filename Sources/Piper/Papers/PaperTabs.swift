@@ -37,7 +37,6 @@ struct PaperTabs: View {
                     .opacity(shows ? 1 : 0)
                     .allowsHitTesting(shows)
                     .accessibilityHidden(!shows)
-                    // A tab lies over the tab under it.
                     .zIndex(Double(tabs.count - index))
             }
             AddFolderTab(action: addFolder)
@@ -159,7 +158,6 @@ private struct Sideways: Layout {
 
 // MARK: - Tabs
 
-/// One tab of the column.
 private struct FolderTab: View {
     let tab: PaperTab
     let number: Int
@@ -346,7 +344,6 @@ extension PaperTabs {
         /// The height of the curve at each end of a tab. Each tab lies this far
         /// under the tab above it, so that one curve shows between two tabs.
         static let tabShoulder: CGFloat = 24
-        /// The space above and below the label of a tab.
         static let tabLabelPadding: CGFloat = 20
         static let tabLabelLeading: CGFloat = 4
         static let tabLabelSpacing: CGFloat = 6
@@ -416,7 +413,7 @@ extension PaperTabs {
         })
         /// The darker fill of a pressed tab: black at 6 percent, and 10 percent in the dark.
         static let pressed = Color(nsColor: PiperTheme.shade(light: 0.06, dark: 0.10))
-        /// Zinc 400. The dashed outline of the tab that pins a folder.
+        /// Zinc 400. The dashed outline of the tab that adds a folder.
         static let dash = Color(nsColor: PiperTheme.hex(0xA1A1AA))
 
         /// The tight contact shadow of a tab. Black at 12 percent, 14 percent

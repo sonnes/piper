@@ -139,14 +139,10 @@ public struct NoteThread: Equatable, Sendable {
         }
     }
 
-    // MARK: - Properties
-
     public static let questionPrefix = "Q: "
 
     public let title: String
     public let turns: [Turn]
-
-    // MARK: - Initialization
 
     public init(_ text: String) {
         let paragraphs = text.components(separatedBy: "\n\n")

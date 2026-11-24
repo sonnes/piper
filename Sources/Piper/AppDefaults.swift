@@ -43,7 +43,7 @@ enum AppDefaults {
         static let blockedSites = "blockedSites"
         static let disabledHistorySources = "disabledHistorySources"
         static let siteScanDate = "siteScanDate"
-        /// The tab, the scope, the pins, and the frame of the feed paper. See `PaperDeskState`.
+        /// What the feed paper restores when it opens again. See `PaperDeskState`.
         static let paperDeskState = "paperDeskState"
         /// The frame of each reader paper, by its item.
         static let readerFrames = "readerFrames"

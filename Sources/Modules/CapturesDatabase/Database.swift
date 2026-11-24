@@ -156,7 +156,6 @@ public extension Database {
         }
     }
 
-    /// Removes the clipboard texts copied before the date.
     func removeClipboard(before date: Date) throws {
         let statement = try prepare("DELETE FROM clipboard WHERE copied_at < ?", .clipboard)
         defer { sqlite3_finalize(statement) }
@@ -173,7 +172,7 @@ public extension Database {
 
 public extension Database {
 
-    /// Returns the stored Claude sessions, the most recently changed first.
+    /// Returns the stored agent sessions, the most recently changed first.
     /// Each session is a blob that the caller encodes.
     func loadSessions() throws -> [Data] {
         let statement = try prepare("SELECT data FROM sessions ORDER BY updated_at DESC", .sessions)
@@ -231,7 +230,6 @@ public extension Database {
         guard sqlite3_step(statement) == SQLITE_DONE else { throw failure(.pages) }
     }
 
-    /// Removes the stored text of a web page.
     func deletePage(url: String) throws {
         let statement = try prepare("DELETE FROM pages WHERE url=?", .pages)
         defer { sqlite3_finalize(statement) }
@@ -252,7 +250,6 @@ public extension Database {
         }
     }
 
-    /// Returns the stored text of a web page, or nil.
     func loadPage(url: String) throws -> String? {
         let statement = try prepare("SELECT text FROM pages WHERE url=?", .pages)
         defer { sqlite3_finalize(statement) }

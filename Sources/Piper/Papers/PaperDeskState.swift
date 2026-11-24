@@ -33,7 +33,6 @@ enum PaperTab: Codable, Hashable {
     /// The fixed tabs, in the order of the column.
     static let fixed: [PaperTab] = [.today, .feeds, .agents]
 
-    /// The name on the tab.
     var title: String {
         switch self {
         case .today: return "Today"
@@ -114,7 +113,6 @@ struct PaperDeskState: Codable, Equatable {
 
     /// The active tab. The paper opens on Today.
     var tab = PaperTab.today
-    /// What the list shows.
     var scope = PaperScope.today(section: nil)
     /// The lens of Today: All, Notes, Reading, or Kept.
     var lens = UnifiedStream.Lens.all

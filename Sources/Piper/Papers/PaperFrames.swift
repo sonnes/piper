@@ -6,7 +6,6 @@ enum PaperKind: String {
     case reader
     /// A note that is not a link.
     case note
-    /// An agent session.
     case session
 }
 
@@ -33,22 +32,17 @@ struct PaperFrames: Codable, Equatable {
     /// The frame of the feed paper.
     private(set) var feed: String? = nil
 
-    // MARK: - API
-
-    /// The saved frame of the paper of an item.
     func frame(of item: PaperItem) -> NSRect? {
         let key = Self.key(of: item)
         return entries.last { $0.key == key }.map { NSRectFromString($0.frame) }
     }
 
-    /// The saved frame of the feed paper.
     var feedFrame: NSRect? { feed.map(NSRectFromString) }
 
     mutating func setFeedFrame(_ frame: NSRect) {
         feed = NSStringFromRect(frame)
     }
 
-    /// The last size of a paper of a kind.
     func lastSize(of kind: PaperKind) -> NSSize? {
         lastSizes?[kind.rawValue].map(NSSizeFromString)
     }
@@ -67,7 +61,6 @@ struct PaperFrames: Codable, Equatable {
         }
     }
 
-    /// The key of an item in the store.
     static func key(of item: PaperItem) -> String {
         switch item {
         case .note(let id): return "note:" + id.uuidString
@@ -77,8 +70,6 @@ struct PaperFrames: Codable, Equatable {
         case .newSession(let folder): return "newSession:" + folder
         }
     }
-
-    // MARK: - Persistence
 
     static func restore(from defaults: UserDefaults = .standard) -> PaperFrames {
         guard let data = defaults.data(forKey: AppDefaults.Key.readerFrames),

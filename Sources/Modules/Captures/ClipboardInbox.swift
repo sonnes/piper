@@ -5,16 +5,12 @@ import Observation
 /// One clipboard text that a reader has not saved yet.
 public struct ClipboardEntry: Identifiable, Equatable {
 
-    // MARK: - Properties
-
     public let id: UUID
     public let text: String
     /// The last time the reader copied this text.
     public let copiedAt: Date
     /// The name of the application that was in front when the text arrived.
     public let source: String?
-
-    // MARK: - Initialization
 
     public init(id: UUID = UUID(), text: String, copiedAt: Date = Date(), source: String? = nil) {
         self.id = id
@@ -36,7 +32,6 @@ public final class ClipboardInbox {
     // MARK: - Properties
 
     public static let copiedNoteType = NSPasteboard.PasteboardType("com.piper.saved-notes")
-    /// The number of texts the history keeps.
     public static let historyLimit = 50
     /// The age after which a text leaves the history.
     nonisolated public static let defaultRetention: TimeInterval = 7 * 24 * 60 * 60
@@ -131,7 +126,6 @@ public final class ClipboardInbox {
         items = updated
     }
 
-    /// Removes the texts that are older than the retention period.
     public func removeExpired(at date: Date = Date()) {
         guard items.contains(where: { isExpired($0, at: date) }) else { return }
         let updated = items.filter { !isExpired($0, at: date) }

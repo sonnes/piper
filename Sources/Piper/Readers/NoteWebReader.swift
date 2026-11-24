@@ -6,9 +6,6 @@ import SwiftUI
 import WebKit
 
 struct NoteWebReader: View {
-
-    // MARK: - Properties
-
     let url: URL
     /// The store that Capture saves the text of the page to, in Inbox.
     let store: CaptureStore
@@ -95,8 +92,6 @@ struct NoteWebReader: View {
         return (current.host() ?? "") + current.path()
     }
 
-    // MARK: - Capture
-
     private func capturePage() async {
         guard !isCapturing, let webView = page.webView else { return }
         isCapturing = true
@@ -169,9 +164,6 @@ private struct NoteWebView: NSViewRepresentable {
 
 @MainActor @Observable
 private final class NoteWebPage: NSObject {
-
-    // MARK: - Properties
-
     @ObservationIgnored weak var webView: WKWebView?
     @ObservationIgnored private var requestedURL: URL?
     var url: URL?
@@ -179,8 +171,6 @@ private final class NoteWebPage: NSObject {
     var canGoBack = false
     var canGoForward = false
     var errorMessage: String?
-
-    // MARK: - Navigation
 
     func load(_ url: URL, in view: WKWebView) {
         // The requested URL stays separate from redirects and navigation inside the page.

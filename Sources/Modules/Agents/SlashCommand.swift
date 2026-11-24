@@ -3,15 +3,11 @@ import Foundation
 /// Text of the form `/name arguments`.
 public struct SlashCommand: Codable, Equatable, Sendable {
 
-    // MARK: - Properties
-
     public let name: String
     public let arguments: String
 
     /// The prompt that `claude -p` receives.
     public var prompt: String { arguments.isEmpty ? "/" + name : "/\(name) \(arguments)" }
-
-    // MARK: - Initialization
 
     public init(name: String, arguments: String = "") {
         self.name = name
@@ -27,8 +23,6 @@ public struct SlashCommand: Codable, Equatable, Sendable {
         guard Self.isName(name) else { return nil }
         self.init(name: String(name), arguments: String(body.dropFirst(name.count)))
     }
-
-    // MARK: - Names
 
     /// The name that the reader is typing, while the text holds only a slash
     /// and part of a name. An empty string means the reader typed only the slash.

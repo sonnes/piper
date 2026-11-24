@@ -147,8 +147,6 @@ struct SessionComposer: View {
         }
     }
 
-    // MARK: Parts
-
     @ViewBuilder private var completions: some View {
         let index = min(completionIndex, max(completionCount - 1, 0))
         if !commands.isEmpty {
@@ -170,8 +168,6 @@ struct SessionComposer: View {
             }
         }
     }
-
-    // MARK: Actions
 
     private func submit() {
         let message = text.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -49,8 +49,6 @@ public final class FaviconStore {
         return nil
     }
 
-    // MARK: - Finding
-
     /// The first icon of the site that loads as an image.
     nonisolated static func find(_ host: String, session: URLSession) async -> Data? {
         for candidate in await candidates(host, session: session) {

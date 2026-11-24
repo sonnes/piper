@@ -8,8 +8,6 @@ import PiperCore
 /// own for any skill.
 public struct FolderSkill: Hashable, Sendable {
 
-    // MARK: - Properties
-
     public let name: String
     /// The `description` key of the frontmatter.
     public let description: String
@@ -23,15 +21,11 @@ public struct FolderSkill: Hashable, Sendable {
         return String(text[..<end.lowerBound])
     }
 
-    // MARK: - Initialization
-
     public init(name: String, description: String = "", argumentHint: String? = nil) {
         self.name = name
         self.description = description
         self.argumentHint = argumentHint
     }
-
-    // MARK: - Loading
 
     /// Reads the skills of a folder, sorted by name.
     ///

@@ -13,7 +13,6 @@ public final class VaultWatcher {
 
     // MARK: Properties
 
-    /// The folder that the watcher observes.
     public let vault: Vault
 
     private let part: String?
@@ -64,7 +63,6 @@ public final class VaultWatcher {
         FSEventStreamStart(created)
     }
 
-    /// Stops the event stream and releases it.
     public func stop() {
         isRunning = false
         guard let stream else { return }

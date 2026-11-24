@@ -70,7 +70,6 @@ public final class SessionRunner {
     public var turnTimeout: TimeInterval = 10 * 60
     /// The number of turns that run at the same time.
     public var concurrency = 2
-    /// The number of sessions the storage keeps.
     public static let storedSessionLimit = 500
     static let quitMessage = "Piper quit before the turn finished."
     static let stopMessage = "Stopped."
@@ -157,7 +156,6 @@ public final class SessionRunner {
         session.agentID == AgentDefinition.claudeCodeID ? .claudeCode : agents.first { $0.id == session.agentID }
     }
 
-    /// The agent, the model, and the mode that a session uses.
     public func config(for session: AgentSession) -> AgentConfig {
         config(AgentConfig(agentID: session.agentID, model: session.model, mode: session.mode))
     }
@@ -237,7 +235,6 @@ public final class SessionRunner {
         startWaitingSessions()
     }
 
-    /// Answers a pending request with one option of the agent.
     public func respond(_ request: PermissionRequest, with option: ACP.PermissionOption, message: String? = nil,
                         in session: AgentSession) {
         guard isPending(request, in: session) else { return }
@@ -389,8 +386,6 @@ public final class SessionRunner {
         return true
     }
 
-    /// The connection that runs an agent: Claude Code through its own
-    /// connection, and any other agent over ACP.
     private static func connectionType(of agentID: String) -> AgentConnection.Type {
         agentID == AgentDefinition.claudeCodeID ? ClaudeCodeConnection.self : StdioAgentConnection.self
     }
@@ -471,7 +466,6 @@ public final class SessionRunner {
     private static func merge(_ update: ACP.ToolCallUpdate, into call: inout ToolCall, folder: URL) {
         if let kind = update.kind { call.kind = kind }
         if let title = update.title {
-            // A call that has no tool name shows its title as the name.
             if update.name == nil, call.detail.isEmpty { call.name = title } else { call.detail = title }
         }
         if let path = update.paths?.first, [.edit, .delete, .move].contains(call.kind) {

@@ -48,7 +48,6 @@ public struct SessionConfig: Equatable, Sendable {
     public var purpose: AgentSession.Purpose
 }
 
-/// The end of one turn.
 public struct TurnEnd: Equatable, Sendable {
     public var stopReason: ACP.StopReason
     /// Why the turn failed. Nil for a turn that succeeded.
@@ -104,7 +103,6 @@ public protocol AgentConnection: AnyObject {
     /// gets the exit status and the start of standard error, after the last event.
     func start(event: @escaping @MainActor (AgentEvent) -> Void,
                exit: @escaping @MainActor (Int32, String) -> Void) throws
-    /// Starts a turn with a message and its context items.
     func prompt(_ text: String, context: [ContextItem])
     /// Answers a permission request. The message goes to the agent as the
     /// reason for a denial, when the agent reads one.

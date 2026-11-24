@@ -136,7 +136,6 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
         ]
     }
 
-    /// The feed article of the paper.
     private var article: Article? {
         guard case .article(let id) = item else { return nil }
         return model.feeds.article(id)

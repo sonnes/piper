@@ -11,7 +11,6 @@ enum PaperItem: Hashable {
     case article(String)
     /// The open file of `FileEditor`. Only one file paper exists, because the editor page is shared.
     case file
-    /// An agent session, by its id.
     case session(UUID)
     /// A new agent session in a folder, by the absolute path of the folder.
     case newSession(String)
@@ -62,7 +61,6 @@ extension PaperItem {
 /// this object in their environment.
 @MainActor @Observable
 final class DeskMarks {
-    /// One flash of a row.
     struct Flash: Equatable {
         let item: PaperItem
         let id = UUID()
@@ -74,9 +72,7 @@ final class DeskMarks {
     var openFile: String?
     /// The last item whose paper went back.
     var flash: Flash?
-    /// True while the feed paper has the keyboard focus.
     var feedFocused = false
-    /// The item of the reader paper with the keyboard focus.
     var focusedPaper: PaperItem?
     /// The paper that an item opens. `PaperDesk` sets it to `PaperItem.identity(in:)`.
     @ObservationIgnored var identity: (PaperItem) -> PaperItem = { $0 }
@@ -114,7 +110,6 @@ final class FeedPaperModel {
     }
     /// The row of the index that Return picks. Up Arrow and Down Arrow move it.
     var indexCursor: IndexEntry?
-    /// The open papers and the flash of a row.
     let marks = DeskMarks()
     /// A new value puts the cursor in the capture field of Today.
     var composerRequest: UUID?
@@ -124,7 +119,6 @@ final class FeedPaperModel {
     var sourcesAddress: String?
     /// A new value puts the cursor in the address field of Sources.
     var addressRequest: UUID?
-    /// The selected article of the list of a feed.
     var selectedArticle: String?
     /// The row under the cursor of the folder tree, by its absolute path, for each folder tab.
     var treeCursors: [PaperTab: String] = [:]
@@ -155,7 +149,6 @@ final class FeedPaperModel {
         PaperTab.column(folders: model.library.wikiPaths, showsAgents: !model.agents.runner.folders().isEmpty)
     }
 
-    /// The color of a tab.
     func color(of tab: PaperTab) -> TabColor {
         tab.color(folders: state.folderColors)
     }
@@ -171,7 +164,6 @@ final class FeedPaperModel {
         }
     }
 
-    /// The sessions of a folder that wait for the reader.
     func waitingSessions(in folder: String) -> Int {
         model.agents.runner.sessions(in: folder).filter { $0.state == .needsYou }.count
     }
@@ -266,18 +258,15 @@ final class FeedPaperModel {
         IndexEntry.current(scope: state.scope, lens: state.lens)
     }
 
-    /// Moves the cursor of the index by one row.
     func moveIndexCursor(_ delta: Int) {
         indexCursor = indexEntries.step(from: indexCursor, by: delta)
     }
 
-    /// Picks the row under the cursor of the index.
     func pickIndexCursor() {
         guard let indexCursor else { return }
         pick(indexCursor)
     }
 
-    /// Picks a row of the index.
     func pick(_ entry: IndexEntry) {
         switch entry {
         case .scope(let scope): pick(scope)
@@ -358,7 +347,6 @@ final class FeedPaperModel {
         perform(FolderTree.action(.enter, cursor: row.id, rows: [row]), in: [row])
     }
 
-    /// Opens or closes a folder of the tree.
     func toggleFolder(_ row: FolderTreeRow) {
         perform(row.expanded ? .collapse(row.id) : .expand(row.id), in: [row])
     }

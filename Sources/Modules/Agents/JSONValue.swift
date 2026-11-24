@@ -10,8 +10,6 @@ public enum JSONValue: Codable, Equatable, Sendable {
     case array([JSONValue])
     case object([String: JSONValue])
 
-    // MARK: - Initialization
-
     /// Converts a value from `JSONSerialization`. An unknown type becomes null.
     public init(_ value: Any?) {
         switch value {
@@ -46,8 +44,6 @@ public enum JSONValue: Codable, Equatable, Sendable {
         case .object(let value): try container.encode(value)
         }
     }
-
-    // MARK: - Reading
 
     /// The value for `JSONSerialization`.
     public var any: Any {

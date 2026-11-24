@@ -1,18 +1,18 @@
 import AppKit
 import SwiftUI
 
-/// Owns the detached session panel: the session card in a panel of its own,
-/// over every app and on every Space.
-///
-/// The panel does not activate Piper, so the app under it stays in front.
-/// Its close button collapses the card to the pill in the reader paper, and
-/// Dock in the card returns the card to the reader paper.
 /// A panel that takes the keyboard focus without activating Piper.
 private final class SessionPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
 
+/// Owns the detached session panel: the session card in a panel of its own,
+/// over every app and on every Space.
+///
+/// The panel does not activate Piper, so the app under it stays in front.
+/// Its close button collapses the card to the pill in the reader paper, and
+/// Dock in the card returns the card to the reader paper.
 @MainActor
 final class SessionPanelController: NSWindowController {
 

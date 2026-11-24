@@ -52,7 +52,6 @@ extension CommandKey {
     static let delete = CommandKey("\u{7F}", [])
     static let space = CommandKey(" ", [])
 
-    /// The same key with Shift.
     var shifted: CommandKey { CommandKey(character, modifiers.union(.shift)) }
 }
 

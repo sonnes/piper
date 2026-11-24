@@ -107,7 +107,6 @@ function position(block: TextBlock, offset: number, isEnd: boolean) {
 	return last ? last.pos + (last.gap ? 0 : last.text.length) : 0;
 }
 
-/** The offset of a document position in a block. */
 function offsetOf(block: TextBlock, pos: number) {
 	let offset = 0;
 	for (const segment of block.segments) {

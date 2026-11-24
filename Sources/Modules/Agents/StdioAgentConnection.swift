@@ -247,7 +247,6 @@ public final class StdioAgentConnection: AgentConnection {
         }
     }
 
-    /// The failure text for a stop reason that is not a normal end.
     static func failure(for reason: ACP.StopReason) -> String? {
         switch reason {
         case .endTurn, .cancelled: return nil

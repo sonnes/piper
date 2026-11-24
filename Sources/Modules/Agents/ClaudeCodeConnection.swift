@@ -68,7 +68,6 @@ public final class ClaudeCodeConnection: AgentConnection {
                                folder: config.folder, usesLoginShell: usesLoginShell)
     }
 
-    /// The command line of a session.
     nonisolated static func arguments(for config: SessionConfig) -> [String] {
         var arguments = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                          "--permission-prompt-tool", "stdio"]
@@ -144,7 +143,6 @@ public final class ClaudeCodeConnection: AgentConnection {
          ACP.PermissionOption(id: "deny", name: "Deny", kind: .rejectOnce)]
     }
 
-    /// The ACP kind of a Claude Code tool.
     nonisolated static func kind(of tool: String) -> ACP.ToolKind {
         switch tool {
         case "Read", "NotebookRead": return .read
@@ -194,7 +192,6 @@ public final class ClaudeCodeConnection: AgentConnection {
         }
     }
 
-    /// The file that a call writes, from its input.
     private nonisolated static func path(of tool: String, input: JSONValue) -> String? {
         writers[tool].flatMap { input[$0]?.string }
     }

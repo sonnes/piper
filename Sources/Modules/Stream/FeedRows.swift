@@ -8,14 +8,10 @@ import Foundation
 /// puts a busy day of a feed into one digest row. Off gives no row.
 public enum FeedRows {
 
-    // MARK: - Properties
-
     /// A feed with more new articles than this on one day is busy.
     public static let busyDay = 3
     /// The count of articles of a busy day that keep their own row in Best mode.
     public static let bestOnBusyDay = 2
-
-    // MARK: - API
 
     /// The rows of the articles, in no order. The caller sorts them by date.
     public static func rows(articles: [Article], feeds: [Feed], relevance: Relevance,

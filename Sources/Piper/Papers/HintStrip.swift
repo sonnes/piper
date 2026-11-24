@@ -44,7 +44,6 @@ final class HintStrip {
 }
 
 extension HintStrip {
-    /// The strip of keys at the bottom of the screen.
     enum Metrics {
         static let hintBottom: CGFloat = 18
         static let hintHeight: CGFloat = 40

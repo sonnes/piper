@@ -132,7 +132,6 @@ public final class AgentSession: Identifiable {
         }
     }
 
-    /// The permission request or question that waits for the reader.
     public var pendingRequest: PermissionRequest? { pendingRequests.first }
 
     /// The last tool call, as one line.

@@ -60,7 +60,6 @@ final class FileEditor {
     var currentDocument: VaultFile? {
         library.files.first { $0.id == selectedDocument } ?? selectedDocument.flatMap { editors[$0]?.document }
     }
-    /// The editor session of the open file.
     var editor: EditorSession? { selectedDocument.flatMap { editors[$0] } }
     var editorPage: EditorPage {
         if let loadedEditorPage { return loadedEditorPage }

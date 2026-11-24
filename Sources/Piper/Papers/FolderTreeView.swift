@@ -47,8 +47,6 @@ struct FolderTreeView: View {
         }
     }
 
-    // MARK: - Parts
-
     /// The swatches for the color of the tab of the folder.
     private var swatches: some View {
         let current = paper.color(of: paper.state.tab)
@@ -126,8 +124,6 @@ private struct TreeRow: View {
             }
         }
     }
-
-    // MARK: - Parts
 
     private var chevron: some View {
         Image(systemName: "chevron.right")
@@ -224,7 +220,6 @@ private struct Swatch: View {
 
 // MARK: - Metrics
 
-/// The folder tree of a folder tab.
 extension FolderTreeView {
     enum Metrics {
         static let treeRowHeight: CGFloat = 40

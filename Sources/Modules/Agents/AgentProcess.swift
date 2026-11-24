@@ -7,8 +7,6 @@ import Foundation
 @MainActor
 public final class AgentProcess {
 
-    // MARK: - Properties
-
     private let process = Process()
     private let input = Pipe()
     private var isInputOpen = true
@@ -17,9 +15,6 @@ public final class AgentProcess {
     /// the signal, and the write fails with an error instead.
     private static let ignoresBrokenPipes: Void = { signal(SIGPIPE, SIG_IGN) }()
 
-    // MARK: - Initialization
-
-    /// Makes a process that runs in `folder`. See `setCommand(of:to:arguments:usesLoginShell:)`.
     public init(command: String, arguments: [String], folder: URL, usesLoginShell: Bool) {
         Self.setCommand(of: process, to: command, arguments: arguments, usesLoginShell: usesLoginShell)
         process.currentDirectoryURL = folder
@@ -38,8 +33,6 @@ public final class AgentProcess {
             process.arguments = arguments
         }
     }
-
-    // MARK: - Running
 
     /// Starts the process. `line` gets each line of standard output. `exit`
     /// gets the exit status and the start of standard error, after the last line.

@@ -31,7 +31,6 @@ final class Toast: NSObject {
     private var dismiss: DispatchWorkItem?
     /// Runs when the content on the screen goes, by its timer, by `close`, or by a new toast.
     private var closed: (() -> Void)?
-    /// Runs when the panel loses the keyboard.
     private var resignedKey: (() -> Void)?
 
     var isVisible: Bool { panel?.isVisible == true }

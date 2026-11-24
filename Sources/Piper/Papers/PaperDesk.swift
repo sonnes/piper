@@ -141,7 +141,6 @@ final class PaperDesk {
         }
     }
 
-    /// Opens a file in the file paper.
     func openFile(_ path: String) {
         model.files.openDocument(path)
         open(.file)

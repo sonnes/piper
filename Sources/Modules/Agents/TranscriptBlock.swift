@@ -23,14 +23,12 @@ public struct ToolCall: Codable, Equatable, Sendable, Identifiable {
     /// folder, relative to it.
     public var path: String?
     public var diff: Diff?
-    /// What the call does.
     public var kind: ACP.ToolKind
     public var isFinished = false
     public var isError = false
     /// The start of the tool result.
     public var resultPreview: String?
 
-    /// The tool name and the detail, as one line.
     public var line: String { detail.isEmpty ? name : name + " " + detail }
 
     public init(id: String, name: String, detail: String, path: String? = nil, diff: Diff? = nil,
@@ -82,7 +80,6 @@ public struct PermissionRequest: Codable, Equatable, Sendable {
     /// The short text that the agent gives, for example the file name.
     public let description: String?
     public let toolUseID: String?
-    /// What the call does.
     public var kind: ACP.ToolKind
     /// The choices of the agent, in its order.
     public var options: [ACP.PermissionOption]
@@ -94,7 +91,6 @@ public struct PermissionRequest: Codable, Equatable, Sendable {
     /// The line that the card shows under the tool name.
     public var detail: String { SessionEvent.detail(of: input) }
 
-    /// The questions of a question call.
     public var questions: [Question] {
         input["questions"]?.array.compactMap { value -> Question? in
             guard let question = value["question"]?.string else { return nil }
@@ -148,7 +144,6 @@ public enum PermissionDecision: String, Codable, Sendable {
     case denied
 }
 
-/// The end of one turn.
 public struct TurnResult: Codable, Equatable, Sendable {
     /// The last message of the turn.
     public let text: String

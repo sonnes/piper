@@ -39,8 +39,6 @@ public enum FeedDiscovery {
         return results
     }
 
-    // MARK: - Parts
-
     private static func get(_ url: URL, session: URLSession) async throws -> Data {
         let (data, response) = try await session.data(for: URLRequest(url: url, timeoutInterval: FeedFetch.timeout))
         if let status = (response as? HTTPURLResponse)?.statusCode, !(200..<300).contains(status) {

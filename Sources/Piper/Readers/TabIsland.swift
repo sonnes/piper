@@ -11,8 +11,6 @@ struct TabIsland<Tab: Hashable>: View {
         let help: String
     }
 
-    // MARK: - Properties
-
     let items: [Item]
     @Binding var selection: Tab
     let cardPresented: Bool
@@ -85,8 +83,6 @@ extension TabIsland where Tab == Bool {
         ], selection: showsSource, cardPresented: cardPresented)
     }
 }
-
-// MARK: - Metrics
 
 /// The tabs that float over the bottom of a reader paper.
 enum TabIslandMetrics {

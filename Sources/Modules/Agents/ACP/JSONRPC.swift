@@ -12,8 +12,6 @@ public enum JSONRPCMessage: Equatable, Sendable {
     /// The code for a request whose parameters Piper cannot read.
     public static let invalidParams = -32602
 
-    // MARK: - Reading
-
     /// Reads one line. A line that is not a JSON-RPC message returns nil.
     public static func parse(_ line: String) -> JSONRPCMessage? {
         guard let data = line.data(using: .utf8),
@@ -31,8 +29,6 @@ public enum JSONRPCMessage: Equatable, Sendable {
         }
         return .response(id: id, result: json["result"] ?? .null)
     }
-
-    // MARK: - Writing
 
     /// The message as one line of JSON, with no line break inside.
     public var line: String {

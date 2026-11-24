@@ -19,18 +19,14 @@ struct FolderTreeRow: Equatable, Identifiable {
     let count: Int
 }
 
-/// A key on the folder tree.
 enum FolderTreeKey: Equatable {
     case up, down, left, right, enter
 }
 
-/// What a key on the folder tree does.
 enum FolderTreeAction: Equatable {
     /// Move the cursor to the row.
     case select(String)
-    /// Open the folder.
     case expand(String)
-    /// Close the folder.
     case collapse(String)
     /// Open the file as a file paper.
     case openFile(String)
@@ -96,8 +92,6 @@ enum FolderTree {
     }
 }
 
-// MARK: - Path Tree
-
 /// A folder or a file of the tree, with the nodes below it.
 private struct PathNode {
     /// The path from the root of the tree.
@@ -120,8 +114,6 @@ private enum PathTreeBuilder {
         let prefix = folder.isEmpty ? "" : folder + "/"
         let descendants = paths.filter { $0.hasPrefix(prefix) }
         let folderDescendants = folders.filter { $0.hasPrefix(prefix) }
-        // A file names a folder only when it is below one. A folder path names
-        // itself, so its first component is always a folder at this level.
         var folderNames = Set(descendants.compactMap { path -> String? in
             let parts = path.dropFirst(prefix.count).split(separator: "/")
             return parts.count > 1 ? String(parts[0]) : nil

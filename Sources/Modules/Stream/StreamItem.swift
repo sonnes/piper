@@ -62,7 +62,6 @@ public struct StreamItem: Identifiable, Equatable {
     public let children: [Note]
     /// The article of an article row, or the articles of a digest, best first.
     public let articles: [Article]
-    /// The clipboard text of a clip.
     public let clip: ClipboardEntry?
     /// The relevance of an article, from 0 to 1. Zero for every other kind.
     public let score: Double

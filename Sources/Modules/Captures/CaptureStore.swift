@@ -32,7 +32,6 @@ public final class CaptureStore {
     public private(set) var loadError: Error?
     /// The note database. The app also keeps the agent sessions in it.
     public private(set) var database: Database?
-    /// The undo stack of the app. Undo and redo of a change go here.
     @ObservationIgnored public let undoManager: UndoManager
     /// Takes the error of an undo or a redo that cannot save.
     @ObservationIgnored public var reportUndoError: (Error) -> Void = { _ in }
@@ -162,8 +161,6 @@ public final class CaptureStore {
         }
     }
 
-    /// Replaces the text of a note.
-    ///
     /// - Parameter originalText: The text that the editor opened. A note that
     ///   changed since then is not overwritten.
     public func update(_ id: UUID, text: String, sourceURL: String? = nil, originalText: String? = nil) throws {
@@ -465,11 +462,8 @@ private extension CaptureStore {
 /// The inverse of one change. It names only the notes and the sections that
 /// the change touched, so the other notes stay as they are.
 private struct Revert {
-    /// The notes that the change added.
     let added: Set<UUID>
-    /// The notes that the change removed, with their places in the list.
     let removed: [(index: Int, note: Note)]
-    /// The notes that the change edited, before and after the edit.
     let edited: [(before: Note, after: Note)]
     /// The sections before the change. Nil when the change kept them.
     let sections: [String]?

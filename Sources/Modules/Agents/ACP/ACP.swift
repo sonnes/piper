@@ -22,7 +22,6 @@ public enum ACP {
             self = json?.string.flatMap(ToolKind.init(rawValue:)) ?? .other
         }
 
-        /// True for a kind that reads and changes nothing.
         public var isReadOnly: Bool {
             switch self {
             case .read, .search, .fetch, .think: return true

@@ -6,8 +6,6 @@ import PiperCore
 /// How often the reader keeps the posts of a feed, and how often the feed posts.
 public struct FeedStats: Equatable, Sendable {
 
-    // MARK: - Properties
-
     /// The days that the counts cover.
     public static let days = 28
 
@@ -58,8 +56,6 @@ public struct FeedStats: Equatable, Sendable {
 /// names of the folders share with the title. Piper sends nothing off the Mac.
 public struct Relevance: Equatable, Sendable {
 
-    // MARK: - Properties
-
     /// An article with this score or more can have its own row in Best mode.
     public static let bar = 0.25
     static let keepWeight = 3.0
@@ -99,8 +95,6 @@ public struct Relevance: Equatable, Sendable {
                   history: Dictionary(feeds.suggestions.map { ($0.host, $0.score) }, uniquingKeysWith: max),
                   fileNames: fileNames)
     }
-
-    // MARK: - API
 
     public func score(_ article: Article) -> Double {
         let keep = keepRates[article.feedID] ?? 0

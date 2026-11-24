@@ -67,7 +67,6 @@ final class CommandPaletteController {
 }
 
 extension CommandPaletteController {
-    /// The command palette over a paper.
     enum Metrics {
         static let size = NSSize(width: 560, height: 380)
         /// The space between the top of the paper and the palette.

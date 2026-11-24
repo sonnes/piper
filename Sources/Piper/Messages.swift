@@ -21,15 +21,10 @@ struct Message {
 /// the words and gives them here.
 @MainActor @Observable
 final class Messages {
-
-    // MARK: - Properties
-
-    /// The newest message.
     private(set) var last: Message?
+
     /// Shows a message. The app sets it to the toast.
     @ObservationIgnored var present: (Message) -> Void = { _ in }
-
-    // MARK: - Showing
 
     func show(_ text: String, undo: (() -> Void)? = nil) {
         show(text, action: undo.map { Message.Action(title: "Undo", perform: $0) })

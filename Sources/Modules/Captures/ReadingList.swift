@@ -20,7 +20,6 @@ public struct ReadingList: Equatable {
     /// The articles that the reader finished in the last week, the newest first.
     public let finished: [Note]
 
-    /// The number of articles in the three groups.
     public var count: Int { inProgress.count + upNext.count + finished.count }
 
     // MARK: - Initialization

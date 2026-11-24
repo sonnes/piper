@@ -199,7 +199,6 @@ extension TodayRow {
         static let verbButton: CGFloat = 30
         static let verbGlyph: CGFloat = 14
         static let verbSpacing: CGFloat = 2
-        /// The font size of a capture that is code, on its row.
         static let codeFontSize: CGFloat = 14
         /// The titles of a digest row: the first titles, then a count of the others.
         static let digestTitles = 2

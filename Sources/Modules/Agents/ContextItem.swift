@@ -11,7 +11,6 @@ public enum ContextItem: Hashable, Sendable, Codable, ExpressibleByStringLiteral
     case file(String)
     /// A web page, by its HTTP or HTTPS address.
     case link(URL)
-    /// The text of a note.
     case note(String)
 
     private static let notePrefix = "note:"

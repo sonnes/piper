@@ -100,10 +100,8 @@ final class TodayModel {
 
     // MARK: - Properties
 
-    /// The seconds that Undo shows after Done or Delete.
     static let undoSeconds: TimeInterval = 5
     let model: AppModel
-    /// The selected rows.
     var selection: Set<StreamItem.Ref> = []
     /// The row that Shift-click and Shift-arrow extend the selection from.
     var anchor: StreamItem.Ref?
@@ -114,7 +112,6 @@ final class TodayModel {
     /// The read articles that stay in the list until the list shows again,
     /// as in NetNewsWire.
     private(set) var keeping: Set<String> = []
-    /// The Undo button after Done or Delete.
     var undo: UndoOffer?
     /// The rows that the File picker files. The picker shows while it is not empty.
     var filing: [StreamItem] = []
@@ -139,7 +136,6 @@ final class TodayModel {
 
     // MARK: - Stream
 
-    /// The list of a scope with a lens.
     func list(lens: UnifiedStream.Lens, scope: PaperScope, now: Date = Date()) -> TodayList {
         let key = ListKey(input: inputKey, lens: lens, scope: scope, query: query, day: Calendar.current.startOfDay(for: now))
         if let listCache, listCache.key == key { return listCache.value }
@@ -193,7 +189,6 @@ final class TodayModel {
         return UnifiedStream(input(), lens: lens, section: section, query: query, now: now)
     }
 
-    /// Everything that the stream reads.
     private func input() -> UnifiedStream.Input {
         let key = inputKey
         if let inputCache, inputCache.key == key { return inputCache.value }
@@ -504,7 +499,6 @@ final class TodayModel {
         undoManager.registerUndo(withTarget: self) { today in today.dismissClips(entries.map(\.id)) }
     }
 
-    /// The text of a new file for one item.
     private func fileText(_ item: StreamItem, now: Date) -> String {
         switch item.kind {
         case .link:
@@ -524,7 +518,6 @@ final class TodayModel {
         }
     }
 
-    /// The text that File adds to the end of a file for one item.
     private func appendText(_ item: StreamItem) -> String {
         switch item.kind {
         case .link, .article:

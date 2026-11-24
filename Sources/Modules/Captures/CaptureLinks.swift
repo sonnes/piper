@@ -58,7 +58,7 @@ public struct CaptureLinks {
     /// have the same form.
     ///
     /// The form has no fragment, no tracking parameters, no `www.`, and no
-    /// slash at the end of the path. The scheme and the host are in lowercase.
+    /// slash at the end of the path. The scheme is `https`, and the host is in lowercase.
     public static func canonical(_ url: URL) -> String {
         guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url.absoluteString }
         parts.fragment = nil

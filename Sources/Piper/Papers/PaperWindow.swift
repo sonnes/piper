@@ -92,7 +92,6 @@ final class PaperWindow: NSWindow {
         run { $0.key == key }
     }
 
-    /// The smallest size of the paper.
     var minimumPaperSize: NSSize { Self.paperFrame(of: NSRect(origin: .zero, size: minSize)).size }
 
     /// Moves the paper back onto a screen, after a change of the displays.
@@ -112,7 +111,6 @@ final class PaperWindow: NSWindow {
         }
     }
 
-    /// The frame of a window around a paper.
     nonisolated static func windowFrame(of paper: NSRect) -> NSRect {
         let margin = PaperWindow.Metrics.shadowMargin
         return NSRect(x: paper.minX - margin.left, y: paper.minY - margin.bottom,
@@ -120,7 +118,6 @@ final class PaperWindow: NSWindow {
                       height: paper.height + margin.top + margin.bottom)
     }
 
-    /// The frame of the paper in a window.
     nonisolated static func paperFrame(of window: NSRect) -> NSRect {
         let margin = PaperWindow.Metrics.shadowMargin
         return NSRect(x: window.minX + margin.left, y: window.minY + margin.bottom,
@@ -208,7 +205,6 @@ final class PaperWindow: NSWindow {
 }
 
 private extension NSView {
-    /// The web view that holds this view, if any.
     var enclosingWebView: WKWebView? {
         var view = superview
         while let current = view {
@@ -275,7 +271,6 @@ final class PaperResizeView: NSView {
 
     private var drag: (start: NSPoint, frame: NSRect, edges: PaperEdges)?
 
-    /// The frame of the paper in the view.
     private var paper: NSRect {
         let margin = PaperWindow.Metrics.shadowMargin
         return NSRect(x: margin.left, y: margin.bottom,

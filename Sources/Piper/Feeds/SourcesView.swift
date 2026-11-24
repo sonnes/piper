@@ -266,7 +266,6 @@ struct SourcesView: View {
 
 extension SourcesView {
     enum Metrics {
-        /// The height of the address field.
         static let fieldHeight: CGFloat = 30
         /// The number of sites that Sites You Read Often shows.
         static let siteLimit = 8

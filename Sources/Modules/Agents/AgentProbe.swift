@@ -78,7 +78,6 @@ public enum AgentProbe {
         }
     }
 
-    /// The JSON-RPC id of the `initialize` request of a check.
     static let initializeID = 1
 
     /// True when the output has a complete line with the answer to `initialize`.

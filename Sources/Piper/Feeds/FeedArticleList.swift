@@ -61,8 +61,6 @@ struct FeedArticleList: View {
         .onChange(of: selectedID) { _, _ in setKeys(keys) }
     }
 
-    // MARK: - Parts
-
     private var header: some View {
         HStack(spacing: 14) {
             if let error = feed?.error {
@@ -92,8 +90,6 @@ struct FeedArticleList: View {
         Button("Open in Browser") { actions.openInBrowser(article) }
         Button("Copy Link") { actions.copyLink(article) }
     }
-
-    // MARK: - Actions
 
     private func reload(keeping: Bool) {
         articles = feeds.articles(.feed(feedID), keeping: keeping ? Set(articles.map(\.id)) : [])
