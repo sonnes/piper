@@ -1,4 +1,5 @@
 import AppKit
+import Network
 import WebKit
 
 /// Hooks that let a test drive Piper while another app stays in front.
@@ -40,13 +41,17 @@ enum QA {
 ///   Capture does.
 /// - `focus feed` or `focus <n>`: gives the focus to the feed paper or to
 ///   reader paper `n`, from 0.
-/// - `open note <text>`, `open article <title>`, `open file <path>`: opens an
-///   item whose text or title starts with the words.
+/// - `open note <text>`, `open article <title>`, `open file <path>`,
+///   `open session <title>`: opens an item whose text or title starts with the words.
 /// - `reader <script>`: runs JavaScript in the reader page of the paper with the focus.
 /// - `appearance light`, `appearance dark`, or `appearance system`: sets the appearance of Piper.
 /// - `shot <path>`: draws the feed paper window into a PNG file on the desk
 ///   color of the mock. It works while the screen is locked, when a capture
 ///   of the screen fails.
+///
+/// With `-PiperQAProxy host:port`, the web views of the default data store
+/// connect through that HTTP proxy, so a test can serve fictional hosts from a
+/// local server.
 @MainActor
 final class QAScripts: NSObject {
     static let name = Notification.Name("com.piper.qa.eval")
@@ -58,6 +63,14 @@ final class QAScripts: NSObject {
         self.model = model
         self.desk = desk
         super.init()
+        if let proxy = UserDefaults.standard.string(forKey: AppDefaults.Key.qaProxy) {
+            let parts = proxy.split(separator: ":").map(String.init)
+            if parts.count == 2, let port = NWEndpoint.Port(parts[1]) {
+                WKWebsiteDataStore.default().proxyConfigurations = [
+                    ProxyConfiguration(httpCONNECTProxy: .hostPort(host: NWEndpoint.Host(parts[0]), port: port))
+                ]
+            }
+        }
         // An inactive app holds distributed notifications unless the observer asks for each one at once.
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(received(_:)), name: Self.name, object: nil, suspensionBehavior: .deliverImmediately)
         DistributedNotificationCenter.default().addObserver(self, selector: #selector(command(_:)), name: Self.command, object: nil, suspensionBehavior: .deliverImmediately)
@@ -160,6 +173,11 @@ final class QAScripts: NSObject {
             desk.open(.article(article.id))
         case "file":
             model.files.openFile(words)
+        case "session":
+            guard let session = model.agents.runner.sessions.first(where: { $0.title.hasPrefix(words) }) else {
+                return "error\nNo session starts with \(words)."
+            }
+            desk.open(.session(session.id))
         default:
             return "error\nUnknown kind \(parts[0])."
         }

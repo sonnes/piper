@@ -4,7 +4,7 @@ Piper is a native macOS application for capturing text. It saves selected text a
 
 Capture and browsing need no account, cloud service, telemetry, or network connection. Feeds connect only to the sites that you subscribe to, and to the home pages of the sites of your history that Sources checks. Notes stay in a local SQLite database. Wiki files stay on disk as they are. The web reader connects to the pages you open.
 
-![The Piper Inbox, and a fictional article with highlights and notes in the Reader tab](docs/images/hero.jpg)
+![The feed paper on Today with notes, links with reading progress, and a feed digest, beside a fictional article with highlights and a note in the Reader tab](docs/images/hero.jpg)
 
 The screenshots use fictional articles, notes, and conversations in an isolated local database.
 
@@ -65,17 +65,17 @@ The papers use Fraunces for titles, Noto Sans for the interface, and an indigo a
 
 The feed paper has a tab for Today, your agent sessions, and each folder. [Today](docs/guides/capture.md#today) lists your notes, your links to read later, the new posts of your feeds, and your clipboard texts in one list. Each row has Keep, Done, File, and Send. A row opens on a reader paper, to the right of the feed paper. [Sources](docs/guides/feeds.md) holds your RSS subscriptions, how each one reaches Today, and the sites of your browser history that have a feed.
 
-![The Feeds group with fictional sites and their icons, and an article in the Reader tab](docs/images/feeds.png)
+![The Sources list of the Feeds tab with fictional feeds and their site icons, beside an article in the Reader tab](docs/images/feeds.png)
 
-![The Piper main window with a reading journal open from a fictional Field Notes folder](docs/images/main-window.png)
+![The tab of a fictional Field Notes folder, beside a reading journal from that folder in the editor](docs/images/folder-file.png)
 
 ## Highlights And Notes
 
 The Reader tab shows the text of an article with its images, videos, code blocks, and tables. Highlights show in the text, and your notes show beside them. The Notes tab collects the summary, the highlights, and the notes of the article. Piper opens each site in the tab that you chose last for it.
 
-![Close-up of the Reader tab with a figure, colored highlights, and a note beside a fictional article](docs/images/reader-highlights.png)
+![Close-up of the Reader tab with colored highlights, a note under a highlight, and a figure of a fictional article](docs/images/reader-highlights.png)
 
-![Close-up of the Notes tab with a summary, highlighted quotes, and personal notes](docs/images/article-notes.png)
+![Close-up of the Notes tab with a summary, the highlighted quotes, and the notes on them](docs/images/article-notes.png)
 
 See [Highlight and ask in the Reader tab](docs/guides/browse.md#highlight-and-ask-in-the-reader-tab) for the controls.
 
@@ -85,7 +85,7 @@ Piper talks to Claude Code in a session card beside the open file or capture. Th
 
 See [Work with agents](docs/guides/claude.md) for setup, ACP agents, and permission controls.
 
-![A fictional Claude Code session about an article, with the link of the article attached as context](docs/images/claude-session.png)
+![The Agents tab beside a fictional Claude Code session about an article, with the link of the article as context of the first message](docs/images/claude-session.png)
 
 ## Documentation
 

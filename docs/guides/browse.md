@@ -295,7 +295,7 @@ The row of the article in the list shows the reading time and the progress. Pipe
 
 ### Highlight And Ask In The Reader Tab
 
-![Close-up of article highlights with personal notes in the margin](../images/reader-highlights.png)
+![Close-up of the Reader tab with colored highlights, a note under a highlight, and a figure of a fictional article](../images/reader-highlights.png)
 
 Select text in the article to show the selection bar. The bar has Highlight and Note, then Ask, Explain, Define, and Capture.
 
@@ -349,7 +349,7 @@ The count of the Reading row includes all three groups. When you scroll to the e
 
 ### Use The Notes Tab
 
-![Close-up of the Notes tab with an article summary, highlighted quotes, and personal notes](../images/article-notes.png)
+![Close-up of the Notes tab with a summary, the highlighted quotes, and the notes on them](../images/article-notes.png)
 
 Select Notes in the tabs at the bottom of the paper. The Notes tab shows one page for the article:
 

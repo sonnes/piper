@@ -64,6 +64,7 @@ Do not do these checks with `press`, `--headed`, or the clipboard. List them for
 - A WebKit page, such as the Reader tab or the Web tab, can show blank in `qa.sh shot` while the page is loaded. To check the text, run `agent-desktop find --app PiperQA --role webarea`, then find a heading or a text inside it.
 - `agent-desktop select` needs a value argument. To select a row in a list, use `click` on the ref of the row.
 - To test feeds with no real data, serve fictional files with `python3 -I -m http.server` on `127.0.0.1`. Sources accepts a local address. Sites You Read Often drops private hosts, so give the fake history public hosts.
+- To show a fictional host such as `fieldnotes.example.com` in the Reader tab or the Web tab, start PiperQA with `-PiperQAProxy 127.0.0.1:<port>`. Serve a local proxy on that port that answers `CONNECT <host>:80` and serves the page for the `Host` header. Give each image an address on `127.0.0.1`, because the Reader page does not use the proxy.
 - PiperQA reads browser history from `$QA/home/Library`, because `CFFIXED_USER_HOME` changes the home folder. For Sites You Read Often, write a fake Chrome `History` database to `$QA/home/Library/Application Support/Google/Chrome/Default/History`, with the `urls` and `visits` tables.
 
 - On `main`, the editor is a native text view. The file changes on disk only after Command-S or Save.

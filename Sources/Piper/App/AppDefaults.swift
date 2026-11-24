@@ -15,6 +15,8 @@ enum AppDefaults {
         static let qaMode = "PiperQA"
         /// The file where `QAScripts` writes the result of a script.
         static let qaResultPath = "PiperQAResult"
+        /// The `host:port` of an HTTP proxy for the web views of `QAScripts`, so fictional hosts load from a local server.
+        static let qaProxy = "PiperQAProxy"
 
         static let agentDisabledFolders = "agentDisabledFolders"
         static let agentLastFolder = "agentLastFolder"

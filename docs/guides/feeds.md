@@ -94,7 +94,7 @@ If Piper cannot read the NetNewsWire file, give Piper Full Disk Access. You can 
 
 Select an article row in Today to read it on a reader paper. Select a digest row, then press Return, to show the articles of that feed. The reader paper is the same reader as a link capture. The Reader tab shows the article as clean text, and the Web tab shows the original page.
 
-![A fictional feed with its articles, and an article in the Reader tab](../images/feeds.png)
+![The Sources list of the Feeds tab with fictional feeds and their site icons, beside an article in the Reader tab](../images/feeds.png)
 
 When you open an article on a paper or in the browser, Piper marks it as read. You cannot undo this mark. An article stays in Today for 7 days. Piper removes a read article 30 days after it arrives, unless you kept it.
 
