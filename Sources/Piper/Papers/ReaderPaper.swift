@@ -116,7 +116,7 @@ struct ReaderPaper: View {
     @ViewBuilder private func articleHeader(_ article: Article?) -> some View {
         if let article {
             let feed = model.feeds.feed(article.feedID)
-            let kept = model.isKept(article)
+            let kept = model.articleActions.isKept(article)
             if let feed {
                 SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title)
             }
@@ -124,7 +124,7 @@ struct ReaderPaper: View {
             PaperToolbar {
                 PaperButton(title: kept ? "Kept" : "Keep", symbol: kept ? "star.fill" : "star", tint: PiperTheme.star,
                             help: kept ? "Kept" : "Keep · K") {
-                    model.keep([article])
+                    model.articleActions.keep([article])
                 }
                 .disabled(kept)
                 PaperToolbarDivider()
@@ -294,7 +294,8 @@ struct FilePaperContent: View {
                         EditorBanner(files: files, session: session)
                         EditorPane(page: files.editorPage,
                                    request: EditorPane.request(for: session, files: files, source: files.showsFileSource),
-                                   session: session, theme: theme, anchorRequest: files.anchorRequest,
+                                   session: session, theme: theme,
+                                   anchor: files.requestedAnchor, anchorRequest: files.anchorRequest,
                                    notes: files.fileNotes(document))
                     }
                     .background(paper)

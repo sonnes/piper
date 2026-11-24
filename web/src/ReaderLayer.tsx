@@ -10,25 +10,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { Editor } from "@tiptap/react";
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { send } from "./bridge";
-
-/** A margin note from Piper. It has the fields of `ReaderPageNote` in Swift that the page uses. */
-export type PageNote = {
-	id: string;
-	kind: "highlight" | "note" | "question";
-	color: string;
-	quote: string;
-	comment: string;
-	origin: string;
-	label: string;
-	turns: { question: string | null; answer: string }[];
-	pending: boolean;
-	failure: string | null;
-	agent: string;
-	tools: string;
-};
-
-type Anchor = { quote: string; block: number; offset: number };
+import { type Anchor, type PageNote, send } from "./bridge";
 
 const CARD_WIDTH = 250;
 const CARD_GAP = 36;

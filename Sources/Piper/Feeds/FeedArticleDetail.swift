@@ -28,11 +28,11 @@ struct FeedArticleDetail: View {
             Group {
                 switch tab {
                 case .web:
-                    NoteWebReader(url: url) { text, title, url in
-                        try model.store.add(text, section: Note.inbox, source: title, sourceURL: url.absoluteString)
-                    }
+                    NoteWebReader(url: url, store: model.store)
                 case .reader, .notes:
-                    reader(url)
+                    ReaderTabPage(model: model, state: loader.state, url: url, title: article.title,
+                                  perform: perform, showWebPage: { tab = .web })
+                        .onAppear { loader.load(url, title: article.title, pageText: nil) }
                 }
             }
             .background(PiperTheme.paper)
@@ -44,28 +44,16 @@ struct FeedArticleDetail: View {
         }
     }
 
-    private func reader(_ url: URL) -> some View {
-        ReaderPageView(state: loader.state,
-                       placeholder: ReaderPlaceholder(site: Site(url)?.key ?? url.absoluteString, title: article.title),
-                       notes: [], scroll: nil, perform: perform, scrolled: { _ in },
-                       attach: { model.readerPages.add($0) })
-            .overlay(alignment: .bottom) {
-                if case .failed = loader.state {
-                    Button("Show Web Page") { tab = .web }
-                        .padding(.bottom, TabIslandMetrics.clearance + ArticleReader.Metrics.webPageButtonMargin)
-                }
-            }
-            .background(PiperTheme.paper)
-            .onAppear { loader.load(url, title: article.title, pageText: nil) }
-    }
-
     /// Runs an action of the reader page. A highlight or a question keeps the
-    /// article in Inbox first. The pane then shows the capture.
-    private func perform(_ message: [String: Any]) {
-        guard case .loaded(let page) = loader.state, let url else { return }
-        ReaderMarks.perform(message, store: model.store, reader: model.reader, messages: model.messages, article: page,
+    /// article first. The pane then shows the capture.
+    private func perform(_ action: ReaderAction) {
+        guard case .loaded(let page) = loader.state else { return }
+        ReaderMarks.perform(action, store: model.store, reader: model.reader, messages: model.messages, article: page,
                             open: { desk?.open($0) }) {
-            try model.store.saveArticle(url, title: article.title, source: model.feeds.feed(article.feedID)?.title).id
+            guard let note = try model.articleActions.capture([article]).first else {
+                throw PiperError("Piper can save only web pages.")
+            }
+            return note.id
         }
     }
 }

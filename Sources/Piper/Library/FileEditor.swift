@@ -235,10 +235,10 @@ final class FileEditor {
     }
 
     /// Runs an action of the selection bar or a margin card of the editor page.
-    func performFileAction(_ message: [String: Any], path: String) {
+    func performFileAction(_ action: ReaderAction, path: String) {
         guard let document = editors[path]?.document ?? library.files.first(where: { $0.id == path }) else { return }
         let link = fileLink(path)
-        ReaderMarks.perform(message, store: store, reader: reader, messages: messages, article: fileArticle(document),
+        ReaderMarks.perform(action, store: store, reader: reader, messages: messages, article: fileArticle(document),
                             open: { [weak self] item in self?.desk?.open(item) }) { [store] in
             try store.pageNote(for: link, title: document.title, source: ReaderAssistant.source).id
         }

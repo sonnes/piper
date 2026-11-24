@@ -11,16 +11,15 @@ struct FeedArticleList: View {
     let feedID: String
     let selectedID: String?
     let select: (Article?) -> Void
-    /// Opens an article as a reader paper, after a click, Return, or Space.
-    var openPaper: (Article) -> Void = { _ in }
-
     /// Sets the keys of the list on the feed paper.
     var setKeys: ([PaperKey]) -> Void = { _ in }
 
     @State private var articles: [Article] = []
     @State private var scrollTarget: String?
+    @Environment(\.paperDesk) private var desk
 
     private var feeds: FeedStore { model.feeds }
+    private var actions: ArticleActions { model.articleActions }
     private var feed: Feed? { feeds.feed(feedID) }
     private var selected: Article? { articles.first { $0.id == selectedID } }
 
@@ -37,7 +36,6 @@ struct FeedArticleList: View {
                                 FeedArticleRow(article: article, feed: feed, favicons: model.favicons,
                                                selected: article.id == selectedID,
                                                toggleRead: { feeds.setRead(!article.read, ids: [article.id]) }) {
-                                    open(article)
                                     openPaper(article)
                                 }
                                 .id(article.id)
@@ -90,9 +88,9 @@ struct FeedArticleList: View {
     private func menu(for article: Article) -> some View {
         Button(article.read ? "Mark as Unread" : "Mark as Read") { feeds.setRead(!article.read, ids: [article.id]) }
         Divider()
-        Button("Keep") { model.keep([article]) }.disabled(model.isKept(article))
-        Button("Open in Browser") { model.openInBrowser(article) }
-        Button("Copy Link") { Clipboard.copy(article.url) }
+        Button("Keep") { actions.keep([article]) }.disabled(actions.isKept(article))
+        Button("Open in Browser") { actions.openInBrowser(article) }
+        Button("Copy Link") { actions.copyLink(article) }
     }
 
     // MARK: - Actions
@@ -102,10 +100,10 @@ struct FeedArticleList: View {
         if let selectedID, !articles.contains(where: { $0.id == selectedID }) { select(nil) }
     }
 
-    /// Selects the article and marks it as read.
-    private func open(_ article: Article?) {
+    /// Selects the article and opens it as a reader paper, after a click, Return, or Space.
+    private func openPaper(_ article: Article) {
         select(article)
-        if let article, !article.read { feeds.setRead(true, ids: [article.id]) }
+        actions.openAsPaper(article, on: desk)
     }
 
     /// The keys of the list: the arrows move the selection, Return opens the
@@ -122,17 +120,17 @@ struct FeedArticleList: View {
             PaperKey(key: .space, title: "next unread") {
                 let start = articles.firstIndex { $0.id == selectedID }.map { $0 + 1 } ?? 0
                 guard start <= articles.count, let next = articles[start...].first(where: { !$0.read }) else { return }
-                open(next)
                 openPaper(next)
                 scrollTarget = next.id
             }
-        ] + PaperKey.articleKeys(model: model) { selected }
+        ] + PaperKey.articleKeys(actions: actions) { selected }
     }
 
     private func move(_ delta: Int) {
         guard let id = articles.map(\.id).step(from: selectedID, by: delta),
               let next = articles.first(where: { $0.id == id }) else { return }
-        open(next)
+        select(next)
+        if !next.read { feeds.setRead(true, ids: [next.id]) }
         scrollTarget = next.id
     }
 }
@@ -163,39 +161,5 @@ private struct FeedArticleRow: View {
             RowAction(symbol: article.read ? "circle.fill" : "circle", title: article.read ? "Mark as Unread" : "Mark as Read",
                       action: toggleRead)
         }
-    }
-}
-
-extension AppModel {
-    /// The links of articles, with the title of each feed as the source.
-    func keptLinks(_ articles: [Article]) -> [KeptLink] {
-        articles.compactMap { article in
-            URL(string: article.url).map { KeptLink(url: $0, title: article.title, source: feeds.feed(article.feedID)?.title) }
-        }
-    }
-
-    /// Keeps articles as kept link captures, and marks them as read.
-    /// Returns false after it reports an error.
-    @discardableResult
-    func keep(_ articles: [Article]) -> Bool {
-        do {
-            try store.keep(links: keptLinks(articles))
-        } catch {
-            messages.report(error)
-            return false
-        }
-        feeds.setRead(true, ids: articles.filter { !$0.read }.map(\.id))
-        return true
-    }
-
-    /// True when a kept capture holds the link of the article.
-    func isKept(_ article: Article) -> Bool {
-        PaperItem.keptNote(of: article, in: store)?.isKept == true
-    }
-
-    func openInBrowser(_ article: Article) {
-        guard let url = URL(string: article.url) else { return }
-        NSWorkspace.shared.open(url)
-        if !article.read { feeds.setRead(true, ids: [article.id]) }
     }
 }

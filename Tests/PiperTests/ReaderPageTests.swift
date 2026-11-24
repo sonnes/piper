@@ -1,4 +1,5 @@
 import AppKit
+import Captures
 import WebKit
 import XCTest
 @testable import Piper
@@ -68,18 +69,18 @@ final class ReaderPageTests: XCTestCase {
 
     func testHHighlightsTheSelectedText() async throws {
         try await select()
-        let used = try await view.evaluateJavaScript("window.piperKey('h')") as? Bool
+        let used = try await view.evaluateJavaScript("window.piper.key('h')") as? Bool
         XCTAssertEqual(used, true)
         try await wait("The page sends the highlight.") { !self.highlights().isEmpty }
-        let anchor = try XCTUnwrap(highlights().first?["anchor"] as? [String: Any])
-        XCTAssertEqual(anchor["quote"] as? String, "twice a day")
+        let message: ReaderPageMessage = try WebPageBridge.decode(try XCTUnwrap(highlights().first))
+        XCTAssertEqual(message, .mark(.highlight(NoteAnchor(quote: "twice a day", block: 0, offset: 15), color: "yellow")))
     }
 
     func testEscapeOnTheNoteSlipKeepsTheHighlight() async throws {
         let hidden = try await view.evaluateJavaScript("getComputedStyle(document.querySelector('#noteline')).display") as? String
         XCTAssertEqual(hidden, "none", "The note slip waits for N.")
         try await select()
-        _ = try await view.evaluateJavaScript("window.piperKey('n')")
+        _ = try await view.evaluateJavaScript("window.piper.key('n')")
         let slip = try await view.evaluateJavaScript("getComputedStyle(document.querySelector('#noteline')).display") as? String
         XCTAssertEqual(slip, "block", "The note slip opens under the passage.")
         let marked = try await view.evaluateJavaScript("document.querySelector('mark.pending')?.textContent") as? String
@@ -93,7 +94,7 @@ final class ReaderPageTests: XCTestCase {
 
     func testReturnOnTheNoteSlipSavesTheNote() async throws {
         try await select()
-        _ = try await view.evaluateJavaScript("window.piperKey('n')")
+        _ = try await view.evaluateJavaScript("window.piper.key('n')")
         _ = try await view.evaluateJavaScript("""
         (() => {
           const input = document.querySelector('#noteinput');

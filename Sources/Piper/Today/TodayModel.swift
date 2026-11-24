@@ -278,7 +278,7 @@ final class TodayModel {
             return messages.report(error)
         }
         let articles = items.flatMap(\.articles)
-        if !articles.isEmpty, !model.keep(articles) { return }
+        if !articles.isEmpty, !model.articleActions.keep(articles) { return }
         messages.show("Kept")
     }
 
@@ -331,7 +331,7 @@ final class TodayModel {
             try store.move(Set(items.compactMap(\.note).map(\.id)), to: section)
             let articles = items.flatMap(\.articles)
             if !articles.isEmpty {
-                try store.keep(links: model.keptLinks(articles), to: section)
+                try model.articleActions.capture(articles, to: section)
                 markRead(items)
             }
             for clip in items.compactMap(\.clip) {

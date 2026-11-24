@@ -306,7 +306,10 @@ struct TodayMenu: View {
         if let editInWindow = verbs.editInWindow { Button("Edit in New Window", action: editInWindow) }
         if let merge = verbs.merge { Button("Merge Notes", action: merge) }
         Button("Copy", action: verbs.copy)
-        if let url = item.url ?? item.articles.first.flatMap({ URL(string: $0.url) }), url.isWeb {
+        if item.kind == .article, let article = item.articles.first {
+            Button("Copy Link") { model.articleActions.copyLink(article) }
+            Button("Open in Browser") { model.articleActions.openInBrowser(article) }
+        } else if let url = item.url, url.isWeb {
             Button("Copy Link") { Clipboard.copy(url.absoluteString) }
             Button("Open in Browser") { NSWorkspace.shared.open(url) }
         }

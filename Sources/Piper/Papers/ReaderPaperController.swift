@@ -1,7 +1,6 @@
 import AppKit
 import Feeds
 import SwiftUI
-import WebKit
 
 /// What a reader paper reports to the desk.
 @MainActor
@@ -131,7 +130,7 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
             PaperKey(key: .down, title: "scroll", isOn: page) { reader()?.scroll(by: 1) },
             PaperKey(key: CommandKey("h", []), title: "highlight", isOn: page) { reader()?.send("h") },
             PaperKey(key: CommandKey("n", []), title: "note", isOn: page) { reader()?.send("n") }
-        ] + PaperKey.articleKeys(model: model) { [weak self] in self?.article } + [
+        ] + PaperKey.articleKeys(actions: model.articleActions) { [weak self] in self?.article } + [
             PaperKey(key: .escape, title: "put back") { [weak self] in self?.window?.performClose(nil) },
             .tidy { [weak self] in self?.tidy() }
         ]
@@ -145,7 +144,7 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
 
     /// The page of the Reader tab of the paper, while that tab shows.
     private var readerPage: ReaderPage? {
-        model.readerPages.allObjects.first { $0.window === window }.map(ReaderPage.init)
+        model.readerPages.allObjects.first { $0.view?.window === window }.map(ReaderPage.init)
     }
 
     // MARK: - NSWindowDelegate
@@ -200,16 +199,16 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
 /// The reader page of a paper, for the keys that the paper sends to it.
 @MainActor
 private struct ReaderPage {
-    let view: WKWebView
+    let bridge: WebPageBridge
 
     /// H highlights the selected text, and N highlights it and opens its note.
     func send(_ key: String) {
-        view.evaluateJavaScript("window.piperKey && window.piperKey('\(key)')")
+        bridge.call("key", key)
     }
 
     /// Scrolls the page by one arrow step, down for 1 and up for -1.
     func scroll(by steps: Int) {
-        view.evaluateJavaScript("window.scrollBy(0, \(ArticleReader.Metrics.arrowScrollStep * CGFloat(steps)))")
+        bridge.call("scroll", ArticleReader.Metrics.arrowScrollStep * CGFloat(steps))
     }
 }
 

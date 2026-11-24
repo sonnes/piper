@@ -6,7 +6,6 @@ import PiperCore
 import Captures
 import Feeds
 import Vault
-import WebKit
 
 @MainActor @Observable
 final class AppModel {
@@ -21,6 +20,8 @@ final class AppModel {
     let reader: ReaderAssistant
     /// The subscriptions and their articles.
     let feeds: FeedStore
+    /// Keep, open in the browser, copy the link, and open as a paper, for a feed article.
+    let articleActions: ArticleActions
     /// The icon of each site, for the rows of Today and Sources.
     let favicons: FaviconStore
     /// The sites of browser history and their feeds.
@@ -34,7 +35,7 @@ final class AppModel {
     /// The child note that the Reader tab scrolls to.
     var readerScroll: ReaderScroll?
     /// The pages of the Reader tabs that show, one for each reader paper.
-    @ObservationIgnored let readerPages = NSHashTable<WKWebView>.weakObjects()
+    @ObservationIgnored let readerPages = NSHashTable<WebPageBridge>.weakObjects()
 
     /// The tab of a link capture as it opens. A request to show one of its
     /// highlights opens the Reader tab. Each other link opens in the tab that
@@ -147,6 +148,7 @@ final class AppModel {
         store.reportUndoError = { [weak messages] in messages?.report($0) }
         if let error = store.loadError { messages.report(error) }
         clipboard = ClipboardInbox(store: store) { [weak messages] in messages?.report($0) }
+        articleActions = ArticleActions(store: store, feeds: self.feeds, messages: messages)
         let agents = FolderAgents(store: store, messages: messages, preferences: preferences)
         self.agents = agents
         captureShortcut = CaptureShortcut(stored: preferences.string(forKey: AppDefaults.Key.captureShortcut))

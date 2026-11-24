@@ -96,7 +96,7 @@ Select an article row in Today to read it on a reader paper. Select a digest row
 
 ![A fictional feed with its articles, and an article in the Reader tab](../images/feeds.png)
 
-When you open an article, Piper marks it as read. An article stays in Today for 7 days. Piper removes a read article 30 days after it arrives, unless you kept it.
+When you open an article on a paper or in the browser, Piper marks it as read. An article stays in Today for 7 days. Piper removes a read article 30 days after it arrives, unless you kept it.
 
 The list of one feed has these keys:
 

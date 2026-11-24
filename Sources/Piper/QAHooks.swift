@@ -79,7 +79,7 @@ final class QAScripts: NSObject {
         case "shot": result = shot(rest)
         case "reader":
             guard let window = PaperWindow.focusedWindow,
-                  let page = model.readerPages.allObjects.first(where: { $0.window === window }) else {
+                  let page = model.readerPages.allObjects.first(where: { $0.view?.window === window })?.view else {
                 result = "error\nNo reader page has the focus."
                 break
             }

@@ -68,7 +68,7 @@ Some errors happen where no caller waits:
 - `CaptureStore` sends the error of an undo or a redo that cannot save to `reportUndoError`. `AppModel` sets it to `Messages.report`.
 - `FeedStore` and `ClipboardInbox` take a `report` closure. Their timers and their reads report each database error through it. A failed feed read then gives an empty value.
 - `SessionRunner` reports a storage error through the closure that `FolderAgents` gives it.
-- `EditorPage` runs each call on the page with a completion handler that reports a JavaScript exception. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
+- `WebPageBridge` runs each call on the editor page and the reader page with a completion handler that reports a JavaScript exception. It also reports a message from a page that does not decode. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
 - `SiteScan` reports each browser history that it cannot read, and then scans the others.
 
 ## Windows
@@ -156,7 +156,7 @@ The feed paper table holds these keys, in this order:
 
 The capture field and the search field of Today take their own keys. The capture field reads them in `textView(_:doCommandBy:)` of `CaptureEditor`, and the search field reads Escape with `onExitCommand`.
 
-The reader paper table scrolls the Reader tab with the arrows, sends H and N to the reader page, takes K and B from `PaperKey.articleKeys`, and closes the paper with Escape. Both tables use `PaperKey.tidy` for T. While the reader page has the focus, the page reads its own keys. It sends each letter that it does not use in a `key` message, and `PaperWindow.perform` runs the letter from the table.
+The reader paper table scrolls the Reader tab with the arrows, sends H and N to the reader page through `window.piper.key`, takes K and B from `PaperKey.articleKeys`, and closes the paper with Escape. Both tables use `PaperKey.tidy` for T. While the reader page has the focus, the page reads its own keys. It sends each letter that it does not use in a `key` message, and `PaperWindow.perform` runs the letter from the table.
 
 `Array.step(from:by:)` moves a cursor by an arrow key in each list and in the index.
 
@@ -320,7 +320,8 @@ The Markdown editor is the editor of Hubble.md, a Tiptap and React editor, in a 
 | --- | --- |
 | `open` | Shows a file, with its full text, its mode, the byline, and the link targets. |
 | `replace` | Puts the disk text into the open file with no undo step. |
-| `header`, `theme`, `scrollTo`, `command`, `assetChanged` | Change the byline, the reading theme, the scroll position, run Find, and reload an embed. |
+| `header`, `theme`, `command`, `assetChanged` | Change the byline and the reading theme, run Find, and reload an embed. |
+| `scrollTo` | Scrolls to a heading after the editor shows the file. Piper sends it after `open` and for each new anchor request. |
 | `setNotes` | Draws the margin cards of the file. |
 | `flush` | Returns the current text, for quit and Command-S. |
 
@@ -339,6 +340,18 @@ The Markdown editor is the editor of Hubble.md, a Tiptap and React editor, in a 
 `ReaderLayer.tsx` ports the selection bar and the margin cards of `reader.html` to the editor page. A highlight is the `highlight` mark, which `HighlightMarkdown.ts` reads and writes as `==text==` or `<mark class="color">`. The other actions go to `FileEditor.performFileAction`, which calls `ReaderMarks.perform` with a page note for the file (`FileEditor.fileLink`). `FileEditor.fileNotes` sends the cards to the page through `setNotes`.
 
 `lossGuard.ts` parses a file, writes it back, and compares the text, the link targets, and the structure. If they differ, or the file has link titles or table alignment, the rich editor is read-only. `EditorBanner` then offers the Source tab.
+
+### The Page Bridge
+
+`WebPageBridge` is the Swift side of the editor page and of the reader page:
+
+- `call` sends `window.piper.<name>(...)` with each argument as JSON. A call waits in a queue until the page posts `ready`.
+- A completion handler sends each JavaScript exception of a call to `Messages`.
+- `decode` turns a message of the page into a Swift value. `EditorMessage` and `ReaderPageMessage` decode the messages of each page. `ReaderAction` decodes the actions of the selection bar and the margin cards, which both pages send. `ReaderMarks.perform` runs a `ReaderAction`.
+- After a crash of the web content process, the bridge loads the page again. The owner then forgets what the page shows and shows its last state again, with the margin notes.
+- Only the page loads in the main frame. The editor page also lets a frame load `piper-asset:` addresses, for embeds.
+
+`web/src/bridge.ts` holds the TypeScript types of the protocol of the editor page: `OpenRequest`, `Theme`, `PageNote`, `Anchor`, `MarkAction`, and `Outgoing`. `PageNote` has the fields of `ReaderPageNote`. `web/test/fixtures/` holds a sample of each message of each page. `WebPageBridgeTests` decodes each sample. `web/test/bridge.test.ts` checks the editor samples against `Outgoing`.
 
 ### Saving
 
@@ -362,7 +375,7 @@ The editor adds an empty paragraph after a last block that is not a paragraph, s
 
 `CaptureStore.pageText` returns the page text that a browser capture kept in the `pages` table. `ReaderArticle(url:title:pageText:)` turns each line of 40 characters or more into a paragraph. `ArticleLoader` uses that article when the load fails, or when the kept text has more than 2.5 times the words of the loaded article.
 
-A second `WKWebView` loads `Resources/reader.html`, which allows no network requests. Piper calls `window.piper.render` with the article and `window.piper.setNotes` with the child notes. The page draws the text with `textContent`, so page markup never runs. Each action of the reader comes back through the `piper` message handler. The page draws the article again only when a mark changes, so an answer does not clear a selection.
+A second `WKWebView` loads `Resources/reader.html`, which allows no network requests. `ReaderPageView` calls `window.piper.render` with the article and `window.piper.setNotes` with the child notes, through `WebPageBridge`. The reader paper calls `window.piper.key` and `window.piper.scroll`. `AppModel.readerPages` holds the bridge of each reader page. The page draws the text with `textContent`, so page markup never runs. Each action of the reader comes back through the `piper` message handler. The page draws the article again only when a mark changes, so an answer does not clear a selection.
 
 The page reports the first block on the screen and the progress 250 milliseconds after a scroll stops. `ArticleReader` saves them in `Note.reading` 800 milliseconds later, through `CaptureStore.updateReading`, with no undo step. At a progress of 0.97, it records the finish time. When the article loads, `ArticleReader` records the title, the reading time, and the open time. It then picks the first place: a `ReaderScroll` request for this capture, the saved block, or the newest highlight from another app. A `ReaderScroll` names its capture, so a request for one article does not scroll another.
 
@@ -402,7 +415,7 @@ After each refresh, `FeedStore` prunes the read articles that arrived more than 
 
 `FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` draws the icon.
 
-`SourcesView` lists the feeds with their `FeedStats` and their `FeedMode`, adds a feed with `FeedDiscovery`, imports OPML, and shows the history suggestions. `FeedArticleList` fills the list of one feed. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderPageView` and `NoteWebReader` under the same `TabIsland` as `ArticleReader`. The header of the article paper has Keep. `AppModel.keep(_:)` keeps articles for Today, the feed list, and the article paper. `FeedStore.revision` changes after each write, so the views read again.
+`SourcesView` lists the feeds with their `FeedStats` and their `FeedMode`, adds a feed with `FeedDiscovery`, imports OPML, and shows the history suggestions. `FeedArticleList` fills the list of one feed. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderTabPage` and `NoteWebReader` under the same `TabIsland` as `ArticleReader`. `ReaderTabPage` is the Reader tab of both, with Show Web Page when the article does not load. `NoteWebReader` saves a Capture of the Web tab to Inbox. The header of the article paper has Keep. `ArticleActions`, at `AppModel.articleActions`, holds the article verbs for Today, the feed list, and the article paper: keep, open in the browser, copy the link, and open as a paper. Both open verbs mark the article as read. `ArticleActions.capture(_:to:)` is the one way that an article becomes a kept link capture: by Keep, by File to a section, and before the first highlight or question on an article. `FeedStore.revision` changes after each write, so the views read again.
 
 ## History Scan
 
@@ -461,7 +474,8 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [Readers/](../../Sources/Piper/Readers) | File previews, the Reader tab, the Web tab, the Notes tab, and the tabs at the bottom of a paper |
 | [Modules/Captures/ReadingList.swift](../../Sources/Modules/Captures/ReadingList.swift) | The Reading groups and the Markdown of Save as File |
 | [Modules/Stream/](../../Sources/Modules/Stream) | The stream of Today, the feed rows, and the relevance score |
-| [Readers/EditorPage.swift](../../Sources/Piper/Readers/EditorPage.swift) | The editor page, its bridge, the asset scheme, and the conflict bar |
+| [Readers/EditorPage.swift](../../Sources/Piper/Readers/EditorPage.swift) | The editor page, its messages, the asset scheme, and the conflict bar |
+| [Readers/WebPageBridge.swift](../../Sources/Piper/Readers/WebPageBridge.swift) | The calls, the ready queue, the crash reload, and the navigation rule of the editor page and the reader page |
 | [EditorSession.swift](../../Sources/Piper/EditorSession.swift) | The save of a Markdown file and the conflict rules |
 | [CommandPalette.swift](../../Sources/Piper/CommandPalette.swift) | The command palette |
 | [ReadingAppearance.swift](../../Sources/Piper/ReadingAppearance.swift) | Reading themes, fonts, and appearance, and `ReadingSettings`, the four reading preferences with their defaults |

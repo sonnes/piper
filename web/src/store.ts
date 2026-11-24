@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { OpenRequest, Theme } from "./bridge";
-import type { PageNote } from "./ReaderLayer";
+import type { OpenRequest, PageNote, Theme } from "./bridge";
 
 export type DocState = OpenRequest & {
 	/** Increases on each open, and on each `replace` that must remount the editor. A new value starts a new undo history. */
@@ -9,9 +8,12 @@ export type DocState = OpenRequest & {
 	lossy: string[];
 };
 
-type State = { doc: DocState | null; theme: Theme | null; notes: PageNote[] };
+/** A request to scroll to a heading. `seq` makes each request new, also for the same anchor. */
+export type ScrollRequest = { anchor: string; seq: number };
 
-let state: State = { doc: null, theme: null, notes: [] };
+type State = { doc: DocState | null; theme: Theme | null; notes: PageNote[]; scroll: ScrollRequest | null };
+
+let state: State = { doc: null, theme: null, notes: [], scroll: null };
 const listeners = new Set<() => void>();
 
 export function getState() {

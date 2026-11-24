@@ -75,13 +75,23 @@ final class TodayModelTests: XCTestCase {
 
     func testKOnAnArticleKeepsItAndBIsTheOtherArticleKey() throws {
         let article = try XCTUnwrap(model.feeds.article("two"))
-        let keys = PaperKey.articleKeys(model: model) { article }
+        let keys = PaperKey.articleKeys(actions: model.articleActions) { article }
         XCTAssertEqual(keys.map(\.key), [CommandKey("k", []), CommandKey("b", [])])
         XCTAssertEqual(model.feeds.article("two")?.read, false)
         keys[0].run()
-        XCTAssertTrue(model.isKept(article))
+        XCTAssertTrue(model.articleActions.isKept(article))
         XCTAssertEqual(model.feeds.article("two")?.read, true)
-        XCTAssertFalse(PaperKey.articleKeys(model: model) { nil }.contains { $0.isOn() })
+        XCTAssertFalse(PaperKey.articleKeys(actions: model.articleActions) { nil }.contains { $0.isOn() })
+    }
+
+    func testOpenInBrowserOpensTheLinkAndMarksTheArticleRead() throws {
+        var opened: [URL] = []
+        model.articleActions.openURL = { opened.append($0) }
+        let article = try XCTUnwrap(model.feeds.article("one"))
+        XCTAssertFalse(article.read)
+        model.articleActions.openInBrowser(article)
+        XCTAssertEqual(opened, [URL(string: "https://f.example/one")!])
+        XCTAssertEqual(model.feeds.article("one")?.read, true)
     }
 
     // MARK: - Done

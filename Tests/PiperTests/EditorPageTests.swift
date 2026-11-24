@@ -51,7 +51,8 @@ final class EditorPageTests: XCTestCase {
         page.show(EditorPane.request(for: session, files: model.files, source: source), session: ObjectIdentifier(session),
                   revision: session.revision,
                   theme: EditorTheme(theme: "Paper", font: "Serif", size: 18, appearance: "Light"),
-                  anchorRequest: model.files.anchorRequest)
+                  anchor: model.files.requestedAnchor, anchorRequest: model.files.anchorRequest,
+                  notes: model.files.fileNotes(session.document))
     }
 
     private func evaluate(_ page: EditorPage, _ script: String) async throws -> Any? {
@@ -259,11 +260,42 @@ final class EditorPageTests: XCTestCase {
         XCTAssertEqual(parent.sourceURLs, [model.files.fileLink("Tea.md")])
         XCTAssertEqual(note.anchor?.quote, "less caffeine")
 
-        let session = try XCTUnwrap(model.files.editor)
-        page.setNotes(model.files.fileNotes(session.document))
+        try show(page, model)
         try await wait("The page shows the card.") {
             (try await self.evaluate(page, "document.querySelector('.piper-card.mine')?.textContent") as? String)?
                 .contains("Check the source.") == true
         }
+    }
+
+    func testThePageShowsTheFileAndTheNotesAgainAfterACrash() async throws {
+        let model = try makeModel([("Tea.md", "# Tea\n\nGreen tea has less caffeine than coffee.\n")])
+        model.files.openDocument("Tea.md")
+        let parent = try model.store.pageNote(for: model.files.fileLink("Tea.md"), title: "Tea", source: ReaderAssistant.source)
+        try model.reader.highlight(NoteAnchor(quote: "less caffeine", block: 1, offset: 14), color: ReaderAssistant.colors[0],
+                                   in: parent.id, comment: "Check the source.")
+        let page = try await load(model)
+        try show(page, model)
+        let card = "document.querySelector('.piper-card.mine')?.textContent"
+        try await wait("The page shows the card.") {
+            (try await self.evaluate(page, card) as? String)?.contains("Check the source.") == true
+        }
+
+        page.webView.navigationDelegate?.webViewWebContentProcessDidTerminate?(page.webView)
+        try await wait("The page loads again with the file and the card.") {
+            let text = try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String
+            let shown = try await self.evaluate(page, card) as? String
+            return text?.contains("less caffeine") == true && shown?.contains("Check the source.") == true
+        }
+    }
+
+    func testAJavaScriptErrorOfACallReachesTheMessages() async throws {
+        let model = try makeModel([("Note.md", "# Note\n")])
+        model.files.openDocument("Note.md")
+        let page = try await load(model)
+        try show(page, model)
+        try await wait("The page is ready.") { model.files.editor?.lossy == [] }
+        _ = try await evaluate(page, "void (window.piper.assetChanged = () => { throw new Error('Broken embed') })")
+        page.assetChanged("Note.md")
+        try await wait("The error reaches the messages.") { model.messages.last?.isError == true }
     }
 }

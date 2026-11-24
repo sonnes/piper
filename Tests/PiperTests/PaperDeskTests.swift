@@ -557,7 +557,7 @@ final class PaperDeskTests: XCTestCase {
         let article = PaperItem.article("a1")
         XCTAssertEqual(article.identity(in: model), article, "An article that nobody kept is its own paper.")
 
-        model.keep([try XCTUnwrap(model.feeds.article("a1"))])
+        model.articleActions.keep([try XCTUnwrap(model.feeds.article("a1"))])
         let note = try XCTUnwrap(model.store.article(for: URL(string: "https://example.com/harbor")!))
         XCTAssertEqual(article.identity(in: model), .note(note.id))
         XCTAssertTrue(article.isArticle(in: model))

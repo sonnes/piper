@@ -13,7 +13,7 @@ import { useStore } from "./store";
 import { applyTheme } from "./theme";
 
 export function App() {
-	const { doc, theme, notes } = useStore();
+	const { doc, theme, notes, scroll } = useStore();
 	const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
 	const [editor, setEditor] = useState<Editor | null>(null);
 	const pathRef = useRef(doc?.path ?? "");
@@ -41,10 +41,10 @@ export function App() {
 	}, [doc?.seq, doc?.mode, viewport]);
 
 	useEffect(() => {
-		if (!doc?.anchor) return;
-		const id = window.setTimeout(() => scrollToAnchor(document, doc.anchor ?? ""), 0);
+		if (!scroll) return;
+		const id = window.setTimeout(() => scrollToAnchor(document, scroll.anchor), 0);
 		return () => window.clearTimeout(id);
-	}, [doc?.seq, doc?.anchor]);
+	}, [scroll]);
 
 	if (!doc) return null;
 

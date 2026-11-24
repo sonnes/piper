@@ -12,7 +12,6 @@ struct FeedPaperView: View {
     let window: () -> NSWindow?
 
     @State private var namingSection = false
-    @Environment(\.paperDesk) private var desk
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -139,7 +138,6 @@ struct FeedPaperView: View {
         case .feed(let feed):
             FeedArticleList(model: model, feedID: feed, selectedID: paper.selectedArticle,
                             select: { paper.selectedArticle = $0?.id },
-                            openPaper: { desk?.open(.article($0.id)) },
                             setKeys: { paper.listKeys = $0 })
         case .sources:
             SourcesView(paper: paper, model: model)

@@ -30,16 +30,48 @@ struct EditorOpenRequest: Encodable, Equatable {
     let header: String
     /// The title over a file whose body has no heading.
     let title: String?
-    let anchor: String?
+}
+
+/// A message of the editor page. See `Outgoing` in `web/src/bridge.ts`.
+enum EditorMessage: Decodable, Equatable {
+    case ready
+    case change(path: String, text: String)
+    /// `kind` is `url` or `wiki`.
+    case link(kind: String, target: String)
+    /// A pasted or dropped image, in base64. The answer is its path for the Markdown.
+    case image(path: String, type: String, data: String)
+    case lossy(path: String, reasons: [String])
+    case mark(ReaderAction)
+
+    private enum Key: String, CodingKey { case action, path, text, kind, target, type, data, reasons }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: Key.self)
+        switch try values.decode(String.self, forKey: .action) {
+        case "ready":
+            self = .ready
+        case "change":
+            self = .change(path: try values.decode(String.self, forKey: .path), text: try values.decode(String.self, forKey: .text))
+        case "link":
+            self = .link(kind: try values.decode(String.self, forKey: .kind), target: try values.decode(String.self, forKey: .target))
+        case "image":
+            self = .image(path: try values.decode(String.self, forKey: .path), type: try values.decode(String.self, forKey: .type),
+                          data: try values.decode(String.self, forKey: .data))
+        case "lossy":
+            self = .lossy(path: try values.decode(String.self, forKey: .path), reasons: try values.decode([String].self, forKey: .reasons))
+        default:
+            self = .mark(try ReaderAction(from: decoder))
+        }
+    }
 }
 
 /// The web page with Hubble.md's Markdown editor.
 ///
 /// One page serves every file of the file paper, so a change of file does not
-/// load the page again. Piper calls the functions on `window.piper`, and the page
-/// sends messages to the `editor` handler. See `web/src/bridge.ts`.
+/// load the page again. `WebPageBridge` calls the functions on `window.piper`,
+/// and the page sends messages to the `editor` handler. See `web/src/bridge.ts`.
 @MainActor
-final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationDelegate {
+final class EditorPage: NSObject, WKScriptMessageHandlerWithReply {
     private struct Shown: Equatable {
         let session: ObjectIdentifier
         let path: String
@@ -52,15 +84,15 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
         let session: ObjectIdentifier
         let revision: Int
         let theme: EditorTheme
+        let anchor: String?
         let anchorRequest: UUID
+        let notes: [ReaderPageNote]
     }
 
     let webView: EditorWebView
     private weak var files: FileEditor?
-    private let page: URL?
     private let assets: AssetSchemeHandler
-    private var ready = false
-    private var queue: [String] = []
+    private let bridge: WebPageBridge
     private var shown: Shown?
     private var shownTheme: EditorTheme?
     private var shownHeader: [String?]?
@@ -75,150 +107,108 @@ final class EditorPage: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
         configuration.setURLSchemeHandler(assets, forURLScheme: AssetSchemeHandler.scheme)
         configuration.websiteDataStore = .nonPersistent()
         webView = EditorWebView(frame: .zero, configuration: configuration)
-        page = PiperTheme.resources.url(forResource: "editor", withExtension: "html")
+        // Only an embed loads a file of the folder in a frame.
+        bridge = WebPageBridge(view: webView, page: "editor",
+                               allowsFrame: { $0.scheme == AssetSchemeHandler.scheme || $0.absoluteString == "about:blank" },
+                               report: { [weak files] in files?.messages.report($0) })
         super.init()
         configuration.userContentController.addScriptMessageHandler(WeakMessageHandler(self), contentWorld: .page, name: "editor")
-        webView.navigationDelegate = self
         webView.underPageBackgroundColor = PiperTheme.paperNS
         webView.setAccessibilityLabel("Page")
-        load()
+        webView.find = { [weak self] in self?.bridge.call("command", "find") }
+        bridge.reloaded = { [weak self] in self?.reload() }
+        bridge.load()
     }
 
-    private func load() {
-        guard let page else { return }
-        webView.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
-    }
-
-    /// Shows a file. A new file or a new mode opens the file again. A new
-    /// revision of the same file loads the disk text with no undo step.
-    func show(_ request: EditorOpenRequest, session: ObjectIdentifier, revision: Int, theme: EditorTheme, anchorRequest: UUID) {
-        last = Show(request: request, session: session, revision: revision, theme: theme, anchorRequest: anchorRequest)
+    /// Shows a file and its margin notes. A new file or a new mode opens the
+    /// file again. A new revision of the same file loads the disk text with no
+    /// undo step. A new anchor request scrolls to the anchor.
+    func show(_ request: EditorOpenRequest, session: ObjectIdentifier, revision: Int, theme: EditorTheme,
+              anchor: String?, anchorRequest: UUID, notes: [ReaderPageNote]) {
+        last = Show(request: request, session: session, revision: revision, theme: theme,
+                    anchor: anchor, anchorRequest: anchorRequest, notes: notes)
         if theme != shownTheme {
             shownTheme = theme
-            call("theme", theme)
+            bridge.call("theme", theme)
         }
         let header = [request.header, request.title]
         if shown?.session != session || shown?.path != request.path || shown?.mode != request.mode {
             shown = Shown(session: session, path: request.path, mode: request.mode, revision: revision)
             shownHeader = header
-            shownAnchorRequest = anchorRequest
-            call("open", request)
-            return
+            shownAnchorRequest = nil
+            bridge.call("open", request)
         }
         if shown?.revision != revision {
             shown?.revision = revision
-            call("replace", request.text)
+            bridge.call("replace", request.text)
         }
         if header != shownHeader {
             shownHeader = header
-            call("header", header)
+            bridge.call("header", request.header, request.title)
         }
         if anchorRequest != shownAnchorRequest {
             shownAnchorRequest = anchorRequest
-            if let anchor = request.anchor { call("scrollTo", anchor) }
+            if let anchor { bridge.call("scrollTo", anchor) }
+        }
+        if notes != shownNotes {
+            shownNotes = notes
+            bridge.call("setNotes", notes)
+        }
+    }
+
+    /// Shows the last state again on a page that loaded again.
+    private func reload() {
+        shown = nil
+        shownTheme = nil
+        shownHeader = nil
+        shownAnchorRequest = nil
+        shownNotes = nil
+        if let last {
+            show(last.request, session: last.session, revision: last.revision, theme: last.theme,
+                 anchor: last.anchor, anchorRequest: last.anchorRequest, notes: last.notes)
         }
     }
 
     /// The text in the editor now, which can be newer than the last `change`
     /// message. Nil when the page shows no file.
     func flush() async throws -> (path: String, text: String)? {
-        guard ready, let path = shown?.path,
-              let text = try await webView.evaluateJavaScript("window.piper.flush()") as? String else { return nil }
+        guard let path = shown?.path, let text = try await bridge.value("flush") as? String else { return nil }
         return (path, text)
     }
 
-    /// The margin notes of the open file. The page draws a card for each note and question.
-    func setNotes(_ notes: [ReaderPageNote]) {
-        guard notes != shownNotes else { return }
-        shownNotes = notes
-        call("setNotes", notes)
-    }
-
     func assetChanged(_ path: String) {
-        call("assetChanged", path)
-    }
-
-    private func call(_ function: String, _ value: some Encodable) {
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        let script = "window.piper.\(function)(\(String(decoding: data, as: UTF8.self)))"
-        if ready { run(script) } else { queue.append(script) }
-    }
-
-    private func call(_ function: String, _ values: [String?]) {
-        guard let data = try? JSONEncoder().encode(values) else { return }
-        let script = "window.piper.\(function)(...\(String(decoding: data, as: UTF8.self)))"
-        if ready { run(script) } else { queue.append(script) }
-    }
-
-    /// Runs a call on the page. An exception in the page reaches the toast.
-    private func run(_ script: String) {
-        webView.evaluateJavaScript(script) { [weak self] _, error in
-            if let error { self?.files?.messages.report(error) }
-        }
+        bridge.call("assetChanged", path)
     }
 
     // MARK: Messages
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) async -> (Any?, String?) {
-        guard message.frameInfo.isMainFrame, message.frameInfo.request.url == page,
-              let body = message.body as? [String: Any], let action = body["action"] as? String,
-              let files else { return (nil, nil) }
-        switch action {
-        case "ready":
-            ready = true
-            let pending = queue
-            queue = []
-            pending.forEach(run)
-        case "change":
-            guard let path = body["path"] as? String, let text = body["text"] as? String else { break }
+        guard let files, let decoded: EditorMessage = bridge.decode(message) else { return (nil, nil) }
+        switch decoded {
+        case .ready:
+            bridge.pageReady()
+        case .change(let path, let text):
             files.editorChanged(path: path, text: text)
-        case "link":
-            guard let kind = body["kind"] as? String, let target = body["target"] as? String else { break }
+        case .link(let kind, let target):
             files.openEditorLink(kind: kind, target: target)
-        case "image":
-            guard let path = body["path"] as? String, let data = body["data"] as? String else { break }
-            do { return (try files.saveEditorImage(for: path, type: body["type"] as? String ?? "", base64: data), nil) }
+        case .image(let path, let type, let data):
+            do { return (try files.saveEditorImage(for: path, type: type, base64: data), nil) }
             catch {
                 files.messages.report(error)
                 return (nil, error.localizedDescription)
             }
-        case "lossy":
-            guard let path = body["path"] as? String else { break }
-            files.editors[path]?.lossy = body["reasons"] as? [String] ?? []
-        case "explain", "define", "ask", "note", "capture", "open", "copy", "continue", "followup":
-            if let path = shown?.path { files.performFileAction(body, path: path) }
-        default:
-            break
+        case .lossy(let path, let reasons):
+            files.editors[path]?.lossy = reasons
+        case .mark(let action):
+            if let path = shown?.path { files.performFileAction(action, path: path) }
         }
         return (nil, nil)
-    }
-
-    // MARK: Navigation
-
-    /// A crash of the web content process leaves a blank view. The page loads
-    /// again and shows the file when it reports that it is ready.
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        ready = false
-        queue = []
-        shown = nil
-        shownTheme = nil
-        shownHeader = nil
-        shownNotes = nil
-        load()
-        if let last {
-            show(last.request, session: last.session, revision: last.revision, theme: last.theme, anchorRequest: last.anchorRequest)
-        }
-    }
-
-    /// The page is local. Only an embed loads a file of the folder in a frame.
-    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
-        guard let url = action.request.url, let frame = action.targetFrame else { return .cancel }
-        if frame.isMainFrame { return url == page ? .allow : .cancel }
-        return url.scheme == AssetSchemeHandler.scheme || url.absoluteString == "about:blank" ? .allow : .cancel
     }
 }
 
 final class EditorWebView: WKWebView {
+    var find: () -> Void = {}
+
     /// Edit > Paste pastes plain text in the text views of Piper. The editor
     /// reads images and rich text from the pasteboard, so it takes a full paste.
     @objc func pasteAsPlainText(_ sender: Any?) {
@@ -227,7 +217,7 @@ final class EditorWebView: WKWebView {
 
     /// Edit > Find, and Find in File of the command palette.
     @objc func findInPage(_ sender: Any?) {
-        evaluateJavaScript("window.piper.command(\"find\")")
+        find()
     }
 }
 
@@ -295,6 +285,7 @@ struct EditorPane: NSViewRepresentable {
     let request: EditorOpenRequest
     let session: EditorSession
     let theme: EditorTheme
+    let anchor: String?
     let anchorRequest: UUID
     let notes: [ReaderPageNote]
 
@@ -306,8 +297,8 @@ struct EditorPane: NSViewRepresentable {
 
     func updateNSView(_ container: NSView, context: Context) {
         if page.webView.superview !== container { attach(to: container) }
-        page.show(request, session: ObjectIdentifier(session), revision: session.revision, theme: theme, anchorRequest: anchorRequest)
-        page.setNotes(notes)
+        page.show(request, session: ObjectIdentifier(session), revision: session.revision, theme: theme,
+                  anchor: anchor, anchorRequest: anchorRequest, notes: notes)
     }
 
     private func attach(to container: NSView) {
@@ -336,8 +327,7 @@ struct EditorPane: NSViewRepresentable {
         }
         return EditorOpenRequest(path: session.path, text: session.text,
                                  mode: source ? "source" : "rich", wikiTargets: targets,
-                                 header: byline.joined(separator: " · "), title: hasTitle ? nil : document.title,
-                                 anchor: files.requestedAnchor)
+                                 header: byline.joined(separator: " · "), title: hasTitle ? nil : document.title)
     }
 }
 

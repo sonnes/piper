@@ -22,13 +22,13 @@ struct PaperKey {
 
     /// K keeps an article and B opens it in the browser, on its row of a
     /// feed and on its paper.
-    @MainActor static func articleKeys(model: AppModel, article: @escaping () -> Article?) -> [PaperKey] {
+    @MainActor static func articleKeys(actions: ArticleActions, article: @escaping () -> Article?) -> [PaperKey] {
         [
             PaperKey(key: CommandKey("k", []), title: "keep", isOn: { article() != nil }) {
-                if let article = article() { model.keep([article]) }
+                if let article = article() { actions.keep([article]) }
             },
             PaperKey(key: CommandKey("b", []), title: "open in browser", isOn: { article() != nil }) {
-                if let article = article() { model.openInBrowser(article) }
+                if let article = article() { actions.openInBrowser(article) }
             }
         ]
     }

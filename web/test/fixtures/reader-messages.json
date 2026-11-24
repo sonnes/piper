@@ -1,0 +1,16 @@
+[
+	{ "action": "ready" },
+	{ "action": "key", "key": "t" },
+	{ "action": "position", "block": 3, "progress": 0.42 },
+	{ "action": "link", "url": "https://example.com/tides" },
+	{ "action": "highlight", "color": "yellow", "anchor": { "quote": "twice a day", "block": 0, "offset": 15 } },
+	{ "action": "explain", "anchor": { "quote": "twice a day", "block": 0, "offset": 15 } },
+	{ "action": "define", "anchor": { "quote": "tide", "block": 0, "offset": 4 } },
+	{ "action": "ask", "anchor": { "quote": "twice a day", "block": 0, "offset": 15 }, "question": "Why twice?" },
+	{ "action": "note", "anchor": { "quote": "twice a day", "block": 0, "offset": 15 }, "text": "Check the almanac." },
+	{ "action": "capture", "text": "twice a day" },
+	{ "action": "open", "id": "6F9619FF-8B86-D011-B42D-00C04FC964FF" },
+	{ "action": "copy", "id": "6F9619FF-8B86-D011-B42D-00C04FC964FF" },
+	{ "action": "continue", "id": "6F9619FF-8B86-D011-B42D-00C04FC964FF" },
+	{ "action": "followup", "id": "6F9619FF-8B86-D011-B42D-00C04FC964FF", "question": "And the moon?" }
+]

@@ -1,6 +1,8 @@
 // The message bridge between the page and Piper. Piper calls the functions on
-// `window.piper`. The page sends messages to the `editor` handler, and Piper
-// answers each message.
+// `window.piper` through `WebPageBridge`. The page sends messages to the
+// `editor` handler, and Piper answers each message. `EditorMessage` in Swift
+// decodes each message. `web/test/fixtures/editor-messages.json` holds a
+// sample of each message, which a Swift test and a Vitest test both read.
 
 import type { WikiTarget } from "@hubble.md/ui";
 
@@ -17,7 +19,6 @@ export type OpenRequest = {
 	header: string;
 	/** The title over a file whose body has no heading. */
 	title: string | null;
-	anchor: string | null;
 };
 
 export type Theme = {
@@ -27,13 +28,30 @@ export type Theme = {
 	appearance: "System" | "Light" | "Dark";
 };
 
-export type Outgoing =
-	| { action: "ready" }
-	| { action: "change"; path: string; text: string }
-	| { action: "link"; kind: "url" | "wiki"; target: string }
-	| { action: "image"; path: string; type: string; data: string }
-	| { action: "lossy"; path: string; reasons: string[] }
-	// The actions of the selection bar and the margin cards, as in reader.html.
+/** A margin note from Piper. The fields match `ReaderPageNote` in Swift. */
+export type PageNote = {
+	id: string;
+	kind: "highlight" | "note" | "question";
+	color: string;
+	/** The block of the mark. -1 means that the text no longer holds the quote. */
+	block: number;
+	offset: number;
+	length: number;
+	quote: string;
+	comment: string;
+	origin: string;
+	label: string;
+	turns: { question: string | null; answer: string }[];
+	pending: boolean;
+	failure: string | null;
+	agent: string;
+	tools: string;
+};
+
+export type Anchor = { quote: string; block: number; offset: number };
+
+/** An action of the selection bar or a margin card. `ReaderAction` in Swift decodes it. */
+export type MarkAction =
 	| { action: "explain" | "define"; anchor: Anchor }
 	| { action: "ask"; anchor: Anchor; question: string }
 	| { action: "note"; anchor: Anchor; text: string }
@@ -41,7 +59,13 @@ export type Outgoing =
 	| { action: "open" | "copy" | "continue"; id: string }
 	| { action: "followup"; id: string; question: string };
 
-export type Anchor = { quote: string; block: number; offset: number };
+export type Outgoing =
+	| { action: "ready" }
+	| { action: "change"; path: string; text: string }
+	| { action: "link"; kind: "url" | "wiki"; target: string }
+	| { action: "image"; path: string; type: string; data: string }
+	| { action: "lossy"; path: string; reasons: string[] }
+	| MarkAction;
 
 type Handler = { postMessage(message: unknown): Promise<unknown> };
 

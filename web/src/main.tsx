@@ -2,12 +2,10 @@ import { getCommandBinding } from "@hubble.md/editor";
 import { getActiveEditor } from "@hubble.md/ui";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { scrollToAnchor } from "./anchors";
-import { type OpenRequest, send, type Theme } from "./bridge";
+import { type OpenRequest, type PageNote, send, type Theme } from "./bridge";
 import { EMBED_CHANGED_EVENT } from "./EmbedNode";
 import { latestText, noteLocalChange } from "./latest";
 import { lossyFeatures } from "./lossGuard";
-import type { PageNote } from "./ReaderLayer";
 import { getState, setState } from "./store";
 import "./index.css";
 
@@ -48,8 +46,9 @@ const piper = {
 		if (doc) setState({ doc: { ...doc, header, title } });
 	},
 
+	/** Scrolls to a heading of the open file, after the editor shows the file. */
 	scrollTo(anchor: string) {
-		scrollToAnchor(document, anchor);
+		setState({ scroll: { anchor, seq: (getState().scroll?.seq ?? 0) + 1 } });
 	},
 
 	/** The margin notes of the open file: notes, questions, and answers. */

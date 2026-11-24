@@ -50,15 +50,9 @@ struct ArticleReader: View {
                 .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius, style: .continuous))
                 .padding(.horizontal, Metrics.resumeMargin)
             }
-            ReaderPageView(state: loader.state, placeholder: ReaderPlaceholder(site: Site(url)?.key ?? url.absoluteString, title: reading.title),
-                           notes: payload, scroll: scroll, perform: perform, scrolled: scrolled,
-                           attach: { model.readerPages.add($0) })
-                .overlay(alignment: .bottom) {
-                    if case .failed = loader.state {
-                        Button("Show Web Page", action: showWebPage)
-                            .padding(.bottom, TabIslandMetrics.clearance + Metrics.webPageButtonMargin)
-                    }
-                }
+            ReaderTabPage(model: model, state: loader.state, url: url, title: reading.title, notes: payload, scroll: scroll,
+                          perform: perform, positioned: { savePosition(block: $0, progress: $1) }, scrolled: scrolled,
+                          showWebPage: showWebPage)
         }
         .background(PiperTheme.paper)
         .onAppear { load(url) }
@@ -151,15 +145,10 @@ struct ArticleReader: View {
 
     // MARK: - Actions
 
-    private func perform(_ message: [String: Any]) {
+    private func perform(_ action: ReaderAction) {
         guard case .loaded(let article) = loader.state else { return }
-        if message["action"] as? String == "position" {
-            guard let block = message["block"] as? Int, let progress = message["progress"] as? Double else { return }
-            savePosition(block: block, progress: progress)
-        } else {
-            ReaderMarks.perform(message, store: model.store, reader: model.reader, messages: model.messages, article: article,
-                                open: { desk?.open($0) }) { note.id }
-        }
+        ReaderMarks.perform(action, store: model.store, reader: model.reader, messages: model.messages, article: article,
+                            open: { desk?.open($0) }) { note.id }
     }
 }
 
@@ -178,8 +167,6 @@ extension ArticleReader {
         /// The line over the article that says where it opened.
         static let resumeVerticalPadding: CGFloat = 10
         static let resumeMargin: CGFloat = 40
-        /// The space between the Show Web Page button and the tabs under it.
-        static let webPageButtonMargin: CGFloat = 16
         /// The wait after the last scroll before Piper saves the position.
         static let positionSaveDelay = Duration.milliseconds(800)
         /// The part of the article above the screen that counts as finished.
@@ -217,7 +204,6 @@ enum ReaderMarks {
                 comment: comment,
                 origin: origin,
                 label: label,
-                tags: child.tags,
                 turns: thread.turns.map { ReaderPageNote.Turn(question: $0.question, answer: $0.answer) },
                 pending: reader.waitingNotes.contains(child.id),
                 failure: reader.failures[child.id],
@@ -230,59 +216,81 @@ enum ReaderMarks {
     /// Runs an action of the reader, and shows its error. The open function
     /// opens a paper. The parent function adds the parent note when a page has
     /// none yet.
-    static func perform(_ message: [String: Any], store: CaptureStore, reader: ReaderAssistant, messages: Messages,
+    static func perform(_ action: ReaderAction, store: CaptureStore, reader: ReaderAssistant, messages: Messages,
                         article: ReaderArticle, open: (PaperItem) -> Void, parent: () throws -> UUID) {
-        guard let action = message["action"] as? String else { return }
         do {
             switch action {
-            case "highlight":
-                guard let anchor = Self.anchor(message["anchor"]) else { return }
-                try reader.highlight(anchor, color: message["color"] as? String ?? "", in: parent())
-            case "note":
-                guard let anchor = Self.anchor(message["anchor"]), let text = message["text"] as? String,
-                      !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            case .highlight(let anchor, let color):
+                guard !anchor.quote.isEmpty else { return }
+                try reader.highlight(anchor, color: color, in: parent())
+            case .note(let anchor, let text):
+                guard !anchor.quote.isEmpty, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                 try reader.highlight(anchor, color: ReaderAssistant.colors[0], in: parent(), comment: text)
-            case "explain", "define":
-                guard let anchor = Self.anchor(message["anchor"]) else { return }
-                try reader.ask(action == "explain" ? .explain : .define, about: anchor, in: parent(), article: article)
-            case "ask":
-                guard let anchor = Self.anchor(message["anchor"]), let question = message["question"] as? String,
-                      !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            case .explain(let anchor):
+                guard !anchor.quote.isEmpty else { return }
+                try reader.ask(.explain, about: anchor, in: parent(), article: article)
+            case .define(let anchor):
+                guard !anchor.quote.isEmpty else { return }
+                try reader.ask(.define, about: anchor, in: parent(), article: article)
+            case .ask(let anchor, let question):
+                guard !anchor.quote.isEmpty, !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                 try reader.ask(.ask(question), about: anchor, in: parent(), article: article)
-            case "followup":
-                guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)),
-                      let question = message["question"] as? String else { return }
+            case .followup(let id, let question):
                 try reader.followUp(question, on: id, in: parent(), article: article)
-            case "continue":
-                guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
+            case .continue(let id):
                 if let session = try reader.continueInSession(id, article: article) { open(.session(session.id)) }
-            case "capture":
-                guard let text = message["text"] as? String else { return }
+            case .capture(let text):
                 let note = try store.add(text, section: Note.inbox, source: article.title, sourceURL: article.url.absoluteString)
                 messages.show("Saved to \(note.section)")
-            case "open":
-                guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)) else { return }
+            case .open(let id):
                 open(.note(id))
-            case "copy":
-                guard let id = (message["id"] as? String).flatMap(UUID.init(uuidString:)),
-                      let note = store.notes.first(where: { $0.id == id }) else { return }
+            case .copy(let id):
+                guard let note = store.notes.first(where: { $0.id == id }) else { return }
                 guard Clipboard.copy(note.text) else { throw PiperError("Cannot write to the clipboard.") }
                 messages.show("Copied")
-            case "link":
-                guard let url = (message["url"] as? String).flatMap(URL.init(string:)), url.isWeb else { return }
-                NSWorkspace.shared.open(url)
-            default:
-                break
             }
         } catch {
             messages.report(error)
         }
     }
+}
 
-    private static func anchor(_ value: Any?) -> NoteAnchor? {
-        guard let value = value as? [String: Any], let quote = value["quote"] as? String,
-              let block = value["block"] as? Int, let offset = value["offset"] as? Int, !quote.isEmpty else { return nil }
-        return NoteAnchor(quote: quote, block: block, offset: offset)
+/// An action of the selection bar or of a margin card. Both pages send these
+/// actions. See `MarkAction` in `web/src/bridge.ts`.
+enum ReaderAction: Decodable, Equatable {
+    case highlight(NoteAnchor, color: String)
+    case note(NoteAnchor, text: String)
+    case explain(NoteAnchor)
+    case define(NoteAnchor)
+    case ask(NoteAnchor, question: String)
+    case followup(id: UUID, question: String)
+    case `continue`(id: UUID)
+    case capture(text: String)
+    case open(id: UUID)
+    case copy(id: UUID)
+
+    private enum Key: String, CodingKey { case action, anchor, color, text, question, id }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: Key.self)
+        let anchor = { try values.decode(NoteAnchor.self, forKey: .anchor) }
+        let id = { try values.decode(UUID.self, forKey: .id) }
+        let string = { (key: Key) in try values.decode(String.self, forKey: key) }
+        let action = try string(.action)
+        switch action {
+        case "highlight": self = .highlight(try anchor(), color: try string(.color))
+        case "note": self = .note(try anchor(), text: try string(.text))
+        case "explain": self = .explain(try anchor())
+        case "define": self = .define(try anchor())
+        case "ask": self = .ask(try anchor(), question: try string(.question))
+        case "followup": self = .followup(id: try id(), question: try string(.question))
+        case "continue": self = .continue(id: try id())
+        case "capture": self = .capture(text: try string(.text))
+        case "open": self = .open(id: try id())
+        case "copy": self = .copy(id: try id())
+        default:
+            throw DecodingError.dataCorruptedError(forKey: .action, in: values, debugDescription: "Unknown action \(action).")
+        }
     }
 }
 
@@ -339,7 +347,6 @@ struct ReaderPageNote: Codable, Equatable {
     /// Where and when the reader made the note, such as "Safari · 9:41 AM".
     let origin: String
     let label: String
-    let tags: [String]
     let turns: [Turn]
     let pending: Bool
     let failure: String?
@@ -577,18 +584,50 @@ extension ArticleLoader: WKNavigationDelegate {
 
 // MARK: - Page
 
+/// A message of the reader page, `Resources/reader.html`.
+enum ReaderPageMessage: Decodable, Equatable {
+    case ready
+    /// A letter that the page does not use. The paper runs it.
+    case key(String)
+    /// The first block on the screen, and the part of the page above it.
+    case position(block: Int, progress: Double)
+    case link(URL)
+    case mark(ReaderAction)
+
+    private enum Key: String, CodingKey { case action, key, block, progress, url }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: Key.self)
+        switch try values.decode(String.self, forKey: .action) {
+        case "ready":
+            self = .ready
+        case "key":
+            self = .key(try values.decode(String.self, forKey: .key))
+        case "position":
+            self = .position(block: try values.decode(Int.self, forKey: .block), progress: try values.decode(Double.self, forKey: .progress))
+        case "link":
+            self = .link(try values.decode(URL.self, forKey: .url))
+        default:
+            self = .mark(try ReaderAction(from: decoder))
+        }
+    }
+}
+
 /// The reader page in a web view. Piper draws the article and the notes, and
 /// the page reports each action of the reader.
 struct ReaderPageView: NSViewRepresentable {
+    let messages: Messages
     let state: ArticleLoader.State
     let placeholder: ReaderPlaceholder
     let notes: [ReaderPageNote]
     let scroll: ReaderScroll?
-    let perform: ([String: Any]) -> Void
+    let perform: (ReaderAction) -> Void
+    /// Receives the first block on the screen and the part of the page above it, after a scroll.
+    var positioned: (Int, Double) -> Void = { _, _ in }
     /// Reports a scroll request that the page ran.
     let scrolled: (ReaderScroll) -> Void
-    /// Receives the web view, so that the arrow keys of the reader paper can scroll it.
-    let attach: (WKWebView) -> Void
+    /// Receives the bridge of the page, so that the reader paper can send keys to it and scroll it.
+    let attach: (WebPageBridge) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -597,20 +636,19 @@ struct ReaderPageView: NSViewRepresentable {
         configuration.userContentController.add(context.coordinator, name: "piper")
         configuration.websiteDataStore = .nonPersistent()
         let view = WKWebView(frame: .zero, configuration: configuration)
-        view.navigationDelegate = context.coordinator
         view.underPageBackgroundColor = PiperTheme.paperNS
         view.setAccessibilityLabel("Article")
-        context.coordinator.view = view
-        attach(view)
-        if let page = PiperTheme.resources.url(forResource: "reader", withExtension: "html") {
-            context.coordinator.page = page
-            view.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
-        }
+        let bridge = WebPageBridge(view: view, page: "reader", report: { [weak messages] in messages?.report($0) })
+        bridge.reloaded = { [weak coordinator = context.coordinator] in coordinator?.reload() }
+        context.coordinator.bridge = bridge
+        attach(bridge)
+        bridge.load()
         return view
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
         context.coordinator.perform = perform
+        context.coordinator.positioned = positioned
         context.coordinator.scrolled = scrolled
         context.coordinator.placeholder = placeholder
         context.coordinator.show(state, notes: notes, scroll: scroll)
@@ -622,84 +660,67 @@ struct ReaderPageView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
-        weak var view: WKWebView?
-        var page: URL?
-        var perform: ([String: Any]) -> Void = { _ in }
+    final class Coordinator: NSObject, WKScriptMessageHandler {
+        var bridge: WebPageBridge?
+        var perform: (ReaderAction) -> Void = { _ in }
+        var positioned: (Int, Double) -> Void = { _, _ in }
         var scrolled: (ReaderScroll) -> Void = { _ in }
         var placeholder = ReaderPlaceholder(site: "", title: nil)
-        private var ready = false
         private var shownState: ArticleLoader.State?
         private var shownNotes: [ReaderPageNote]?
         private var shownScroll: ReaderScroll?
-        private var wanted: (ArticleLoader.State, [ReaderPageNote], ReaderScroll?)?
+        private var last: (state: ArticleLoader.State, notes: [ReaderPageNote], scroll: ReaderScroll?)?
 
         func show(_ state: ArticleLoader.State, notes: [ReaderPageNote], scroll: ReaderScroll?) {
-            wanted = (state, notes, scroll)
-            guard ready, let view else { return }
+            last = (state, notes, scroll)
+            guard let bridge else { return }
             if state != shownState {
                 shownState = state
                 shownNotes = nil
                 switch state {
                 case .loading:
-                    call(view, "loading", placeholder)
+                    bridge.call("loading", placeholder)
                 case .failed(let reason):
-                    call(view, "message", [String(localized: "Cannot Read Article"), reason])
+                    bridge.call("message", String(localized: "Cannot Read Article"), reason)
                 case .loaded(let article):
-                    call(view, "render", article)
+                    bridge.call("render", article)
                 }
             }
             guard case .loaded = state else { return }
             if notes != shownNotes {
                 shownNotes = notes
-                call(view, "setNotes", notes)
+                bridge.call("setNotes", notes)
             }
             if let scroll, scroll != shownScroll {
                 shownScroll = scroll
-                if let note = scroll.note { call(view, "scrollTo", note.uuidString) }
-                else { call(view, "scrollToBlock", scroll.block ?? 0) }
+                if let note = scroll.note { bridge.call("scrollTo", note.uuidString) }
+                else { bridge.call("scrollToBlock", scroll.block ?? 0) }
                 scrolled(scroll)
             }
         }
 
-        private func call(_ view: WKWebView, _ function: String, _ value: some Encodable) {
-            guard let data = try? JSONEncoder().encode(value) else { return }
-            let argument = String(decoding: data, as: UTF8.self)
-            let script = function == "message"
-                ? "window.piper.message(...\(argument))"
-                : "window.piper.\(function)(\(argument))"
-            view.evaluateJavaScript(script)
-        }
-
-        func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.frameInfo.isMainFrame, message.frameInfo.request.url == page,
-                  let body = message.body as? [String: Any] else { return }
-            if body["action"] as? String == "key", let key = body["key"] as? String {
-                (view?.window as? PaperWindow)?.perform(CommandKey(key, []))
-            } else if body["action"] as? String == "ready" {
-                ready = true
-                shownState = nil
-                if let wanted { show(wanted.0, notes: wanted.1, scroll: wanted.2) }
-            } else {
-                perform(body)
-            }
-        }
-
-        /// A crash of the web content process leaves a blank view. The page
-        /// loads again and draws the article when it reports that it is ready.
-        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-            ready = false
+        /// Shows the last state again on a page that loaded again.
+        func reload() {
             shownState = nil
             shownNotes = nil
             shownScroll = nil
-            guard let page else { return }
-            webView.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
+            if let last { show(last.state, notes: last.notes, scroll: last.scroll) }
         }
 
-        /// The page is local. Nothing navigates away from it.
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            decisionHandler(navigationAction.request.url == page ? .allow : .cancel)
+        func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard let bridge, let decoded: ReaderPageMessage = bridge.decode(message) else { return }
+            switch decoded {
+            case .ready:
+                bridge.pageReady()
+            case .key(let key):
+                (bridge.view?.window as? PaperWindow)?.perform(CommandKey(key, []))
+            case .position(let block, let progress):
+                positioned(block, progress)
+            case .link(let url):
+                if url.isWeb { NSWorkspace.shared.open(url) }
+            case .mark(let action):
+                perform(action)
+            }
         }
     }
 }
