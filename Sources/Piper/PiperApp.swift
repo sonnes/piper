@@ -142,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         switch menuItem.representedObject as? Command {
         case .find:
             let window = model.files.loadedEditorPage?.webView.window
-            return window != nil && window === PaperKey.focusedWindow
+            return window != nil && window === PaperWindow.focusedWindow
         case .markAllAsRead:
             if case .feed = desk.paper.state.scope { return true }
             return false
@@ -210,10 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     /// Opens the command palette over the paper with the keyboard focus, or over the feed paper.
     private func showPalette() {
-        let key = NSApp.keyWindow
-        if !(key?.windowController is FeedPaperController || key?.windowController is ReaderPaperController) {
-            showLibrary()
-        }
+        if !(NSApp.keyWindow is PaperWindow) { showLibrary() }
         guard let window = NSApp.keyWindow ?? desk.feedWindow else { return }
         if palette == nil { palette = CommandPaletteController(library: model.library, files: model.files) }
         palette?.toggle(over: window, commands: paletteCommands) { [weak self] path in

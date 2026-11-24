@@ -132,9 +132,8 @@ final class FeedPaperModel {
     @ObservationIgnored var tidy: () -> Void = {}
     /// The height of the paper as it shows, for the rule that shortens the folder tabs.
     var paperHeight = FeedPaperController.Metrics.feedSize.height
-    /// The keys of the list that shows: Up Arrow, Down Arrow, and Return.
-    /// A list of captures reads its keys itself and sets none.
-    @ObservationIgnored var listKeys: ListKeys?
+    /// The keys of the list that shows. The list sets them, and a move to another scope clears them.
+    var listKeys: [PaperKey] = []
     @ObservationIgnored private let defaults: UserDefaults
 
     // MARK: - Initialization
@@ -240,14 +239,6 @@ final class FeedPaperModel {
 
     // MARK: - Keyboard
 
-    /// The keys of a list that is not a list of captures.
-    struct ListKeys {
-        let move: (Int) -> Void
-        let open: () -> Void
-        /// A letter key, such as K to keep an article. Returns true when the list used it.
-        var letter: (Character) -> Bool = { _ in false }
-    }
-
     /// The rows of the index of the active tab that the keyboard can pick.
     var indexEntries: [IndexEntry] {
         IndexEntry.entries(tab: state.tab, sections: model.store.sections, feeds: model.feeds.feeds.map(\.id),
@@ -261,7 +252,7 @@ final class FeedPaperModel {
 
     /// Moves the cursor of the index by one row.
     func moveIndexCursor(_ delta: Int) {
-        indexCursor = IndexEntry.move(indexCursor, by: delta, in: indexEntries)
+        indexCursor = indexEntries.step(from: indexCursor, by: delta)
     }
 
     /// Picks the row under the cursor of the index.
@@ -389,7 +380,7 @@ final class FeedPaperModel {
         let old = state.scope
         if old != scope {
             selectedArticle = nil
-            listKeys = nil
+            listKeys = []
             today.query = ""
             today.clearSelection()
         }

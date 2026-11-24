@@ -1,4 +1,5 @@
 import AppKit
+import Feeds
 import SwiftUI
 import WebKit
 
@@ -34,7 +35,6 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     private let viewController: ReaderPaperViewController
     private var shown = false
     private var closing = false
-    private var keyMonitor: Any?
 
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
@@ -51,7 +51,7 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
         window.title = "Paper"
         super.init(window: window)
         window.delegate = self
-        window.escape = { [weak window] in window?.performClose(nil) }
+        window.keys = { [weak self] in self?.keys ?? [] }
         window.contentViewController = viewController
         window.setPaperFrame(frame, display: false)
         window.focusChanged = { [weak self, weak viewController] focused in
@@ -60,11 +60,6 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
             self.focusChanged(self, focused)
         }
         refresh()
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, let key = PaperKey(event), self.handle(key, in: event.window) else { return event }
-            return nil
-        }
-        NotificationCenter.default.addObserver(self, selector: #selector(pageKey(_:)), name: .readerPageKey, object: window)
     }
 
     @available(*, unavailable)
@@ -123,49 +118,34 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Keyboard
 
-    /// Reads a key on the paper with the focus. Up Arrow and Down Arrow
-    /// scroll an article. H highlights the selected text of an article and N
-    /// adds a note to it. An article of a feed takes K and B as its row on
-    /// the list does. T tidies the desk.
-    ///
-    /// - Returns: True when the paper used the key.
-    func handle(_ key: PaperKey, in eventWindow: NSWindow?) -> Bool {
-        guard let window, PaperKey.focusedWindow === window, eventWindow === window,
-              !PaperKey.editsText(window) else { return false }
-        // A reader page with the focus reads its own keys, and sends back the letters that it does not use.
-        if let responder = window.firstResponder as? NSView, responder is WKWebView || responder.enclosingWebView != nil {
-            return false
-        }
-        return perform(key, in: window)
+    /// The keys of the paper. The arrows scroll the Reader tab. H highlights
+    /// the selected text and N adds a note to it. An article of a feed takes
+    /// K and B as its row on the list does. While the reader page has the
+    /// focus, the page reads its own keys and sends back the letters that it
+    /// does not use.
+    var keys: [PaperKey] {
+        let reader = { [weak self] in self?.readerPage }
+        let page = { reader() != nil }
+        return [
+            PaperKey(key: .up, title: "scroll", isOn: page) { reader()?.scroll(by: -1) },
+            PaperKey(key: .down, title: "scroll", isOn: page) { reader()?.scroll(by: 1) },
+            PaperKey(key: CommandKey("h", []), title: "highlight", isOn: page) { reader()?.send("h") },
+            PaperKey(key: CommandKey("n", []), title: "note", isOn: page) { reader()?.send("n") }
+        ] + PaperKey.articleKeys(model: model) { [weak self] in self?.article } + [
+            PaperKey(key: .escape, title: "put back") { [weak self] in self?.window?.performClose(nil) },
+            .tidy { [weak self] in self?.tidy() }
+        ]
     }
 
-    @objc private func pageKey(_ notification: Notification) {
-        guard let window, let name = notification.userInfo?["key"] as? String, let character = name.first,
-              let key = PaperKey(keyCode: 0, characters: String(character), shift: false) else { return }
-        _ = perform(key, in: window)
+    /// The feed article of the paper.
+    private var article: Article? {
+        guard case .article(let id) = item else { return nil }
+        return model.feeds.article(id)
     }
 
-    private func perform(_ key: PaperKey, in window: NSWindow) -> Bool {
-        switch key {
-        case .up, .down:
-            return model.scrollReader(down: key == .down, in: window)
-        case .letter("t"):
-            tidy()
-            return true
-        case .letter("h"), .letter("n"):
-            return model.sendReaderKey(key == .letter("h") ? "h" : "n", in: window)
-        case .letter(let character):
-            guard case .article(let id) = item, let article = model.feeds.article(id) else { return false }
-            return model.articleKey(character, on: article)
-        default:
-            return false
-        }
-    }
-
-    /// Stops reading keys, after the paper closes.
-    func stopKeys() {
-        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
-        keyMonitor = nil
+    /// The page of the Reader tab of the paper, while that tab shows.
+    private var readerPage: ReaderPage? {
+        model.readerPages.allObjects.first { $0.window === window }.map(ReaderPage.init)
     }
 
     // MARK: - NSWindowDelegate
@@ -200,7 +180,6 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        stopKeys()
         delegate?.readerPaperWillClose(self)
     }
 
@@ -215,6 +194,22 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
             },
             close: { [weak self] in self?.window?.performClose(nil) }
         ).environment(\.paperDesk, desk))
+    }
+}
+
+/// The reader page of a paper, for the keys that the paper sends to it.
+@MainActor
+private struct ReaderPage {
+    let view: WKWebView
+
+    /// H highlights the selected text, and N highlights it and opens its note.
+    func send(_ key: String) {
+        view.evaluateJavaScript("window.piperKey && window.piperKey('\(key)')")
+    }
+
+    /// Scrolls the page by one arrow step, down for 1 and up for -1.
+    func scroll(by steps: Int) {
+        view.evaluateJavaScript("window.scrollBy(0, \(ArticleReader.Metrics.arrowScrollStep * CGFloat(steps)))")
     }
 }
 
@@ -371,16 +366,4 @@ final class PaperLayout {
 
     var cardBottomInset: CGFloat { stacksControls ? TabIslandMetrics.clearance : 0 }
     var tabsTrailingInset: CGFloat { stacksControls ? 0 : SessionCard.Metrics.width + SessionCard.Metrics.margin }
-}
-
-private extension NSView {
-    /// The web view that holds this view, if any.
-    var enclosingWebView: WKWebView? {
-        var view = superview
-        while let current = view {
-            if let web = current as? WKWebView { return web }
-            view = current.superview
-        }
-        return nil
-    }
 }

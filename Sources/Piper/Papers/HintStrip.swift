@@ -1,7 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// The keys of the paper with the focus, in a strip at the bottom of the screen.
+/// The keys of the paper with the focus, in a strip at the bottom of the
+/// screen: the key table of its window, then New Capture on the feed paper
+/// and Next Paper while a reader paper is open.
 ///
 /// The strip is a panel that never takes the focus or a click. It shows while
 /// a paper has the focus, so it leaves when Piper is not the active app.
@@ -21,7 +23,7 @@ final class HintStrip {
         panel.level = .floating
         panel.hidesOnDeactivate = !QA.isOn
         panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
-        let hosting = NSHostingView(rootView: HintStripView(paper: paper, marks: paper.marks))
+        let hosting = NSHostingView(rootView: HintStripView(marks: paper.marks))
         hosting.sizingOptions = []
         panel.contentView = hosting
     }
@@ -56,58 +58,45 @@ struct Hint: Equatable {
     let keys: [String]
     let label: String
 
-    /// The hints of the paper with the focus.
-    ///
-    /// - Parameters:
-    ///   - index: True while the feed paper shows the index of its tab.
-    ///   - tree: True while the feed paper shows the folder tree.
-    ///   - today: True while the feed paper shows Today, which takes the verb keys and the lens numbers.
-    ///   - paper: The item of the reader paper with the focus, or nil for the feed paper.
-    ///   - article: True when that paper shows an article, which takes H and N.
-    ///   - papersOpen: True while a reader paper is open.
-    ///   - tabs: The number of tabs in the column.
-    static func hints(index: Bool, tree: Bool = false, today: Bool = false, paper: PaperItem?, article: Bool,
-                      papersOpen: Bool, tabs: Int) -> [Hint] {
-        let tabKeys = "⌘1–\(min(tabs, 9))"
-        if let paper {
-            var keep: [Hint] = []
-            if case .article = paper { keep = [Hint(keys: ["K"], label: "keep")] }
-            return keep + (article ? [Hint(keys: ["H"], label: "highlight"), Hint(keys: ["N"], label: "note")] : [])
-                + [Hint(keys: ["⌘`"], label: "next paper"), Hint(keys: ["esc"], label: "put back"), Hint(keys: ["T"], label: "tidy")]
+    /// The hints of a key table: one hint for each title of the keys that
+    /// are on, in the order of the table. A run of number keys shows as a
+    /// range, such as "1–4".
+    @MainActor static func hints(_ table: [PaperKey]) -> [Hint] {
+        var titles: [String] = []
+        var glyphs: [String: [String]] = [:]
+        for key in table where key.isOn() {
+            if glyphs[key.title] == nil { titles.append(key.title) }
+            if glyphs[key.title, default: []].contains(key.key.glyph) { continue }
+            glyphs[key.title, default: []].append(key.key.glyph)
         }
-        if tree {
-            return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["→"], label: "open folder"),
-                    Hint(keys: ["←"], label: "close folder"), Hint(keys: ["↵"], label: "open file"),
-                    Hint(keys: [tabKeys], label: "tab")]
-                + (papersOpen ? [Hint(keys: ["⌘`"], label: "next paper")] : [])
+        return titles.map { Hint(keys: range(glyphs[$0] ?? []), label: $0) }
+    }
+
+    /// The hint of an app command, such as "⌘` next paper".
+    static func hint(_ command: Command) -> Hint {
+        Hint(keys: [command.key?.glyph ?? ""], label: command.title.lowercased())
+    }
+
+    /// Three or more keys that differ only in a last digit that counts up, as one range.
+    private static func range(_ glyphs: [String]) -> [String] {
+        guard glyphs.count > 2, let first = glyphs.first, let last = glyphs.last,
+              let start = first.last?.wholeNumberValue, let end = last.last?.wholeNumberValue else { return glyphs }
+        let prefix = first.dropLast()
+        let counted = glyphs.enumerated().allSatisfy { offset, glyph in
+            glyph.dropLast() == prefix && glyph.last?.wholeNumberValue == start + offset
         }
-        if index {
-            return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["↵"], label: "pick"),
-                    Hint(keys: [tabKeys], label: "tab"), Hint(keys: ["esc"], label: "back to the list")]
-        }
-        if today {
-            return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["↵"], label: "open as a paper"),
-                    Hint(keys: ["K"], label: "keep"), Hint(keys: ["E"], label: "done"), Hint(keys: ["F"], label: "file"),
-                    Hint(keys: ["S"], label: "send"), Hint(keys: ["1–4"], label: "lens"), Hint(keys: ["⌘N"], label: "write")]
-                + (papersOpen ? [Hint(keys: ["⌘`"], label: "next paper")] : [])
-        }
-        return [Hint(keys: ["↑", "↓"], label: "move"), Hint(keys: ["↵"], label: "open as a paper"),
-                Hint(keys: ["⌘N"], label: "write"), Hint(keys: [tabKeys], label: "tab"), Hint(keys: ["←"], label: "index")]
-            + (papersOpen ? [Hint(keys: ["⌘`"], label: "next paper")] : [])
+        return counted ? ["\(first)–\(end)"] : glyphs
     }
 }
 
 private struct HintStripView: View {
-    let paper: FeedPaperModel
     let marks: DeskMarks
 
     var body: some View {
-        let focused = marks.focusedPaper
-        let hints = Hint.hints(index: paper.showsIndex && focused == nil,
-                               tree: paper.state.tab.isFolder && !paper.showsIndex && focused == nil,
-                               today: paper.state.scope.showsCaptures && !paper.showsIndex, paper: focused,
-                               article: focused.map { $0.isArticle(in: paper.model) } ?? false,
-                               papersOpen: !marks.open.isEmpty, tabs: paper.tabs.count)
+        let feed = marks.feedFocused && marks.focusedPaper == nil
+        let table = (PaperWindow.focusedWindow as? PaperWindow)?.keys() ?? []
+        let commands: [Command] = (feed ? [.newCapture] : []) + (marks.open.isEmpty ? [] : [.nextPaper])
+        let hints = Hint.hints(table) + commands.map(Hint.hint)
         HStack(spacing: 20) {
             ForEach(hints, id: \.label) { hint in
                 HStack(spacing: 7) {

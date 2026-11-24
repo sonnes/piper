@@ -78,7 +78,7 @@ final class QAScripts: NSObject {
             NSApp.appearance = rest == "dark" ? NSAppearance(named: .darkAqua) : rest == "light" ? NSAppearance(named: .aqua) : nil
         case "shot": result = shot(rest)
         case "reader":
-            guard let window = PaperKey.focusedWindow,
+            guard let window = PaperWindow.focusedWindow,
                   let page = model.readerPages.allObjects.first(where: { $0.window === window }) else {
                 result = "error\nNo reader page has the focus."
                 break
@@ -99,25 +99,20 @@ final class QAScripts: NSObject {
         try? result.write(toFile: path, atomically: true, encoding: .utf8)
     }
 
-    /// Sends a key down to the paper with the focus. The papers read their
-    /// keys in local monitors, which see each event that the app takes in.
+    /// Sends a key to the paper with the focus, as if the reader pressed it.
+    /// The name is up, down, left, right, enter, space, esc, or a letter.
     private func key(_ name: String) -> String {
-        guard let window = PaperKey.focusedWindow else { return "error\nNo paper has the focus." }
-        if name == "esc" {
-            window.cancelOperation(nil)
-            return "ok"
-        }
-        let codes: [String: (UInt16, String)] = [
-            "up": (PaperKey.Code.up, "\u{F700}"), "down": (PaperKey.Code.down, "\u{F701}"), "left": (PaperKey.Code.left, "\u{F702}"),
-            "right": (PaperKey.Code.right, "\u{F703}"), "enter": (PaperKey.Code.enter, "\r"), "space": (PaperKey.Code.space, " ")
+        guard let window = PaperWindow.focusedWindow else { return "error\nNo paper has the focus." }
+        let named: [String: CommandKey] = [
+            "up": .up, "down": .down, "left": .left, "right": .right, "enter": .enter, "space": .space, "esc": .escape
         ]
-        let (code, characters) = codes[name] ?? (0, name)
+        let key = named[name] ?? CommandKey(name, [])
         guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                                           windowNumber: window.windowNumber, context: nil, characters: characters,
-                                           charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code) else {
+                                           windowNumber: window.windowNumber, context: nil, characters: key.character,
+                                           charactersIgnoringModifiers: key.character, isARepeat: false, keyCode: 0) else {
             return "error\nNo event."
         }
-        NSApp.postEvent(event, atStart: false)
+        window.sendEvent(event)
         return "ok"
     }
 

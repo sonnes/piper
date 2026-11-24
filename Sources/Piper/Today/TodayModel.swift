@@ -152,10 +152,7 @@ final class TodayModel {
 
     /// Up Arrow and Down Arrow. Shift adds the next row to the selection.
     func move(_ delta: Int, extending: Bool, in order: [StreamItem.Ref]) {
-        guard !order.isEmpty else { return }
-        let current = anchor.flatMap { order.firstIndex(of: $0) }
-        let next = max(0, min(order.count - 1, (current ?? (delta > 0 ? -1 : order.count)) + delta))
-        let ref = order[next]
+        guard let ref = order.step(from: anchor, by: delta) else { return }
         if extending {
             selection.insert(ref)
             multiple = true
@@ -342,13 +339,23 @@ final class TodayModel {
         }
     }
 
-    /// Deletes the captures, with Undo. An article becomes read, and a
-    /// clipboard text leaves the tray.
+    /// True for a row that Delete removes: a capture or a clipboard text.
+    /// An article and a digest have no Delete.
+    static func canDelete(_ ref: StreamItem.Ref) -> Bool {
+        switch ref {
+        case .note, .clip: return true
+        case .article, .digest: return false
+        }
+    }
+
+    /// Deletes the captures, with Undo, and takes the clipboard texts out of
+    /// the tray. Articles and digests stay as they are.
     func delete(_ items: [StreamItem]) {
+        let items = items.filter { Self.canDelete($0.id) }
+        guard !items.isEmpty else { return }
         undoManager.beginUndoGrouping()
         defer { undoManager.endUndoGrouping() }
         do { try store.delete(items.compactMap(\.note).map(\.id)) } catch { return messages.report(error) }
-        markRead(items)
         dismissClips(items.compactMap(\.clip).map(\.id))
         selection.subtract(items.map(\.id))
         offerUndo("Deleted \(Self.count(items.count))")

@@ -138,13 +138,29 @@ If a paper of the item is open, the desk brings it to the front. If not, `PaperD
 
 ### Paper Keys
 
-`PaperKey` turns a key event with no modifier into a paper key: an arrow, Return, a number, a bracket, or a letter. `FeedPaperController` and each `ReaderPaperController` have a local key monitor. A monitor acts only when its window is `PaperKey.focusedWindow` and `PaperKey.editsText` is false. A text view or a sheet keeps its keys.
+Each paper has a key table: an array of `PaperKey`. A paper key has a `CommandKey`, a title, an `isOn` closure, and a `run` closure. `FeedPaperController.keys` and `ReaderPaperController.keys` build the table each time that a key comes, so each `isOn` reads the current state. `PaperWindow` gets the table from its `keys` closure.
 
-- The feed paper reads Command and a number for the tabs, Left Arrow, the brackets, and T. It gives the numbers of Today and Feeds to their menu commands. On the index, the arrows move `FeedPaperModel.indexCursor` over `IndexEntry.entries`, and Return picks the row.
-- A list of articles, files, or sessions sets `FeedPaperModel.listKeys` for its arrows, Return, and letters. Today reads its own keys in `TodayView`. `FeedPaperController` reads Command and a number first, for the tabs, so the plain digits stay free for the lenses.
-- A reader paper scrolls the Reader tab with the arrows, sends H and N to the reader page, and gives K and B to `AppModel.articleKey`. While the reader page has the focus, the page reads its own keys. It posts each letter that it does not use, and the paper performs it.
+The keys travel through the AppKit responder chain:
 
-`HintStrip` is a non-activating panel at the bottom of the screen. `Hint.hints` gives the keys for the paper with the focus, and the desk updates the strip when the focus changes.
+- A plain key goes first to the view with the focus. A key that no view takes comes to `PaperWindow.keyDown`.
+- A key with Command comes first to `PaperWindow.performKeyEquivalent`, before the menus.
+- The window runs the first key of the table that matches and is on. While `PaperWindow.editsText` is true, only a key with `inText` runs. `editsText` is true while a text view, a web page, or a sheet has the focus.
+- Escape that no view takes comes to `PaperWindow.cancelOperation`, which runs the Escape key of the table.
+
+The feed paper table holds these keys, in this order:
+
+1. The index keys, while the index shows. Escape on the index shows the list.
+2. The folder tree keys, while a folder tab shows.
+3. The keys of the list that shows. Each list sets `FeedPaperModel.listKeys`: `TodayView`, `FeedArticleList`, and `SessionList`. A move to another scope clears them. The Today keys include the verb keys, the lens keys from `UnifiedStream.Lens.allCases`, Escape for the selection and then for the search, and the Command keys of Today.
+4. Left Arrow for the index, the brackets, T, and Command and the number of each tab that no `Command` numbers.
+
+The capture field and the search field of Today take their own keys. The capture field reads them in `textView(_:doCommandBy:)` of `CaptureEditor`, and the search field reads Escape with `onExitCommand`.
+
+The reader paper table scrolls the Reader tab with the arrows, sends H and N to the reader page, takes K and B from `PaperKey.articleKeys`, and closes the paper with Escape. Both tables use `PaperKey.tidy` for T. While the reader page has the focus, the page reads its own keys. It sends each letter that it does not use in a `key` message, and `PaperWindow.perform` runs the letter from the table.
+
+`Array.step(from:by:)` moves a cursor by an arrow key in each list and in the index.
+
+`HintStrip` is a non-activating panel at the bottom of the screen. `Hint.hints` makes one hint for each title of the keys that are on in the table of the focused window. The strip adds New Capture on the feed paper and Next Paper while a reader paper is open. The desk updates the strip when the focus changes.
 
 ## Capture
 
@@ -403,7 +419,7 @@ A debug build that starts with `-PiperQA YES` is in QA mode. A test uses QA mode
 
 - `QA.activate` replaces `NSApp.activate`, so Piper never becomes the active app.
 - `QAScripts` runs JavaScript in the editor page. A test posts the distributed notification `com.piper.qa.eval` with the body of an async function. Piper writes the result to the file that `-PiperQAResult` names.
-- The distributed notification `com.piper.qa.do` runs one command on the papers: `capture`, `key`, `focus`, `open`, `reader`, `appearance`, or `shot`. The `key` command posts a key event, which the local key monitors read. The `shot` command draws the feed paper window into a PNG file, which works while the screen is locked. See `QAScripts` for the syntax.
+- The distributed notification `com.piper.qa.do` runs one command on the papers: `capture`, `key`, `focus`, `open`, `reader`, `appearance`, or `shot`. The `key` command sends a key event to the paper window with the focus. The `shot` command draws the feed paper window into a PNG file, which works while the screen is locked. See `QAScripts` for the syntax.
 - In QA mode, `PaperKey.focusedWindow` is the paper that QA gave the focus, because Piper has no key window while it is not active.
 
 macOS sends keys only to the active app. Thus a test in QA mode inserts text with a script, not with keys. A release build has no QA mode.

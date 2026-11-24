@@ -53,7 +53,7 @@ These shortcuts work in Today on the feed paper when no sheet is open. The lette
 | Command-Shift-Return | Prepare a draft for each selected row in the default folder |
 | Command-Z | Undo the last change, such as Done, Delete, File, or a note change. Press it again to undo the change before it. |
 | Shift-Command-Z | Redo the change that Command-Z undid |
-| Delete / Forward Delete | Delete the selected notes, with Undo |
+| Delete / Forward Delete | Delete the selected notes and clipboard texts, with Undo. Delete does nothing on an article. |
 | Escape | Clear the selection, then clear the search |
 
 When the capture field shows the skill list, Up and Down move the highlight. Tab puts the skill in the field. Return does the same, or runs a skill that takes no argument. Escape clears the command.

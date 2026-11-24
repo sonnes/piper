@@ -33,10 +33,17 @@ final class CommandTests: XCTestCase {
 
     /// The feed paper leaves Command-1 to the menu, so Command-1 shows Today from every paper.
     func testCommandOneIsTodayAndCommandKIsGoToFile() throws {
-        XCTAssertEqual(Command.matching(try event("1", [.command])), .today)
-        XCTAssertEqual(Command.matching(try event("k", [.command])), .goToFile)
-        XCTAssertEqual(Command.matching(try event("K", [.shift, .command])), .markAllAsRead)
-        XCTAssertNil(Command.matching(try event("3", [.command])))
+        XCTAssertEqual(command(for: try event("1", [.command])), .today)
+        XCTAssertEqual(command(for: try event("k", [.command])), .goToFile)
+        XCTAssertEqual(command(for: try event("K", [.shift, .command])), .markAllAsRead)
+        XCTAssertNil(command(for: try event("3", [.command])))
+    }
+
+    func testKeypadEnterIsReturnAndForwardDeleteIsDelete() throws {
+        XCTAssertTrue(CommandKey.enter.matches(try event("\u{3}", [])))
+        XCTAssertTrue(CommandKey.delete.matches(try event("\u{F728}", [])))
+        XCTAssertFalse(CommandKey.enter.matches(try event("\r", [.shift])))
+        XCTAssertEqual(CommandKey.up.shifted.glyph, "⇧↑")
     }
 
     func testEveryCommandIsInAMenuOrInThePaletteOrInAView() {
@@ -47,6 +54,10 @@ final class CommandTests: XCTestCase {
         XCTAssertTrue(Command.find.isInPalette)
         XCTAssertFalse(Command.copy.isInPalette)
         XCTAssertEqual(Command.markAllAsRead.menu, .file)
+    }
+
+    private func command(for event: NSEvent) -> Command? {
+        Command.allCases.first { $0.key?.matches(event) == true }
     }
 
     private func event(_ characters: String, _ modifiers: NSEvent.ModifierFlags) throws -> NSEvent {

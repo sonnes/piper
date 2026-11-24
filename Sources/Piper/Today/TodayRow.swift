@@ -318,7 +318,7 @@ struct TodayMenu: View {
             }
         }
         if let stop = verbs.stopSession { Button("Stop Session", action: stop) }
-        if item.kind != .article && item.kind != .digest {
+        if TodayModel.canDelete(item.id) {
             Divider()
             Button("Delete", role: .destructive, action: verbs.delete)
         }

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import WebKit
 
 /// A paper window: frameless, with round corners, and moved by its background.
 ///
@@ -8,12 +9,17 @@ import SwiftUI
 /// card shadow of the September Write paper, so the window is larger than its
 /// paper by `PaperWindow.Metrics.shadowMargin`. `paperFrame` is the frame of
 /// the paper. A band on each edge and corner of the paper resizes it, with
-/// the resize pointers of macOS. Escape calls `escape`.
+/// the resize pointers of macOS.
+///
+/// The window runs the keys of its paper from `keys`, after the views of the
+/// responder chain pass a key on. A key with Command comes first to the
+/// window, before the menus.
 final class PaperWindow: NSWindow {
 
     // MARK: - Properties
 
-    var escape: () -> Void = {}
+    /// The key table of the paper. The controller of the window sets it.
+    var keys: () -> [PaperKey] = { [] }
     /// Called when the window becomes key or stops being key.
     var focusChanged: (Bool) -> Void = { _ in }
     /// True while the window is the key window. A paper with the focus lies
@@ -59,6 +65,31 @@ final class PaperWindow: NSWindow {
 
     func setPaperFrame(_ rect: NSRect, display: Bool, animate: Bool = false) {
         setFrame(Self.windowFrame(of: rect), display: display, animate: animate)
+    }
+
+    /// The window that has the keyboard focus. In QA mode no window is key,
+    /// so the paper that has the focus stands in for it.
+    @MainActor static var focusedWindow: NSWindow? {
+        if let window = NSApp.keyWindow { return window }
+        guard QA.isOn else { return nil }
+        return NSApp.windows.first { ($0 as? PaperWindow)?.isFocused == true }
+    }
+
+    /// True while a text view, a web page, or a sheet has the keys. Then
+    /// only the paper keys that work in text run.
+    var editsText: Bool {
+        if attachedSheet != nil || firstResponder is NSTextView { return true }
+        guard let view = firstResponder as? NSView else { return false }
+        return view is WKWebView || view.enclosingWebView != nil
+    }
+
+    /// Runs the paper key that matches `key` and is on, wherever the focus is.
+    /// The reader page sends the letters that it does not use here.
+    ///
+    /// - Returns: True when a paper key ran.
+    @discardableResult
+    func perform(_ key: CommandKey) -> Bool {
+        run { $0.key == key }
     }
 
     /// The smallest size of the paper.
@@ -118,8 +149,19 @@ final class PaperWindow: NSWindow {
         setFocused(true)
     }
 
+    override func keyDown(with event: NSEvent) {
+        let text = editsText
+        if !run(where: { $0.key.matches(event) && (!text || $0.inText) }) { super.keyDown(with: event) }
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let text = editsText
+        if event.modifierFlags.contains(.command), run(where: { $0.key.matches(event) && (!text || $0.inText) }) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+
     override func cancelOperation(_ sender: Any?) {
-        escape()
+        perform(.escape)
     }
 
     /// Fills the visible frame of the screen with the paper, or puts the
@@ -139,6 +181,12 @@ final class PaperWindow: NSWindow {
 
     // MARK: - Private
 
+    private func run(where matches: (PaperKey) -> Bool) -> Bool {
+        guard let key = keys().first(where: { matches($0) && $0.isOn() }) else { return false }
+        key.run()
+        return true
+    }
+
     private static func windowSize(_ paper: NSSize) -> NSSize {
         windowFrame(of: NSRect(origin: .zero, size: paper)).size
     }
@@ -156,6 +204,18 @@ final class PaperWindow: NSWindow {
         grips.frame = frameView.bounds
         grips.autoresizingMask = [.width, .height]
         frameView.addSubview(grips, positioned: .above, relativeTo: nil)
+    }
+}
+
+private extension NSView {
+    /// The web view that holds this view, if any.
+    var enclosingWebView: WKWebView? {
+        var view = superview
+        while let current = view {
+            if let web = current as? WKWebView { return web }
+            view = current.superview
+        }
+        return nil
     }
 }
 

@@ -15,7 +15,7 @@ struct FeedArticleList: View {
     var openPaper: (Article) -> Void = { _ in }
 
     /// Sets the keys of the list on the feed paper.
-    var setKeys: (FeedPaperModel.ListKeys?) -> Void = { _ in }
+    var setKeys: ([PaperKey]) -> Void = { _ in }
 
     @State private var articles: [Article] = []
     @State private var scrollTarget: String?
@@ -109,32 +109,31 @@ struct FeedArticleList: View {
     }
 
     /// The keys of the list: the arrows move the selection, Return opens the
-    /// article as a paper, Space opens the next unread article, and the
-    /// letters act on the selected article.
-    private var keys: FeedPaperModel.ListKeys {
-        FeedPaperModel.ListKeys(
-            move: { delta in
-                let current = articles.firstIndex { $0.id == selectedID }
-                let next = max(0, min(articles.count - 1, (current ?? (delta > 0 ? -1 : articles.count)) + delta))
-                guard articles.indices.contains(next) else { return }
-                open(articles[next])
-                scrollTarget = articles[next].id
-            },
-            open: {
+    /// article as a paper, Space opens the next unread article, and K and B
+    /// act on the selected article.
+    private var keys: [PaperKey] {
+        let selected = selected
+        return [
+            PaperKey(key: .up, title: "move") { move(-1) },
+            PaperKey(key: .down, title: "move") { move(1) },
+            PaperKey(key: .enter, title: "open as a paper", isOn: { selected != nil }) {
                 if let selected { openPaper(selected) }
             },
-            letter: { key in
-                if key == " " {
-                    let start = articles.firstIndex { $0.id == selectedID }.map { $0 + 1 } ?? 0
-                    guard start <= articles.count, let next = articles[start...].first(where: { !$0.read }) else { return true }
-                    open(next)
-                    openPaper(next)
-                    scrollTarget = next.id
-                    return true
-                }
-                guard let selected else { return false }
-                return model.articleKey(key, on: selected)
-            })
+            PaperKey(key: .space, title: "next unread") {
+                let start = articles.firstIndex { $0.id == selectedID }.map { $0 + 1 } ?? 0
+                guard start <= articles.count, let next = articles[start...].first(where: { !$0.read }) else { return }
+                open(next)
+                openPaper(next)
+                scrollTarget = next.id
+            }
+        ] + PaperKey.articleKeys(model: model) { selected }
+    }
+
+    private func move(_ delta: Int) {
+        guard let id = articles.map(\.id).step(from: selectedID, by: delta),
+              let next = articles.first(where: { $0.id == id }) else { return }
+        open(next)
+        scrollTarget = next.id
     }
 }
 
@@ -198,18 +197,5 @@ extension AppModel {
         guard let url = URL(string: article.url) else { return }
         NSWorkspace.shared.open(url)
         if !article.read { feeds.setRead(true, ids: [article.id]) }
-    }
-
-    /// The letter keys of an article, on its row or on its paper: K keeps it,
-    /// and B opens it in the browser.
-    ///
-    /// - Returns: True when the key is one of these.
-    func articleKey(_ key: Character, on article: Article) -> Bool {
-        switch key {
-        case "k": keep([article])
-        case "b": openInBrowser(article)
-        default: return false
-        }
-        return true
     }
 }

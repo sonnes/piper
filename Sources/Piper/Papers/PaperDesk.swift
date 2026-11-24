@@ -199,7 +199,7 @@ final class PaperDesk {
     func cycle() {
         let windows = ([feed?.window] + readers.map(\.window)).compactMap { $0 }.filter(\.isVisible)
         guard !windows.isEmpty else { return show() }
-        let current = windows.firstIndex { $0 === PaperKey.focusedWindow } ?? -1
+        let current = windows.firstIndex { $0 === PaperWindow.focusedWindow } ?? -1
         windows[(current + 1) % windows.count].makeKeyAndOrderFront(nil)
         QA.activate()
     }
@@ -294,7 +294,7 @@ final class PaperDesk {
     private func updateHints() {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            hints.update(on: (PaperKey.focusedWindow ?? feed?.window)?.screen)
+            hints.update(on: (PaperWindow.focusedWindow ?? feed?.window)?.screen)
         }
     }
 

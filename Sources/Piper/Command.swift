@@ -31,14 +31,24 @@ struct CommandKey: Equatable {
         return KeyboardShortcut(KeyEquivalent(Character(character)), modifiers: eventModifiers)
     }
 
+    /// True when `event` is this key. The Enter key of the keypad counts as
+    /// Return, and Forward Delete counts as Delete.
     func matches(_ event: NSEvent) -> Bool {
-        event.modifierFlags.intersection([.control, .option, .shift, .command]) == modifiers
-            && event.charactersIgnoringModifiers?.lowercased() == character
+        guard event.modifierFlags.intersection([.control, .option, .shift, .command]) == modifiers,
+              let typed = event.charactersIgnoringModifiers?.lowercased() else { return false }
+        return (Self.sameKeys[typed] ?? typed) == character
     }
 
     private var keyName: String {
-        character == " " ? "Space" : character.uppercased()
+        Self.names[character] ?? character.uppercased()
     }
+
+    private static let sameKeys = ["\u{3}": "\r", "\u{F728}": "\u{7F}"]
+
+    private static let names = [
+        " ": "Space", "\u{F700}": "↑", "\u{F701}": "↓", "\u{F702}": "←", "\u{F703}": "→",
+        "\r": "↵", "\u{1B}": "esc", "\u{7F}": "⌫"
+    ]
 
     /// The order of the modifiers in the macOS menus.
     private static let order: [(flag: NSEvent.ModifierFlags, glyph: String, name: String)] = [
@@ -177,11 +187,6 @@ enum Command: CaseIterable {
     /// opens the palette itself.
     var isInPalette: Bool {
         standardAction == nil && self != .goToFile && (menu != nil || self == .toggleFileSource)
-    }
-
-    /// The command of the key of `event`.
-    static func matching(_ event: NSEvent) -> Command? {
-        allCases.first { $0.key?.matches(event) == true }
     }
 
     /// Today and Feeds always lead the column of tabs, so their numbers do not change.

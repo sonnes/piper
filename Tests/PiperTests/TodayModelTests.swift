@@ -73,15 +73,15 @@ final class TodayModelTests: XCTestCase {
         XCTAssertTrue(model.clipboard.entries.isEmpty)
     }
 
-    func testKOnAnArticlePaperKeepsItAndRAndIDoNothing() throws {
+    func testKOnAnArticleKeepsItAndBIsTheOtherArticleKey() throws {
         let article = try XCTUnwrap(model.feeds.article("two"))
-        XCTAssertFalse(model.articleKey("r", on: article))
-        XCTAssertFalse(model.articleKey("i", on: article))
-        XCTAssertFalse(model.articleKey("s", on: article))
+        let keys = PaperKey.articleKeys(model: model) { article }
+        XCTAssertEqual(keys.map(\.key), [CommandKey("k", []), CommandKey("b", [])])
         XCTAssertEqual(model.feeds.article("two")?.read, false)
-        XCTAssertTrue(model.articleKey("k", on: article))
+        keys[0].run()
         XCTAssertTrue(model.isKept(article))
         XCTAssertEqual(model.feeds.article("two")?.read, true)
+        XCTAssertFalse(PaperKey.articleKeys(model: model) { nil }.contains { $0.isOn() })
     }
 
     // MARK: - Done
@@ -115,6 +115,15 @@ final class TodayModelTests: XCTestCase {
         XCTAssertTrue(model.feeds.articles(.allUnread).isEmpty)
         today.runUndo()
         XCTAssertEqual(model.feeds.articles(.allUnread).count, 2)
+    }
+
+    /// An article has no Delete in its menu, so the Delete key does nothing on it.
+    func testDeleteDoesNothingOnAnArticle() throws {
+        let item = try article("one")
+        XCTAssertFalse(TodayModel.canDelete(item.id))
+        today.delete([item])
+        XCTAssertEqual(model.feeds.article("one")?.read, false)
+        XCTAssertNil(today.undo)
     }
 
     func testDeleteRemovesACaptureWithUndo() throws {

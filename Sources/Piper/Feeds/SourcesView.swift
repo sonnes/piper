@@ -58,7 +58,7 @@ struct SourcesView: View {
             .padding(.bottom, 16)
         }
         .onAppear {
-            paper.listKeys = nil
+            paper.listKeys = []
             scan.scanIfStale()
             take(paper.sourcesAddress)
         }

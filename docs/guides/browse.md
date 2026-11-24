@@ -115,7 +115,7 @@ A reader paper is at least 420 points wide. The feed paper is at least as wide a
 
 Piper keeps the frame of the feed paper and the frame of each reader paper across restarts. If you disconnect a display, each paper moves onto a screen that is still connected.
 
-While Piper is active, a strip at the bottom of the screen shows the keys for the paper with the focus.
+While Piper is active, a strip at the bottom of the screen shows each key that works now on the paper with the focus.
 
 ### Use The Folder Tree
 

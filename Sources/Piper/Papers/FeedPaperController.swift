@@ -12,7 +12,6 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     let paper: FeedPaperModel
     private let model: AppModel
-    private var keyMonitor: Any?
     /// Called when the paper takes the keyboard focus or loses it.
     var focusChanged: () -> Void = {}
     /// Called with the frame of the paper after the reader moves or resizes it.
@@ -35,7 +34,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.setPaperFrame(frame, display: false)
         window.delegate = self
-        window.escape = { [weak paper] in paper?.showList() }
+        window.keys = { [weak self] in self?.keys ?? [] }
         window.focusChanged = { [weak self, weak paper, weak model] focused in
             paper?.marks.feedFocused = focused
             // An article that the reader finished a week ago leaves Reading
@@ -52,12 +51,6 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
         // The window sets its own size. The SwiftUI size would pin it to its content.
         hosting.sizingOptions = []
         window.contentView = hosting
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            if Command.matching(event) == nil, let number = PaperKey.tabNumber(event), self.handleTab(number, in: event.window) { return nil }
-            guard let key = PaperKey(event), self.handle(key, in: event.window) else { return event }
-            return nil
-        }
     }
 
     @available(*, unavailable)
@@ -87,61 +80,44 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Keyboard
 
-    /// Command and a number shows a tab of the column, while the feed paper
-    /// has the focus. The menu takes the numbers of Today and Feeds.
-    func handleTab(_ number: Int, in eventWindow: NSWindow?) -> Bool {
-        guard let window, PaperKey.focusedWindow === window, eventWindow === window else { return false }
-        paper.numberKey(number)
-        return true
+    /// The keys of the feed paper. The index, the folder tree, and the list
+    /// that shows each have their keys. Escape goes from the index back to
+    /// the list before the list takes it. The tabs that the menus do not
+    /// number take Command and their number.
+    var keys: [PaperKey] {
+        let paper = paper
+        let index = { paper.showsIndex }
+        let tree = { paper.state.tab.isFolder && !paper.showsIndex }
+        let list = { !paper.showsIndex && !paper.state.tab.isFolder }
+        return [
+            PaperKey(key: .escape, title: "back to the list", isOn: index) { paper.showList() },
+            PaperKey(key: .up, title: "move", isOn: index) { paper.moveIndexCursor(-1) },
+            PaperKey(key: .down, title: "move", isOn: index) { paper.moveIndexCursor(1) },
+            PaperKey(key: .enter, title: "pick", isOn: index) { paper.pickIndexCursor() },
+            PaperKey(key: .right, title: "pick", isOn: index) { paper.pickIndexCursor() },
+            PaperKey(key: .up, title: "move", isOn: tree) { paper.treeKey(.up) },
+            PaperKey(key: .down, title: "move", isOn: tree) { paper.treeKey(.down) },
+            PaperKey(key: .right, title: "open folder", isOn: tree) { paper.treeKey(.right) },
+            PaperKey(key: .left, title: "close folder", isOn: tree) { paper.treeKey(.left) },
+            PaperKey(key: .enter, title: "open file", isOn: tree) { paper.treeKey(.enter) }
+        ] + paper.listKeys.map { $0.only(when: list) } + [
+            PaperKey(key: .left, title: "index", isOn: { list() && paper.state.tab.hasIndex }) { paper.showIndex() },
+            PaperKey(key: CommandKey("[", []), title: "scope") { paper.cycleScope(-1) },
+            PaperKey(key: CommandKey("]", []), title: "scope") { paper.cycleScope(1) },
+            .tidy { paper.tidy() }
+        ] + tabKeys
     }
 
-    /// Reads a key on the feed paper. Today reads its own arrows, Return,
-    /// letters, and the numbers of its lenses. The folder tree reads the
-    /// arrow keys and Return.
-    ///
-    /// - Returns: True when the paper used the key.
-    func handle(_ key: PaperKey, in eventWindow: NSWindow?) -> Bool {
-        guard let window, PaperKey.focusedWindow === window, eventWindow === window,
-              !PaperKey.editsText(window) else { return false }
-        if paper.state.tab.isFolder, !paper.showsIndex, handleTree(key) { return true }
-        switch key {
-        case .previousScope:
-            paper.cycleScope(-1)
-        case .nextScope:
-            paper.cycleScope(1)
-        case .letter("t"):
-            paper.tidy()
-        case .left where !paper.showsIndex:
-            guard paper.state.tab.hasIndex else { return false }
-            paper.showIndex()
-        case .up where paper.showsIndex:
-            paper.moveIndexCursor(-1)
-        case .down where paper.showsIndex:
-            paper.moveIndexCursor(1)
-        case .enter where paper.showsIndex, .right where paper.showsIndex:
-            paper.pickIndexCursor()
-        case .up, .down, .enter:
-            guard !paper.state.scope.showsCaptures, let keys = paper.listKeys else { return false }
-            if key == .enter { keys.open() } else { keys.move(key == .down ? 1 : -1) }
-        case .letter(let character):
-            guard !paper.showsIndex, let keys = paper.listKeys else { return false }
-            return keys.letter(character)
-        default:
-            return false
+    /// Command and the number of a tab shows the tab, for each tab that no menu command numbers.
+    private var tabKeys: [PaperKey] {
+        let paper = paper
+        let tabs = paper.tabs
+        return tabs.compactMap { tab in
+            guard let number = PaperTab.number(of: tab, in: tabs), number <= 9 else { return nil }
+            let key = CommandKey(String(number))
+            guard !Command.allCases.contains(where: { $0.key == key }) else { return nil }
+            return PaperKey(key: key, title: "tab", inText: true) { paper.numberKey(number) }
         }
-        return true
-    }
-
-    private func handleTree(_ key: PaperKey) -> Bool {
-        switch key {
-        case .up: paper.treeKey(.up)
-        case .down: paper.treeKey(.down)
-        case .left: paper.treeKey(.left)
-        case .right: paper.treeKey(.right)
-        case .enter: paper.treeKey(.enter)
-        default: return false
-        }
-        return true
     }
 
     // MARK: - Private

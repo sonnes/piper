@@ -1,70 +1,68 @@
 import AppKit
+import Feeds
 
-/// A key that the papers read, from a key-down event.
+/// A key of a paper: the key, what it does, when it works, and its action.
 ///
-/// The papers act on plain keys only. A key with Command, Option, or Control
-/// goes to the menus, except Command and a number, which shows a tab.
-enum PaperKey: Equatable {
-    case up, down, left, right, enter
-    case number(Int)
-    case previousScope, nextScope
-    case letter(Character)
+/// `FeedPaperController` and `ReaderPaperController` each give a table of
+/// these keys to their `PaperWindow`. The window runs the first key of the
+/// table that matches and is on. The hint strip shows the keys that are on.
+struct PaperKey {
+    let key: CommandKey
+    /// What the key does, as the hint strip shows it.
+    let title: String
+    /// True for a key that also works while a text, a page, or a sheet has the focus.
+    var inText = false
+    var isOn: () -> Bool = { true }
+    let run: () -> Void
 
-    /// The virtual key codes of the keys that the papers read, and that QA sends.
-    enum Code {
-        static let up: UInt16 = 126
-        static let down: UInt16 = 125
-        static let left: UInt16 = 123
-        static let right: UInt16 = 124
-        static let enter: UInt16 = 36
-        static let keypadEnter: UInt16 = 76
-        static let space: UInt16 = 49
+    /// T puts each reader paper back in its place of the cascade, on every paper.
+    static func tidy(_ run: @escaping () -> Void) -> PaperKey {
+        PaperKey(key: CommandKey("t", []), title: "tidy", run: run)
     }
 
-    init?(_ event: NSEvent) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags.isDisjoint(with: [.command, .option, .control]) else { return nil }
-        self.init(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers ?? "",
-                  shift: flags.contains(.shift))
-    }
-
-    init?(keyCode: UInt16, characters: String, shift: Bool) {
-        switch keyCode {
-        case Code.up: self = .up
-        case Code.down: self = .down
-        case Code.left: self = .left
-        case Code.right: self = .right
-        case Code.enter, Code.keypadEnter: self = .enter
-        default:
-            guard !shift, let character = characters.lowercased().first else { return nil }
-            switch character {
-            case "1"..."9": self = .number(Int(String(character)) ?? 0)
-            case "[": self = .previousScope
-            case "]": self = .nextScope
-            case "a"..."z", " ": self = .letter(character)
-            default: return nil
+    /// K keeps an article and B opens it in the browser, on its row of a
+    /// feed and on its paper.
+    @MainActor static func articleKeys(model: AppModel, article: @escaping () -> Article?) -> [PaperKey] {
+        [
+            PaperKey(key: CommandKey("k", []), title: "keep", isOn: { article() != nil }) {
+                if let article = article() { model.keep([article]) }
+            },
+            PaperKey(key: CommandKey("b", []), title: "open in browser", isOn: { article() != nil }) {
+                if let article = article() { model.openInBrowser(article) }
             }
-        }
+        ]
     }
 
-    /// The number of Command and a number key, from 1 to 9. Command-1 is the first tab.
-    static func tabNumber(_ event: NSEvent) -> Int? {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags.intersection([.command, .option, .control, .shift]) == .command,
-              let character = event.charactersIgnoringModifiers?.first, ("1"..."9").contains(character) else { return nil }
-        return Int(String(character))
+    /// The same key, on only while `condition` is also true.
+    func only(when condition: @escaping () -> Bool) -> PaperKey {
+        var key = self
+        let isOn = self.isOn
+        key.isOn = { condition() && isOn() }
+        return key
     }
+}
 
-    /// The window that has the keyboard focus. In QA mode no window is key,
-    /// so the paper that has the focus stands in for it.
-    @MainActor static var focusedWindow: NSWindow? {
-        if let window = NSApp.keyWindow { return window }
-        guard QA.isOn else { return nil }
-        return NSApp.windows.first { ($0 as? PaperWindow)?.isFocused == true }
-    }
+extension CommandKey {
+    static let up = CommandKey("\u{F700}", [])
+    static let down = CommandKey("\u{F701}", [])
+    static let left = CommandKey("\u{F702}", [])
+    static let right = CommandKey("\u{F703}", [])
+    static let enter = CommandKey("\r", [])
+    static let escape = CommandKey("\u{1B}", [])
+    static let delete = CommandKey("\u{7F}", [])
+    static let space = CommandKey(" ", [])
 
-    /// True while the window edits text, so the keys type into the text.
-    @MainActor static func editsText(_ window: NSWindow) -> Bool {
-        window.firstResponder is NSTextView || window.attachedSheet != nil
+    /// The same key with Shift.
+    var shifted: CommandKey { CommandKey(character, modifiers.union(.shift)) }
+}
+
+extension Array where Element: Equatable {
+    /// The element that an arrow key moves to from `current`, by `delta`
+    /// rows. The move stops at the first and the last element. With no
+    /// current element, Down gives the first element and Up the last.
+    func step(from current: Element?, by delta: Int) -> Element? {
+        guard !isEmpty else { return nil }
+        guard let current, let index = firstIndex(of: current) else { return delta > 0 ? first : last }
+        return self[Swift.max(0, Swift.min(count - 1, index + delta))]
     }
 }

@@ -53,7 +53,6 @@ struct TodayView: View {
     /// The window of the paper, for the keyboard focus.
     let window: () -> NSWindow?
 
-    @State private var keyMonitor: Any?
     @State private var showingSearch = false
     @FocusState private var searching: Bool
     @State private var composing = false
@@ -118,9 +117,10 @@ struct TodayView: View {
         }
         .onChange(of: order) { _, order in today.keepSelection(in: order) }
         .onChange(of: today.query) { _, _ in today.clearSelection() }
-        .onChange(of: scope) { _, _ in
+        .onChange(of: scope) { _, scope in
             today.clearSelection()
             today.keeping.removeAll()
+            if scope.showsCaptures { paper.listKeys = keys }
         }
         .onChange(of: model.composerDraft) { _, _ in completionIndex = 0 }
         .onChange(of: paper.composerRequest, initial: true) { _, request in
@@ -130,9 +130,8 @@ struct TodayView: View {
         }
         .onAppear {
             today.keeping.removeAll()
-            installKeys()
+            paper.listKeys = keys
         }
-        .onDisappear(perform: removeKeys)
     }
 
     // MARK: - Search
@@ -144,6 +143,7 @@ struct TodayView: View {
                 .textFieldStyle(.plain).focused($searching)
                 .font(PiperTheme.paperUI(.row))
                 .accessibilityLabel("Search Today")
+                .onExitCommand { _ = escape() }
                 .onAppear { if showingSearch { DispatchQueue.main.async { searching = true } } }
             Text(matches == 1 ? "1 match" : "\(matches) matches")
                 .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint).lineLimit(1).fixedSize()
@@ -179,7 +179,7 @@ struct TodayView: View {
                 .accessibilityHidden(true)
             CaptureEditor(text: $model.composerDraft, focused: $composing,
                           placeholder: "Write a note, or paste a link to read later",
-                          contentHeight: { composerTextHeight = $0 })
+                          command: composerCommand, contentHeight: { composerTextHeight = $0 })
                 .frame(height: height)
             if let hint {
                 Text(hint)
@@ -399,8 +399,14 @@ struct TodayView: View {
     /// part of a selection of several, or else the row.
     private func targets(_ item: StreamItem) -> [StreamItem] {
         guard today.multiple, today.selection.contains(item.id), today.selection.count > 1 else { return [item] }
-        let items = currentItems()
-        return currentOrder().filter(today.selection.contains).compactMap { items[$0] }
+        return chosen()
+    }
+
+    /// The selected rows, in the order of the list.
+    private func chosen() -> [StreamItem] {
+        let (groups, tray) = current()
+        let items = Self.index(groups, tray)
+        return Self.order(groups, tray).filter(today.selection.contains).compactMap { items[$0] }
     }
 
     /// The groups and the tray as the list shows them now.
@@ -408,11 +414,6 @@ struct TodayView: View {
         guard !isDone else { return (UnifiedStream.done(notes: store.notes, query: today.query), []) }
         let stream = UnifiedStream(today.input(), lens: paper.state.lens, section: section, query: today.query)
         return (stream.groups, stream.tray)
-    }
-
-    private func currentItems() -> [StreamItem.Ref: StreamItem] {
-        let (groups, tray) = current()
-        return Self.index(groups, tray)
     }
 
     private func currentOrder() -> [StreamItem.Ref] {
@@ -530,104 +531,93 @@ struct TodayView: View {
 
     // MARK: - Keys
 
-    private func removeKeys() {
-        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
-        keyMonitor = nil
-    }
-
-    /// The keys of Today while the feed paper shows the list and has the focus.
-    private func installKeys() {
-        removeKeys()
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard let window = PaperKey.focusedWindow, window.attachedSheet == nil,
-                  window.windowController is FeedPaperController, !paper.showsIndex,
-                  paper.state.scope.showsCaptures else { return event }
-            return handle(event, in: window) ? nil : event
+    /// The keys of Today, which the feed paper runs while Today shows and no
+    /// text has the focus. The verb keys act on the selected rows.
+    private var keys: [PaperKey] {
+        let today = today
+        let selected = { !today.selection.isEmpty }
+        let lenses = UnifiedStream.Lens.allCases.enumerated().map { offset, lens in
+            PaperKey(key: CommandKey(String(offset + 1), []), title: "lens", isOn: { !isDone }) { setLens(lens) }
         }
-    }
-
-    private func handle(_ event: NSEvent, in window: NSWindow) -> Bool {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let textView = window.firstResponder as? NSTextView
-        if textView?.hasMarkedText() == true { return false }
-        let editingText = textView != nil
-        let plain = flags.isDisjoint(with: [.shift, .command, .option, .control])
-        if editingText, plain, !completions.isEmpty {
-            let current = min(completionIndex, completions.count - 1)
-            switch event.keyCode {
-            case 125: completionIndex = min(current + 1, completions.count - 1); return true
-            case 126: completionIndex = max(current - 1, 0); return true
-            case 48: complete(completions[current], run: false); return true
-            case 36: complete(completions[current], run: true); return true
-            case 53: model.composerDraft = ""; return true
-            default: break
+        let keys = [
+            PaperKey(key: .up, title: "move") { today.move(-1, extending: false, in: currentOrder()) },
+            PaperKey(key: .down, title: "move") { today.move(1, extending: false, in: currentOrder()) },
+            PaperKey(key: CommandKey.up.shifted, title: "add to the selection") { today.move(-1, extending: true, in: currentOrder()) },
+            PaperKey(key: CommandKey.down.shifted, title: "add to the selection") { today.move(1, extending: true, in: currentOrder()) },
+            PaperKey(key: .enter, title: "open as a paper", isOn: selected) { if let first = chosen().first { open(first) } },
+            PaperKey(key: CommandKey("k", []), title: "keep", isOn: selected) { withAnimation(motion) { today.keep(chosen()) } },
+            PaperKey(key: CommandKey("e", []), title: "done", isOn: selected) { withAnimation(motion) { today.done(chosen()) } },
+            PaperKey(key: .space, title: "done", isOn: selected) { withAnimation(motion) { today.done(chosen()) } },
+            PaperKey(key: CommandKey("f", []), title: "file", isOn: selected) { today.filing = chosen() },
+            PaperKey(key: CommandKey("s", []), title: "send", isOn: selected) { today.send(chosen(), action: nil) },
+            PaperKey(key: CommandKey("m", []), title: "merge", isOn: { today.selection.count > 1 }) { today.merge(chosen()) },
+            PaperKey(key: .delete, title: "delete", isOn: { today.selection.contains(where: TodayModel.canDelete) }) {
+                withAnimation(motion) { today.delete(chosen()) }
             }
-        }
-        if event.keyCode == 36, composing, !flags.contains(.shift), !flags.contains(.control), !flags.contains(.command) {
-            save(readLater: flags.contains(.option))
-            return true
-        }
-        let order = currentOrder()
-        let items = currentItems()
-        let chosen = order.filter(today.selection.contains).compactMap { items[$0] }
-        if event.keyCode == 53 {
-            if !today.selection.isEmpty { today.clearSelection(); composing = !isDone }
-            else if searchMode { endSearch() }
-            else { return false }
-            return true
-        }
-        if flags.contains(.command), !flags.contains(.option), !flags.contains(.control) {
-            switch event.charactersIgnoringModifiers?.lowercased() {
-            case "f": beginSearch()
-            case "a" where !editingText:
+        ] + lenses + [
+            PaperKey(key: .escape, title: "clear the selection", isOn: selected) { clearSelection() },
+            PaperKey(key: .escape, title: "end the search", isOn: { searchMode }) { endSearch() },
+            PaperKey(key: CommandKey("f"), title: "search", inText: true) { beginSearch() },
+            PaperKey(key: CommandKey("a"), title: "select all") {
+                let order = currentOrder()
                 today.selection = Set(order)
                 today.multiple = !order.isEmpty
-            case "c" where !editingText && !chosen.isEmpty: today.copy(chosen, asList: flags.contains(.shift))
-            default:
-                if event.keyCode == 36, flags.contains(.shift), !editingText, !chosen.isEmpty {
-                    today.send(chosen, action: nil)
-                    return true
-                }
-                if event.keyCode == 36, !editingText, let note = chosen.first?.note {
-                    model.openNoteEditor?(note)
-                    return true
-                }
-                return false
+            },
+            PaperKey(key: CommandKey("c"), title: "copy", isOn: selected) { today.copy(chosen()) },
+            PaperKey(key: CommandKey("c", [.shift, .command]), title: "copy as a list", isOn: selected) { today.copy(chosen(), asList: true) },
+            PaperKey(key: CommandKey("\r"), title: "edit", isOn: selected) {
+                if let note = chosen().first?.note { model.openNoteEditor?(note) }
+            },
+            PaperKey(key: CommandKey("\r", [.shift, .command]), title: "send", isOn: selected) { today.send(chosen(), action: nil) }
+        ]
+        let paper = paper
+        return keys.map { $0.only(when: { paper.state.scope.showsCaptures }) }
+    }
+
+    private func clearSelection() {
+        today.clearSelection()
+        composing = !isDone
+    }
+
+    /// Escape in the capture field or in the search field clears the
+    /// selection, and then ends the search.
+    ///
+    /// - Returns: True when Escape did one of these.
+    private func escape() -> Bool {
+        if !today.selection.isEmpty { clearSelection() }
+        else if searchMode { endSearch() }
+        else { return false }
+        return true
+    }
+
+    /// The keys of the capture field. While the skill list shows, the arrows
+    /// move its highlight, Tab puts the skill in the field, Return does the
+    /// same or runs the skill, and Escape clears the field. Return saves the
+    /// field, and Option-Return saves an address to read later.
+    private func composerCommand(_ selector: Selector) -> Bool {
+        let flags = (NSApp.currentEvent?.modifierFlags ?? []).intersection([.shift, .control, .option, .command])
+        if flags.isEmpty, !completions.isEmpty {
+            let current = min(completionIndex, completions.count - 1)
+            switch selector {
+            case #selector(NSResponder.moveDown(_:)): completionIndex = min(current + 1, completions.count - 1)
+            case #selector(NSResponder.moveUp(_:)): completionIndex = max(current - 1, 0)
+            case #selector(NSResponder.insertTab(_:)): complete(completions[current], run: false)
+            case #selector(NSResponder.insertNewline(_:)): complete(completions[current], run: true)
+            case #selector(NSResponder.cancelOperation(_:)): model.composerDraft = ""
+            default: return false
             }
             return true
         }
-        guard !editingText, !flags.contains(.option), !flags.contains(.control) else { return false }
-        switch event.keyCode {
-        case 125, 126:
-            today.move(event.keyCode == 125 ? 1 : -1, extending: flags.contains(.shift), in: order)
+        switch selector {
+        case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
+            guard flags.isDisjoint(with: [.shift, .control, .command]) else { return false }
+            save(readLater: flags.contains(.option))
             return true
-        case 36, 76:
-            guard let first = chosen.first else { return false }
-            open(first)
-            return true
-        case 51, 117:
-            guard !chosen.isEmpty else { return false }
-            withAnimation(motion) { today.delete(chosen) }
-            return true
-        case 49:
-            guard !chosen.isEmpty else { return false }
-            withAnimation(motion) { today.done(chosen) }
-            return true
+        case #selector(NSResponder.cancelOperation(_:)):
+            return escape()
         default:
-            break
+            return false
         }
-        guard !flags.contains(.shift), let key = event.charactersIgnoringModifiers?.lowercased().first else { return false }
-        switch key {
-        case "1"..."4" where !isDone:
-            setLens(UnifiedStream.Lens.allCases[Int(String(key))! - 1])
-        case "k" where !chosen.isEmpty: withAnimation(motion) { today.keep(chosen) }
-        case "e" where !chosen.isEmpty: withAnimation(motion) { today.done(chosen) }
-        case "f" where !chosen.isEmpty: today.filing = chosen
-        case "s" where !chosen.isEmpty: today.send(chosen, action: nil)
-        case "m" where chosen.count > 1: today.merge(chosen)
-        default: return false
-        }
-        return true
     }
 }
 

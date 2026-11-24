@@ -34,15 +34,6 @@ enum IndexEntry: Equatable {
         scope == .today(section: nil) ? .lens(lens) : .scope(scope)
     }
 
-    /// The row after or before `cursor`. The cursor stops at the first and the last row.
-    static func move(_ cursor: IndexEntry?, by delta: Int, in entries: [IndexEntry]) -> IndexEntry? {
-        guard !entries.isEmpty else { return nil }
-        guard let cursor, let index = entries.firstIndex(of: cursor) else {
-            return delta > 0 ? entries.first : entries.last
-        }
-        return entries[max(0, min(entries.count - 1, index + delta))]
-    }
-
     /// The row before or after the row of the list, for `[` and `]`. The rows go round.
     static func cycle(_ current: IndexEntry, by delta: Int, in entries: [IndexEntry]) -> IndexEntry? {
         guard !entries.isEmpty else { return nil }

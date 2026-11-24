@@ -577,11 +577,6 @@ extension ArticleLoader: WKNavigationDelegate {
 
 // MARK: - Page
 
-extension Notification.Name {
-    /// A letter key that the reader page did not use. The object is the window of the page.
-    static let readerPageKey = Notification.Name("PiperReaderPageKey")
-}
-
 /// The reader page in a web view. Piper draws the article and the notes, and
 /// the page reports each action of the reader.
 struct ReaderPageView: NSViewRepresentable {
@@ -680,7 +675,7 @@ struct ReaderPageView: NSViewRepresentable {
             guard message.frameInfo.isMainFrame, message.frameInfo.request.url == page,
                   let body = message.body as? [String: Any] else { return }
             if body["action"] as? String == "key", let key = body["key"] as? String {
-                NotificationCenter.default.post(name: .readerPageKey, object: view?.window, userInfo: ["key": key])
+                (view?.window as? PaperWindow)?.perform(CommandKey(key, []))
             } else if body["action"] as? String == "ready" {
                 ready = true
                 shownState = nil

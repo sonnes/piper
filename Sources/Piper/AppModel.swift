@@ -36,23 +36,6 @@ final class AppModel {
     /// The pages of the Reader tabs that show, one for each reader paper.
     @ObservationIgnored let readerPages = NSHashTable<WKWebView>.weakObjects()
 
-    /// Sends H or N to the reader page of a window: H highlights the selected
-    /// text, and N highlights it and opens its note.
-    func sendReaderKey(_ key: String, in window: NSWindow) -> Bool {
-        guard let page = readerPages.allObjects.first(where: { $0.window === window }) else { return false }
-        page.evaluateJavaScript("window.piperKey && window.piperKey('\(key)')")
-        return true
-    }
-
-    /// Scrolls the Reader tab of a window by one arrow step. Returns false if
-    /// the window shows no Reader tab.
-    func scrollReader(down: Bool, in window: NSWindow) -> Bool {
-        guard let page = readerPages.allObjects.first(where: { $0.window === window }) else { return false }
-        let step = ArticleReader.Metrics.arrowScrollStep * (down ? 1 : -1)
-        page.evaluateJavaScript("window.scrollBy(0, \(step))")
-        return true
-    }
-
     /// The tab of a link capture as it opens. A request to show one of its
     /// highlights opens the Reader tab. Each other link opens in the tab that
     /// the reader last chose for its site. A new site opens in the Web tab.

@@ -6,7 +6,7 @@ struct SessionList: View {
     @Bindable var model: AppModel
     let folder: String
     /// Sets the keys of the list on the feed paper.
-    var setKeys: (FeedPaperModel.ListKeys?) -> Void = { _ in }
+    var setKeys: ([PaperKey]) -> Void = { _ in }
 
     @State private var selected: PaperItem?
     @Environment(\.paperDesk) private var desk
@@ -58,17 +58,15 @@ struct SessionList: View {
         desk?.open(item)
     }
 
-    private func keys(_ items: [PaperItem]) -> FeedPaperModel.ListKeys {
+    private func keys(_ items: [PaperItem]) -> [PaperKey] {
         let current = current
-        return FeedPaperModel.ListKeys(
-            move: { delta in
-                let index = current.flatMap { items.firstIndex(of: $0) }
-                let next = max(0, min(items.count - 1, (index ?? (delta > 0 ? -1 : items.count)) + delta))
-                if items.indices.contains(next) { selected = items[next] }
-            },
-            open: {
-                if let current, items.contains(current) { desk?.open(current) }
-            })
+        return [
+            PaperKey(key: .up, title: "move") { if let item = items.step(from: current, by: -1) { selected = item } },
+            PaperKey(key: .down, title: "move") { if let item = items.step(from: current, by: 1) { selected = item } },
+            PaperKey(key: .enter, title: "open as a paper", isOn: { current.map(items.contains) == true }) {
+                if let current { desk?.open(current) }
+            }
+        ]
     }
 
     private static func color(_ session: AgentSession) -> NSColor {
