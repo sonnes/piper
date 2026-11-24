@@ -5,9 +5,9 @@
 
 import { Extension } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { type EditorState, Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
-import type { Editor } from "@tiptap/react";
+import type { Editor } from "@tiptap/core";
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { type Anchor, type PageNote, send } from "./bridge";
@@ -16,81 +16,186 @@ const CARD_WIDTH = 250;
 const CARD_GAP = 36;
 const COLUMN = 736;
 
-/** The document range of the first occurrence of a quote, or null. */
-export function findQuote(doc: PMNode, quote: string): { from: number; to: number } | null {
-	if (!quote) return null;
-	let found: { from: number; to: number } | null = null;
-	doc.forEach((block, blockPos) => {
-		if (found) return;
-		const parts: { pos: number; text: string }[] = [];
-		block.descendants((node, pos) => {
-			if (node.isText && node.text) parts.push({ pos: blockPos + 1 + pos, text: node.text });
+/** A run of the text of a block. A gap separates two paragraphs of one block, or stands for a line break. */
+type Segment = { pos: number; text: string; gap: boolean };
+
+/** One block of a note anchor. `WikiMarkdown.textBlocks` in Swift counts the same blocks. */
+type TextBlock = { kind: string; text: string; segments: Segment[] };
+
+const LISTS = new Set(["bulletList", "orderedList"]);
+const MEDIA = new Set(["image", "embed"]);
+const WHOLE = new Set(["blockquote", "table", "footnoteDefinition"]);
+
+function collect(node: PMNode, pos: number, separator: string, segments: Segment[]) {
+	if (node.isTextblock) {
+		if (segments.length > 0) segments.push({ pos: pos + 1, text: separator, gap: true });
+		node.forEach((child, offset) => {
+			if (child.isText && child.text) segments.push({ pos: pos + 1 + offset, text: child.text, gap: false });
+			else if (child.type.name === "hardBreak") segments.push({ pos: pos + 1 + offset, text: " ", gap: true });
 		});
-		const text = parts.map((part) => part.text).join("");
-		const at = text.indexOf(quote);
-		if (at < 0) return;
-		const position = (offset: number) => {
-			let rest = offset;
-			for (const part of parts) {
-				if (rest <= part.text.length) return part.pos + rest;
-				rest -= part.text.length;
-			}
-			return parts.at(-1) ? (parts.at(-1)?.pos ?? 0) + (parts.at(-1)?.text.length ?? 0) : blockPos;
-		};
-		found = { from: position(at), to: position(at + quote.length) };
-	});
-	return found;
+		return;
+	}
+	node.forEach((child, offset) => collect(child, pos + 1 + offset, separator, segments));
 }
 
-/** The quote, the top-level block, and the offset of the selection, clipped to its first block. */
-function selectedAnchor(editor: Editor): Anchor | null {
-	const { from, to, empty } = editor.state.selection;
+/**
+ * The text blocks of a document in order, with the rule of `WikiMarkdown.parse`:
+ * one block for each heading, paragraph, code block, list item, quote, table,
+ * footnote, image, and embed. A list item does not hold its nested list. A
+ * block with no text is left out, except an image or an embed, which has
+ * Markdown text in Swift.
+ */
+export function textBlocks(doc: PMNode): TextBlock[] {
+	const blocks: TextBlock[] = [];
+	const add = (kind: string, segments: Segment[]) => {
+		const text = segments.map((segment) => segment.text).join("");
+		if (text.trim() || MEDIA.has(kind)) blocks.push({ kind, text, segments });
+	};
+	const walk = (node: PMNode, pos: number) => {
+		let previous = "";
+		node.forEach((child, offset) => {
+			const at = pos + offset;
+			const name = child.type.name;
+			if (LISTS.has(name)) {
+				walk(child, at + 1);
+			} else if (name === "listItem") {
+				const own: Segment[] = [];
+				const nested: [PMNode, number][] = [];
+				child.forEach((part, partOffset) => {
+					if (LISTS.has(part.type.name)) nested.push([part, at + 1 + partOffset]);
+					else collect(part, at + 1 + partOffset, " ", own);
+				});
+				add(name, own);
+				for (const [list, listPos] of nested) walk(list, listPos + 1);
+			} else if (WHOLE.has(name)) {
+				const segments: Segment[] = [];
+				collect(child, at, "\n", segments);
+				const last = blocks.at(-1);
+				// Swift joins a quote to the quote before it.
+				if (name === "blockquote" && previous === name && last?.kind === name && segments.length > 0) {
+					last.segments.push({ pos: segments[0].pos, text: "\n", gap: true }, ...segments);
+					last.text = last.segments.map((segment) => segment.text).join("");
+				} else {
+					add(name, segments);
+				}
+			} else if (child.isTextblock) {
+				const segments: Segment[] = [];
+				collect(child, at, " ", segments);
+				add(name, segments);
+			} else if (MEDIA.has(name)) {
+				add(name, []);
+			} else if (!child.isLeaf) {
+				walk(child, at + 1);
+			}
+			previous = name;
+		});
+	};
+	walk(doc, 0);
+	return blocks;
+}
+
+/** The document position of an offset in a block. A start lies after a gap, and an end lies before it. */
+function position(block: TextBlock, offset: number, isEnd: boolean) {
+	let rest = offset;
+	for (const segment of block.segments) {
+		if (rest < segment.text.length || (isEnd && rest === segment.text.length)) {
+			return segment.gap ? segment.pos : segment.pos + rest;
+		}
+		rest -= segment.text.length;
+	}
+	const last = block.segments.at(-1);
+	return last ? last.pos + (last.gap ? 0 : last.text.length) : 0;
+}
+
+/** The offset of a document position in a block. */
+function offsetOf(block: TextBlock, pos: number) {
+	let offset = 0;
+	for (const segment of block.segments) {
+		if (pos < segment.pos) return offset;
+		if (!segment.gap && pos <= segment.pos + segment.text.length) return offset + pos - segment.pos;
+		offset += segment.text.length;
+	}
+	return offset;
+}
+
+function end(block: TextBlock) {
+	const last = block.segments.at(-1);
+	return last ? last.pos + (last.gap ? 0 : last.text.length) : -1;
+}
+
+/**
+ * The document range of a note. The stored block and offset win when they
+ * still hold the quote. If not, the first match in the stored block wins, then
+ * the first match in the document. `NoteAnchor.locate` in Swift has the same rule.
+ */
+export function findQuote(doc: PMNode, anchor: Anchor): { from: number; to: number } | null {
+	const { quote } = anchor;
+	if (!quote) return null;
+	const blocks = textBlocks(doc);
+	const range = (block: TextBlock, at: number) => ({
+		from: position(block, at, false),
+		to: position(block, at + quote.length, true),
+	});
+	const stored = blocks[anchor.block];
+	if (stored) {
+		if (anchor.offset >= 0 && stored.text.startsWith(quote, anchor.offset)) return range(stored, anchor.offset);
+		const at = stored.text.indexOf(quote);
+		if (at >= 0) return range(stored, at);
+	}
+	for (const block of blocks) {
+		const at = block.text.indexOf(quote);
+		if (at >= 0) return range(block, at);
+	}
+	return null;
+}
+
+/** The quote, the block, and the offset of the selection, clipped to its first block. */
+export function selectedAnchor(state: EditorState): Anchor | null {
+	const { from, to, empty } = state.selection;
 	if (empty) return null;
-	const doc = editor.state.doc;
-	const $from = doc.resolve(from);
-	if ($from.depth < 1) return null;
-	const start = $from.start(1);
-	const end = Math.min(to, $from.end(1));
-	const raw = doc.textBetween(from, end, " ");
+	const blocks = textBlocks(state.doc);
+	const block = blocks.findIndex((item) => end(item) > from);
+	if (block < 0) return null;
+	const item = blocks[block];
+	const start = offsetOf(item, from);
+	const raw = item.text.slice(start, offsetOf(item, to));
 	const quote = raw.trim();
 	if (!quote) return null;
-	const offset = doc.textBetween(start, from, " ").length + (raw.length - raw.trimStart().length);
-	return { quote, block: $from.index(0), offset };
+	return { quote, block, offset: start + raw.length - raw.trimStart().length };
 }
 
-const questionKey = new PluginKey<DecorationSet>("piperQuestions");
-let questions: PageNote[] = [];
+type Questions = { notes: PageNote[]; decorations: DecorationSet };
 
-function decorations(doc: PMNode) {
-	const items = questions.flatMap((note) => {
-		const range = findQuote(doc, note.quote);
+const questionKey = new PluginKey<Questions>("piperQuestions");
+
+function decorations(doc: PMNode, notes: PageNote[]) {
+	const items = notes.flatMap((note) => {
+		const range = findQuote(doc, note);
 		return range ? [Decoration.inline(range.from, range.to, { class: "piper-question", "data-n": note.id })] : [];
 	});
 	return DecorationSet.create(doc, items);
 }
 
-/** Underlines the passage of each question. */
+/** Underlines the passage of each question. A transaction with the questions as its meta changes them. */
 export const QuestionMarks = Extension.create({
 	name: "piperQuestions",
 	addProseMirrorPlugins() {
 		return [
-			new Plugin<DecorationSet>({
+			new Plugin<Questions>({
 				key: questionKey,
 				state: {
-					init: (_, state) => decorations(state.doc),
-					apply: (tr, value) =>
-						tr.docChanged || tr.getMeta(questionKey) ? decorations(tr.doc) : value,
+					init: () => ({ notes: [], decorations: DecorationSet.empty }),
+					apply: (tr, value) => {
+						const notes = (tr.getMeta(questionKey) as PageNote[] | undefined) ?? value.notes;
+						if (!tr.docChanged && notes === value.notes) return value;
+						return { notes, decorations: decorations(tr.doc, notes) };
+					},
 				},
-				props: { decorations: (state) => questionKey.getState(state) },
+				props: { decorations: (state) => questionKey.getState(state)?.decorations },
 			}),
 		];
 	},
 });
-
-function setQuestions(editor: Editor | null, notes: PageNote[]) {
-	questions = notes.filter((note) => note.kind === "question");
-	if (editor && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta(questionKey, true));
-}
 
 export function ReaderLayer({
 	editor,
@@ -106,7 +211,11 @@ export function ReaderLayer({
 	const cards = notes.filter((note) => note.kind === "question" || note.kind === "note");
 	const wide = useWide(viewport, cards.length > 0);
 
-	useEffect(() => setQuestions(editor, notes), [editor, notes]);
+	useEffect(() => {
+		if (!editor || editor.isDestroyed) return;
+		const questions = notes.filter((note) => note.kind === "question");
+		editor.view.dispatch(editor.state.tr.setMeta(questionKey, questions));
+	}, [editor, notes]);
 
 	if (!editor || !viewport) return null;
 	return createPortal(
@@ -157,7 +266,7 @@ function SelectionBar({ editor, viewport, editable }: { editor: Editor; viewport
 	useEffect(() => {
 		const show = () => {
 			window.setTimeout(() => {
-				if (editor.isDestroyed || !selectedAnchor(editor)) {
+				if (editor.isDestroyed || !selectedAnchor(editor.state)) {
 					setPlace(null);
 					return;
 				}
@@ -197,7 +306,7 @@ function SelectionBar({ editor, viewport, editable }: { editor: Editor; viewport
 	};
 
 	const act = (action: "explain" | "define" | "ask" | "note" | "capture") => {
-		const anchor = selectedAnchor(editor);
+		const anchor = selectedAnchor(editor.state);
 		if (!anchor) return close();
 		if (action === "ask" || action === "note") {
 			setLine({ kind: action, anchor });
@@ -312,15 +421,9 @@ function MarginCards({
 	wide: boolean;
 }) {
 	const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-	const [tops, setTops] = useState<Record<string, number>>({});
-	const refs = useRef(new Map<string, HTMLDivElement>());
-	const [version, setVersion] = useState(0);
+	const slots = useRef(new Map<string, HTMLDivElement>());
 
 	useEffect(() => {
-		const bump = () => setVersion((value) => value + 1);
-		editor.on("update", bump);
-		const observer = new ResizeObserver(bump);
-		observer.observe(viewport);
 		const expand = (event: MouseEvent) => {
 			const mark = (event.target as HTMLElement).closest?.(".piper-question") as HTMLElement | null;
 			const id = mark?.dataset.n;
@@ -333,32 +436,40 @@ function MarginCards({
 		};
 		const dom = editor.view.dom;
 		dom.addEventListener("click", expand);
-		return () => {
-			editor.off("update", bump);
-			observer.disconnect();
-			dom.removeEventListener("click", expand);
-		};
-	}, [editor, viewport]);
+		return () => dom.removeEventListener("click", expand);
+	}, [editor]);
 
 	// Each card sits beside its passage, and never over the card above it.
 	useLayoutEffect(() => {
-		if (!wide) return;
-		const box = viewport.getBoundingClientRect();
-		const wanted = cards.map((card) => {
-			const range = findQuote(editor.state.doc, card.quote);
-			const y = range ? editor.view.coordsAtPos(range.from).top - box.top + viewport.scrollTop - 10 : Number.POSITIVE_INFINITY;
-			return { id: card.id, y };
-		});
-		wanted.sort((a, b) => a.y - b.y);
-		let floor = 0;
-		const next: Record<string, number> = {};
-		for (const { id, y } of wanted) {
-			const top = Math.max(Number.isFinite(y) ? y : floor, floor);
-			next[id] = top;
-			floor = top + (refs.current.get(id)?.offsetHeight ?? 80) + 12;
-		}
-		setTops(next);
-	}, [cards, wide, version, collapsed, editor, viewport]);
+		const place = () => {
+			if (!wide) {
+				for (const slot of slots.current.values()) slot.style.top = "";
+				return;
+			}
+			const box = viewport.getBoundingClientRect();
+			const wanted = cards.map((card) => {
+				const range = findQuote(editor.state.doc, card);
+				const y = range ? editor.view.coordsAtPos(range.from).top - box.top + viewport.scrollTop - 10 : Number.POSITIVE_INFINITY;
+				return { id: card.id, y };
+			});
+			wanted.sort((a, b) => a.y - b.y);
+			let floor = 0;
+			for (const { id, y } of wanted) {
+				const top = Math.max(Number.isFinite(y) ? y : floor, floor);
+				const slot = slots.current.get(id);
+				if (slot) slot.style.top = `${top}px`;
+				floor = top + (slot?.offsetHeight ?? 80) + 12;
+			}
+		};
+		place();
+		editor.on("update", place);
+		const observer = new ResizeObserver(place);
+		observer.observe(viewport);
+		return () => {
+			editor.off("update", place);
+			observer.disconnect();
+		};
+	}, [cards, wide, collapsed, editor, viewport]);
 
 	if (cards.length === 0) return null;
 	const toggle = (id: string, hide: boolean) =>
@@ -375,10 +486,9 @@ function MarginCards({
 				<div
 					key={card.id}
 					ref={(element) => {
-						if (element) refs.current.set(card.id, element);
-						else refs.current.delete(card.id);
+						if (element) slots.current.set(card.id, element);
+						else slots.current.delete(card.id);
 					}}
-					style={wide ? { top: tops[card.id] ?? 0 } : undefined}
 					className="piper-card-slot"
 				>
 					{card.kind === "note" ? (

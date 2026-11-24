@@ -12,14 +12,14 @@ const schema = getSchema([StarterKit]);
 describe("findQuote", () => {
 	it("finds a quote across marks and blocks", () => {
 		const doc = Node.fromJSON(schema, markdownToTiptapDoc("# Title\n\nOne **bold** passage here.\n"));
-		const range = findQuote(doc, "bold passage");
+		const range = findQuote(doc, { quote: "bold passage", block: -1, offset: -1 });
 		expect(range).not.toBeNull();
 		expect(doc.textBetween(range?.from ?? 0, range?.to ?? 0)).toBe("bold passage");
 	});
 
 	it("returns null for a quote that the file no longer holds", () => {
 		const doc = Node.fromJSON(schema, markdownToTiptapDoc("Text.\n"));
-		expect(findQuote(doc, "gone")).toBeNull();
+		expect(findQuote(doc, { quote: "gone", block: 0, offset: 0 })).toBeNull();
 	});
 });
 

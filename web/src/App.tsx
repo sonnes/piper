@@ -1,6 +1,6 @@
-import { EditorView, getActiveEditor, MarkdownSourceEditor } from "@hubble.md/ui";
-import type { Editor } from "@tiptap/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { EditorView, MarkdownSourceEditor } from "@hubble.md/ui";
+import type { Editor } from "@tiptap/core";
+import { useEffect, useMemo, useState } from "react";
 import { scrollToAnchor } from "./anchors";
 import { send } from "./bridge";
 import { createEmbedExtension } from "./EmbedNode";
@@ -10,35 +10,23 @@ import { createImageExtension, handleImageDrop, handleImagePaste } from "./Image
 import { noteLocalChange } from "./latest";
 import { QuestionMarks, ReaderLayer } from "./ReaderLayer";
 import { useStore } from "./store";
-import { applyTheme } from "./theme";
 
 export function App() {
-	const { doc, theme, notes, scroll } = useStore();
+	const { doc, notes, scroll } = useStore();
 	const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
 	const [editor, setEditor] = useState<Editor | null>(null);
-	const pathRef = useRef(doc?.path ?? "");
-	pathRef.current = doc?.path ?? "";
+	const path = doc?.path ?? "";
 	const extensions = useMemo(
 		() => [
-			createImageExtension(() => pathRef.current),
-			createEmbedExtension(() => pathRef.current),
+			createImageExtension(() => path),
+			createEmbedExtension(() => path),
 			HighlightMark,
 			FootnoteReference,
 			FootnoteDefinition,
 			QuestionMarks,
 		],
-		[],
+		[path],
 	);
-
-	useEffect(() => {
-		if (theme) applyTheme(theme);
-	}, [theme]);
-
-	// The editor of the page changes with each open. The reader layer needs the current one.
-	useEffect(() => {
-		const id = window.setTimeout(() => setEditor(getActiveEditor()), 0);
-		return () => window.clearTimeout(id);
-	}, [doc?.seq, doc?.mode, viewport]);
 
 	useEffect(() => {
 		if (!scroll) return;
@@ -84,6 +72,7 @@ export function App() {
 			editable={editable}
 			selectionToolbar={false}
 			onScrollContainerChange={setViewport}
+			onEditorChange={setEditor}
 			wikiTargets={doc.wikiTargets}
 			extensions={extensions}
 			header={header}

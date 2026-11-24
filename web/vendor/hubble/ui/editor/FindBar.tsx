@@ -2,9 +2,11 @@ import {
 	type FindState,
 	getCommandBinding,
 	getFindState,
+	opensFind,
 	selectFindMatch,
 } from "@hubble.md/editor";
 import type { Editor } from "@tiptap/core";
+import type { Transaction } from "@tiptap/pm/state";
 import { keymatch } from "keymatch";
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
@@ -66,13 +68,17 @@ export function FindBar({ editor }: { editor: Editor | null }) {
 		() => {
 			if (!editor) return;
 			syncFindState();
-			editor.on("transaction", syncFindState);
+			const onTransaction = ({ transaction }: { transaction: Transaction }) => {
+				syncFindState();
+				if (opensFind(transaction)) openFind();
+			};
+			editor.on("transaction", onTransaction);
 			return () => {
-				editor.off("transaction", syncFindState);
+				editor.off("transaction", onTransaction);
 			};
 		},
 		// biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler stabilizes render-local callbacks.
-		[editor, syncFindState],
+		[editor, openFind, syncFindState],
 	);
 
 	/**

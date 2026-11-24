@@ -19,7 +19,8 @@ export type FindState = {
 type FindMeta =
 	| { type: "setQuery"; query: string }
 	| { type: "setActiveIndex"; activeIndex: number }
-	| { type: "clear" };
+	| { type: "clear" }
+	| { type: "open" };
 type TextOffset = {
 	docPos: number | null;
 };
@@ -91,6 +92,14 @@ export const FindExtension = Extension.create({
 					);
 					return true;
 				},
+			// Piper: opens the find bar, as its key binding does.
+			openFind:
+				() =>
+				({ state, dispatch }) => {
+					if (!dispatch) return true;
+					dispatch(state.tr.setMeta(findPluginKey, { type: "open" }));
+					return true;
+				},
 			clearFindQuery:
 				() =>
 				({ state, dispatch }) => {
@@ -145,6 +154,11 @@ export const FindExtension = Extension.create({
 		];
 	},
 });
+
+/** Piper: true for the transaction of the `openFind` command. */
+export function opensFind(transaction: Transaction) {
+	return (transaction.getMeta(findPluginKey) as FindMeta | undefined)?.type === "open";
+}
 
 export function getFindState(state: EditorState) {
 	return findPluginKey.getState(state) ?? emptyFindState();
@@ -306,6 +320,7 @@ declare module "@tiptap/core" {
 			replaceFindMatch: (replacement: string) => ReturnType;
 			replaceAllFindMatches: (replacement: string) => ReturnType;
 			clearFindQuery: () => ReturnType;
+			openFind: () => ReturnType;
 		};
 	}
 }

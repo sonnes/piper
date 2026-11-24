@@ -32,7 +32,7 @@ run: build
 
 test:
 	swift test
-	@if command -v pnpm >/dev/null; then cd web && pnpm install --frozen-lockfile --silent && pnpm test; else echo "Skipped the editor tests: install pnpm to run them."; fi
+	@if command -v pnpm >/dev/null; then cd web && pnpm install --frozen-lockfile --silent && pnpm check; else echo "Skipped the editor tests: install pnpm to run them."; fi
 
 # Rebuilds Sources/Piper/Resources/editor.html from web/. Needs Node and pnpm.
 web:

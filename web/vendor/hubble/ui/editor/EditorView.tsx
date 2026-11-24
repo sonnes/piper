@@ -106,6 +106,8 @@ export type EditorViewProps = {
 	header?: ReactNode;
 	/** Piper: false hides the formatting toolbar over a selection. */
 	selectionToolbar?: boolean;
+	/** Piper: the editor after it mounts, and null after it unmounts. */
+	onEditorChange?: (editor: Editor | null) => void;
 };
 
 export function EditorView({
@@ -131,6 +133,7 @@ export function EditorView({
 	spellcheckStatus,
 	header,
 	selectionToolbar = true,
+	onEditorChange,
 }: EditorViewProps) {
 	const initialFrontMatter = parseMarkdownFrontMatter(initialMarkdown);
 	const initialFrontMatterRaw =
@@ -260,8 +263,12 @@ export function EditorView({
 	useLayoutEffect(() => {
 		editorRef.current = editor;
 		setActiveEditor(editor);
-		return () => clearActiveEditor(editor);
-	}, [editor]);
+		onEditorChange?.(editor);
+		return () => {
+			clearActiveEditor(editor);
+			onEditorChange?.(null);
+		};
+	}, [editor, onEditorChange]);
 
 	useEffect(() => {
 		if (!editor || !editorViewportEl) return;

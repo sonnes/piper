@@ -26,6 +26,7 @@ export {
 	type FindState,
 	findMatches,
 	getFindState,
+	opensFind,
 	selectFindMatch,
 } from "./FindExtension.js";
 export {

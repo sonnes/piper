@@ -16,6 +16,12 @@ enum WikiMarkdown {
             .trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " +", with: "-", options: .regularExpression)
     }
 
+    /// The blocks that a note anchor counts: the blocks with text, in order.
+    /// `textBlocks` in `web/src/ReaderLayer.tsx` counts the same blocks.
+    static func textBlocks(_ text: String) -> [WikiBlock] {
+        parse(text).filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
     static func parse(_ text: String) -> [WikiBlock] {
         let lines = text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
         var result: [WikiBlock] = []

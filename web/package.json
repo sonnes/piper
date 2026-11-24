@@ -5,7 +5,9 @@
 	"license": "MIT",
 	"scripts": {
 		"build": "tsc --noEmit && vite build && node scripts/install-bundle.mjs",
+		"check": "tsc --noEmit && eslint src test && vitest run && vite build --logLevel warn && node scripts/check-bundle.mjs",
 		"dev": "vite",
+		"lint": "eslint src test",
 		"test": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
@@ -60,10 +62,13 @@
 		"@types/unist": "^3.0.3",
 		"@vitejs/plugin-react": "^4.6.0",
 		"babel-plugin-react-compiler": "1.0.0",
+		"eslint": "^10.15.0",
+		"eslint-plugin-react-hooks": "^7.1.1",
 		"happy-dom": "^20.10.3",
 		"rollup-plugin-license": "^3.6.0",
 		"tailwindcss": "4.1.18",
 		"typescript": "5.8.3",
+		"typescript-eslint": "^8.74.0",
 		"unplugin-icons": "23.0.1",
 		"vite": "7.3.5",
 		"vite-plugin-singlefile": "^2.3.0",

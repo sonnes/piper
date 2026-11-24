@@ -1,4 +1,3 @@
-import { getCommandBinding } from "@hubble.md/editor";
 import { getActiveEditor } from "@hubble.md/ui";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -7,6 +6,7 @@ import { EMBED_CHANGED_EVENT } from "./EmbedNode";
 import { latestText, noteLocalChange } from "./latest";
 import { lossyFeatures } from "./lossGuard";
 import { getState, setState } from "./store";
+import { applyTheme } from "./theme";
 import "./index.css";
 
 let seq = 0;
@@ -57,7 +57,7 @@ const piper = {
 	},
 
 	theme(theme: Theme) {
-		setState({ theme });
+		applyTheme(theme);
 	},
 
 	flush(): string | null {
@@ -73,12 +73,7 @@ const piper = {
 	command(name: string) {
 		const editor = getActiveEditor();
 		if (!editor) return;
-		if (name === "find") {
-			editor.commands.focus();
-			const binding = getCommandBinding("app.find") ?? "CmdOrCtrl+F";
-			const key = binding.split("+").pop()?.toLowerCase() ?? "f";
-			window.dispatchEvent(new KeyboardEvent("keydown", { key, metaKey: true, bubbles: true }));
-		}
+		if (name === "find") editor.commands.openFind();
 	},
 };
 

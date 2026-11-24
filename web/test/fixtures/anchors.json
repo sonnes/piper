@@ -1,0 +1,44 @@
+[
+	{
+		"name": "a list item",
+		"markdown": "# Tea\n\n- Green tea has less caffeine.\n- Black tea has more caffeine.\n\nOolong sits between the two.\n",
+		"quote": "more caffeine",
+		"occurrence": 0,
+		"anchor": { "quote": "more caffeine", "block": 2, "offset": 14 }
+	},
+	{
+		"name": "a paragraph after a list",
+		"markdown": "# Tea\n\n- Green tea has less caffeine.\n- Black tea has more caffeine.\n\nOolong sits between the two.\n",
+		"quote": "between",
+		"occurrence": 0,
+		"anchor": { "quote": "between", "block": 3, "offset": 12 }
+	},
+	{
+		"name": "a nested list item",
+		"markdown": "- Outer item\n  - Inner item with mint\n- Last item\n\nMint grows fast.\n",
+		"quote": "mint",
+		"occurrence": 0,
+		"anchor": { "quote": "mint", "block": 1, "offset": 16 }
+	},
+	{
+		"name": "the second copy of a phrase in one block",
+		"markdown": "The tea is hot, and the tea is green.\n",
+		"quote": "tea",
+		"occurrence": 1,
+		"anchor": { "quote": "tea", "block": 0, "offset": 24 }
+	},
+	{
+		"name": "the second copy of a phrase in a later block",
+		"markdown": "Steep for three minutes.\n\n---\n\nSteep again for three minutes.\n",
+		"quote": "three minutes",
+		"occurrence": 1,
+		"anchor": { "quote": "three minutes", "block": 1, "offset": 16 }
+	},
+	{
+		"name": "a paragraph after a quote and a code block",
+		"markdown": "> A quoted line\n> and its second line\n\n```\nlet tea = 1\n```\n\nTea after the code.\n",
+		"quote": "after",
+		"occurrence": 0,
+		"anchor": { "quote": "after", "block": 2, "offset": 4 }
+	}
+]

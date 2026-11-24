@@ -2,8 +2,9 @@ import Captures
 import XCTest
 @testable import Piper
 
-/// Decodes the sample messages of `web/test/fixtures`. The Vitest file
-/// `web/test/bridge.test.ts` checks the editor samples against `Outgoing`.
+/// Reads the samples of `web/test/fixtures`. The Vitest file
+/// `web/test/bridge.test.ts` checks the editor samples against `Outgoing`, and
+/// `web/test/anchors.test.ts` checks the anchor samples in the editor.
 final class WebPageBridgeTests: XCTestCase {
     private let fixtures = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -57,6 +58,30 @@ final class WebPageBridgeTests: XCTestCase {
             .mark(.continue(id: id)),
             .mark(.followup(id: id, question: "And the moon?"))
         ])
+    }
+
+    func testEachAnchorSampleCountsTheSameBlocks() throws {
+        struct Sample: Decodable {
+            let name: String
+            let markdown: String
+            let quote: String
+            let occurrence: Int
+            let anchor: NoteAnchor
+        }
+        let data = try Data(contentsOf: fixtures.appendingPathComponent("anchors.json"))
+        for sample in try JSONDecoder().decode([Sample].self, from: data) {
+            let blocks = WikiMarkdown.textBlocks(sample.markdown).map(\.text)
+            var copies: [NoteAnchor] = []
+            for (index, text) in blocks.enumerated() {
+                var rest = NSRange(location: 0, length: (text as NSString).length)
+                while case let found = (text as NSString).range(of: sample.quote, range: rest), found.location != NSNotFound {
+                    copies.append(NoteAnchor(quote: sample.quote, block: index, offset: found.location))
+                    rest = NSRange(location: NSMaxRange(found), length: rest.length - (NSMaxRange(found) - rest.location))
+                }
+            }
+            XCTAssertEqual(copies.indices.contains(sample.occurrence) ? copies[sample.occurrence] : nil, sample.anchor, sample.name)
+            XCTAssertEqual(sample.anchor.locate(in: blocks), sample.anchor, sample.name)
+        }
     }
 
     func testAnUnknownActionDoesNotDecode() {
