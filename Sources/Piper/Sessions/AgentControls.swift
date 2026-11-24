@@ -2,14 +2,6 @@ import Agents
 import AppKit
 import SwiftUI
 
-/// The agent, the model, and the mode of the next message.
-struct SessionChoice: Equatable {
-    var agentID: String
-    /// Nil uses the default of the agent. An empty string asks Claude Code for its own default.
-    var model: String?
-    var mode: String?
-}
-
 /// The mark of an agent: the Claude sparkle, or a hexagon for an ACP agent.
 struct AgentMark: View {
     let agentID: String
@@ -31,7 +23,8 @@ struct AgentMark: View {
 struct AgentControls: View {
     let agents: FolderAgents
     let session: AgentSession?
-    @Binding var choice: SessionChoice
+    /// The agent, the model, and the mode of the first message, before the session exists.
+    @Binding var choice: AgentConfig
     let openSettings: () -> Void
 
     private var runner: SessionRunner { agents.runner }
@@ -42,20 +35,16 @@ struct AgentControls: View {
     private var canChangeAgent: Bool { session?.isNew ?? true }
 
     private var modelOption: ACP.ConfigOption? { session?.configOptions.first { $0.category == "model" } }
+    /// The choice of the session, or of the next session, with the defaults of the runner.
+    private var config: AgentConfig { session.map(runner.config(for:)) ?? runner.config(choice) }
     private var models: [ACP.ConfigOption.Value] { modelOption?.values ?? (isClaudeCode ? ClaudeCodeConnection.models : []) }
-    private var model: String? {
-        if let session { return session.model ?? modelOption?.currentValue ?? (isClaudeCode ? agents.model : nil) }
-        return choice.model ?? (isClaudeCode ? agents.model : nil)
-    }
+    private var model: String? { config.model ?? modelOption?.currentValue }
 
     private var modes: [ACP.Mode] {
         if let session, !session.modes.isEmpty { return session.modes }
         return isClaudeCode ? ClaudeCodeConnection.modes : []
     }
-    private var mode: String? {
-        if let session { return session.mode ?? session.currentMode ?? (isClaudeCode ? agents.permissionMode.rawValue : nil) }
-        return choice.mode ?? (isClaudeCode ? agents.permissionMode.rawValue : nil)
-    }
+    private var mode: String? { config.mode ?? session?.currentMode }
 
     var body: some View {
         HStack(spacing: Metrics.footerMenuSpacing) {
@@ -133,7 +122,7 @@ struct AgentControls: View {
     // MARK: Actions
 
     private func setAgent(_ id: String) {
-        if let session { runner.setAgent(id, for: session) } else { choice = SessionChoice(agentID: id) }
+        if let session { runner.setAgent(id, for: session) } else { choice = AgentConfig(agentID: id) }
     }
 
     private func setModel(_ value: String) {
@@ -189,7 +178,7 @@ struct ApprovalDrawer: View {
     }
 
     private func approval(_ request: PermissionRequest, count: Int) -> some View {
-        let options = request.options ?? ClaudeCodeConnection.options(in: URL(fileURLWithPath: session.folder))
+        let options = request.options
         let detail = request.description ?? request.detail
         return VStack(alignment: .leading, spacing: Metrics.requestSpacing) {
             HStack(spacing: Metrics.requestButtonSpacing) {
@@ -239,7 +228,7 @@ struct ApprovalDrawer: View {
     /// Claude Code keeps an Always choice as a rule in the folder settings. Another agent keeps it itself.
     private func alwaysHelp(_ request: PermissionRequest) -> String {
         guard session.agentID == AgentDefinition.claudeCodeID,
-              let rule = PermissionRule.rule(toolName: request.toolName, input: request.input) else {
+              let rule = PermissionRule.rule(for: request) else {
             return "Allows calls like this one from now on."
         }
         return "Adds \(rule) to .claude/settings.local.json in \(session.folderName)"
@@ -251,7 +240,7 @@ struct ApprovalDrawer: View {
     }
 
     private static func action(_ request: PermissionRequest) -> String {
-        switch request.kind ?? ClaudeCodeConnection.kind(of: request.toolName) {
+        switch request.kind {
         case .execute: return "run a command"
         case .edit: return "change a file"
         case .delete: return "delete a file"

@@ -19,12 +19,29 @@ public final class ClaudeCodeConnection: AgentConnection {
         ACP.Mode(id: $0.rawValue, name: $0.name, description: $0.detail)
     }
 
+    /// The model of a session when the reader chose none.
+    public nonisolated static let defaultModel = "sonnet"
+    /// The model of a margin answer when the reader chose none. It is fast and costs little.
+    public nonisolated static let defaultMarginModel = "haiku"
+
     /// The values that `--model` takes. An empty value leaves the choice to Claude Code.
     public nonisolated static let models = [
-        ACP.ConfigOption.Value(id: "sonnet", name: "Sonnet"),
+        ACP.ConfigOption.Value(id: defaultModel, name: "Sonnet"),
         ACP.ConfigOption.Value(id: "opus", name: "Opus"),
-        ACP.ConfigOption.Value(id: "haiku", name: "Haiku"),
+        ACP.ConfigOption.Value(id: defaultMarginModel, name: "Haiku"),
         ACP.ConfigOption.Value(id: "", name: "Claude Code Default")
+    ]
+
+    /// The commands that Claude Code runs itself, on the conversation and not on files.
+    public nonisolated static let localCommands: Set<String> = ["compact", "clear", "context", "usage"]
+    public nonisolated static let readsDenialMessage = true
+    public nonisolated static let answersQuestions = true
+
+    /// The tool that asks the reader questions.
+    private nonisolated static let questionTool = "AskUserQuestion"
+    /// The tools whose input names a file that they write, with the key of the path.
+    private nonisolated static let writers: [String: String] = [
+        "Write": "file_path", "Edit": "file_path", "MultiEdit": "file_path", "NotebookEdit": "notebook_path"
     ]
 
     /// The rules that Always added in this launch of Piper, by folder. A
@@ -54,7 +71,8 @@ public final class ClaudeCodeConnection: AgentConnection {
     /// The command line of a session.
     nonisolated static func arguments(for config: SessionConfig) -> [String] {
         var arguments = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-                         "--permission-prompt-tool", "stdio", "--permission-mode", config.mode ?? "auto"]
+                         "--permission-prompt-tool", "stdio"]
+        if let mode = config.mode { arguments += ["--permission-mode", mode] }
         if let model = config.model, !model.isEmpty { arguments += ["--model", model] }
         // `--tools` limits only the built-in tools. `--strict-mcp-config` with no
         // `--mcp-config` also removes every MCP server, so no tool can write.
@@ -66,6 +84,9 @@ public final class ClaudeCodeConnection: AgentConnection {
     }
 
     // MARK: - AgentConnection
+
+    /// The tools of a margin session read and change nothing in any mode.
+    public nonisolated static func hasReadOnlyMode(_ setup: ACP.SessionSetup) -> Bool { true }
 
     public func start(event: @escaping @MainActor (AgentEvent) -> Void,
                       exit: @escaping @MainActor (Int32, String) -> Void) throws {
@@ -80,7 +101,7 @@ public final class ClaudeCodeConnection: AgentConnection {
 
     public func respond(to request: PermissionRequest, with option: ACP.PermissionOption, message: String?) {
         if option.kind.allows {
-            if option.kind == .allowAlways, let rule = PermissionRule.rule(toolName: request.toolName, input: request.input) {
+            if option.kind == .allowAlways, let rule = PermissionRule.rule(for: request) {
                 do {
                     try PermissionRule.append(rule, to: folder)
                     Self.allowRules[folder.path, default: []].insert(rule)
@@ -117,14 +138,14 @@ public final class ClaudeCodeConnection: AgentConnection {
     }
 
     /// The default choices of a permission card of Claude Code.
-    public nonisolated static func options(in folder: URL) -> [ACP.PermissionOption] {
+    nonisolated static func options(in folder: URL) -> [ACP.PermissionOption] {
         [ACP.PermissionOption(id: "allow", name: "Allow Once", kind: .allowOnce),
          ACP.PermissionOption(id: "always", name: "Always in \(folder.lastPathComponent)", kind: .allowAlways),
          ACP.PermissionOption(id: "deny", name: "Deny", kind: .rejectOnce)]
     }
 
     /// The ACP kind of a Claude Code tool.
-    public nonisolated static func kind(of tool: String) -> ACP.ToolKind {
+    nonisolated static func kind(of tool: String) -> ACP.ToolKind {
         switch tool {
         case "Read", "NotebookRead": return .read
         case "Glob", "Grep", "LS", "WebSearch", "ToolSearch": return .search
@@ -137,6 +158,60 @@ public final class ClaudeCodeConnection: AgentConnection {
         }
     }
 
+    /// The tool call of a `tool_use` block, in the fields that the runner reads.
+    nonisolated static func update(id: String, name: String, input: JSONValue) -> ACP.ToolCallUpdate {
+        ACP.ToolCallUpdate(id: id, name: name, title: SessionEvent.detail(of: input), kind: kind(of: name),
+                           status: .pending, paths: path(of: name, input: input).map { [$0] },
+                           diffs: edit(of: name, input: input).map { [$0] })
+    }
+
+    /// A request with the kind, the options, the question flag, and the edits
+    /// that its tool name and its input give.
+    nonisolated static func prepared(_ request: PermissionRequest, in folder: URL) -> PermissionRequest {
+        var request = request
+        if request.kind == .other { request.kind = kind(of: request.toolName) }
+        if request.options.isEmpty { request.options = options(in: folder) }
+        if request.toolName == questionTool { request.isQuestion = true }
+        if request.diffs.isEmpty { request.diffs = edits(of: request.toolName, input: request.input) }
+        return request
+    }
+
+    /// The blocks of a Claude Code session that an older Piper stored, with
+    /// the fields that it did not store.
+    public nonisolated static func completed(_ blocks: [TranscriptBlock], in folder: URL) -> [TranscriptBlock] {
+        blocks.map { block in
+            switch block {
+            case .toolCall(var call):
+                if call.kind == .other { call.kind = kind(of: call.name) }
+                return .toolCall(call)
+            case .permission(let request, let decision):
+                return .permission(prepared(request, in: folder), decision: decision)
+            case .question(let request, let answers):
+                return .question(prepared(request, in: folder), answers: answers)
+            case .user, .assistant, .result:
+                return block
+            }
+        }
+    }
+
+    /// The file that a call writes, from its input.
+    private nonisolated static func path(of tool: String, input: JSONValue) -> String? {
+        writers[tool].flatMap { input[$0]?.string }
+    }
+
+    /// The text that an Edit call replaces.
+    private nonisolated static func edit(of tool: String, input: JSONValue) -> ACP.Diff? {
+        guard tool == "Edit", let old = input["old_string"]?.string, let new = input["new_string"]?.string else { return nil }
+        return ACP.Diff(path: path(of: tool, input: input) ?? "", oldText: old, newText: new)
+    }
+
+    /// The edits that a card shows: the text that an Edit replaces, or the content of a Write.
+    private nonisolated static func edits(of tool: String, input: JSONValue) -> [ACP.Diff] {
+        if let edit = edit(of: tool, input: input) { return [edit] }
+        guard tool == "Write", let content = input["content"]?.string else { return [] }
+        return [ACP.Diff(path: path(of: tool, input: input) ?? "", oldText: "", newText: content)]
+    }
+
     // MARK: - Reading
 
     private func receive(_ line: String) {
@@ -145,19 +220,16 @@ public final class ClaudeCodeConnection: AgentConnection {
             case .started(let id):
                 let model = ACP.ConfigOption(id: "model", name: "Model", category: "model",
                                              currentValue: config.model ?? "", values: Self.models)
-                send(.ready(ACP.SessionSetup(sessionID: id, currentMode: config.mode ?? "auto",
+                send(.ready(ACP.SessionSetup(sessionID: id, currentMode: config.mode,
                                              modes: Self.modes, configOptions: [model])))
             case .commands(let names):
                 send(.update(.commands(names.map { ACP.Command(name: $0) })))
             case .text(let text):
                 send(.update(.agentMessage(hasText ? "\n\n" + text : text)))
                 hasText = true
-            case .toolCall(let call):
+            case .toolCall(let id, let name, let input):
                 hasText = false
-                send(.update(.toolCall(ACP.ToolCallUpdate(
-                    id: call.id, name: call.name, title: call.detail, kind: Self.kind(of: call.name), status: .pending,
-                    paths: call.path.map { [$0] },
-                    diffs: call.diff.map { [ACP.Diff(path: call.path ?? "", oldText: $0.old, newText: $0.new)] }))))
+                send(.update(.toolCall(Self.update(id: id, name: name, input: input))))
             case .toolResult(let id, let isError, let preview):
                 send(.update(.toolCallUpdate(ACP.ToolCallUpdate(id: id, status: isError ? .failed : .completed,
                                                                 text: preview))))
@@ -175,14 +247,11 @@ public final class ClaudeCodeConnection: AgentConnection {
 
     /// Passes a request on, or allows it at once when an Always rule from this launch covers it.
     private func ask(_ request: PermissionRequest) {
-        if !request.isQuestion, let rule = PermissionRule.rule(toolName: request.toolName, input: request.input),
-           Self.allowRules[folder.path]?.contains(rule) == true {
+        let request = Self.prepared(request, in: folder)
+        if let rule = PermissionRule.rule(for: request), Self.allowRules[folder.path]?.contains(rule) == true {
             reply(to: request, ["behavior": "allow", "updatedInput": request.input.any])
             return
         }
-        var request = request
-        request.kind = Self.kind(of: request.toolName)
-        request.options = Self.options(in: folder)
         send(.permission(request))
     }
 

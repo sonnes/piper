@@ -235,10 +235,10 @@ final class ACPAgentTests: XCTestCase {
         XCTAssertEqual(session.modes.map(\.id), ["ask", "code"])
         XCTAssertEqual(session.configOptions.first?.currentValue, "m1")
         let request = try XCTUnwrap(session.pendingRequest)
-        XCTAssertEqual(request.options?.map(\.id), ["yes", "always", "no"])
+        XCTAssertEqual(request.options.map(\.id), ["yes", "always", "no"])
         XCTAssertEqual(request.kind, .edit)
 
-        runner.respond(request, with: try XCTUnwrap(request.options?[1]), in: session)
+        runner.respond(request, with: request.options[1], in: session)
         try await wait { session.state == .idle }
         XCTAssertTrue(received().contains { $0.contains(#""optionId":"always""#) && $0.contains(#""id":100"#) })
         XCTAssertTrue(received().first?.contains(#""protocolVersion":1"#) == true)

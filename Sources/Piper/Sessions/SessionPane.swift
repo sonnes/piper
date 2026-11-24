@@ -21,7 +21,7 @@ struct SessionPane: View {
     var started: (AgentSession) -> Void = { _ in }
 
     /// The agent, model, and mode of the first message, before the session exists.
-    @State private var choice: SessionChoice?
+    @State private var choice: AgentConfig?
     /// The item on the screen that the reader removed from the next message.
     @State private var removedScreen: ContextItem?
     /// The item on the screen that the reader asked to send again.
@@ -67,7 +67,7 @@ struct SessionPane: View {
         }
     }
 
-    private func send(_ text: String, context: [ContextItem], choice: SessionChoice) {
+    private func send(_ text: String, context: [ContextItem], choice: AgentConfig) {
         let target = session ?? model.agents.newSession(in: folder, noteID: noteID, agentID: choice.agentID, model: choice.model,
                                                          mode: choice.mode)
         runner.send(text, context: context, to: target)

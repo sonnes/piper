@@ -169,7 +169,7 @@ The buttons come from the agent. Claude Code shows these buttons:
 
 An ACP agent names its own buttons, for example Allow, Always Allow, and Reject.
 
-The pointer over Always in <folder> shows the rule, for example `Bash(python3:*)` or `WebFetch(domain:example.com)`. Claude Code reads the rules in this file for that folder only. An ACP agent keeps its own record of an Always answer.
+The pointer over Always in <folder> shows the rule, for example `Bash(python3:*)` or `WebFetch(domain:example.com)`. Claude Code reads the rules in this file for that folder only. If Piper cannot read the file, Always runs the tool call, shows an error, and does not change the file. An ACP agent keeps its own record of an Always answer.
 
 Claude Code can also ask a question with choices. The question shows in the drawer. Select a choice for each question, then select Answer.
 
@@ -231,6 +231,8 @@ The dot on each agent row shows its health:
 Piper checks each agent when you open Settings > AI. To check again, select Check Again.
 
 An ACP agent uses its own tools. Piper gives it no file system and no terminal. The skills in `.claude/skills` run in Claude Code only.
+
+If Piper cannot read the stored list of agents, it shows an error and does not change the list. An agent that you add then lasts until you quit Piper.
 
 To remove an agent, select Remove on its row. A session of a removed agent fails at its next message. Its agent menu shows Missing Agent, and its message field says that the agent was removed.
 
@@ -297,5 +299,7 @@ The transcript shows:
 Open on a tool row opens the Markdown file that the call wrote. Under the transcript, a menu lists every file that the session changed, and the total cost shows at the right.
 
 A turn stops after 10 minutes. The time that a request waits for you does not count. If you quit Piper during a turn, Piper asks first, then stops the turn. A stopped turn can leave some changed files in the folder. After you open Piper again, the session shows "Piper quit before the turn finished." Send a message to continue it.
+
+If Piper cannot read a stored session, it shows an error and does not show the session. The session stays in the database.
 
 Piper does not commit changes. A hook in the folder can commit them.

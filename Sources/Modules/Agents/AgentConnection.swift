@@ -22,6 +22,22 @@ public struct AgentDefinition: Codable, Equatable, Hashable, Sendable, Identifia
     }
 }
 
+/// The agent, the model, and the mode of a session. `SessionRunner.config`
+/// fills the model and the mode that the reader left open.
+public struct AgentConfig: Equatable, Sendable {
+    public var agentID: String
+    /// Nil leaves the choice to the agent. An empty string asks Claude Code for its own default.
+    public var model: String?
+    /// The id of a mode of the agent. Nil leaves the choice to the agent.
+    public var mode: String?
+
+    public init(agentID: String, model: String? = nil, mode: String? = nil) {
+        self.agentID = agentID
+        self.model = model
+        self.mode = mode
+    }
+}
+
 /// What a session asks of its agent when the process starts.
 public struct SessionConfig: Equatable, Sendable {
     public var folder: URL
@@ -72,6 +88,18 @@ public enum AgentEvent: Equatable, Sendable {
 /// handshake first keeps the prompt until the session is ready.
 @MainActor
 public protocol AgentConnection: AnyObject {
+    /// The slash commands that the agent runs itself and that take no context items.
+    nonisolated static var localCommands: Set<String> { get }
+    /// True when the agent reads the message of a denial as the reason, in the
+    /// same turn. Otherwise a message that answers a card goes as the next turn.
+    nonisolated static var readsDenialMessage: Bool { get }
+    /// True when the agent asks questions that `answer` replies to. The runner
+    /// calls `answer` only for such an agent.
+    nonisolated static var answersQuestions: Bool { get }
+    /// True when a margin session of the agent can run read-only, given what
+    /// the agent offers when its session opens.
+    nonisolated static func hasReadOnlyMode(_ setup: ACP.SessionSetup) -> Bool
+
     /// Starts the process. `event` gets each event on the main actor. `exit`
     /// gets the exit status and the start of standard error, after the last event.
     func start(event: @escaping @MainActor (AgentEvent) -> Void,
@@ -81,7 +109,7 @@ public protocol AgentConnection: AnyObject {
     /// Answers a permission request. The message goes to the agent as the
     /// reason for a denial, when the agent reads one.
     func respond(to request: PermissionRequest, with option: ACP.PermissionOption, message: String?)
-    /// Answers an `AskUserQuestion` call of Claude Code.
+    /// Answers a question card with the chosen labels of each question.
     func answer(_ request: PermissionRequest, answers: [String: String])
     /// Stops the current turn. The connection ends the turn with `cancelled`,
     /// or the process exits.

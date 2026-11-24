@@ -15,11 +15,37 @@ final class SessionEventTests: XCTestCase {
         XCTAssertEqual(SessionEvent.parse(#"{"type":"system","subtype":"init","session_id":"s-1"}"#),
                        [.started(sessionID: "s-1")])
         let line = #"{"type":"assistant","message":{"content":[{"type":"thinking","thinking":""},{"type":"text","text":"Filing it."},{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"/w/a.md","old_string":"a","new_string":"b"}},{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"python3 x.py\nmore"}}]},"parent_tool_use_id":null}"#
+        let edit = JSONValue.object(["file_path": .string("/w/a.md"), "old_string": .string("a"), "new_string": .string("b")])
         XCTAssertEqual(SessionEvent.parse(line), [
             .text("Filing it."),
-            .toolCall(ToolCall(id: "t1", name: "Edit", detail: "/w/a.md", path: "/w/a.md", diff: ToolCall.Diff(old: "a", new: "b"))),
-            .toolCall(ToolCall(id: "t2", name: "Bash", detail: "python3 x.py more"))
+            .toolCall(id: "t1", name: "Edit", input: edit),
+            .toolCall(id: "t2", name: "Bash", input: .object(["command": .string("python3 x.py\nmore")]))
         ])
+    }
+
+    func testClaudeCodeToolNamesBecomeNeutralFields() {
+        let edit = ClaudeCodeConnection.update(id: "t1", name: "Edit", input: .object([
+            "file_path": .string("/w/a.md"), "old_string": .string("a"), "new_string": .string("b")]))
+        XCTAssertEqual(edit.kind, .edit)
+        XCTAssertEqual(edit.title, "/w/a.md")
+        XCTAssertEqual(edit.paths, ["/w/a.md"])
+        XCTAssertEqual(edit.diffs, [ACP.Diff(path: "/w/a.md", oldText: "a", newText: "b")])
+        let command = ClaudeCodeConnection.update(id: "t2", name: "Bash", input: .object(["command": .string("python3 x.py\nmore")]))
+        XCTAssertEqual(command.kind, .execute)
+        XCTAssertEqual(command.title, "python3 x.py more")
+        XCTAssertNil(command.paths)
+        XCTAssertNil(command.diffs)
+
+        let folder = URL(fileURLWithPath: "/w")
+        let write = ClaudeCodeConnection.prepared(PermissionRequest(requestID: "r1", toolName: "Write", input: .object([
+            "file_path": .string("/w/a.md"), "content": .string("hi")])), in: folder)
+        XCTAssertEqual(write.kind, .edit)
+        XCTAssertFalse(write.isQuestion)
+        XCTAssertEqual(write.options.map(\.kind), [.allowOnce, .allowAlways, .rejectOnce])
+        XCTAssertEqual(write.diffs, [ACP.Diff(path: "/w/a.md", oldText: "", newText: "hi")])
+        let question = ClaudeCodeConnection.prepared(PermissionRequest(requestID: "r2", toolName: "AskUserQuestion",
+                                                                       input: .object([:])), in: folder)
+        XCTAssertTrue(question.isQuestion)
     }
 
     func testToolResultsTakeStringOrBlocks() {
@@ -47,7 +73,8 @@ final class SessionEventTests: XCTestCase {
 
     func testQuestionsComeFromTheInput() {
         let line = #"{"type":"control_request","request_id":"r2","request":{"subtype":"can_use_tool","tool_name":"AskUserQuestion","input":{"questions":[{"question":"Which color?","header":"Color","options":[{"label":"Red","description":"The color red"},{"label":"Blue","description":""}],"multiSelect":false}]},"tool_use_id":"t2"}}"#
-        guard case .permission(let request)? = SessionEvent.parse(line).first else { return XCTFail("No request") }
+        guard case .permission(let parsed)? = SessionEvent.parse(line).first else { return XCTFail("No request") }
+        let request = ClaudeCodeConnection.prepared(parsed, in: URL(fileURLWithPath: "/w"))
         XCTAssertTrue(request.isQuestion)
         XCTAssertEqual(request.questions.first?.question, "Which color?")
         XCTAssertEqual(request.questions.first?.options.map(\.label), ["Red", "Blue"])
@@ -106,11 +133,33 @@ final class SessionHelperTests: XCTestCase {
     }
 
     func testPermissionRules() {
-        XCTAssertEqual(PermissionRule.rule(toolName: "Edit", input: .object([:])), "Edit")
-        XCTAssertEqual(PermissionRule.rule(toolName: "Bash", input: .object(["command": .string("python3 tools/x.py --all")])), "Bash(python3:*)")
-        XCTAssertEqual(PermissionRule.rule(toolName: "Bash", input: .object([:])), "Bash")
-        XCTAssertEqual(PermissionRule.rule(toolName: "WebFetch", input: .object(["url": .string("https://example.com/a")])), "WebFetch(domain:example.com)")
-        XCTAssertNil(PermissionRule.rule(toolName: "AskUserQuestion", input: .object([:])))
+        func rule(_ tool: String, _ input: [String: JSONValue] = [:]) -> String? {
+            PermissionRule.rule(for: ClaudeCodeConnection.prepared(
+                PermissionRequest(requestID: "r", toolName: tool, input: .object(input)), in: URL(fileURLWithPath: "/w")))
+        }
+        XCTAssertEqual(rule("Edit"), "Edit")
+        XCTAssertEqual(rule("Bash", ["command": .string("python3 tools/x.py --all")]), "Bash(python3:*)")
+        XCTAssertEqual(rule("Bash"), "Bash")
+        XCTAssertEqual(rule("WebFetch", ["url": .string("https://example.com/a")]), "WebFetch(domain:example.com)")
+        XCTAssertNil(rule("AskUserQuestion"))
+        XCTAssertNil(rule("ExitPlanMode"))
+    }
+
+    func testAnUnreadableSettingsFileIsNotOverwritten() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("agents-rules-" + UUID().uuidString)
+        let url = folder.appendingPathComponent(".claude/settings.local.json")
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let stored = Data(#"{"permissions":{"allow":["Edit"]}}"#.utf8)
+        try stored.write(to: url)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: url.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
+            try? FileManager.default.removeItem(at: folder)
+        }
+
+        XCTAssertThrowsError(try PermissionRule.append("Bash(ls:*)", to: folder))
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
+        XCTAssertEqual(try Data(contentsOf: url), stored)
     }
 
     func testAppendingARuleKeepsTheOtherSettings() throws {
@@ -210,7 +259,9 @@ final class AgentSessionTests: XCTestCase {
 
     func testPendingRequestAndSnapshot() throws {
         let session = AgentSession(folder: "/w")
-        let request = PermissionRequest(requestID: "r1", toolName: "Write", input: .object(["file_path": .string("/w/a")]))
+        let request = ClaudeCodeConnection.prepared(
+            PermissionRequest(requestID: "r1", toolName: "Write", input: .object(["file_path": .string("/w/a")])),
+            in: URL(fileURLWithPath: "/w"))
         session.append(.permission(request, decision: .pending))
         XCTAssertEqual(session.pendingRequest, request)
         session.update(TranscriptBlock.permission(request, decision: .pending).id) { $0 = .permission(request, decision: .allowed) }
@@ -225,5 +276,18 @@ final class AgentSessionTests: XCTestCase {
         let oldData = try JSONSerialization.data(withJSONObject: old)
         let restored = AgentSession(try JSONDecoder().decode(AgentSession.Snapshot.self, from: oldData))
         XCTAssertNil(restored.slashCommands)
+    }
+
+    func testAnOlderClaudeCodeSessionGetsItsDefaultsWhenItLoads() throws {
+        let stored = #"{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","folder":"/w","state":"idle","createdAt":0,"updatedAt":0,"unread":false,"blocks":[{"toolCall":{"_0":{"id":"t1","name":"Bash","detail":"ls","isFinished":true,"isError":false}}},{"permission":{"_0":{"requestID":"r1","toolName":"Edit","input":{"file_path":"/w/a.md","old_string":"a","new_string":"b"}},"decision":"allowed"}},{"question":{"_0":{"requestID":"q1","toolName":"AskUserQuestion","input":{}},"answers":{}}}]}"#
+        let session = AgentSession(try JSONDecoder().decode(AgentSession.Snapshot.self, from: Data(stored.utf8)))
+        XCTAssertEqual(session.agentID, AgentDefinition.claudeCodeID)
+        guard case .toolCall(let call) = session.blocks[0], case .permission(let request, _) = session.blocks[1],
+              case .question(let question, _) = session.blocks[2] else { return XCTFail("The blocks changed") }
+        XCTAssertEqual(call.kind, .execute)
+        XCTAssertEqual(request.kind, .edit)
+        XCTAssertEqual(request.options.map(\.id), ["allow", "always", "deny"])
+        XCTAssertEqual(request.diffs, [ACP.Diff(path: "/w/a.md", oldText: "a", newText: "b")])
+        XCTAssertTrue(question.isQuestion)
     }
 }

@@ -272,11 +272,26 @@ final class FolderAgentsTests: XCTestCase {
         XCTAssertEqual(margin.purpose, .margin)
         XCTAssertEqual(margin.model, "haiku")
 
-        reloaded.marginAgentID = added.id
+        reloaded.setMarginAgent(added.id)
+        XCTAssertEqual(reloaded.marginModel, "")
         reloaded.removeAgent(added)
         XCTAssertTrue(reloaded.acpAgents.isEmpty)
         XCTAssertEqual(reloaded.sessionAgentID, AgentDefinition.claudeCodeID)
         XCTAssertEqual(reloaded.marginAgentID, AgentDefinition.claudeCodeID)
+        XCTAssertEqual(reloaded.marginModel, ClaudeCodeConnection.defaultMarginModel)
+    }
+
+    func testAnUnreadableAgentListIsReportedAndNotOverwritten() throws {
+        let stored = Data("not a list".utf8)
+        preferences.set(stored, forKey: AppDefaults.Key.acpAgents)
+        let messages = Messages()
+        let agents = FolderAgents(store: store, messages: messages, preferences: preferences)
+        XCTAssertEqual(messages.last?.isError, true)
+        XCTAssertTrue(agents.acpAgents.isEmpty)
+
+        agents.addAgent(name: "Fake", command: "/usr/bin/true", arguments: [])
+        XCTAssertEqual(agents.acpAgents.map(\.name), ["Fake"])
+        XCTAssertEqual(preferences.data(forKey: AppDefaults.Key.acpAgents), stored)
     }
 
     func testRemovedAgentReadsAsMissing() throws {
@@ -306,19 +321,20 @@ final class FolderAgentsTests: XCTestCase {
         let agents = try makeAgents()
         agents.addAgent(name: "Coder", command: script.path, arguments: [])
         let coder = try XCTUnwrap(agents.acpAgents.first)
-        agents.marginAgentID = coder.id
+        agents.setMarginAgent(coder.id)
         XCTAssertEqual(agents.marginAgents.map(\.id), [AgentDefinition.claudeCodeID, coder.id])
 
         let session = agents.newSession(in: wiki.path, agentID: coder.id)
         agents.runner.send("Hello", to: session)
         try await waitForRuns(agents)
         XCTAssertEqual(agents.marginAgents.map(\.id), [AgentDefinition.claudeCodeID])
-        XCTAssertEqual(agents.marginAgent, .claudeCode)
+        XCTAssertEqual(agents.marginChoice, AgentConfig(agentID: AgentDefinition.claudeCodeID,
+                                                        model: ClaudeCodeConnection.defaultMarginModel))
 
         let margin = agents.newMarginSession(in: wiki.path, noteID: UUID())
         XCTAssertEqual(margin.agentID, AgentDefinition.claudeCodeID)
         XCTAssertEqual(agents.marginAgentID, AgentDefinition.claudeCodeID)
-        XCTAssertEqual(margin.model, FolderAgents.defaultMarginModel)
+        XCTAssertEqual(margin.model, ClaudeCodeConnection.defaultMarginModel)
     }
 
     func testFindsClaudeInTheUsualPlaces() {

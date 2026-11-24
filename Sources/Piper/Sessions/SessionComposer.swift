@@ -18,10 +18,10 @@ struct SessionComposer: View {
     let resendScreen: () -> Void
     /// Sends the text and its context. A new session takes the agent, model,
     /// and mode of the choice.
-    let send: (String, [ContextItem], SessionChoice) -> Void
+    let send: (String, [ContextItem], AgentConfig) -> Void
     let stop: () -> Void
     /// The agent, model, and mode of a session that does not exist yet.
-    @Binding var choice: SessionChoice?
+    @Binding var choice: AgentConfig?
 
     @State private var newSessionText = ""
     private var text: String {
@@ -40,7 +40,7 @@ struct SessionComposer: View {
     private var agents: FolderAgents { model.agents }
     private var isActive: Bool { session?.isActive == true }
     private var folderName: String { URL(fileURLWithPath: folder).lastPathComponent }
-    private var currentChoice: SessionChoice { choice ?? SessionChoice(agentID: agents.sessionAgentID) }
+    private var currentChoice: AgentConfig { choice ?? AgentConfig(agentID: agents.sessionAgentID) }
     /// Nil for an agent that the reader removed.
     private var agentName: String? { agents.agent(session?.agentID ?? currentChoice.agentID)?.name }
 

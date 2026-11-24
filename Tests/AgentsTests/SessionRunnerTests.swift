@@ -317,6 +317,19 @@ final class SessionRunnerTests: XCTestCase {
         XCTAssertEqual(SessionRunner(storage: storage).sessions.map(\.id), [active.id])
         runner.stopAll()
     }
+
+    func testASessionThatDoesNotDecodeIsReportedAndKept() throws {
+        let storage = MemorySessionStorage()
+        let broken = UUID()
+        try storage.saveSession(id: broken, folder: folder.path, updatedAt: Date(), data: Data("{}".utf8))
+        var errors: [String] = []
+
+        let runner = SessionRunner(storage: storage) { errors.append($0.localizedDescription) }
+
+        XCTAssertTrue(runner.sessions.isEmpty)
+        XCTAssertEqual(errors, ["Piper cannot read a stored session. It stays in the database."])
+        XCTAssertEqual(try storage.loadSessions(), [Data("{}".utf8)])
+    }
 }
 
 /// Keeps the sessions in memory, so that a second runner reads what the first stored.

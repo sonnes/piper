@@ -3,7 +3,7 @@ import Foundation
 /// One tool call of a session, with its result when it arrives.
 public struct ToolCall: Codable, Equatable, Sendable, Identifiable {
 
-    /// The text that an Edit call replaces.
+    /// The text that an edit replaces.
     public struct Diff: Codable, Equatable, Sendable {
         public let old: String
         public let new: String
@@ -23,8 +23,8 @@ public struct ToolCall: Codable, Equatable, Sendable, Identifiable {
     /// folder, relative to it.
     public var path: String?
     public var diff: Diff?
-    /// What the call does. Nil in a session that an older Piper stored.
-    public var kind: ACP.ToolKind?
+    /// What the call does.
+    public var kind: ACP.ToolKind
     public var isFinished = false
     public var isError = false
     /// The start of the tool result.
@@ -33,11 +33,8 @@ public struct ToolCall: Codable, Equatable, Sendable, Identifiable {
     /// The tool name and the detail, as one line.
     public var line: String { detail.isEmpty ? name : name + " " + detail }
 
-    /// The kind of the call. A call from an older Piper takes the kind of its Claude Code tool.
-    public var toolKind: ACP.ToolKind { kind ?? ClaudeCodeConnection.kind(of: name) }
-
     public init(id: String, name: String, detail: String, path: String? = nil, diff: Diff? = nil,
-                kind: ACP.ToolKind? = nil) {
+                kind: ACP.ToolKind = .other) {
         self.id = id
         self.name = name
         self.detail = detail
@@ -45,12 +42,27 @@ public struct ToolCall: Codable, Equatable, Sendable, Identifiable {
         self.diff = diff
         self.kind = kind
     }
+
+    /// A call that an older Piper stored has no kind. It reads as `other`
+    /// until `ClaudeCodeConnection.completed` gives it the kind of its tool.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        detail = try container.decode(String.self, forKey: .detail)
+        path = try container.decodeIfPresent(String.self, forKey: .path)
+        diff = try container.decodeIfPresent(Diff.self, forKey: .diff)
+        kind = try container.decodeIfPresent(ACP.ToolKind.self, forKey: .kind) ?? .other
+        isFinished = try container.decodeIfPresent(Bool.self, forKey: .isFinished) ?? false
+        isError = try container.decodeIfPresent(Bool.self, forKey: .isError) ?? false
+        resultPreview = try container.decodeIfPresent(String.self, forKey: .resultPreview)
+    }
 }
 
 /// A tool call that waits for the reader: a permission card or a question card.
 public struct PermissionRequest: Codable, Equatable, Sendable {
 
-    /// One question of an `AskUserQuestion` call.
+    /// One question of a question call.
     public struct Question: Codable, Equatable, Sendable {
         public struct Option: Codable, Equatable, Sendable {
             public let label: String
@@ -70,21 +82,19 @@ public struct PermissionRequest: Codable, Equatable, Sendable {
     /// The short text that the agent gives, for example the file name.
     public let description: String?
     public let toolUseID: String?
-    /// What the call does. Nil in a session that an older Piper stored.
-    public var kind: ACP.ToolKind?
-    /// The choices of the agent, in its order. Nil in a session that an older Piper stored.
-    public var options: [ACP.PermissionOption]?
-    /// The edits of the call, when the agent gives them. Nil for Claude Code,
-    /// whose edits are in the input.
-    public var diffs: [ACP.Diff]?
+    /// What the call does.
+    public var kind: ACP.ToolKind
+    /// The choices of the agent, in its order.
+    public var options: [ACP.PermissionOption]
+    /// The edits of the call, when the agent gives them.
+    public var diffs: [ACP.Diff]
+    /// True when the call asks the reader questions instead of asking for permission.
+    public var isQuestion: Bool
 
     /// The line that the card shows under the tool name.
     public var detail: String { SessionEvent.detail(of: input) }
 
-    /// True when the call asks the reader questions instead of asking for permission.
-    public var isQuestion: Bool { toolName == "AskUserQuestion" }
-
-    /// The questions of an `AskUserQuestion` call.
+    /// The questions of a question call.
     public var questions: [Question] {
         input["questions"]?.array.compactMap { value -> Question? in
             guard let question = value["question"]?.string else { return nil }
@@ -100,7 +110,8 @@ public struct PermissionRequest: Codable, Equatable, Sendable {
     }
 
     public init(requestID: String, toolName: String, input: JSONValue, description: String? = nil, toolUseID: String? = nil,
-                kind: ACP.ToolKind? = nil, options: [ACP.PermissionOption]? = nil, diffs: [ACP.Diff]? = nil) {
+                kind: ACP.ToolKind = .other, options: [ACP.PermissionOption] = [], diffs: [ACP.Diff] = [],
+                isQuestion: Bool = false) {
         self.requestID = requestID
         self.toolName = toolName
         self.input = input
@@ -109,6 +120,22 @@ public struct PermissionRequest: Codable, Equatable, Sendable {
         self.kind = kind
         self.options = options
         self.diffs = diffs
+        self.isQuestion = isQuestion
+    }
+
+    /// A request that an older Piper stored has no kind, no options, and no
+    /// question flag. `ClaudeCodeConnection.completed` fills them in.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        requestID = try container.decode(String.self, forKey: .requestID)
+        toolName = try container.decode(String.self, forKey: .toolName)
+        input = try container.decode(JSONValue.self, forKey: .input)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        toolUseID = try container.decodeIfPresent(String.self, forKey: .toolUseID)
+        kind = try container.decodeIfPresent(ACP.ToolKind.self, forKey: .kind) ?? .other
+        options = try container.decodeIfPresent([ACP.PermissionOption].self, forKey: .options) ?? []
+        diffs = try container.decodeIfPresent([ACP.Diff].self, forKey: .diffs) ?? []
+        isQuestion = try container.decodeIfPresent(Bool.self, forKey: .isQuestion) ?? false
     }
 }
 
@@ -147,7 +174,7 @@ public enum TranscriptBlock: Codable, Equatable, Sendable, Identifiable {
     case assistant(id: String, text: String)
     case toolCall(ToolCall)
     case permission(PermissionRequest, decision: PermissionDecision)
-    /// An `AskUserQuestion` call. The answers are nil until the reader answers.
+    /// A question call. The answers are nil until the reader answers.
     case question(PermissionRequest, answers: [String: String]?)
     case result(id: String, TurnResult)
 
@@ -164,7 +191,7 @@ extension ToolCall {
 
     /// The calls counted by kind, for example "3 reads, 2 edits, 1 command".
     public static func summary(of calls: [ToolCall]) -> String {
-        let counts = Dictionary(grouping: calls, by: \.toolKind).mapValues(\.count)
+        let counts = Dictionary(grouping: calls, by: \.kind).mapValues(\.count)
         let order: [ACP.ToolKind] = [.execute, .edit, .delete, .move, .read, .search, .fetch, .think, .other, .switchMode]
         return order.compactMap { kind in counts[kind].map { phrase(kind, count: $0) } }.joined(separator: ", ")
     }

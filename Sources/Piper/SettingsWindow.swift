@@ -220,10 +220,7 @@ private struct AISettings: View {
                 Picker("New sessions", selection: Binding(get: { agents.sessionAgentID }, set: { agents.sessionAgentID = $0 })) {
                     ForEach(agents.allAgents) { Text($0.name).tag($0.id) }
                 }
-                Picker(selection: Binding(get: { agents.marginAgentID }, set: { id in
-                    agents.marginAgentID = id
-                    agents.marginModel = id == AgentDefinition.claudeCodeID ? FolderAgents.defaultMarginModel : ""
-                })) {
+                Picker(selection: Binding(get: { agents.marginAgentID }, set: { agents.setMarginAgent($0) })) {
                     ForEach(agents.marginAgents) { Text($0.name).tag($0.id) }
                 } label: {
                     Text("Margin answers")
@@ -251,13 +248,7 @@ private struct AISettings: View {
                     ForEach(PermissionMode.allCases, id: \.self) { Text($0.name).tag($0) }
                 } label: {
                     Text("Permissions")
-                    switch agents.permissionMode {
-                    case .auto: Text("Claude Code allows safe tools and asks about risky ones. Use Sonnet or Opus.")
-                    case .acceptEdits: Text("Claude edits files without asking. Other tools ask in the session.")
-                    case .ask: Text("Each tool that the folder settings do not allow asks in the session.")
-                    case .plan: Text("Claude Code reads and plans, and edits no files.")
-                    case .bypassPermissions: Text("A session can use any tool, including shell commands, without asking.")
-                    }
+                    Text(agents.permissionMode.detail)
                 }
             } header: {
                 Text("Claude Code")

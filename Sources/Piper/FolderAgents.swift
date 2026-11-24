@@ -34,10 +34,6 @@ final class FolderAgents {
 
     /// The stored value that means "run nothing by default".
     static let noSkill = "-"
-    /// The model a run uses when the reader chose none.
-    static let defaultModel = "sonnet"
-    /// The model of a margin answer when the reader chose none. It is fast and costs little.
-    static let defaultMarginModel = "haiku"
     /// The number of skills that a completion list shows.
     static let completionLimit = 6
 
@@ -65,32 +61,34 @@ final class FolderAgents {
             runner.executable = Self.executable(chosen: claudePath)
         }
     }
-    /// The value of `--model`. An empty string leaves the choice to Claude Code.
+    /// The model of a Claude Code session that has none of its own. An empty
+    /// string leaves the choice to Claude Code.
     var model: String {
-        didSet {
-            preferences.set(model, forKey: AppDefaults.Key.claudeModel)
-            runner.model = model
+        get { runner.model ?? "" }
+        set {
+            runner.model = newValue
+            preferences.set(newValue, forKey: AppDefaults.Key.claudeModel)
         }
     }
+    /// The mode of a Claude Code session that has none of its own.
     var permissionMode: PermissionMode {
-        didSet {
-            preferences.set(permissionMode.rawValue, forKey: AppDefaults.Key.claudePermissionMode)
-            runner.permissionMode = permissionMode
+        get { runner.permissionMode }
+        set {
+            runner.permissionMode = newValue
+            preferences.set(newValue.rawValue, forKey: AppDefaults.Key.claudePermissionMode)
         }
     }
     /// The agents that speak ACP, which the reader added in Settings.
-    private(set) var acpAgents: [AgentDefinition] {
-        didSet {
-            preferences.set(try? JSONEncoder().encode(acpAgents), forKey: AppDefaults.Key.acpAgents)
-            runner.agents = acpAgents
-        }
-    }
+    var acpAgents: [AgentDefinition] { runner.agents }
+    /// True when the stored agent list did not decode. Piper then keeps the
+    /// stored list as it is, and an added agent lasts until Piper quits.
+    @ObservationIgnored private var keepsStoredAgents = false
     /// The agent of a new session in the session pane.
     var sessionAgentID: String {
         didSet { preferences.set(sessionAgentID, forKey: AppDefaults.Key.sessionAgent) }
     }
-    /// The agent that answers margin questions in the reader.
-    var marginAgentID: String {
+    /// The agent that answers margin questions in the reader. `setMarginAgent` changes it.
+    private(set) var marginAgentID: String {
         didSet { preferences.set(marginAgentID, forKey: AppDefaults.Key.marginAgent) }
     }
     /// The model of a margin answer. An empty string leaves the choice to the agent.
@@ -119,19 +117,22 @@ final class FolderAgents {
         lastFolderPath = preferences.string(forKey: AppDefaults.Key.agentLastFolder)
         defaultSkills = preferences.dictionary(forKey: AppDefaults.Key.agentDefaultSkills) as? [String: String] ?? [:]
         claudePath = preferences.string(forKey: AppDefaults.Key.claudePath)
-        permissionMode = preferences.string(forKey: AppDefaults.Key.claudePermissionMode)
-            .flatMap(PermissionMode.init(rawValue:)) ?? .auto
-        model = preferences.string(forKey: AppDefaults.Key.claudeModel) ?? Self.defaultModel
-        acpAgents = preferences.data(forKey: AppDefaults.Key.acpAgents)
-            .flatMap { try? JSONDecoder().decode([AgentDefinition].self, from: $0) } ?? []
         sessionAgentID = preferences.string(forKey: AppDefaults.Key.sessionAgent) ?? AgentDefinition.claudeCodeID
         marginAgentID = preferences.string(forKey: AppDefaults.Key.marginAgent) ?? AgentDefinition.claudeCodeID
-        marginModel = preferences.string(forKey: AppDefaults.Key.marginModel) ?? Self.defaultMarginModel
+        marginModel = preferences.string(forKey: AppDefaults.Key.marginModel) ?? ClaudeCodeConnection.defaultMarginModel
         runner = SessionRunner(storage: store.database) { [weak messages] error in messages?.report(error) }
         runner.executable = Self.executable(chosen: claudePath)
-        runner.permissionMode = permissionMode
-        runner.model = model
-        runner.agents = acpAgents
+        runner.permissionMode = preferences.string(forKey: AppDefaults.Key.claudePermissionMode)
+            .flatMap(PermissionMode.init(rawValue:)) ?? .auto
+        runner.model = preferences.string(forKey: AppDefaults.Key.claudeModel) ?? ClaudeCodeConnection.defaultModel
+        if let data = preferences.data(forKey: AppDefaults.Key.acpAgents) {
+            do {
+                runner.agents = try JSONDecoder().decode([AgentDefinition].self, from: data)
+            } catch {
+                keepsStoredAgents = true
+                messages.report(PiperError("Piper cannot read the stored list of agents, so it does not change it. \(error.localizedDescription)"))
+            }
+        }
     }
 
     // MARK: - Agents
@@ -143,9 +144,20 @@ final class FolderAgents {
     /// agent that is not known to lack a read-only mode.
     var marginAgents: [AgentDefinition] { allAgents.filter { canAnswerInMargin($0.id) } }
 
-    /// The agent of the next margin session.
-    var marginAgent: AgentDefinition {
-        canAnswerInMargin(marginAgentID) ? agent(marginAgentID) ?? .claudeCode : .claudeCode
+    /// The agent and the model of the next margin answer. A margin agent that
+    /// cannot answer there gives way to Claude Code with its margin model.
+    var marginChoice: AgentConfig {
+        guard canAnswerInMargin(marginAgentID) else {
+            return AgentConfig(agentID: AgentDefinition.claudeCodeID, model: ClaudeCodeConnection.defaultMarginModel)
+        }
+        return AgentConfig(agentID: marginAgentID, model: marginModel.isEmpty ? nil : marginModel)
+    }
+
+    /// Changes the margin agent. Claude Code starts with its margin model, and
+    /// another agent with its own default model.
+    func setMarginAgent(_ id: String) {
+        marginAgentID = id
+        marginModel = id == AgentDefinition.claudeCodeID ? ClaudeCodeConnection.defaultMarginModel : ""
     }
 
     func canAnswerInMargin(_ id: String) -> Bool {
@@ -154,15 +166,23 @@ final class FolderAgents {
 
     func addAgent(name: String, command: String, arguments: [String]) {
         let agent = AgentDefinition(name: name, command: command, arguments: arguments)
-        acpAgents.append(agent)
+        setAgents(acpAgents + [agent])
         checkHealth(of: agent)
     }
 
     func removeAgent(_ agent: AgentDefinition) {
-        acpAgents.removeAll { $0.id == agent.id }
+        setAgents(acpAgents.filter { $0.id != agent.id })
         health.removeValue(forKey: agent.id)
         if sessionAgentID == agent.id { sessionAgentID = AgentDefinition.claudeCodeID }
-        if marginAgentID == agent.id { marginAgentID = AgentDefinition.claudeCodeID }
+        if marginAgentID == agent.id { setMarginAgent(AgentDefinition.claudeCodeID) }
+    }
+
+    private func setAgents(_ agents: [AgentDefinition]) {
+        runner.agents = agents
+        guard !keepsStoredAgents else { return }
+        do {
+            preferences.set(try JSONEncoder().encode(agents), forKey: AppDefaults.Key.acpAgents)
+        } catch { messages.report(error) }
     }
 
     /// Checks every agent again, for Settings.
@@ -191,15 +211,13 @@ final class FolderAgents {
         return session
     }
 
-    /// Makes the hidden session that answers the margin questions of a capture.
-    /// A margin agent that cannot answer there changes back to Claude Code.
+    /// Makes the hidden session that answers the margin questions of a capture,
+    /// with `marginChoice`. A margin agent that cannot answer there changes back to Claude Code.
     func newMarginSession(in folder: String, noteID: UUID) -> AgentSession {
-        if !canAnswerInMargin(marginAgentID) {
-            marginAgentID = AgentDefinition.claudeCodeID
-            marginModel = Self.defaultMarginModel
-        }
-        let session = runner.newSession(in: folder, noteID: noteID, agentID: marginAgentID, purpose: .margin)
-        if !marginModel.isEmpty { runner.setModel(marginModel, for: session) }
+        let choice = marginChoice
+        if choice.agentID != marginAgentID { setMarginAgent(choice.agentID) }
+        let session = runner.newSession(in: folder, noteID: noteID, agentID: choice.agentID, purpose: .margin)
+        if let model = choice.model { runner.setModel(model, for: session) }
         return session
     }
 

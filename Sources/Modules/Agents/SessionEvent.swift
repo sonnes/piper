@@ -15,7 +15,8 @@ public enum SessionEvent: Equatable, Sendable {
     case started(sessionID: String)
     case commands([String])
     case text(String)
-    case toolCall(ToolCall)
+    /// A tool call, with its tool name and its input as Claude Code gives them.
+    case toolCall(id: String, name: String, input: JSONValue)
     case toolResult(toolUseID: String, isError: Bool, preview: String)
     /// A tool call waits for an answer on standard input.
     case permission(PermissionRequest)
@@ -23,10 +24,6 @@ public enum SessionEvent: Equatable, Sendable {
 
     // MARK: - Parsing
 
-    /// The tools whose input names a file that they write.
-    private static let writers: [String: String] = [
-        "Write": "file_path", "Edit": "file_path", "MultiEdit": "file_path", "NotebookEdit": "notebook_path"
-    ]
     private static let detailKeys = ["file_path", "notebook_path", "command", "url", "pattern", "skill", "description"]
     static let lineLimit = 160
     private static let previewLimit = 400
@@ -87,13 +84,7 @@ public enum SessionEvent: Equatable, Sendable {
             return .text(text)
         case "tool_use":
             guard let id = block["id"] as? String, let name = block["name"] as? String else { return nil }
-            let input = JSONValue(block["input"])
-            let path = writers[name].flatMap { input[$0]?.string }
-            var diff: ToolCall.Diff?
-            if name == "Edit", let old = input["old_string"]?.string, let new = input["new_string"]?.string {
-                diff = ToolCall.Diff(old: old, new: new)
-            }
-            return .toolCall(ToolCall(id: id, name: name, detail: detail(of: input), path: path, diff: diff))
+            return .toolCall(id: id, name: name, input: JSONValue(block["input"]))
         default:
             return nil
         }

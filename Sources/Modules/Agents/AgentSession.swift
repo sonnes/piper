@@ -186,6 +186,8 @@ public final class AgentSession: Identifiable {
         updatedAt = createdAt
     }
 
+    /// A stored session. A Claude Code session that an older Piper stored gets
+    /// the fields of its blocks that were not stored.
     public convenience init(_ snapshot: Snapshot) {
         self.init(id: snapshot.id, folder: snapshot.folder, noteID: snapshot.noteID, command: snapshot.command,
                   agentID: snapshot.agentID ?? AgentDefinition.claudeCodeID, purpose: snapshot.purpose ?? .session,
@@ -196,7 +198,9 @@ public final class AgentSession: Identifiable {
         slashCommands = snapshot.slashCommands
         updatedAt = snapshot.updatedAt
         unread = snapshot.unread
-        blocks = snapshot.blocks
+        blocks = agentID == AgentDefinition.claudeCodeID
+            ? ClaudeCodeConnection.completed(snapshot.blocks, in: URL(fileURLWithPath: folder))
+            : snapshot.blocks
     }
 
     // MARK: - Changing

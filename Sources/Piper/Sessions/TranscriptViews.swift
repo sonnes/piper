@@ -233,21 +233,11 @@ struct PermissionCard: View {
     let decision: PermissionDecision
     let folderName: String
 
-    private var rule: String? { PermissionRule.rule(toolName: request.toolName, input: request.input) }
+    private var rule: String? { PermissionRule.rule(for: request) }
 
-    /// The text that a call changes, with the path of each file. An ACP agent
-    /// gives its diffs. For Claude Code, the diff comes from the input of
-    /// Edit or Write, and the title is empty.
+    /// The text that a call changes, with the path of each file.
     static func diffs(of request: PermissionRequest) -> [(title: String, diff: ToolCall.Diff)] {
-        if let diffs = request.diffs, !diffs.isEmpty {
-            return diffs.map { (title: $0.path, diff: ToolCall.Diff(old: $0.oldText ?? "", new: $0.newText)) }
-        }
-        if request.toolName == "Edit", let old = request.input["old_string"]?.string,
-           let new = request.input["new_string"]?.string { return [(title: "", diff: ToolCall.Diff(old: old, new: new))] }
-        if request.toolName == "Write", let content = request.input["content"]?.string {
-            return [(title: "", diff: ToolCall.Diff(old: "", new: content))]
-        }
-        return []
+        request.diffs.map { (title: $0.path, diff: ToolCall.Diff(old: $0.oldText ?? "", new: $0.newText)) }
     }
 
     var body: some View {
@@ -288,7 +278,7 @@ struct WaitingLine: View {
     }
 }
 
-/// The questions of an `AskUserQuestion` call.
+/// The questions of a question call.
 struct QuestionCard: View {
     let request: PermissionRequest
     let answers: [String: String]?

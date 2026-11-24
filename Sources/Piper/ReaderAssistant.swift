@@ -205,12 +205,12 @@ final class ReaderAssistant {
     /// such as "Haiku · Claude Code".
     func answererName(for parent: UUID) -> String {
         guard let session = session(for: parent) else {
-            let agent = agents.marginAgent
-            let model = agent.isClaudeCode ? ClaudeCodeConnection.models.first { $0.id == agents.marginModel }?.name : nil
-            return [model, agent.name].compactMap { $0 }.joined(separator: " · ")
+            let choice = agents.marginChoice
+            let model = choice.model.flatMap { id in ClaudeCodeConnection.models.first { $0.id == id }?.name }
+            return [model, agents.agent(choice.agentID)?.name].compactMap { $0 }.joined(separator: " · ")
         }
         let option = session.configOptions.first { $0.category == "model" }
-        let value = session.model ?? option?.currentValue
+        let value = agents.runner.config(for: session).model ?? option?.currentValue
         let model = value.flatMap { value in
             (option?.values ?? ClaudeCodeConnection.models).first { $0.id == value }?.name ?? value
         }

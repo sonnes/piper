@@ -103,17 +103,29 @@ public final class SessionRunner {
     // MARK: - Initialization
 
     /// Loads the stored sessions. A session that was active when Piper quit
-    /// becomes idle, with a result block that says so.
+    /// becomes idle, with a result block that says so. A session that does not
+    /// decode stays in the storage, and the report tells how many.
     public init(storage: SessionStorage?, report: @escaping (Error) -> Void = { _ in }) {
         self.storage = storage
         self.report = report
         guard let storage else { return }
         do {
             let decoder = JSONDecoder()
+            var unreadable = 0
             sessions = try storage.loadSessions()
-                .compactMap { try? decoder.decode(AgentSession.Snapshot.self, from: $0) }
+                .compactMap { data -> AgentSession.Snapshot? in
+                    do { return try decoder.decode(AgentSession.Snapshot.self, from: data) } catch {
+                        unreadable += 1
+                        return nil
+                    }
+                }
                 .map(AgentSession.init)
                 .sorted { $0.createdAt > $1.createdAt }
+            if unreadable > 0 {
+                report(PiperError(unreadable == 1
+                    ? "Piper cannot read a stored session. It stays in the database."
+                    : "Piper cannot read \(unreadable) stored sessions. They stay in the database."))
+            }
             for session in sessions where session.isActive {
                 endTurn(session, TurnResult(failure: Self.quitMessage), state: .idle)
             }
@@ -143,6 +155,18 @@ public final class SessionRunner {
     /// The agent of a session. Nil for an agent that the reader removed.
     public func agent(of session: AgentSession) -> AgentDefinition? {
         session.agentID == AgentDefinition.claudeCodeID ? .claudeCode : agents.first { $0.id == session.agentID }
+    }
+
+    /// The agent, the model, and the mode that a session uses.
+    public func config(for session: AgentSession) -> AgentConfig {
+        config(AgentConfig(agentID: session.agentID, model: session.model, mode: session.mode))
+    }
+
+    /// A choice with the defaults filled in. Claude Code takes the model and
+    /// the mode of the runner. Another agent keeps its own defaults.
+    public func config(_ choice: AgentConfig) -> AgentConfig {
+        guard choice.agentID == AgentDefinition.claudeCodeID else { return choice }
+        return AgentConfig(agentID: choice.agentID, model: choice.model ?? model, mode: choice.mode ?? permissionMode.rawValue)
     }
 
     // MARK: - Sessions
@@ -197,14 +221,15 @@ public final class SessionRunner {
         guard !text.isEmpty else { return }
         if session.blocks.isEmpty { session.command = SlashCommand(text) }
         session.draft = ""
-        let context = ["compact", "clear", "context", "usage"].contains(SlashCommand(text)?.name ?? "") ? [] : context
+        let connectionType = Self.connectionType(of: session.agentID)
+        let context = connectionType.localCommands.contains(SlashCommand(text)?.name ?? "") ? [] : context
         session.append(.user(id: UUID().uuidString, text: text, context: context))
         session.unread = false
         let waiting = session.pendingRequests
         if !waiting.isEmpty, connections[session.id] != nil {
             let reply = Self.replyPrefix + Self.messageBody(text, context: context)
             for request in waiting { deny(request, message: reply, in: session) }
-            if session.agentID == AgentDefinition.claudeCodeID { return }
+            if connectionType.readsDenialMessage { return }
         }
         queued[session.id, default: []].append(Message(text: text, context: context))
         if !session.isActive { session.state = .waiting }
@@ -231,7 +256,7 @@ public final class SessionRunner {
     /// Allows a pending tool call. Always also keeps the choice: Claude Code
     /// writes an allow rule into the folder's `.claude/settings.local.json`.
     public func allow(_ request: PermissionRequest, always: Bool = false, in session: AgentSession) {
-        let options = request.options ?? ClaudeCodeConnection.options(in: URL(fileURLWithPath: session.folder))
+        let options = request.options
         let option = (always ? options.first { $0.kind == .allowAlways } : nil) ?? options.first { $0.kind == .allowOnce }
             ?? options.first { $0.kind.allows }
         guard let option else { return }
@@ -240,17 +265,19 @@ public final class SessionRunner {
 
     /// Denies a pending tool call. Claude Code reads the message as the tool result.
     public func deny(_ request: PermissionRequest, message: String? = nil, in session: AgentSession) {
-        let options = request.options ?? ClaudeCodeConnection.options(in: URL(fileURLWithPath: session.folder))
+        let options = request.options
         let option = options.first { $0.kind == .rejectOnce } ?? options.first { !$0.kind.allows }
             ?? ACP.PermissionOption(id: "deny", name: "Deny", kind: .rejectOnce)
         respond(request, with: option, message: message, in: session)
     }
 
-    /// Answers an `AskUserQuestion` call. The answers map each question to the
-    /// labels of the chosen options, joined with commas.
+    /// Answers a question card. The answers map each question to the labels
+    /// of the chosen options, joined with commas.
     public func answer(_ request: PermissionRequest, answers: [String: String], in session: AgentSession) {
         guard isPending(request, in: session) else { return }
-        connections[session.id]?.answer(request, answers: answers)
+        if let connection = connections[session.id], type(of: connection).answersQuestions {
+            connection.answer(request, answers: answers)
+        }
         session.update(TranscriptBlock.question(request, answers: nil).id) {
             $0 = .question(request, answers: answers)
         }
@@ -324,17 +351,17 @@ public final class SessionRunner {
 
     /// Starts a process. A process that cannot start ends the turn with a failure.
     private func launch(_ session: AgentSession) -> Bool {
-        let folder = URL(fileURLWithPath: session.folder, isDirectory: true)
+        let choice = config(for: session)
+        let config = SessionConfig(folder: URL(fileURLWithPath: session.folder, isDirectory: true),
+                                   resumeToken: session.resumeToken, model: choice.model, mode: choice.mode,
+                                   purpose: session.purpose)
         let connection: AgentConnection
-        if session.agentID == AgentDefinition.claudeCodeID {
+        if Self.connectionType(of: session.agentID) == ClaudeCodeConnection.self {
             guard let executable else {
                 endTurn(session, TurnResult(failure: "Piper cannot find the claude command. Choose it in Settings > AI."),
                         state: .failed)
                 return false
             }
-            let config = SessionConfig(folder: folder, resumeToken: session.resumeToken,
-                                       model: session.model ?? model, mode: session.mode ?? permissionMode.rawValue,
-                                       purpose: session.purpose)
             connection = ClaudeCodeConnection(executable: executable, config: config, usesLoginShell: usesLoginShell,
                                               report: report)
         } else {
@@ -343,8 +370,6 @@ public final class SessionRunner {
                         state: .failed)
                 return false
             }
-            let config = SessionConfig(folder: folder, resumeToken: session.resumeToken, model: session.model,
-                                       mode: session.mode, purpose: session.purpose)
             connection = StdioAgentConnection(agent: agent, config: config, usesLoginShell: usesLoginShell)
         }
         let id = session.id
@@ -364,16 +389,20 @@ public final class SessionRunner {
         return true
     }
 
+    /// The connection that runs an agent: Claude Code through its own
+    /// connection, and any other agent over ACP.
+    private static func connectionType(of agentID: String) -> AgentConnection.Type {
+        agentID == AgentDefinition.claudeCodeID ? ClaudeCodeConnection.self : StdioAgentConnection.self
+    }
+
     private func receive(_ event: AgentEvent, for id: UUID) {
         guard let session = session(id) else { return }
         switch event {
         case .ready(let setup):
-            if session.agentID != AgentDefinition.claudeCodeID {
-                if ACP.Mode.readOnly(in: setup.modes) == nil {
-                    agentsWithoutReadOnlyMode.insert(session.agentID)
-                } else {
-                    agentsWithoutReadOnlyMode.remove(session.agentID)
-                }
+            if Self.connectionType(of: session.agentID).hasReadOnlyMode(setup) {
+                agentsWithoutReadOnlyMode.remove(session.agentID)
+            } else {
+                agentsWithoutReadOnlyMode.insert(session.agentID)
             }
             session.resumeToken = setup.sessionID
             session.modes = setup.modes
@@ -417,7 +446,7 @@ public final class SessionRunner {
             }
             if !found {
                 var new = ToolCall(id: call.id, name: call.name ?? call.title ?? "Tool call",
-                                   detail: call.name == nil ? "" : call.title ?? "", kind: call.kind)
+                                   detail: call.name == nil ? "" : call.title ?? "", kind: call.kind ?? .other)
                 Self.merge(call, into: &new, folder: folder)
                 session.append(.toolCall(new))
             }
@@ -445,7 +474,7 @@ public final class SessionRunner {
             // A call that has no tool name shows its title as the name.
             if update.name == nil, call.detail.isEmpty { call.name = title } else { call.detail = title }
         }
-        if let path = update.paths?.first, [.edit, .delete, .move].contains(call.toolKind) {
+        if let path = update.paths?.first, [.edit, .delete, .move].contains(call.kind) {
             call.path = SessionEvent.relativePath(path, in: folder)
         }
         if let diff = update.diffs?.first {
@@ -488,9 +517,8 @@ public final class SessionRunner {
     /// reads, and denies any other.
     private func ask(_ request: PermissionRequest, in session: AgentSession) {
         if session.purpose == .margin {
-            let options = request.options ?? ClaudeCodeConnection.options(in: URL(fileURLWithPath: session.folder))
-            let readOnly = !request.isQuestion && (request.kind ?? ClaudeCodeConnection.kind(of: request.toolName)).isReadOnly
-            let option = readOnly ? options.first { $0.kind == .allowOnce } : options.first { !$0.kind.allows }
+            let readOnly = !request.isQuestion && request.kind.isReadOnly
+            let option = readOnly ? request.options.first { $0.kind == .allowOnce } : request.options.first { !$0.kind.allows }
             if let option { connections[session.id]?.respond(to: request, with: option, message: nil) }
             return
         }

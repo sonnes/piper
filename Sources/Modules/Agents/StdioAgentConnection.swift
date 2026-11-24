@@ -54,6 +54,14 @@ public final class StdioAgentConnection: AgentConnection {
 
     // MARK: - AgentConnection
 
+    public nonisolated static let localCommands: Set<String> = []
+    public nonisolated static let readsDenialMessage = false
+    public nonisolated static let answersQuestions = false
+
+    public nonisolated static func hasReadOnlyMode(_ setup: ACP.SessionSetup) -> Bool {
+        ACP.Mode.readOnly(in: setup.modes) != nil
+    }
+
     public func start(event: @escaping @MainActor (AgentEvent) -> Void,
                       exit: @escaping @MainActor (Int32, String) -> Void) throws {
         self.event = event
@@ -82,7 +90,7 @@ public final class StdioAgentConnection: AgentConnection {
                                                                        "optionId": .string(option.id)])])))
     }
 
-    /// An agent over ACP asks no questions, so there is nothing to answer.
+    /// The runner never calls it, because `answersQuestions` is false.
     public func answer(_ request: PermissionRequest, answers: [String: String]) {}
 
     /// Sends `session/cancel`. The agent ends the turn with `cancelled`. Each
@@ -278,9 +286,9 @@ public final class StdioAgentConnection: AgentConnection {
             requestIDs[key] = id
             send(.permission(PermissionRequest(
                 requestID: key, toolName: call.name ?? call.title ?? "Tool call", input: call.rawInput ?? .null,
-                description: call.name == nil ? nil : call.title, toolUseID: call.id, kind: call.kind,
+                description: call.name == nil ? nil : call.title, toolUseID: call.id, kind: call.kind ?? .other,
                 options: params["options"]?.array.compactMap(ACP.PermissionOption.init(json:)) ?? [],
-                diffs: call.diffs)))
+                diffs: call.diffs ?? [])))
         case .request(let id, _, _):
             write(.error(id: id, code: JSONRPCMessage.methodNotFound, message: "Piper does not offer this method."))
         case .notification, nil:
