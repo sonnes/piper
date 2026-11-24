@@ -9,18 +9,18 @@ final class ArticleTabTests: XCTestCase {
         let article = link("https://example.com/a")
         let other = link("https://example.com/b")
 
-        XCTAssertEqual(model.articleTab(for: article), .web)
-        XCTAssertEqual(model.openingTab(for: article), .web)
+        XCTAssertEqual(model.articleTabs.tab(for: article), .web)
+        XCTAssertEqual(model.articleTabs.openingTab(for: article), .web)
 
-        model.readerScroll = ReaderScroll(block: 4, in: article.id)
-        XCTAssertEqual(model.openingTab(for: article), .web)
+        model.articleTabs.scroll = ReaderScroll(block: 4, in: article.id)
+        XCTAssertEqual(model.articleTabs.openingTab(for: article), .web)
 
         let highlight = UUID()
-        model.showHighlight(highlight, in: article.id)
-        XCTAssertEqual(model.articleTab(for: article), .reader)
-        XCTAssertEqual(model.readerScroll?.note, highlight)
-        XCTAssertEqual(model.openingTab(for: article), .reader)
-        XCTAssertEqual(model.openingTab(for: other), .web)
+        model.articleTabs.showHighlight(highlight, in: article.id)
+        XCTAssertEqual(model.articleTabs.tab(for: article), .reader)
+        XCTAssertEqual(model.articleTabs.scroll?.note, highlight)
+        XCTAssertEqual(model.articleTabs.openingTab(for: article), .reader)
+        XCTAssertEqual(model.articleTabs.openingTab(for: other), .web)
     }
 
     @MainActor func testEachSiteOpensInTheTabLastChosenForIt() throws {
@@ -29,21 +29,21 @@ final class ArticleTabTests: XCTestCase {
         let blog = URL(string: "https://WWW.Blog.example/post")!
 
         let post = Note(text: blog.absoluteString, section: "Inbox")
-        model.chooseArticleTab(.reader, for: post)
-        XCTAssertEqual(model.articleTab(for: post), .reader)
-        XCTAssertEqual(model.openingTab(for: link("https://blog.example/other")), .reader)
-        XCTAssertEqual(model.openingTab(for: link("https://news.example/story")), .web)
+        model.articleTabs.choose(.reader, for: post)
+        XCTAssertEqual(model.articleTabs.tab(for: post), .reader)
+        XCTAssertEqual(model.articleTabs.openingTab(for: link("https://blog.example/other")), .reader)
+        XCTAssertEqual(model.articleTabs.openingTab(for: link("https://news.example/story")), .web)
 
-        model.chooseArticleTab(.notes, for: post)
-        XCTAssertEqual(model.articleTab(for: post), .notes)
-        XCTAssertEqual(model.openingTab(for: link("https://blog.example/other")), .reader)
+        model.articleTabs.choose(.notes, for: post)
+        XCTAssertEqual(model.articleTabs.tab(for: post), .notes)
+        XCTAssertEqual(model.articleTabs.openingTab(for: link("https://blog.example/other")), .reader)
 
         let restored = AppModel(databaseURL: URL(fileURLWithPath: model.library.wikiPath).appendingPathComponent("captures.sqlite"),
                                 wikiPath: model.library.wikiPath, preferences: preferences)
-        XCTAssertEqual(restored.openingTab(for: link("https://blog.example/third")), .reader)
+        XCTAssertEqual(restored.articleTabs.openingTab(for: link("https://blog.example/third")), .reader)
 
-        restored.chooseArticleTab(.web, for: post)
-        XCTAssertEqual(restored.openingTab(for: link("https://blog.example/third")), .web)
+        restored.articleTabs.choose(.web, for: post)
+        XCTAssertEqual(restored.articleTabs.openingTab(for: link("https://blog.example/third")), .web)
     }
 
     @MainActor func testEachLinkCaptureKeepsItsOwnTab() throws {
@@ -51,17 +51,17 @@ final class ArticleTabTests: XCTestCase {
         defer { cleanup() }
         let first = link("https://one.example/a")
         let second = link("https://two.example/b")
-        model.keepArticleTab(for: first)
-        model.keepArticleTab(for: second)
+        model.articleTabs.keep(for: first)
+        model.articleTabs.keep(for: second)
 
-        model.chooseArticleTab(.notes, for: first)
+        model.articleTabs.choose(.notes, for: first)
 
-        XCTAssertEqual(model.articleTab(for: first), .notes)
-        XCTAssertEqual(model.articleTab(for: second), .web)
+        XCTAssertEqual(model.articleTabs.tab(for: first), .notes)
+        XCTAssertEqual(model.articleTabs.tab(for: second), .web)
 
-        model.chooseArticleTab(.reader, for: second)
-        XCTAssertEqual(model.articleTab(for: first), .notes)
-        XCTAssertEqual(model.articleTab(for: second), .reader)
+        model.articleTabs.choose(.reader, for: second)
+        XCTAssertEqual(model.articleTabs.tab(for: first), .notes)
+        XCTAssertEqual(model.articleTabs.tab(for: second), .reader)
     }
 
     private var preferences: UserDefaults!

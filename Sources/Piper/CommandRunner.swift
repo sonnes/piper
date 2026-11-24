@@ -151,7 +151,7 @@ private extension CommandRunner {
         guard let window = NSApp.keyWindow ?? desk.feedWindow else { return }
         if palette == nil { palette = CommandPaletteController(library: model.library, files: model.files) }
         palette?.toggle(over: window, commands: paletteCommands) { [weak self] path in
-            self?.desk.openFile(path)
+            self?.model.files.openFile(path)
         }
     }
 

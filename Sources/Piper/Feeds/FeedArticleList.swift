@@ -99,7 +99,7 @@ struct FeedArticleList: View {
     /// Selects the article and opens it as a reader paper, after a click, Return, or Space.
     private func openPaper(_ article: Article) {
         select(article)
-        actions.openAsPaper(article, on: desk)
+        actions.openAsPaper(article)
     }
 
     /// The keys of the list: the arrows move the selection, Return opens the

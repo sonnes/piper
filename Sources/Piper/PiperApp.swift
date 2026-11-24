@@ -136,10 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
 
     /// Shows a link capture of the reading toast in the opening tab of its site.
     private func showArticle(_ id: UUID) {
-        if let note = model.store.notes.first(where: { $0.id == id }) {
-            model.chooseArticleTab(model.openingTab(for: note), for: note)
-        }
-        desk.open(.note(id))
+        desk.open(.note(id, show: .openingTab))
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {

@@ -24,12 +24,14 @@ final class ArticleActions {
     private let feeds: FeedStore
     private let messages: Messages
     private let library: Library
+    private let open: (PaperItem) -> Void
 
-    init(store: CaptureStore, feeds: FeedStore, messages: Messages, library: Library) {
+    init(store: CaptureStore, feeds: FeedStore, messages: Messages, library: Library, open: @escaping (PaperItem) -> Void) {
         self.store = store
         self.feeds = feeds
         self.messages = messages
         self.library = library
+        self.open = open
     }
 
     // MARK: - Read
@@ -93,8 +95,8 @@ final class ArticleActions {
     }
 
     /// Opens the article on a reader paper, and marks it as read.
-    func openAsPaper(_ article: Article, on desk: PaperDesk?) {
-        desk?.open(.article(article.id))
+    func openAsPaper(_ article: Article) {
+        open(.article(article.id))
         markRead([article])
     }
 

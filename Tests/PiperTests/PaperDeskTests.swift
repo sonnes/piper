@@ -505,8 +505,8 @@ final class PaperDeskTests: XCTestCase {
         let desk = PaperDesk(model: model, defaults: defaults)
         defer { desk.hide() }
 
-        desk.openFile("notes/journal.md")
-        desk.openFile("notes/harbor.md")
+        model.files.openFile("notes/journal.md")
+        model.files.openFile("notes/harbor.md")
         XCTAssertTrue(desk.paper.marks.isOpenFile("notes/harbor.md"))
 
         model.files.navigate(-1)
@@ -548,6 +548,32 @@ final class PaperDeskTests: XCTestCase {
         marks.identity = { $0.identity(in: model) }
         marks.open = [article]
         XCTAssertTrue(marks.isOpen(.note(note.id)))
+    }
+
+    /// An item carries the place where its link capture opens. A highlight
+    /// opens the Reader tab at the highlight. The opening tab of the site
+    /// replaces the tab that the reader chose. The desk keeps one paper.
+    func testAnItemOpensItsLinkCaptureAtItsTarget() throws {
+        let model = AppModel(databaseURL: root.appendingPathComponent(".captures.sqlite"), wikiPath: root.path, preferences: temporaryDefaults())
+        let suite = "piper-paper-desk-target-tests-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let desk = PaperDesk(model: model, defaults: defaults)
+        defer { desk.hide() }
+        let note = try model.store.add("https://example.com/harbor", section: model.store.activeSection)
+        model.articleTabs.choose(.notes, for: note)
+
+        let highlight = UUID()
+        model.papers.open(.note(note.id, show: .highlight(highlight)))
+        XCTAssertEqual(model.articleTabs.tab(for: note), .reader)
+        XCTAssertEqual(model.articleTabs.scroll?.note, highlight)
+        XCTAssertEqual(desk.paper.marks.open, [.note(note.id)])
+
+        model.articleTabs.scroll = nil
+        model.articleTabs.choose(.notes, for: note)
+        model.papers.open(.note(note.id, show: .openingTab))
+        XCTAssertEqual(model.articleTabs.tab(for: note), .web)
+        XCTAssertEqual(desk.paper.marks.open, [.note(note.id)])
     }
 
     /// Window > Feeds, the command palette, and a pasted feed address open

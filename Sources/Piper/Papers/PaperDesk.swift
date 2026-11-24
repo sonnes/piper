@@ -5,7 +5,9 @@ import SwiftUI
 
 /// Owns the feed paper, the open reader papers, and the detached session panel.
 ///
-/// `open(_:)` is the one way to open a paper. The desk follows the open file
+/// `open(_:)` is the one way to open a paper. A model reaches it through
+/// `AppModel.papers`, and a view through the `paperDesk` environment value.
+/// The desk follows the open file
 /// of `FileEditor`, so the "on the desk" mark and the file that the file
 /// paper restores at launch name the file that shows.
 ///
@@ -44,8 +46,8 @@ final class PaperDesk {
         paper = FeedPaperModel(model: model, defaults: defaults)
         // The first scan opens the file that the file paper had open when Piper last quit.
         model.files.initialDocument = paper.state.selectedFile
-        model.desk = self
-        model.files.desk = self
+        model.papers.handler = { [weak self] in self?.open($0) }
+        model.files.documentChanged = { [weak self] in self?.fileChanged(to: $0) }
         paper.tidy = { [weak self] in self?.tidy() }
         paper.marks.identity = { [weak model] item in model.map { item.identity(in: $0) } ?? item }
         model.sessionPresentationChanged = { [weak self] presentation in
@@ -93,9 +95,11 @@ final class PaperDesk {
     }
 
     /// Opens an item as a reader paper, or brings its open paper to the front.
-    /// A session goes to the detached panel while the reader keeps the
-    /// session card there.
+    /// The paper of a link capture shows the target of the item. A session
+    /// goes to the detached panel while the reader keeps the session card there.
     func open(_ item: PaperItem) {
+        if let target = item.target, let note = item.note(in: model) { model.articleTabs.show(target, for: note) }
+        let item = item.withoutTarget
         if case .session(let id) = item {
             model.selectedSession = id
             if model.sessionPresentation == .detached { return showSessionPanel() }
@@ -143,13 +147,15 @@ final class PaperDesk {
         }
     }
 
-    func openFile(_ path: String) {
-        model.files.openDocument(path)
-        open(.file)
+    /// The reader page of the paper with the keyboard focus, while its Reader tab shows.
+    var focusedReaderPage: WebPageBridge? {
+        guard let window = PaperWindow.focusedWindow else { return nil }
+        if window === feed?.window { return feed?.readerPage }
+        return readers.first { $0.window === window }?.readerPage
     }
 
     /// Keeps the open file of `FileEditor` for the "on the desk" mark and for the next launch.
-    func fileChanged(to path: String?) {
+    private func fileChanged(to path: String?) {
         paper.state.selectedFile = path
         paper.marks.openFile = path
     }

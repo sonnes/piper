@@ -70,12 +70,12 @@ final class AgentSettingsTests: XCTestCase {
         let send: Send
     }
 
-    private func makeParts() throws -> Parts {
-        let agents = AgentSettings(storage: database, messages: Messages(), preferences: preferences)
+    private func makeParts(open: @escaping (PaperItem) -> Void = { _ in }) throws -> Parts {
+        let agents = AgentSettings(storage: database, messages: Messages(), preferences: preferences, open: open)
         agents.executable = try fakeClaude()
         agents.runner.usesLoginShell = false
         let skills = makeSkills()
-        return Parts(agents: agents, skills: skills, send: Send(store: store, agents: agents, skills: skills))
+        return Parts(agents: agents, skills: skills, send: Send(store: store, agents: agents, skills: skills, open: open))
     }
 
     private func makeSkills() -> SkillFolders {
@@ -85,7 +85,7 @@ final class AgentSettingsTests: XCTestCase {
     }
 
     private func newAgents(_ messages: Messages? = nil) -> AgentSettings {
-        AgentSettings(storage: database, messages: messages ?? Messages(), preferences: preferences)
+        AgentSettings(storage: database, messages: messages ?? Messages(), preferences: preferences, open: { _ in })
     }
 
     private func waitForRuns(_ agents: AgentSettings) async throws {
@@ -194,14 +194,13 @@ final class AgentSettingsTests: XCTestCase {
     // MARK: - Sending
 
     func testSendPreparesAnEditableDraftAndRemembersTheFolder() async throws {
-        let parts = try makeParts()
-        var shown: [UUID] = []
-        parts.agents.showSession = { shown.append($0.id) }
+        var shown: [PaperItem] = []
+        let parts = try makeParts { shown.append($0) }
         let note = try store.add("https://example.com/page", section: store.activeSection)
         let notesAction = try XCTUnwrap(parts.skills.completions(for: "capture").last)
 
         let session = try parts.send.note(note, action: notesAction)
-        XCTAssertEqual(shown, [session.id])
+        XCTAssertEqual(shown, [.session(session.id)])
         XCTAssertEqual(session.folder, notes.standardizedFileURL.path)
         XCTAssertEqual(session.command, SlashCommand(name: "capture", arguments: "https://example.com/page"))
         XCTAssertEqual(session.agentID, AgentDefinition.claudeCodeID)

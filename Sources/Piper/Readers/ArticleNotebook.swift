@@ -121,7 +121,7 @@ struct ArticleNotebook: View {
                 .font(PiperTheme.paperTitle(.title))
                 .textSelection(.enabled)
             HStack(spacing: 12) {
-                Button("Open in Reader") { model.chooseArticleTab(.reader, for: note) }
+                Button("Open in Reader") { model.articleTabs.choose(.reader, for: note) }
                     .buttonStyle(.plain).fontWeight(.medium).foregroundStyle(PiperTheme.brand)
                 Text(ReadingList.counts(of: children)).foregroundStyle(PiperTheme.paperMuted)
             }
@@ -151,7 +151,7 @@ struct ArticleNotebook: View {
     // MARK: - Actions
 
     private func show(_ id: UUID) {
-        model.showHighlight(id, in: note.id)
+        model.articleTabs.showHighlight(id, in: note.id)
     }
 
     private func review() {

@@ -13,10 +13,9 @@ final class AgentSettings {
     // MARK: - Properties
 
     let runner: SessionRunner
-    /// Shows a session in the desk. `AppModel` sets it.
-    @ObservationIgnored var showSession: (AgentSession) -> Void = { _ in }
     @ObservationIgnored private let messages: Messages
     @ObservationIgnored private let preferences: UserDefaults
+    @ObservationIgnored private let open: (PaperItem) -> Void
 
     /// The `claude` executable that the reader chose. Nil means Piper looks for it.
     var claudePath: String? {
@@ -74,9 +73,13 @@ final class AgentSettings {
 
     // MARK: - Initialization
 
-    /// - Parameter storage: The store of the sessions. Nil keeps them only until Piper quits.
-    init(storage: SessionStorage?, messages: Messages, preferences: UserDefaults = .standard) {
+    /// - Parameters:
+    ///   - storage: The store of the sessions. Nil keeps them only until Piper quits.
+    ///   - open: Opens a paper. A new draft opens the paper of its session.
+    init(storage: SessionStorage?, messages: Messages, preferences: UserDefaults = .standard,
+         open: @escaping (PaperItem) -> Void) {
         self.messages = messages
+        self.open = open
         self.preferences = preferences
         let claudePath = preferences.string(forKey: AppDefaults.Key.claudePath)
         self.claudePath = claudePath
@@ -182,7 +185,7 @@ final class AgentSettings {
             ? newSession(in: folder, noteID: noteID)
             : runner.newSession(in: folder, noteID: noteID, command: command)
         session.draft = text
-        showSession(session)
+        open(.session(session.id))
         return session
     }
 

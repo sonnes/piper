@@ -16,6 +16,12 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     var focusChanged: () -> Void = {}
     /// Called with the frame of the paper after the reader moves or resizes it.
     var moved: (NSRect) -> Void = { _ in }
+    /// The reader page of an article on the paper, while its Reader tab shows.
+    var readerPage: WebPageBridge? {
+        guard let page = attachedPage, page.view?.window === window else { return nil }
+        return page
+    }
+    private weak var attachedPage: WebPageBridge?
 
     /// The size of a new paper, with its column of tabs.
     nonisolated static let paperSize = NSSize(width: Metrics.feedSize.width + PaperTabs.Metrics.tabVisible,
@@ -47,6 +53,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
 
         let view = FeedPaperView(paper: paper, model: model, window: { [weak window] in window })
             .environment(\.paperDesk, desk)
+            .environment(\.attachReaderPage) { [weak self] in self?.attachedPage = $0 }
         let hosting = NSHostingView(rootView: view)
         // The window sets its own size. The SwiftUI size would pin it to its content.
         hosting.sizingOptions = []

@@ -31,6 +31,12 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     private(set) var item: PaperItem
     private let model: AppModel
     private weak var desk: PaperDesk?
+    /// The reader page of the paper, while its Reader tab shows.
+    var readerPage: WebPageBridge? {
+        guard let page = attachedPage, page.view?.window === window else { return nil }
+        return page
+    }
+    private weak var attachedPage: WebPageBridge?
     private let viewController: ReaderPaperViewController
     private var shown = false
     private var closing = false
@@ -125,11 +131,12 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     var keys: [PaperKey] {
         let reader = { [weak self] in self?.readerPage }
         let page = { reader() != nil }
+        let step = ArticleReader.Metrics.arrowScrollStep
         return [
-            PaperKey(key: .up, title: "scroll", isOn: page) { reader()?.scroll(by: -1) },
-            PaperKey(key: .down, title: "scroll", isOn: page) { reader()?.scroll(by: 1) },
-            PaperKey(key: CommandKey("h", []), title: "highlight", isOn: page) { reader()?.send("h") },
-            PaperKey(key: CommandKey("n", []), title: "note", isOn: page) { reader()?.send("n") }
+            PaperKey(key: .up, title: "scroll", isOn: page) { reader()?.call("scroll", -step) },
+            PaperKey(key: .down, title: "scroll", isOn: page) { reader()?.call("scroll", step) },
+            PaperKey(key: CommandKey("h", []), title: "highlight", isOn: page) { reader()?.call("key", "h") },
+            PaperKey(key: CommandKey("n", []), title: "note", isOn: page) { reader()?.call("key", "n") }
         ] + PaperKey.articleKeys(actions: model.articleActions) { [weak self] in self?.article } + [
             PaperKey(key: .escape, title: "put back") { [weak self] in self?.window?.performClose(nil) },
             .tidy { [weak self] in self?.tidy() }
@@ -139,11 +146,6 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
     private var article: Article? {
         guard case .article(let id) = item else { return nil }
         return model.feeds.article(id)
-    }
-
-    /// The page of the Reader tab of the paper, while that tab shows.
-    private var readerPage: ReaderPage? {
-        model.readerPages.allObjects.first { $0.view?.window === window }.map(ReaderPage.init)
     }
 
     // MARK: - NSWindowDelegate
@@ -191,23 +193,9 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
                 delegate?.readerPaper(self, didStart: session.id)
             },
             close: { [weak self] in self?.window?.performClose(nil) }
-        ).environment(\.paperDesk, desk))
-    }
-}
-
-/// The reader page of a paper, for the keys that the paper sends to it.
-@MainActor
-private struct ReaderPage {
-    let bridge: WebPageBridge
-
-    /// H highlights the selected text, and N highlights it and opens its note.
-    func send(_ key: String) {
-        bridge.call("key", key)
-    }
-
-    /// Scrolls the page by one arrow step, down for 1 and up for -1.
-    func scroll(by steps: Int) {
-        bridge.call("scroll", ArticleReader.Metrics.arrowScrollStep * CGFloat(steps))
+        )
+        .environment(\.paperDesk, desk)
+        .environment(\.attachReaderPage) { [weak self] in self?.attachedPage = $0 })
     }
 }
 

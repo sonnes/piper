@@ -5,8 +5,9 @@ import Stream
 
 /// One item that a reader paper shows.
 enum PaperItem: Hashable {
-    /// A capture, by its id. A link capture shows its Reader, Web, and Notes tabs.
-    case note(UUID)
+    /// A capture, by its id. A link capture shows its Reader, Web, and Notes
+    /// tabs, and `show` picks the place where its paper opens.
+    case note(UUID, show: ReaderTarget? = nil)
     /// A feed article, by its id.
     case article(String)
     /// The open file of `FileEditor`. Only one file paper exists, because the editor page is shared.
@@ -28,7 +29,7 @@ extension PaperItem {
     /// capture of a kept feed article.
     func note(in model: AppModel) -> Note? {
         switch self {
-        case .note(let id):
+        case .note(let id, _):
             return model.store.notes.first { $0.id == id }
         case .article(let id):
             return model.feeds.article(id).flatMap { Self.keptNote(of: $0, in: model.store) }
@@ -40,8 +41,20 @@ extension PaperItem {
     /// The paper that the item opens. A kept feed article and its link
     /// capture are one paper.
     func identity(in model: AppModel) -> PaperItem {
-        guard case .article = self, let note = note(in: model) else { return self }
+        guard case .article = self, let note = note(in: model) else { return withoutTarget }
         return .note(note.id)
+    }
+
+    /// The place where the paper of a link capture opens.
+    var target: ReaderTarget? {
+        guard case .note(_, let target) = self else { return nil }
+        return target
+    }
+
+    /// The item as the desk keeps it, without the place where its paper opens.
+    var withoutTarget: PaperItem {
+        guard case .note(let id, _) = self else { return self }
+        return .note(id)
     }
 
     /// True when the paper of the item shows an article, which takes H and N.
@@ -361,7 +374,7 @@ final class FeedPaperModel {
             setExpanded(id, false)
         case .openFile(let id):
             guard let row = rows.first(where: { $0.id == id }) else { return }
-            model.desk?.openFile(row.path)
+            model.files.openFile(row.path)
         case .none:
             break
         }

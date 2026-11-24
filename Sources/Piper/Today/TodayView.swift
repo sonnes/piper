@@ -426,7 +426,7 @@ struct TodayView: View {
         case .note(let id): desk?.open(.note(id))
         case .article(let id):
             today.open(article: id)
-            if let article = item.articles.first { model.articleActions.openAsPaper(article, on: desk) }
+            if let article = item.articles.first { model.articleActions.openAsPaper(article) }
         case .digest(let feed, _): paper.pick(.feed(feed))
         case .clip:
             if let text = item.clip?.text { model.messages.copy(text) }

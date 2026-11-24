@@ -78,8 +78,7 @@ final class QAScripts: NSObject {
             NSApp.appearance = rest == "dark" ? NSAppearance(named: .darkAqua) : rest == "light" ? NSAppearance(named: .aqua) : nil
         case "shot": result = shot(rest)
         case "reader":
-            guard let window = PaperWindow.focusedWindow,
-                  let page = model.readerPages.allObjects.first(where: { $0.view?.window === window })?.view else {
+            guard let page = desk.focusedReaderPage?.view else {
                 result = "error\nNo reader page has the focus."
                 break
             }
@@ -160,7 +159,7 @@ final class QAScripts: NSObject {
             }
             desk.open(.article(article.id))
         case "file":
-            desk.openFile(words)
+            model.files.openFile(words)
         default:
             return "error\nUnknown kind \(parts[0])."
         }

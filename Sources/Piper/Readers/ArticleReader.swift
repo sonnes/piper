@@ -27,7 +27,7 @@ struct ArticleReader: View {
     private var children: [Note] { model.store.children(of: note.id) }
     private var reading: Reading { note.reading ?? Reading() }
     /// The scroll request for this article. A request for another article waits.
-    private var scroll: ReaderScroll? { model.readerScroll.flatMap { $0.article == note.id ? $0 : nil } }
+    private var scroll: ReaderScroll? { model.articleTabs.scroll.flatMap { $0.article == note.id ? $0 : nil } }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,7 +36,7 @@ struct ArticleReader: View {
                     Text(resume).foregroundStyle(PiperTheme.paperMuted)
                     Spacer(minLength: 8)
                     Button("Start from the top") {
-                        model.readerScroll = ReaderScroll(block: 0, in: note.id)
+                        model.articleTabs.scroll = ReaderScroll(block: 0, in: note.id)
                         self.resume = nil
                     }
                     .buttonStyle(.plain).fontWeight(.medium).foregroundStyle(PiperTheme.brand)
@@ -92,11 +92,11 @@ struct ArticleReader: View {
         if let scroll, let id = scroll.note, let target = children.first(where: { $0.id == id }) {
             resume = target.sources.first.flatMap { $0 == ReaderAssistant.source ? nil : "Continued from \($0), at your highlight" }
         } else if let block = start.block, block > 0 {
-            model.readerScroll = ReaderScroll(block: block, in: note.id)
+            model.articleTabs.scroll = ReaderScroll(block: block, in: note.id)
             resume = "Continued where you stopped"
         } else if start.block == nil, let last = highlights.max(by: { $0.createdAt < $1.createdAt }),
                   let source = last.sources.first, source != ReaderAssistant.source {
-            model.readerScroll = ReaderScroll(note: last.id, in: note.id)
+            model.articleTabs.scroll = ReaderScroll(note: last.id, in: note.id)
             resume = "Continued from \(source), at your latest highlight"
         }
     }
@@ -105,7 +105,7 @@ struct ArticleReader: View {
     /// tab opens at the saved place and not at the old request.
     private func scrolled(_ request: ReaderScroll) {
         DispatchQueue.main.async {
-            if model.readerScroll == request { model.readerScroll = nil }
+            if model.articleTabs.scroll == request { model.articleTabs.scroll = nil }
         }
     }
 

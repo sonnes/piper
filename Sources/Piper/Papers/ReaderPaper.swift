@@ -74,7 +74,7 @@ struct ReaderPaper: View {
     @ViewBuilder private var header: some View {
         HStack(spacing: 8) {
             switch item {
-            case .note(let id): noteHeader(model.store.notes.first { $0.id == id })
+            case .note(let id, _): noteHeader(model.store.notes.first { $0.id == id })
             case .article(let id): articleHeader(model.feeds.article(id))
             case .file: fileHeader
             case .session(let id): sessionHeader(model.agents.runner.session(id))
@@ -172,7 +172,7 @@ struct ReaderPaper: View {
 
     @ViewBuilder private var content: some View {
         switch item {
-        case .note(let id):
+        case .note(let id, _):
             if let note = model.store.notes.first(where: { $0.id == id }) {
                 NoteDetail(model: model, note: note).id(note.id)
             } else {

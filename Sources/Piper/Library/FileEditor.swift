@@ -17,7 +17,7 @@ final class FileEditor {
     let library: Library
     var workspace = WikiWorkspace() {
         didSet {
-            if workspace.location?.path != oldValue.location?.path { desk?.fileChanged(to: selectedDocument) }
+            if workspace.location?.path != oldValue.location?.path { documentChanged(selectedDocument) }
         }
     }
     /// The editor sessions by path: the open file, and each file with text that is not on disk.
@@ -31,8 +31,8 @@ final class FileEditor {
     var showsFileSource: Bool {
         didSet { preferences.set(showsFileSource, forKey: AppDefaults.Key.showsFileSource) }
     }
-    /// The desk, which shows the file paper and follows its file. `PaperDesk` sets it.
-    @ObservationIgnored weak var desk: PaperDesk?
+    /// Receives the path of each new open file. `PaperDesk` sets it to follow the file.
+    @ObservationIgnored var documentChanged: (String?) -> Void = { _ in }
     /// The web page of the editor. Piper creates it when the file paper first shows a Markdown file.
     @ObservationIgnored private(set) var loadedEditorPage: EditorPage?
     /// A file to open when the next scan finds it, because a run just wrote it.
@@ -42,15 +42,17 @@ final class FileEditor {
     @ObservationIgnored private let agents: AgentSettings
     @ObservationIgnored let messages: Messages
     @ObservationIgnored private let preferences: UserDefaults
+    @ObservationIgnored private let open: (PaperItem) -> Void
 
     init(library: Library, store: CaptureStore, reader: ReaderAssistant, agents: AgentSettings, messages: Messages,
-         preferences: UserDefaults) {
+         preferences: UserDefaults, open: @escaping (PaperItem) -> Void) {
         self.library = library
         self.store = store
         self.reader = reader
         self.agents = agents
         self.messages = messages
         self.preferences = preferences
+        self.open = open
         showsFileSource = preferences.bool(forKey: AppDefaults.Key.showsFileSource)
         library.delegate = self
     }
@@ -83,7 +85,13 @@ final class FileEditor {
             pendingDocument = path
             library.reload()
         }
-        desk?.open(.file)
+        open(.file)
+    }
+
+    /// Opens a file of the folder on the file paper.
+    func openFile(_ path: String) {
+        openDocument(path)
+        open(.file)
     }
 
     func openDocument(_ path: String, anchor: String? = nil) {
@@ -176,7 +184,7 @@ final class FileEditor {
         for session in editors.values where session.hasChanges { saveEditor(session) }
         if let blocked = editors.values.first(where: { $0.hasChanges || $0.status == .conflict }) {
             if blocked.path != selectedDocument { openDocument(blocked.path) }
-            desk?.open(.file)
+            open(.file)
             messages.report(PiperError("“\(blocked.document.title)” changed on disk while you edited it. Choose Reload or Keep Mine first."))
             return false
         }
@@ -236,7 +244,7 @@ final class FileEditor {
         guard let document = editors[path]?.document ?? library.files.first(where: { $0.id == path }) else { return }
         let link = fileLink(path)
         ReaderMarks.perform(action, store: store, reader: reader, messages: messages, article: fileArticle(document),
-                            open: { [weak self] item in self?.desk?.open(item) }) { [store] in
+                            open: open) { [store] in
             try store.pageNote(for: link, title: document.title, source: ReaderAssistant.source).id
         }
     }

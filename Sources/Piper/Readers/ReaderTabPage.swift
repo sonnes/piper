@@ -15,12 +15,13 @@ struct ReaderTabPage: View {
     var positioned: (Int, Double) -> Void = { _, _ in }
     var scrolled: (ReaderScroll) -> Void = { _ in }
     let showWebPage: () -> Void
+    @Environment(\.attachReaderPage) private var attachReaderPage
 
     var body: some View {
         ReaderPageView(messages: model.messages, state: state,
                        placeholder: ReaderPlaceholder(site: Site(url)?.key ?? url.absoluteString, title: title),
                        notes: notes, scroll: scroll, perform: perform, positioned: positioned, scrolled: scrolled,
-                       attach: { model.readerPages.add($0) })
+                       attach: attachReaderPage)
             .overlay(alignment: .bottom) {
                 if case .failed = state {
                     Button("Show Web Page", action: showWebPage)
@@ -28,6 +29,11 @@ struct ReaderTabPage: View {
                 }
             }
     }
+}
+
+extension EnvironmentValues {
+    /// Receives the reader page of a paper, so that the paper can send keys to it and scroll it.
+    @Entry var attachReaderPage: (WebPageBridge) -> Void = { _ in }
 }
 
 extension ReaderTabPage {

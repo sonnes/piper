@@ -16,13 +16,15 @@ final class Send {
     private let store: CaptureStore
     private let agents: AgentSettings
     private let skills: SkillFolders
+    private let open: (PaperItem) -> Void
 
     // MARK: - Initialization
 
-    init(store: CaptureStore, agents: AgentSettings, skills: SkillFolders) {
+    init(store: CaptureStore, agents: AgentSettings, skills: SkillFolders, open: @escaping (PaperItem) -> Void) {
         self.store = store
         self.agents = agents
         self.skills = skills
+        self.open = open
     }
 
     // MARK: - Sending
@@ -53,7 +55,7 @@ final class Send {
         if let saved = store.notes.last(where: { $0.text == text }) {
             if let session = agents.runner.latestSession(for: saved.id), session.state != .failed {
                 guard session.blocks.isEmpty else { throw PiperError("Already sent to \(session.folderName)") }
-                agents.showSession(session)
+                open(.session(session.id))
                 return session
             }
             return try note(saved)

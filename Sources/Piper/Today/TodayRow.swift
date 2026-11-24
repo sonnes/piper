@@ -14,7 +14,7 @@ struct RowVerbs {
     let run: (TodayVerb) -> Void
     let send: (SkillFolders.Action?) -> Void
     let ask: () -> Void
-    /// Opens the row itself, from a note under it or from its session badge.
+    /// Opens the row itself, from its session badge.
     var open: () -> Void = {}
     /// Opens the list of the feed of an article or a digest.
     var openFeed: (() -> Void)?
@@ -38,7 +38,7 @@ struct TodayRow: View {
     /// The section of a capture, when the list shows more than one section.
     var section: String?
     let click: () -> Void
-
+    @Environment(\.paperDesk) private var desk
 
     var body: some View {
         PaperRow(item: paperItem, notes: item.children.count, selected: selected, actionsOnSelection: true,
@@ -52,8 +52,7 @@ struct TodayRow: View {
                 if !shownNotes.isEmpty {
                     RowNotes(notes: shownNotes) { child in
                         guard let note = item.note else { return }
-                        model.showHighlight(child.id, in: note.id)
-                        verbs.open()
+                        desk?.open(.note(note.id, show: .highlight(child.id)))
                     }
                 }
             }

@@ -63,7 +63,7 @@ struct PaperFrames: Codable, Equatable {
 
     static func key(of item: PaperItem) -> String {
         switch item {
-        case .note(let id): return "note:" + id.uuidString
+        case .note(let id, _): return "note:" + id.uuidString
         case .article(let id): return "article:" + id
         case .file: return "file"
         case .session(let id): return "session:" + id.uuidString
