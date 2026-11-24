@@ -366,34 +366,26 @@ final class TodayModel {
     /// Opens a draft with a skill of a folder for each item, or with the
     /// default skill of each item. An article goes as its link. A clipboard
     /// text goes to Inbox first.
-    func send(_ items: [StreamItem], action: FolderAgents.Action?) {
+    func send(_ items: [StreamItem], action: SkillFolders.Action?) {
         for item in items {
             do {
                 var session: AgentSession?
                 if let clip = item.clip {
-                    session = try model.agents.send(clip, from: model.clipboard, action: action)
+                    session = try model.send.clip(clip, from: model.clipboard, action: action)
                 } else if let note = sendable(item) {
-                    session = try model.agents.send(note, action: action)
+                    session = try model.send.note(note, action: action)
                 }
-                if let session {
-                    model.desk?.open(.session(session.id))
-                    messages.show("Draft in \(session.folderName)")
-                }
+                if let session { messages.show("Draft in \(session.folderName)") }
             } catch {
                 messages.report(error)
             }
         }
     }
 
-    /// Opens a new session about the item in the default folder, with the
-    /// text of the item in the message field.
+    /// Opens a new session about the item, with the text of the item in the message field.
     func ask(_ item: StreamItem) {
-        guard let folder = model.agents.defaultFolder, let note = sendable(item) else {
-            return messages.report(PiperError("Add a folder with Claude skills in Settings > AI before you ask about a note."))
-        }
-        let session = model.agents.newSession(in: folder.path, noteID: note.id)
-        session.draft = note.text + "\n\n"
-        model.desk?.open(.session(session.id))
+        guard let note = sendable(item) else { return }
+        model.agents.openDraft(text: note.text + "\n\n", folder: model.library.agentFolder, noteID: note.id)
     }
 
     // MARK: - Merge, Copy, and Delete

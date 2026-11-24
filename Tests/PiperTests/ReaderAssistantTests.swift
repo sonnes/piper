@@ -44,12 +44,12 @@ final class ReaderAssistantTests: XCTestCase {
         return url
     }
 
-    private func makeAssistant(executable: URL?) -> (ReaderAssistant, FolderAgents) {
-        let agents = FolderAgents(store: store, messages: Messages(), preferences: preferences)
+    private func makeAssistant(executable: URL?) -> (ReaderAssistant, AgentSettings) {
+        let agents = AgentSettings(store: store, messages: Messages(), preferences: preferences)
         agents.runner.executable = executable
         agents.runner.usesLoginShell = false
-        let assistant = ReaderAssistant(store: store, agents: agents, messages: Messages())
-        assistant.folder = { [root] in root?.path }
+        let folder = root.path
+        let assistant = ReaderAssistant(store: store, agents: agents, messages: Messages()) { folder }
         return (assistant, agents)
     }
 

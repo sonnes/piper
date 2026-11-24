@@ -238,7 +238,7 @@ enum ReaderMarks {
             case .followup(let id, let question):
                 try reader.followUp(question, on: id, in: parent(), article: article)
             case .continue(let id):
-                if let session = try reader.continueInSession(id, article: article) { open(.session(session.id)) }
+                reader.continueInSession(id, article: article)
             case .capture(let text):
                 let note = try store.add(text, section: Note.inbox, source: article.title, sourceURL: article.url.absoluteString)
                 messages.show("Saved to \(note.section)")

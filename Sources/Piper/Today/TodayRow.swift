@@ -13,7 +13,7 @@ struct RowVerbs {
     let keep: () -> Void
     let done: () -> Void
     let file: () -> Void
-    let send: (FolderAgents.Action?) -> Void
+    let send: (SkillFolders.Action?) -> Void
     let ask: () -> Void
     let copy: () -> Void
     let delete: () -> Void
@@ -278,10 +278,10 @@ struct SendItems: View {
     let verbs: RowVerbs
 
     var body: some View {
-        if !model.agents.folders.isEmpty {
+        if !model.skills.folders.isEmpty {
             Button("Send with the Default Skill") { verbs.send(nil) }.keyboardShortcut("s", modifiers: [])
             Divider()
-            SendMenuItems(agents: model.agents) { verbs.send($0) }
+            SendMenuItems(skills: model.skills) { verbs.send($0) }
             Divider()
         }
         Button("Ask…", action: verbs.ask)

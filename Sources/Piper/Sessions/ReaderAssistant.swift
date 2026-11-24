@@ -4,66 +4,6 @@ import Captures
 import Observation
 import PiperCore
 
-/// The clean text of a web page, as the Reader tab shows it.
-struct ReaderArticle: Codable, Equatable {
-
-    /// One paragraph, heading, list item, quote, code block, image, video,
-    /// video frame, or table.
-    struct Block: Codable, Equatable {
-        /// `paragraph`, `heading`, `subheading`, `item`, `quote`, `code`,
-        /// `image`, `video`, `embed`, or `table`.
-        let kind: String
-        /// The text, or the caption of an image or a video. A table has no text.
-        let text: String
-        /// The address of an image or a video, or the page of a video frame.
-        var src: String? = nil
-        var alt: String? = nil
-        /// The still image of a video.
-        var poster: String? = nil
-        /// The cells of a table, row by row. The first row is the header.
-        var rows: [[String]]? = nil
-    }
-
-    let url: URL
-    let site: String
-    let title: String
-    /// The author and the reading time.
-    let byline: [String]
-    let blocks: [Block]
-
-    var texts: [String] { blocks.map(\.text) }
-    var words: Int { blocks.reduce(0) { $0 + ReadingTime.words(in: $1.text) } }
-
-    init(url: URL, site: String, title: String, byline: [String], blocks: [Block]) {
-        self.url = url
-        self.site = site
-        self.title = title
-        self.byline = byline
-        self.blocks = blocks
-    }
-
-    /// An article with the reading time in its byline.
-    init(url: URL, site: String, title: String, author: String, blocks: [Block]) {
-        let minutes = ReadingTime.minutes(words: blocks.reduce(0) { $0 + ReadingTime.words(in: $1.text) })
-        self.init(url: url, site: site, title: title, byline: [author, "\(minutes) min read"].filter { !$0.isEmpty }, blocks: blocks)
-    }
-
-    /// The article in the text of a page that a browser showed. Each line of
-    /// 40 characters or more is a paragraph. Shorter lines are menus and
-    /// buttons. Nil when no line is long enough.
-    init?(url: URL, title: String?, pageText: String) {
-        let blocks = pageText.components(separatedBy: .newlines)
-            .map(NoteAnchor.normalized)
-            .filter { $0.count >= Self.shortestParagraph && $0 != title }
-            .map { Block(kind: "paragraph", text: $0) }
-        guard !blocks.isEmpty else { return nil }
-        let site = Site(url)?.key ?? url.absoluteString
-        self.init(url: url, site: site, title: title ?? site, author: "", blocks: blocks)
-    }
-
-    private static let shortestParagraph = 40
-}
-
 /// The highlights and questions of a link capture, and the hidden margin
 /// session that answers the questions.
 ///
@@ -117,17 +57,18 @@ final class ReaderAssistant {
     @ObservationIgnored private var queued: [UUID: [Queued]] = [:]
     @ObservationIgnored private var watched: Set<UUID> = []
     @ObservationIgnored private let store: CaptureStore
-    @ObservationIgnored private let agents: FolderAgents
+    @ObservationIgnored private let agents: AgentSettings
     @ObservationIgnored private let messages: Messages
     /// The folder that a new session works in.
-    @ObservationIgnored var folder: () -> String? = { nil }
+    @ObservationIgnored private let folder: () -> String
 
     // MARK: - Initialization
 
-    init(store: CaptureStore, agents: FolderAgents, messages: Messages) {
+    init(store: CaptureStore, agents: AgentSettings, messages: Messages, folder: @escaping () -> String) {
         self.store = store
         self.agents = agents
         self.messages = messages
+        self.folder = folder
     }
 
     // MARK: - Notes
@@ -147,9 +88,8 @@ final class ReaderAssistant {
     func reviewHighlights(in parent: UUID, article: ReaderArticle) throws -> Note? {
         let highlights = ReadingList.highlights(in: store.children(of: parent))
         guard !highlights.isEmpty else { return nil }
-        guard let folder = folder() else { throw Self.noFolder }
         let note = try store.addChild(Self.reviewTitle, to: parent, tags: [NoteTag.question.rawValue])
-        let session = session(for: parent) ?? agents.newMarginSession(in: folder, noteID: note.id)
+        let session = session(for: parent) ?? agents.newMarginSession(in: folder(), noteID: note.id)
         let list = highlights.map { highlight -> String in
             let comment = HighlightText.comment(of: highlight.text, quote: highlight.anchor?.quote)
             let quote = "> " + Self.line(highlight.anchor?.quote ?? highlight.text)
@@ -169,16 +109,14 @@ final class ReaderAssistant {
     /// The source of a note that the reader made in Piper.
     static let source = "Piper"
     static let reviewTitle = "Review: My highlights"
-    private static let noFolder = PiperError("Add a folder on the Folders index. An agent works in a folder.")
 
     /// Saves a question under the capture and sends it to the margin agent.
     @discardableResult
     func ask(_ request: Request, about anchor: NoteAnchor, in parent: UUID, article: ReaderArticle) throws -> Note {
-        guard let folder = folder() else { throw Self.noFolder }
         var text = request.label + ": " + Self.line(anchor.quote)
         if case .ask(let question) = request { text += "\n\n" + NoteThread.question(question) }
         let note = try store.addChild(text, to: parent, tags: [NoteTag.question.rawValue], anchor: anchor)
-        let session = session(for: parent) ?? agents.newMarginSession(in: folder, noteID: note.id)
+        let session = session(for: parent) ?? agents.newMarginSession(in: folder(), noteID: note.id)
         var message = Self.prompt(request, quote: anchor.quote)
         if session.blocks.isEmpty { message += "\n\n" + Self.context(article) }
         send(message, for: note.id, in: session)
@@ -194,8 +132,8 @@ final class ReaderAssistant {
         var message = question + (quote.isEmpty ? "" : "\n\nThis follows up on the passage:\n\n> " + Self.line(quote))
         if let session = session(for: parent) {
             send(message, for: noteID, in: session)
-        } else if let folder = folder() {
-            let session = agents.newMarginSession(in: folder, noteID: noteID)
+        } else {
+            let session = agents.newMarginSession(in: folder(), noteID: noteID)
             message += "\n\n" + Self.context(article)
             send(message, for: noteID, in: session)
         }
@@ -218,16 +156,13 @@ final class ReaderAssistant {
         return [model, agent].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
-    /// Makes a draft session with the thread of a question and the page, with every tool.
-    /// Returns nil for a note that was removed.
-    func continueInSession(_ noteID: UUID, article: ReaderArticle) throws -> AgentSession? {
-        guard let note = store.notes.first(where: { $0.id == noteID }) else { return nil }
-        guard let folder = folder() else { throw Self.noFolder }
+    /// Opens a draft session with the thread of a question and the page, with every tool.
+    /// Does nothing for a note that was removed.
+    func continueInSession(_ noteID: UUID, article: ReaderArticle) {
+        guard let note = store.notes.first(where: { $0.id == noteID }) else { return }
         let quote = note.anchor.map { "\n\n> " + Self.line($0.quote) } ?? ""
-        let session = agents.newSession(in: folder)
-        session.draft = "This continues my questions about \u{201C}\(article.title)\u{201D} (\(article.url.absoluteString))."
-            + quote + "\n\n" + note.text + "\n\n"
-        return session
+        agents.openDraft(text: "This continues my questions about \u{201C}\(article.title)\u{201D} (\(article.url.absoluteString))."
+                         + quote + "\n\n" + note.text + "\n\n", folder: folder())
     }
 
     /// The margin session that answers the questions about a capture. A

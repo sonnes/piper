@@ -240,7 +240,7 @@ To remove an agent, select Remove on its row. A session of a removed agent fails
 
 - To send a row of Today with its default skill, select it and press S.
 - To choose a skill, select the Send button (a paper plane) on the row, or Send in its context menu. The menu lists the default skill, each folder and its skills, and Ask.
-- Ask starts a session in the default folder, with the text of the row as the draft.
+- Ask starts a session in the default folder, with the text of the row as the draft. If no folder has skills, the session starts in the open folder.
 - A clipboard text goes to Inbox first, then Piper opens its draft.
 - An article goes as its link. A digest goes as the list of its links.
 - To send several rows, select them, then select Send in the selection bar, or press Command-Shift-Return. Each row gets a draft with its default skill.

@@ -29,12 +29,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private var editors: [UUID: NSWindow] = [:]
     private var editorSessions: [ObjectIdentifier: CaptureEditSession] = [:]
     private var statusItem: NSStatusItem?
-    private var refresh: Timer?
     private let toast = Toast()
     private var readingToast: ReadingToast?
     private var palette: CommandPaletteController?
     private var capture: CaptureService?
-    private let sendShortcut = SendShortcut()
+    private var sendShortcut: SendShortcut?
     private var sendClipboardItem: NSMenuItem?
     private var terminateSignal: DispatchSourceSignal?
     #if DEBUG
@@ -66,9 +65,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
                                      accessibilityChanged: { [weak model] enabled in model?.accessibilityEnabled = enabled })
         capture.didCapture = { [weak self] outcome in self?.captured(outcome) }
         capture.shownHighlight = { [weak readingToast] in readingToast?.shownHighlight }
-        sendShortcut.action = { [weak self] in self?.sendClipboard() }
+        let sendShortcut = SendShortcut { [weak self] in self?.sendClipboard() }
         sendShortcut.failure = { [weak self] message in self?.model.messages.report(PiperError(message)) }
-        sendShortcut.update(enabled: !model.agents.folders.isEmpty)
+        sendShortcut.update(enabled: !model.skills.folders.isEmpty)
+        model.skills.foldersChanged = { [weak self, weak sendShortcut] in
+            sendShortcut?.update(enabled: self?.model.skills.folders.isEmpty == false)
+        }
+        self.sendShortcut = sendShortcut
         stopRunsOnTerminateSignal()
         self.capture = capture
         model.captureShortcutChanged = { [weak capture] in capture?.start() }
@@ -77,13 +80,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         if !QA.isOn {
             capture.start()
             model.clipboard.start()
-        }
-        refresh = Timer.scheduledTimer(withTimeInterval: 4, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                if !QA.isOn { self?.capture?.start() }
-                self?.sendShortcut.update(enabled: self?.model.agents.folders.isEmpty == false)
-                if self?.desk.isVisible == true { self?.model.library.reload() }
-            }
         }
         #if DEBUG
         if QA.isOn { qaScripts = QAScripts(model: model, desk: desk) }
@@ -233,17 +229,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     /// Names the default folder in the menu bar item, and hides the item when
     /// no folder has Claude skills.
     func menuNeedsUpdate(_ menu: NSMenu) {
-        model.agents.refresh(paths: model.library.wikiPaths)
-        sendClipboardItem?.isHidden = model.agents.folders.isEmpty
-        sendClipboardItem?.title = Command.sendClipboard.title + " to " + (model.agents.defaultFolder?.name ?? "Folder")
+        sendClipboardItem?.isHidden = model.skills.folders.isEmpty
+        sendClipboardItem?.title = Command.sendClipboard.title + " to " + (model.skills.defaultFolder?.name ?? "Folder")
     }
 
     /// Saves the clipboard to Inbox and opens a draft in the default folder.
     private func sendClipboard() {
         do {
-            let run = try model.agents.sendPasteboard()
-            desk.open(.session(run.id))
-            showRunToast(run)
+            showRunToast(try model.send.pasteboard())
         } catch {
             model.messages.report(error)
         }
@@ -266,13 +259,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     /// Confirms a selection capture. A note that a folder can take gets a Send button.
     private func captured(_ note: Note) {
         let text = "Saved to \(note.section)"
-        guard let action = model.agents.defaultAction(for: note.text) else { return model.messages.show(text) }
+        guard let action = model.skills.defaultAction(for: note.text) else { return model.messages.show(text) }
         model.messages.show(text, action: Message.Action(title: "Send to " + action.folder.name) { [weak self] in
             guard let self else { return }
             do {
-                let session = try model.agents.send(note, action: action)
-                desk.open(.session(session.id))
-                showRunToast(session)
+                showRunToast(try model.send.note(note, action: action))
             } catch {
                 model.messages.report(error)
             }
@@ -371,9 +362,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     func applicationWillTerminate(_ notification: Notification) {
         capture?.stop()
-        sendShortcut.unregister()
+        sendShortcut?.unregister()
         model.agents.runner.stopAll()
         model.clipboard.stop()
-        refresh?.invalidate()
     }
 }

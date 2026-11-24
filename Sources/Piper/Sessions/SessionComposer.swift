@@ -37,7 +37,7 @@ struct SessionComposer: View {
     /// The files of a folder that is not on the Folders index.
     @State private var folderFiles: [String] = []
 
-    private var agents: FolderAgents { model.agents }
+    private var agents: AgentSettings { model.agents }
     private var isActive: Bool { session?.isActive == true }
     private var folderName: String { URL(fileURLWithPath: folder).lastPathComponent }
     private var currentChoice: AgentConfig { choice ?? AgentConfig(agentID: agents.sessionAgentID) }
@@ -45,17 +45,17 @@ struct SessionComposer: View {
     private var agentName: String? { agents.agent(session?.agentID ?? currentChoice.agentID)?.name }
 
     /// The commands that the agent supports in this session.
-    private var commands: [FolderAgents.Action] {
+    private var commands: [SkillFolders.Action] {
         guard focused, let partial = SlashCommand.partialName(text) else { return [] }
-        let owner = agents.available.first { $0.path == folder }
-            ?? FolderAgents.Folder(path: folder, skills: [])
+        let owner = model.skills.available.first { $0.path == folder }
+            ?? SkillFolders.Folder(path: folder, skills: [])
         let names = session?.slashCommands ?? owner.skills.map(\.name)
         return Array(Set(names)).sorted()
             .filter { $0.lowercased().hasPrefix(partial.lowercased()) }
-            .prefix(FolderAgents.completionLimit)
+            .prefix(SkillFolders.completionLimit)
             .map { name in
                 let skill = owner.skills.first { $0.name == name } ?? FolderSkill(name: name)
-                return FolderAgents.Action(folder: owner, skill: skill)
+                return SkillFolders.Action(folder: owner, skill: skill)
             }
     }
 
@@ -181,7 +181,7 @@ struct SessionComposer: View {
         mentions = []
     }
 
-    private func choose(skill action: FolderAgents.Action) {
+    private func choose(skill action: SkillFolders.Action) {
         text = "/" + action.skill.name + " "
     }
 

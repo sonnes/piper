@@ -15,7 +15,10 @@ final class AppModel {
     /// The undo stack of the app. Edit > Undo, Command-Z, and the Undo button of Today use it.
     var undoManager: UndoManager { store.undoManager }
     let clipboard: ClipboardInbox
-    let agents: FolderAgents
+    let agents: AgentSettings
+    /// The folders with skills, which Send runs.
+    let skills: SkillFolders
+    let send: Send
     /// The highlights and questions of link captures.
     let reader: ReaderAssistant
     /// The subscriptions and their articles.
@@ -149,18 +152,20 @@ final class AppModel {
         if let error = store.loadError { messages.report(error) }
         clipboard = ClipboardInbox(store: store) { [weak messages] in messages?.report($0) }
         articleActions = ArticleActions(store: store, feeds: self.feeds, messages: messages)
-        let agents = FolderAgents(store: store, messages: messages, preferences: preferences)
+        let agents = AgentSettings(store: store, messages: messages, preferences: preferences)
         self.agents = agents
+        let skills = SkillFolders(preferences: preferences)
+        self.skills = skills
+        send = Send(store: store, agents: agents, skills: skills)
         captureShortcut = CaptureShortcut(stored: preferences.string(forKey: AppDefaults.Key.captureShortcut))
-        let reader = ReaderAssistant(store: store, agents: agents, messages: messages)
-        self.reader = reader
-        let library = Library(wikiPath: wikiPath, preferences: preferences, agents: agents)
+        let library = Library(wikiPath: wikiPath, preferences: preferences, skills: skills)
         self.library = library
+        let reader = ReaderAssistant(store: store, agents: agents, messages: messages) { [library] in library.agentFolder }
+        self.reader = reader
         files = FileEditor(library: library, store: store, reader: reader, agents: agents, messages: messages, preferences: preferences)
         siteScan = SiteScan(feeds: self.feeds, messages: messages, preferences: preferences)
         do { try store.archiveFinishedReading() } catch { messages.report(error) }
-        // A question goes to the folder of the Send buttons, or else to the open folder.
-        reader.folder = { [weak agents, weak library] in agents?.defaultFolder?.path ?? library?.vault.root.path }
+        agents.showSession = { [weak self] session in self?.desk?.open(.session(session.id)) }
     }
 
     func requestAccessibility() {

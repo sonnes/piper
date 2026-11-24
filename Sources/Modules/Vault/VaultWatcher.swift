@@ -5,7 +5,8 @@ import Foundation
 ///
 /// The file system event stream runs on a private background queue. The handler
 /// runs on the main queue. The stream groups the events of about half a second
-/// into one call.
+/// into one call. A watcher with a `part` reports only the changes to a path
+/// that contains that part.
 ///
 /// Call `start()` and `stop()` on the main thread.
 public final class VaultWatcher {
@@ -15,6 +16,7 @@ public final class VaultWatcher {
     /// The folder that the watcher observes.
     public let vault: Vault
 
+    private let part: String?
     private let handler: () -> Void
     private let latency: CFTimeInterval = 0.5
     private let queue = DispatchQueue(label: "com.piper.vault.watcher", qos: .utility)
@@ -23,8 +25,10 @@ public final class VaultWatcher {
 
     // MARK: Lifecycle
 
-    public init(vault: Vault, handler: @escaping () -> Void) {
+    /// - Parameter part: A part of a path, such as `/.claude`. Nil reports every change.
+    public init(vault: Vault, part: String? = nil, handler: @escaping () -> Void) {
         self.vault = vault
+        self.part = part
         self.handler = handler
     }
 
@@ -70,7 +74,8 @@ public final class VaultWatcher {
         self.stream = nil
     }
 
-    fileprivate func deliver() {
+    fileprivate func deliver(_ paths: [String]) {
+        if let part, !paths.contains(where: { $0.contains(part) }) { return }
         DispatchQueue.main.async { [weak self] in
             guard let self, self.isRunning else { return }
             self.handler()
@@ -80,7 +85,9 @@ public final class VaultWatcher {
 
 // MARK: - Callback
 
-private let vaultWatcherCallback: FSEventStreamCallback = { _, info, _, _, _, _ in
+private let vaultWatcherCallback: FSEventStreamCallback = { _, info, count, eventPaths, _, _ in
     guard let info else { return }
-    Unmanaged<VaultWatcher>.fromOpaque(info).takeUnretainedValue().deliver()
+    let list = eventPaths.assumingMemoryBound(to: UnsafePointer<CChar>.self)
+    let paths = (0..<count).map { String(cString: list[$0]) }
+    Unmanaged<VaultWatcher>.fromOpaque(info).takeUnretainedValue().deliver(paths)
 }

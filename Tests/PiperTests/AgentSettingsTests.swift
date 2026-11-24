@@ -6,7 +6,7 @@ import XCTest
 @testable import Piper
 
 @MainActor
-final class FolderAgentsTests: XCTestCase {
+final class AgentSettingsTests: XCTestCase {
     private var root: URL!
     private var preferences: UserDefaults!
     private var suite: String!
@@ -17,7 +17,7 @@ final class FolderAgentsTests: XCTestCase {
     override func setUp() async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("folder-agents-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        suite = "FolderAgentsTests." + UUID().uuidString
+        suite = "AgentSettingsTests." + UUID().uuidString
         preferences = UserDefaults(suiteName: suite)!
         store = CaptureStore(url: root.appendingPathComponent("notes.sqlite"))
         wiki = try folder("wiki", skills: ["capture": "<url> [note]", "new": "<type> <title>",
@@ -59,15 +59,32 @@ final class FolderAgentsTests: XCTestCase {
         return url
     }
 
-    private func makeAgents() throws -> FolderAgents {
-        let agents = FolderAgents(store: store, messages: Messages(), preferences: preferences)
-        agents.runner.executable = try fakeClaude()
-        agents.runner.usesLoginShell = false
-        agents.refresh(paths: [wiki.path, root.appendingPathComponent("plain").path, notes.path])
-        return agents
+    /// The settings, the skill folders, and the Send actions of one app.
+    private struct Parts {
+        let agents: AgentSettings
+        let skills: SkillFolders
+        let send: Send
     }
 
-    private func waitForRuns(_ agents: FolderAgents) async throws {
+    private func makeParts() throws -> Parts {
+        let agents = AgentSettings(store: store, messages: Messages(), preferences: preferences)
+        agents.runner.executable = try fakeClaude()
+        agents.runner.usesLoginShell = false
+        let skills = makeSkills()
+        return Parts(agents: agents, skills: skills, send: Send(store: store, agents: agents, skills: skills))
+    }
+
+    private func makeSkills() -> SkillFolders {
+        let skills = SkillFolders(preferences: preferences)
+        skills.paths = [wiki.path, root.appendingPathComponent("plain").path, notes.path]
+        return skills
+    }
+
+    private func newAgents(_ messages: Messages? = nil) -> AgentSettings {
+        AgentSettings(store: store, messages: messages ?? Messages(), preferences: preferences)
+    }
+
+    private func waitForRuns(_ agents: AgentSettings) async throws {
         for _ in 0..<500 {
             if agents.runner.activeCount == 0 { return }
             try await Task.sleep(for: .milliseconds(10))
@@ -84,99 +101,133 @@ final class FolderAgentsTests: XCTestCase {
     // MARK: - Folders and defaults
 
     func testFindsFoldersWithSkillsAndHonorsTheSwitch() throws {
-        let agents = try makeAgents()
-        XCTAssertEqual(agents.folders.map(\.name), ["wiki", "notes"])
-        XCTAssertEqual(agents.defaultFolder?.name, "wiki")
+        let skills = makeSkills()
+        XCTAssertEqual(skills.folders.map(\.name), ["wiki", "notes"])
+        XCTAssertEqual(skills.defaultFolder?.name, "wiki")
 
-        agents.setEnabled(false, for: agents.folders[0])
-        XCTAssertEqual(agents.folders.map(\.name), ["notes"])
-        XCTAssertEqual(agents.defaultFolder?.name, "notes")
-        XCTAssertEqual(agents.available.count, 2)
+        skills.setEnabled(false, for: skills.folders[0])
+        XCTAssertEqual(skills.folders.map(\.name), ["notes"])
+        XCTAssertEqual(skills.defaultFolder?.name, "notes")
+        XCTAssertEqual(skills.available.count, 2)
 
-        let restored = FolderAgents(store: store, messages: Messages(), preferences: preferences)
-        restored.refresh(paths: [wiki.path, notes.path])
+        let restored = SkillFolders(preferences: preferences)
+        restored.paths = [wiki.path, notes.path]
         XCTAssertEqual(restored.folders.map(\.name), ["notes"])
     }
 
-    func testDefaultActionDependsOnLinkOrTextAndTheStoredChoice() throws {
-        let agents = try makeAgents()
-        XCTAssertEqual(agents.defaultAction(for: " https://example.com/a ")?.skill.name, "capture")
-        XCTAssertEqual(agents.defaultAction(for: "A thought about https://example.com")?.skill.name, "new")
+    func testReadsTheSkillsAgainWhenASkillFileChanges() async throws {
+        let plain = root.appendingPathComponent("plain")
+        let skills = SkillFolders(preferences: preferences)
+        skills.paths = [plain.path]
+        XCTAssertTrue(skills.available.isEmpty)
 
-        let wikiFolder = agents.folders[0]
-        agents.setDefaultSkill("stale", forLink: false, in: wikiFolder)
-        XCTAssertEqual(agents.defaultAction(for: "A thought")?.skill.name, "stale")
-        agents.setDefaultSkill(FolderAgents.noSkill, forLink: true, in: wikiFolder)
-        XCTAssertNil(agents.defaultAction(for: "https://example.com"))
+        let directory = plain.appendingPathComponent(".claude/skills/later")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try "---\nname: later\n---\nRun".write(to: directory.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
+        for _ in 0..<500 where skills.available.isEmpty {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(skills.available.first?.skills.map(\.name), ["later"])
+    }
+
+    func testDefaultActionDependsOnLinkOrTextAndTheStoredChoice() throws {
+        let skills = makeSkills()
+        XCTAssertEqual(skills.defaultAction(for: " https://example.com/a ")?.skill.name, "capture")
+        XCTAssertEqual(skills.defaultAction(for: "A thought about https://example.com")?.skill.name, "new")
+
+        let wikiFolder = skills.folders[0]
+        skills.setDefaultSkill("stale", forLink: false, in: wikiFolder)
+        XCTAssertEqual(skills.defaultAction(for: "A thought")?.skill.name, "stale")
+        skills.setDefaultSkill(SkillFolders.noSkill, forLink: true, in: wikiFolder)
+        XCTAssertNil(skills.defaultAction(for: "https://example.com"))
 
         // The notes folder has no `new` skill, so text has no default there.
-        agents.setEnabled(false, for: wikiFolder)
-        XCTAssertEqual(agents.defaultAction(for: "https://example.com")?.folder.name, "notes")
-        XCTAssertNil(agents.defaultAction(for: "A thought"))
+        skills.setEnabled(false, for: wikiFolder)
+        XCTAssertEqual(skills.defaultAction(for: "https://example.com")?.folder.name, "notes")
+        XCTAssertNil(skills.defaultAction(for: "A thought"))
     }
 
     func testCompletionsAndCommandsPreferTheDefaultFolder() throws {
-        let agents = try makeAgents()
-        XCTAssertEqual(agents.completions(for: "").map(\.id).count, 6)
-        XCTAssertEqual(agents.completions(for: "CA").map(\.folder.name), ["wiki", "notes"])
-        XCTAssertEqual(agents.completions(for: "t").map(\.skill.name), ["tidy"])
-        XCTAssertEqual(agents.action(for: SlashCommand(name: "capture"))?.folder.name, "wiki")
-        XCTAssertEqual(agents.action(for: SlashCommand(name: "tidy"))?.folder.name, "notes")
-        XCTAssertNil(agents.action(for: SlashCommand(name: "missing")))
+        let skills = makeSkills()
+        XCTAssertEqual(skills.completions(for: "").map(\.id).count, 6)
+        XCTAssertEqual(skills.completions(for: "CA").map(\.folder.name), ["wiki", "notes"])
+        XCTAssertEqual(skills.completions(for: "t").map(\.skill.name), ["tidy"])
+        XCTAssertEqual(skills.action(for: SlashCommand(name: "capture"))?.folder.name, "wiki")
+        XCTAssertEqual(skills.action(for: SlashCommand(name: "tidy"))?.folder.name, "notes")
+        XCTAssertNil(skills.action(for: SlashCommand(name: "missing")))
+
+        let notesCapture = try XCTUnwrap(skills.completions(for: "capture").last)
+        XCTAssertEqual(skills.action(for: SlashCommand(name: "capture"), chosen: notesCapture)?.folder.name, "notes")
+        XCTAssertEqual(skills.action(for: SlashCommand(name: "tidy"), chosen: notesCapture)?.skill.name, "tidy")
     }
 
     // MARK: - Sending
 
     func testSendPreparesAnEditableDraftAndRemembersTheFolder() async throws {
-        let agents = try makeAgents()
+        let parts = try makeParts()
+        var shown: [UUID] = []
+        parts.agents.showSession = { shown.append($0.id) }
         let note = try store.add("https://example.com/page", section: store.activeSection)
-        let notesAction = try XCTUnwrap(agents.completions(for: "capture").last)
+        let notesAction = try XCTUnwrap(parts.skills.completions(for: "capture").last)
 
-        let session = try agents.send(note, action: notesAction)
+        let session = try parts.send.note(note, action: notesAction)
+        XCTAssertEqual(shown, [session.id])
         XCTAssertEqual(session.folder, notes.standardizedFileURL.path)
         XCTAssertEqual(session.command, SlashCommand(name: "capture", arguments: "https://example.com/page"))
-        XCTAssertEqual(agents.defaultFolder?.name, "notes")
+        XCTAssertEqual(session.agentID, AgentDefinition.claudeCodeID)
+        XCTAssertEqual(parts.skills.defaultFolder?.name, "notes")
         XCTAssertEqual(session.folderName, "notes")
         XCTAssertEqual(session.noteID, note.id)
         XCTAssertEqual(session.draft, "/capture https://example.com/page")
         XCTAssertTrue(session.blocks.isEmpty)
-        XCTAssertEqual(agents.runner.activeCount, 0)
+        XCTAssertEqual(parts.agents.runner.activeCount, 0)
         XCTAssertEqual(try prompts(), [])
 
         session.draft += " Summarize the examples"
-        agents.runner.send(session.draft, to: session)
+        parts.agents.runner.send(session.draft, to: session)
         XCTAssertEqual(session.draft, "")
-        try await waitForRuns(agents)
+        try await waitForRuns(parts.agents)
 
-        XCTAssertEqual(agents.runner.latestSession(for: note.id)?.state, .idle)
+        XCTAssertEqual(parts.agents.runner.latestSession(for: note.id)?.state, .idle)
         XCTAssertEqual(try prompts(), ["/capture https://example.com/page Summarize the examples"])
         XCTAssertEqual(session.command?.arguments, "https://example.com/page Summarize the examples")
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(store.notes[0].text, "https://example.com/page")
-        XCTAssertEqual(FolderAgents(store: store, messages: Messages(), preferences: preferences).lastFolderPath, notes.standardizedFileURL.path)
+        XCTAssertEqual(SkillFolders(preferences: preferences).lastFolderPath, notes.standardizedFileURL.path)
     }
 
     func testSendPreparesEachNoteWithItsOwnSkill() async throws {
-        let agents = try makeAgents()
+        let parts = try makeParts()
         XCTAssertNoThrow(try store.add("https://example.com/a", section: store.activeSection))
         XCTAssertNoThrow(try store.add("Decision keep runs", section: store.activeSection))
 
-        XCTAssertEqual(try store.notes.map { try agents.send($0) }.count, 2)
-        try await waitForRuns(agents)
+        XCTAssertEqual(try store.notes.map { try parts.send.note($0) }.count, 2)
+        try await waitForRuns(parts.agents)
         XCTAssertEqual(try prompts(), [])
-        XCTAssertEqual(store.notes.compactMap { agents.runner.latestSession(for: $0.id)?.draft }.sorted(),
+        XCTAssertEqual(store.notes.compactMap { parts.agents.runner.latestSession(for: $0.id)?.draft }.sorted(),
                        ["/capture https://example.com/a", "/new Decision keep runs"])
     }
 
+    func testADraftWithoutACommandUsesTheAgentOfANewSession() throws {
+        let agents = newAgents()
+        agents.addAgent(name: "Fake", command: "/usr/bin/true", arguments: [])
+        let added = try XCTUnwrap(agents.acpAgents.first)
+        agents.sessionAgentID = added.id
+        let session = agents.openDraft(text: "About this\n\n", folder: wiki.path)
+        XCTAssertEqual(session.agentID, added.id)
+        XCTAssertEqual(session.draft, "About this\n\n")
+        XCTAssertNil(session.command)
+    }
+
     func testSendingAClipboardTextSavesItFirst() async throws {
-        let agents = try makeAgents()
+        let parts = try makeParts()
         let clipboard = ClipboardInbox(store: store, pasteboard: NSPasteboard(name: .init("com.piper.test." + UUID().uuidString))) {
             XCTFail("\($0)")
         }
         clipboard.receive(["https://example.com/copied"])
         let entry = try XCTUnwrap(clipboard.entries.first)
 
-        let session = try XCTUnwrap(try agents.send(entry, from: clipboard))
+        let session = try XCTUnwrap(try parts.send.clip(entry, from: clipboard))
         XCTAssertEqual(store.notes.map(\.text), ["https://example.com/copied"])
         XCTAssertEqual(store.notes.first?.section, "Inbox")
         XCTAssertEqual(session.noteID, store.notes.first?.id)
@@ -187,77 +238,77 @@ final class FolderAgentsTests: XCTestCase {
     }
 
     func testSendingThePasteboardSkipsANoteThatWasSent() async throws {
-        let agents = try makeAgents()
+        let parts = try makeParts()
         let pasteboard = NSPasteboard(name: .init("com.piper.test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
         pasteboard.clearContents()
         pasteboard.setString("https://example.com/twice", forType: .string)
 
-        let session = try agents.sendPasteboard(pasteboard)
+        let session = try parts.send.pasteboard(pasteboard)
         session.draft += " Added instructions"
-        XCTAssertEqual(try agents.sendPasteboard(pasteboard).id, session.id)
+        XCTAssertEqual(try parts.send.pasteboard(pasteboard).id, session.id)
         XCTAssertTrue(session.draft.hasSuffix("Added instructions"))
         XCTAssertEqual(try prompts(), [])
-        agents.runner.send(session.draft, to: session)
-        try await waitForRuns(agents)
-        XCTAssertThrowsError(try agents.sendPasteboard(pasteboard)) { error in
+        parts.agents.runner.send(session.draft, to: session)
+        try await waitForRuns(parts.agents)
+        XCTAssertThrowsError(try parts.send.pasteboard(pasteboard)) { error in
             XCTAssertEqual(error.localizedDescription, "Already sent to wiki")
         }
         XCTAssertEqual(store.notes.count, 1)
         XCTAssertEqual(try prompts().count, 1)
 
         pasteboard.clearContents()
-        XCTAssertThrowsError(try agents.sendPasteboard(pasteboard)) { error in
+        XCTAssertThrowsError(try parts.send.pasteboard(pasteboard)) { error in
             XCTAssertEqual(error.localizedDescription, "The clipboard has no text")
         }
     }
 
     func testComposerCommandSavesItsArgumentsAsANote() async throws {
-        let agents = try makeAgents()
+        let parts = try makeParts()
         XCTAssertNoThrow(try store.chooseSection("Research"))
 
-        XCTAssertNotNil(try agents.run(SlashCommand("/capture https://example.com/x")!))
-        XCTAssertNotNil(try agents.run(SlashCommand("/stale")!))
-        let tidy = try XCTUnwrap(agents.completions(for: "tidy").first)
-        XCTAssertNotNil(try agents.run(SlashCommand(name: "tidy"), action: tidy))
+        XCTAssertNotNil(try parts.send.run(SlashCommand("/capture https://example.com/x")!))
+        XCTAssertNotNil(try parts.send.run(SlashCommand("/stale")!))
+        let tidy = try XCTUnwrap(parts.skills.completions(for: "tidy").first)
+        XCTAssertNotNil(try parts.send.run(SlashCommand(name: "tidy"), action: tidy))
         // A chosen action for another skill is ignored, and the folder used last wins.
-        XCTAssertEqual(try agents.run(SlashCommand(name: "capture"), action: tidy)?.folder, notes.standardizedFileURL.path)
-        XCTAssertNil(try agents.run(SlashCommand("/missing text")!))
+        XCTAssertEqual(try parts.send.run(SlashCommand(name: "capture"), action: tidy)?.folder, notes.standardizedFileURL.path)
+        XCTAssertNil(try parts.send.run(SlashCommand("/missing text")!))
 
         XCTAssertEqual(store.notes.map(\.text), ["https://example.com/x", "/stale", "/tidy", "/capture"])
         XCTAssertTrue(store.notes.allSatisfy { $0.section == "Research" })
-        XCTAssertEqual(agents.runner.latestSession(for: store.notes[2].id)?.folder, notes.standardizedFileURL.path)
-        try await waitForRuns(agents)
+        XCTAssertEqual(parts.agents.runner.latestSession(for: store.notes[2].id)?.folder, notes.standardizedFileURL.path)
+        try await waitForRuns(parts.agents)
         XCTAssertEqual(try prompts().sorted(), ["/capture", "/capture https://example.com/x", "/stale", "/tidy"])
     }
 
     // MARK: - Executable
 
     func testSessionsDefaultToSonnetInAutoModeAndKeepTheChoice() {
-        let agents = FolderAgents(store: store, messages: Messages(), preferences: preferences)
+        let agents = newAgents()
         XCTAssertEqual(agents.model, "sonnet")
         XCTAssertEqual(agents.runner.model, "sonnet")
         XCTAssertEqual(agents.runner.permissionMode, .auto)
 
         agents.permissionMode = .ask
-        XCTAssertEqual(FolderAgents(store: store, messages: Messages(), preferences: preferences).runner.permissionMode, .ask)
+        XCTAssertEqual(newAgents().runner.permissionMode, .ask)
         XCTAssertEqual(preferences.string(forKey: AppDefaults.Key.claudePermissionMode), "manual")
 
         agents.model = "opus"
         XCTAssertEqual(agents.runner.model, "opus")
-        XCTAssertEqual(FolderAgents(store: store, messages: Messages(), preferences: preferences).runner.model, "opus")
+        XCTAssertEqual(newAgents().runner.model, "opus")
 
         agents.model = ""
-        XCTAssertEqual(FolderAgents(store: store, messages: Messages(), preferences: preferences).model, "")
+        XCTAssertEqual(newAgents().model, "")
     }
 
     func testAgentsPersistAndSetTheDefaultsOfNewSessions() throws {
-        let agents = FolderAgents(store: store, messages: Messages(), preferences: preferences)
+        let agents = newAgents()
         agents.addAgent(name: "Fake", command: "/usr/bin/true", arguments: ["acp"])
         let added = try XCTUnwrap(agents.acpAgents.first)
         XCTAssertEqual(agents.runner.agents, [added])
 
-        let reloaded = FolderAgents(store: store, messages: Messages(), preferences: preferences)
+        let reloaded = newAgents()
         XCTAssertEqual(reloaded.acpAgents, [added])
         XCTAssertEqual(reloaded.runner.agents, [added])
 
@@ -285,7 +336,7 @@ final class FolderAgentsTests: XCTestCase {
         let stored = Data("not a list".utf8)
         preferences.set(stored, forKey: AppDefaults.Key.acpAgents)
         let messages = Messages()
-        let agents = FolderAgents(store: store, messages: messages, preferences: preferences)
+        let agents = newAgents(messages)
         XCTAssertEqual(messages.last?.isError, true)
         XCTAssertTrue(agents.acpAgents.isEmpty)
 
@@ -295,7 +346,7 @@ final class FolderAgentsTests: XCTestCase {
     }
 
     func testRemovedAgentReadsAsMissing() throws {
-        let agents = FolderAgents(store: store, messages: Messages(), preferences: preferences)
+        let agents = newAgents()
         agents.addAgent(name: "Fake", command: "/usr/bin/true", arguments: [])
         let added = try XCTUnwrap(agents.acpAgents.first)
         XCTAssertEqual(agents.agent(added.id), added)
@@ -318,7 +369,7 @@ final class FolderAgentsTests: XCTestCase {
         done
         """.write(to: script, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
-        let agents = try makeAgents()
+        let agents = try makeParts().agents
         agents.addAgent(name: "Coder", command: script.path, arguments: [])
         let coder = try XCTUnwrap(agents.acpAgents.first)
         agents.setMarginAgent(coder.id)
@@ -338,12 +389,12 @@ final class FolderAgentsTests: XCTestCase {
     }
 
     func testFindsClaudeInTheUsualPlaces() {
-        let found = FolderAgents.executable(chosen: nil, home: "/Users/me") { $0 == "/opt/homebrew/bin/claude" }
+        let found = AgentSettings.executable(chosen: nil, home: "/Users/me") { $0 == "/opt/homebrew/bin/claude" }
         XCTAssertEqual(found?.path, "/opt/homebrew/bin/claude")
-        XCTAssertEqual(FolderAgents.executable(chosen: nil, home: "/Users/me") { $0 == "/Users/me/.local/bin/claude" }?.path,
+        XCTAssertEqual(AgentSettings.executable(chosen: nil, home: "/Users/me") { $0 == "/Users/me/.local/bin/claude" }?.path,
                        "/Users/me/.local/bin/claude")
-        XCTAssertNil(FolderAgents.executable(chosen: nil, home: "/Users/me") { _ in false })
-        XCTAssertEqual(FolderAgents.executable(chosen: "/tmp/claude") { _ in false }?.path, "/tmp/claude")
+        XCTAssertNil(AgentSettings.executable(chosen: nil, home: "/Users/me") { _ in false })
+        XCTAssertEqual(AgentSettings.executable(chosen: "/tmp/claude") { _ in false }?.path, "/tmp/claude")
     }
 
     // MARK: - Opening results

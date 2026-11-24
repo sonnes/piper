@@ -3,6 +3,15 @@ import Captures
 import AppKit
 import SwiftUI
 
+/// What the reader paper with the focus shows: a file, a note, or nothing.
+/// The session card takes a file as context, and shows the sessions of a note.
+enum SkillTarget: Equatable {
+    /// A file in the folder. The argument is its path.
+    case page(String)
+    case note(UUID)
+    case folder
+}
+
 /// Where the session shows: a pill in the corner of the focused reader
 /// paper, a card over the corner, or a panel of its own over every app.
 enum SessionPresentation: String {
@@ -30,7 +39,7 @@ struct SessionTarget {
 
     /// The note on the screen, if any.
     var noteID: UUID? {
-        if case .text(_, let id) = model.actionTarget { return id }
+        if case .note(let id) = model.actionTarget { return id }
         return nil
     }
 
@@ -45,7 +54,7 @@ struct SessionTarget {
     var folder: String {
         if noteID != nil, let session { return session.folder }
         if let id = model.selectedSession, let session = runner.session(id), session.noteID != nil { return session.folder }
-        return page == nil ? model.agents.defaultFolder?.path ?? model.library.vault.root.path : model.library.vault.root.path
+        return page == nil ? model.library.agentFolder : model.library.vault.root.path
     }
 
     var session: AgentSession? {
@@ -152,7 +161,7 @@ struct SessionCard: View {
                     model.selectedSession = item.id
                 } label: {
                     Text(item.title)
-                    Text(SessionStateChip.title(item.state) + " · " + RowTime.text(item.updatedAt))
+                    Text(item.state.label + " · " + RowTime.text(item.updatedAt))
                 }
             }
         } label: {
@@ -294,12 +303,10 @@ struct SessionPill: View {
         switch session?.state {
         case .running?, .waiting?:
             ProgressView().controlSize(.mini)
-        case .idle? where session?.primaryFile != nil:
-            Circle().fill(PiperTheme.success).frame(width: 7, height: 7)
-        case .failed?:
-            Circle().fill(PiperTheme.danger).frame(width: 7, height: 7)
+        case .idle? where session?.primaryFile != nil, .failed?:
+            Circle().fill(session?.state.color ?? PiperTheme.paperMuted).frame(width: 7, height: 7)
         case .needsYou?:
-            Image(systemName: "exclamationmark.bubble.fill").font(.system(size: 12)).foregroundStyle(PiperTheme.onAccent)
+            Image(systemName: AgentSession.State.needsYou.symbol ?? "").font(.system(size: 12)).foregroundStyle(PiperTheme.onAccent)
         default:
             AgentMark(agentID: session?.agentID ?? model.agents.sessionAgentID).font(.system(size: 14, weight: .semibold))
         }
@@ -307,12 +314,13 @@ struct SessionPill: View {
 
     private func text(_ session: AgentSession?) -> String {
         guard let session, !session.blocks.isEmpty else { return "Ask about this page" }
+        let label = session.state.label
         switch session.state {
-        case .waiting: return session.title + " · Waiting"
+        case .waiting: return session.title + " · " + label
         case .running: return session.lastStep ?? session.title
-        case .needsYou: return "Needs you · " + session.title
-        case .idle: return session.primaryFile.map { "Done · " + $0 } ?? session.title
-        case .failed: return "Failed · " + (session.failure?.components(separatedBy: .newlines).first ?? session.title)
+        case .needsYou: return label + " · " + session.title
+        case .idle: return session.primaryFile.map { label + " · " + $0 } ?? session.title
+        case .failed: return label + " · " + (session.failure?.components(separatedBy: .newlines).first ?? session.title)
         }
     }
 }

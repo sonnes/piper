@@ -59,7 +59,7 @@ final class SessionCardTests: XCTestCase {
         let newer = runner.newSession(in: folder.path, noteID: first)
         XCTAssertNotNil(margin)
 
-        model.actionTarget = .text("https://a.dev", noteID: first)
+        model.actionTarget = .note(first)
         XCTAssertEqual(SessionTarget(model: model).session?.id, newer.id)
         XCTAssertEqual(Set(SessionTarget(model: model).noteSessions.map(\.id)), [older.id, newer.id])
 
@@ -68,11 +68,11 @@ final class SessionCardTests: XCTestCase {
 
         // Another note without a session shows an empty card, even with a
         // session of the first note still selected.
-        model.actionTarget = .text("A note", noteID: second)
+        model.actionTarget = .note(second)
         XCTAssertNil(SessionTarget(model: model).session)
 
         // New Session clears the card of a note that has sessions.
-        model.actionTarget = .text("https://a.dev", noteID: first)
+        model.actionTarget = .note(first)
         model.selectedSession = nil
         model.newSessionNote = first
         XCTAssertNil(SessionTarget(model: model).session)

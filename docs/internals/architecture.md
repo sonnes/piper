@@ -67,7 +67,7 @@ Some errors happen where no caller waits:
 - `CaptureStore` keeps the error that stopped its database from opening in `loadError`. `AppModel` reports it at launch.
 - `CaptureStore` sends the error of an undo or a redo that cannot save to `reportUndoError`. `AppModel` sets it to `Messages.report`.
 - `FeedStore` and `ClipboardInbox` take a `report` closure. Their timers and their reads report each database error through it. A failed feed read then gives an empty value.
-- `SessionRunner` reports a storage error through the closure that `FolderAgents` gives it.
+- `SessionRunner` reports a storage error through the closure that `AgentSettings` gives it.
 - `WebPageBridge` runs each call on the editor page and the reader page with a completion handler that reports a JavaScript exception. It also reports a message from a page that does not decode. `EditorPage.flush` throws, and `FileEditor.flushEditor` reports the error.
 - `SiteScan` reports each browser history that it cannot read, and then scans the others.
 
@@ -118,7 +118,7 @@ The index and the list fade into each other in 0.22 seconds. When Reduce Motion 
 
 ### Reader Papers
 
-`PaperDesk.open(_:)` is the one way to open a paper. A `PaperItem` names the item: a note, an article, the file, a session, or a new session in a folder. A view finds the desk in the SwiftUI environment, as `paperDesk`. `FeedPaperController` and each `ReaderPaperController` put the desk there. A model reaches the desk through `AppModel.desk` or `FileEditor.desk`, which `PaperDesk` sets when the app makes it. `FolderAgents.send` and `ReaderAssistant.continueInSession` only make a draft session. The caller opens it with `open(.session(id))`.
+`PaperDesk.open(_:)` is the one way to open a paper. A `PaperItem` names the item: a note, an article, the file, a session, or a new session in a folder. A view finds the desk in the SwiftUI environment, as `paperDesk`. `FeedPaperController` and each `ReaderPaperController` put the desk there. A model reaches the desk through `AppModel.desk` or `FileEditor.desk`, which `PaperDesk` sets when the app makes it. `AgentSettings.openDraft(text:folder:)` is the one way to open a draft session. It makes the session, puts the text in its message field, and opens it in the desk. Send, Ask of Today, and Continue in Session of the Reader tab use it.
 
 When the reader keeps the session card in the detached panel, `open(.session(id))` selects the session and shows the panel in place of a paper. A link capture that keeps a feed article and the article are one paper. `PaperItem.identity(in:)` gives the item of that paper, and the desk, `DeskMarks`, and `PaperFrames` compare items by it. `PaperItem.keptNote(of:in:)` finds the link capture of a feed article, and `PaperItem.isArticle(in:)` tells whether a paper shows an article.
 
@@ -164,7 +164,9 @@ The reader paper table scrolls the Reader tab with the arrows, sends H and N to 
 
 ## Capture
 
-`CaptureService` detects double Shift with `NSEvent` monitors. Control-Option-Space is a registered system hotkey, so the source app does not receive the keystroke.
+`CaptureService` detects double Shift with `NSEvent` monitors. Control-Option-Space is a registered system hotkey, so the source app does not receive the keystroke. Without Accessibility access, `CaptureService` checks the access every 4 seconds, and it stops when Piper has the access. Settings shows the result.
+
+`GlobalHotkey` registers one Carbon hotkey and gives it its own id, so the handler of one hotkey ignores the other. The capture shortcut and `SendShortcut` (Control-Option-W) use it. `SendShortcut` holds its hotkey only while a folder has skills. `SkillFolders.foldersChanged` tells it when that changes.
 
 The service records the source app and the active section before it reads Accessibility text. A serial queue reads the focused element with a 0.4-second timeout. If the selected text attribute is empty, the service uses the selected range. Secure fields produce no note.
 
@@ -218,9 +220,15 @@ The stream drops an article when a capture holds its link, so a kept article sho
 
 ## Agent Sessions
 
-`FolderAgents` in the application target holds the agents, the defaults of a new session and of a margin answer, the added folders that have skills, the default folder, and the default skill for links and for text. `AppModel` refreshes the folders when the folder list changes and on each scan.
+Three types in `Sessions/` of the application target hold the agent feature:
 
-`SessionRunner` in the `Agents` module owns every `AgentSession`. Each session is an `@Observable` object, so a view of one session redraws only when that session changes. A session records its agent, its purpose, its model, its mode, and the ACP session id in `resumeToken`. `SessionRunner.config(for:)` gives the agent, the model, and the mode that a session uses. For Claude Code, it fills a model or a mode that the session leaves open with `SessionRunner.model` and `SessionRunner.permissionMode`. `FolderAgents` reads and writes these settings on the runner, and keeps them in the preferences. A stored session that does not decode stays in the database, and the runner reports it.
+- `AgentSettings` holds the agents, their health, the defaults of a new session and of a margin answer, and the `SessionRunner`. It makes each new session.
+- `SkillFolders` holds the folders of the Folders index that have skills, the folder that is on or off, the default folder, and the default skill for links and for text. `Library` gives it the folder list. A `VaultWatcher` on each folder reads the skills again when a file below `.claude` changes, so no caller reads them by hand.
+- `Send` holds the Send actions: a note, a clipboard text, the pasteboard, and a command of the composer.
+
+`Library.agentFolder` is the one rule that chooses the folder of a new session: the default folder of `SkillFolders`, or else the open folder. A question of the Reader tab, Ask of Today, and the session card use it. An extension of `AgentSession.State` gives the label, the color, and the symbol of each state, and each view that shows a state uses it.
+
+`SessionRunner` in the `Agents` module owns every `AgentSession`. Each session is an `@Observable` object, so a view of one session redraws only when that session changes. A session records its agent, its purpose, its model, its mode, and the ACP session id in `resumeToken`. `SessionRunner.config(for:)` gives the agent, the model, and the mode that a session uses. For Claude Code, it fills a model or a mode that the session leaves open with `SessionRunner.model` and `SessionRunner.permissionMode`. `AgentSettings` reads and writes these settings on the runner, and keeps them in the preferences. A stored session that does not decode stays in the database, and the runner reports it.
 
 The runner reads only Agent Client Protocol (ACP) v1 terms. Each session has one `AgentConnection`, and the connection sends `AgentEvent` values to the runner:
 
@@ -286,13 +294,13 @@ At most two sessions are in a turn. Other turns wait. A timer stops a turn after
 
 The session composer handles Return, Tab, the arrows, and Escape in `textView(_:doCommandBy:)` of `CaptureEditor`. An `NSEvent` monitor kept the view from its first appearance, and Return then sent to an old session.
 
-`SkillTarget` names what the reader paper with the focus shows: `page(path)`, `text(text, noteID)`, or `folder`. `PaperDesk` sets `AppModel.actionTarget` when a reader paper takes the focus, and the session card takes a page as context. A Send action opens a session draft with the skill command and note text. The composer sends the edited draft when the reader presses Return.
+`SkillTarget` in `SessionCard.swift` names what the reader paper with the focus shows: `page(path)`, `note(id)`, or `folder`. `PaperDesk` sets `AppModel.actionTarget` when a reader paper takes the focus, and the session card takes a page as context. A Send action opens a session draft with the skill command and note text. The composer sends the edited draft when the reader presses Return.
 
 `SessionRunner` stores each session at each change of state through a `SessionStorage`. The app makes `Database` conform, so the sessions go in the `sessions` table of the note database. Quit asks before it stops sessions in a turn. `AppDelegate` also stops them on SIGTERM, because a child process keeps running after its parent exits.
 
 ## Vault
 
-`Vault` lists every file and folder under the root and applies no rule about structure. `VaultFile` holds the path, size, modification date, text, and parsed frontmatter. `VaultWatcher` takes a `Vault`, wraps `FSEventStream` on a private queue, and calls back on the main queue.
+`Vault` lists every file and folder under the root and applies no rule about structure. `VaultFile` holds the path, size, modification date, text, and parsed frontmatter. `VaultWatcher` takes a `Vault`, wraps `FSEventStream` on a private queue, and calls back on the main queue. A watcher with a `part` calls back only for a change to a path that contains it. `SkillFolders` uses `/.claude`. `Library.start()` makes the first scan of the active folder and starts its watcher. Piper has no polling timer for the folder.
 
 `Vault(path:)` is the one place that turns a folder path into a root. It expands a tilde, standardizes the path, and resolves symbolic links. Two paths to the same folder give the same root. `Vault.defaultPath` is the folder that Piper uses when the reader has chosen none.
 
@@ -313,6 +321,7 @@ The Markdown editor is the editor of Hubble.md, a Tiptap and React editor, in a 
 - `web/vendor/hubble/` is a copy of `packages/editor` and `packages/ui` of Hubble.md. Its `README.md` names the source commit and the local changes.
 - `web/src/` is the host: the bridge, the image and embed nodes, the loss guard, and the theme of Piper.
 - `make web` builds one file, `Sources/Piper/Resources/editor.html`, with the JS and CSS inline. The repository holds this file. The build also writes `Licenses/Editor.txt`.
+- `make test` runs `pnpm check` in `web/`: `tsc --noEmit`, ESLint with the rules of hooks and the React Compiler rules (`eslint.config.js`), Vitest, and a build that must match `editor.html` (`scripts/check-bundle.mjs`). ESLint reads `web/src` and `web/test`, not the vendored source.
 
 `EditorPage` owns one web view for the file paper. A change of file sends a new `open` call to the same page, so the page loads once. `EditorPane` moves the web view into the file paper. Piper calls the functions on `window.piper`, and the page sends messages to the `editor` handler, which answers each message:
 
@@ -337,7 +346,9 @@ The Markdown editor is the editor of Hubble.md, a Tiptap and React editor, in a 
 
 `Footnote.ts` adds the `footnoteReference` and `footnoteDefinition` nodes. The Hubble parser and writer in `web/vendor/hubble/editor/` read and write them as `[^label]` and `[^label]: text`. A note with more than one block indents each later line by 4 spaces.
 
-`ReaderLayer.tsx` ports the selection bar and the margin cards of `reader.html` to the editor page. A highlight is the `highlight` mark, which `HighlightMarkdown.ts` reads and writes as `==text==` or `<mark class="color">`. The other actions go to `FileEditor.performFileAction`, which calls `ReaderMarks.perform` with a page note for the file (`FileEditor.fileLink`). `FileEditor.fileNotes` sends the cards to the page through `setNotes`.
+`ReaderLayer.tsx` ports the selection bar and the margin cards of `reader.html` to the editor page. A highlight is the `highlight` mark, which `HighlightMarkdown.ts` reads and writes as `==text==` or `<mark class="color">`. The other actions go to `FileEditor.performFileAction`, which calls `ReaderMarks.perform` with a page note for the file (`FileEditor.fileLink`). `FileEditor.fileNotes` sends the cards to the page through `setNotes`. The `QuestionMarks` plugin keeps the questions in its plugin state. `ReaderLayer` sends them in the meta of a transaction. `EditorView` gives the editor to `App` through its `onEditorChange` prop.
+
+The anchor of a note has a block and an offset. Both sides count the same blocks: the blocks with text, in document order. `WikiMarkdown.textBlocks` counts them in Swift, and `textBlocks` in `ReaderLayer.tsx` counts them in the editor. Each list item is one block, without its nested list. `findQuote` tries the stored block and offset first. If they do not hold the quote, it searches the stored block, then the document, as `NoteAnchor.locate` does. `web/test/fixtures/anchors.json` holds Markdown, a selection, and the expected anchor. `WebPageBridgeTests` and `web/test/anchors.test.ts` both read it.
 
 `lossGuard.ts` parses a file, writes it back, and compares the text, the link targets, and the structure. If they differ, or the file has link titles or table alignment, the rich editor is read-only. `EditorBanner` then offers the Source tab.
 
@@ -452,14 +463,12 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [SharedViews.swift](../../Sources/Piper/SharedViews.swift) | `IconButton`, `Rule`, and `EmptyPane`, which views in several folders use |
 | [FileReadState.swift](../../Sources/Piper/FileReadState.swift) | Read timestamps for each file |
 | [CaptureService.swift](../../Sources/Piper/CaptureService.swift) | `CaptureShortcut`, global shortcuts, Accessibility selection, and web page capture |
+| [GlobalHotkey.swift](../../Sources/Piper/GlobalHotkey.swift) | One Carbon system hotkey with its own id |
 | [Messages.swift](../../Sources/Piper/Messages.swift) | `Messages`, the one channel for messages and errors |
 | [Toast.swift](../../Sources/Piper/Toast.swift) | `Toast`, the one panel that shows messages and the cards of a web page capture |
 | [ReadingToast.swift](../../Sources/Piper/ReadingToast.swift) | The cards of a web page capture and the note field |
-| [ReaderAssistant.swift](../../Sources/Piper/ReaderAssistant.swift) | `ReaderArticle`, highlights, notes, and Claude questions of the Reader tab |
-| [FolderAgents.swift](../../Sources/Piper/FolderAgents.swift) | Folders with skills, default skills, and every send action |
-| [AgentViews.swift](../../Sources/Piper/AgentViews.swift) | The session badge, the Send button, and the skill list |
-| [Sessions/](../../Sources/Piper/Sessions) | The session pane, the transcript views, the cards, the message field, the session card, and the detached session panel |
-| [SendShortcut.swift](../../Sources/Piper/SendShortcut.swift) | The system hotkey of Send Clipboard |
+| [Sessions/](../../Sources/Piper/Sessions) | The agent feature: `AgentSettings`, `SkillFolders`, `Send`, `ReaderAssistant` (the highlights, notes, and questions of the Reader tab), the state labels, the session pane, the transcript views, the message field, the session card, the detached session panel, and the system hotkey of Send Clipboard |
+| [Readers/ReaderArticle.swift](../../Sources/Piper/Readers/ReaderArticle.swift) | `ReaderArticle`, the clean text of a web page |
 | [Modules/Agents/](../../Sources/Modules/Agents) | Skill discovery, command parsing, sessions, the JSON stream, allow rules, and the session runner |
 | [Today/](../../Sources/Piper/Today) | `TodayModel`, `TodayView`, `TodayRow`, `FilePicker`, and `SegmentedCapsule` |
 | [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | `RowTime`, and the section and note sheets |

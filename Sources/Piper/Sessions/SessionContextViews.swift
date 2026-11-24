@@ -175,10 +175,7 @@ struct MentionCompletions: View {
                 row(option, active: index == selected)
             }
         }
-        .padding(6)
-        .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+        .modifier(CompletionListChrome())
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Context")
     }

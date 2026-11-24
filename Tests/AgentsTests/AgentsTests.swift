@@ -73,12 +73,3 @@ final class FolderSkillTests: XCTestCase {
         XCTAssertNil(FolderSkill.preferred(in: [FolderSkill(name: "ask")], forLink: false, stored: nil))
     }
 }
-
-final class SkillTargetTests: XCTestCase {
-
-    func testATextTargetCarriesItsNote() {
-        let id = UUID()
-        XCTAssertEqual(SkillTarget.text("note", noteID: id).noteID, id)
-        XCTAssertNil(SkillTarget.page("/w/a.md").noteID)
-    }
-}

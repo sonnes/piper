@@ -312,7 +312,7 @@ final class PaperDesk {
         switch item {
         case .note, .article:
             guard let note = item.note(in: model) else { return .folder }
-            return .text(note.text, noteID: note.id)
+            return .note(note.id)
         case .file:
             guard let document = model.files.currentDocument else { return .folder }
             return .page(model.library.vault.root.appendingPathComponent(document.relativePath).path)

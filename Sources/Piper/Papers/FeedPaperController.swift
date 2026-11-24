@@ -61,7 +61,7 @@ final class FeedPaperController: NSWindowController, NSWindowDelegate {
     func show() {
         window?.makeKeyAndOrderFront(nil)
         QA.activate()
-        model.library.reload()
+        model.library.start()
     }
 
     /// Takes the paper off the screen. The list and the drafts stay as they are.

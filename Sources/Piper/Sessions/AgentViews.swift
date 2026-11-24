@@ -4,12 +4,10 @@ import SwiftUI
 
 // MARK: Status
 
-/// The state of a session as a small capsule.
-struct SessionStateChip: View {
-    let session: AgentSession
-
-    static func title(_ state: AgentSession.State) -> String {
-        switch state {
+/// The label, the color, and the symbol of each state, for every view that shows a state.
+extension AgentSession.State {
+    var label: String {
+        switch self {
         case .waiting: return "Waiting"
         case .running: return "Running"
         case .needsYou: return "Needs you"
@@ -18,8 +16,8 @@ struct SessionStateChip: View {
         }
     }
 
-    static func color(_ state: AgentSession.State) -> Color {
-        switch state {
+    var color: Color {
+        switch self {
         case .waiting: return PiperTheme.paperMuted
         case .running: return PiperTheme.brand
         case .needsYou: return PiperTheme.warning
@@ -28,17 +26,32 @@ struct SessionStateChip: View {
         }
     }
 
+    /// The SF Symbol of the state. Nil while the agent works, because a view
+    /// then shows a spinner.
+    var symbol: String? {
+        switch self {
+        case .waiting: return "clock"
+        case .running: return nil
+        case .needsYou: return "hand.raised"
+        case .idle: return "checkmark"
+        case .failed: return "exclamationmark"
+        }
+    }
+}
+
+/// The state of a session as a small capsule.
+struct SessionStateChip: View {
+    let session: AgentSession
+
     var body: some View {
-        let color = Self.color(session.state)
+        let color = session.state.color
         HStack(spacing: 4) {
-            switch session.state {
-            case .running: ProgressView().controlSize(.mini)
-            case .needsYou: Image(systemName: "hand.raised").font(.system(size: 9, weight: .bold))
-            case .idle: Image(systemName: "checkmark").font(.system(size: 9, weight: .bold))
-            case .failed: Image(systemName: "exclamationmark").font(.system(size: 9, weight: .bold))
-            case .waiting: Image(systemName: "clock").font(.system(size: 9, weight: .semibold))
+            if let symbol = session.state.symbol {
+                Image(systemName: symbol).font(.system(size: 9, weight: .bold))
+            } else {
+                ProgressView().controlSize(.mini)
             }
-            Text(session.blocks.isEmpty ? "Draft" : Self.title(session.state))
+            Text(session.blocks.isEmpty ? "Draft" : session.state.label)
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
         .foregroundStyle(color)
@@ -76,7 +89,7 @@ struct RunBadge: View {
         .buttonStyle(.plain)
         .fixedSize()
         .help(help)
-        .accessibilityLabel("\(session.blocks.isEmpty ? "Draft" : SessionStateChip.title(session.state)): \(help)")
+        .accessibilityLabel("\(session.blocks.isEmpty ? "Draft" : session.state.label): \(help)")
     }
 }
 
@@ -84,15 +97,15 @@ struct RunBadge: View {
 
 /// The folders and their skills, as menu items. Each item runs one skill.
 struct SendMenuItems: View {
-    let agents: FolderAgents
-    let send: (FolderAgents.Action) -> Void
+    let skills: SkillFolders
+    let send: (SkillFolders.Action) -> Void
 
     var body: some View {
-        ForEach(agents.folders) { folder in
+        ForEach(skills.folders) { folder in
             Section(folder.name) {
                 ForEach(folder.skills, id: \.name) { skill in
                     Button {
-                        send(FolderAgents.Action(folder: folder, skill: skill))
+                        send(SkillFolders.Action(folder: folder, skill: skill))
                     } label: {
                         Text("/" + skill.name)
                         if !skill.summary.isEmpty { Text(skill.summary) }
@@ -100,7 +113,7 @@ struct SendMenuItems: View {
                 }
             }
         }
-        if agents.folders.isEmpty {
+        if skills.folders.isEmpty {
             Text("No folder has Claude skills")
         }
     }
@@ -110,10 +123,10 @@ struct SendMenuItems: View {
 
 /// The skills that match the command the reader is typing.
 struct SkillCompletions: View {
-    let actions: [FolderAgents.Action]
+    let actions: [SkillFolders.Action]
     let selected: Int
     var label = "Skills"
-    let choose: (FolderAgents.Action) -> Void
+    let choose: (SkillFolders.Action) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -127,15 +140,12 @@ struct SkillCompletions: View {
                 row(action, active: index == selected)
             }
         }
-        .padding(6)
-        .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+        .modifier(CompletionListChrome())
         .accessibilityElement(children: .contain)
         .accessibilityLabel(label)
     }
 
-    private func row(_ action: FolderAgents.Action, active: Bool) -> some View {
+    private func row(_ action: SkillFolders.Action, active: Bool) -> some View {
         Button { choose(action) } label: {
             HStack(spacing: 8) {
                 Text("/" + action.skill.name)

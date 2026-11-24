@@ -70,8 +70,9 @@ enum CaptureShortcut: String, CaseIterable {
 final class CaptureService {
     private var global: Any?
     private var local: Any?
-    private var hotKey: EventHotKeyRef?
-    private var hotKeyHandler: EventHandlerRef?
+    private lazy var hotkey = GlobalHotkey(keyCode: kVK_Space, modifiers: controlKey | optionKey) { [weak self] in self?.capture() }
+    /// Checks the Accessibility access until Piper has it.
+    private var accessibilityPoll: Timer?
     private var monitoredShortcut: CaptureShortcut?
     private var gesture = ShiftGesture()
     private let store: CaptureStore
@@ -89,6 +90,7 @@ final class CaptureService {
     /// - Parameters:
     ///   - shortcut: The capture shortcut that Settings shows.
     ///   - accessibilityChanged: Takes the Accessibility access of Piper each time the service checks it.
+    ///     Without access, the service checks it again every `accessibilityInterval` until Piper has it.
     init(store: CaptureStore, messages: Messages, shortcut: @escaping () -> CaptureShortcut, accessibilityChanged: @escaping (Bool) -> Void) {
         self.store = store
         self.messages = messages
@@ -96,16 +98,31 @@ final class CaptureService {
         self.accessibilityChanged = accessibilityChanged
     }
 
+    /// The time between two checks of the Accessibility access.
+    static let accessibilityInterval: TimeInterval = 4
+
     func start() {
         let trusted = AXIsProcessTrusted()
         accessibilityChanged(trusted)
-        guard trusted else { stop(); return }
+        guard trusted else {
+            stop()
+            if accessibilityPoll == nil {
+                accessibilityPoll = Timer.scheduledTimer(withTimeInterval: Self.accessibilityInterval, repeats: true) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.start() }
+                }
+            }
+            return
+        }
+        accessibilityPoll?.invalidate()
+        accessibilityPoll = nil
         let shortcut = shortcut()
         guard monitoredShortcut != shortcut else { return }
         stop()
         monitoredShortcut = shortcut
         if shortcut == .controlOptionSpace {
-            registerHotKey()
+            if !hotkey.register() {
+                messages.report(PiperError("\(CaptureShortcut.controlOptionSpace.name) is unavailable. Choose \(CaptureShortcut.shiftShift.name) or release the shortcut in the other application."))
+            }
             return
         }
         global = NSEvent.addGlobalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
@@ -122,33 +139,9 @@ final class CaptureService {
         if let local { NSEvent.removeMonitor(local) }
         global = nil
         local = nil
-        if let hotKey { UnregisterEventHotKey(hotKey) }
-        if let hotKeyHandler { RemoveEventHandler(hotKeyHandler) }
-        hotKey = nil
-        hotKeyHandler = nil
+        hotkey.unregister()
         monitoredShortcut = nil
         gesture.cancel()
-    }
-
-    private func registerHotKey() {
-        var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        let installed = InstallEventHandler(GetApplicationEventTarget(), { _, event, context in
-            guard let event, let context else { return OSStatus(eventNotHandledErr) }
-            var identifier = EventHotKeyID()
-            guard GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &identifier) == noErr,
-                  identifier.signature == 0x50697072, identifier.id == 1 else { return OSStatus(eventNotHandledErr) }
-            let service = Unmanaged<CaptureService>.fromOpaque(context).takeUnretainedValue()
-            Task { @MainActor in service.capture() }
-            return noErr
-        }, 1, &event, Unmanaged.passUnretained(self).toOpaque(), &hotKeyHandler)
-        guard installed == noErr else {
-            messages.report(PiperError("Cannot register the capture shortcut. Choose \(CaptureShortcut.shiftShift.name) in Settings."))
-            return
-        }
-        let registered = RegisterEventHotKey(49, UInt32(controlKey | optionKey), EventHotKeyID(signature: 0x50697072, id: 1), GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &hotKey)
-        if registered != noErr {
-            messages.report(PiperError("\(CaptureShortcut.controlOptionSpace.name) is unavailable. Choose \(CaptureShortcut.shiftShift.name) or release the shortcut in the other application."))
-        }
     }
 
     private func handle(_ event: NSEvent) {

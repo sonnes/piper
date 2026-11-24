@@ -1,6 +1,5 @@
 import AppKit
 import Agents
-import ApplicationServices
 import Combine
 import PiperCore
 import SwiftUI
@@ -129,7 +128,6 @@ private struct GeneralSettings: View {
 /// The selection shortcut, Accessibility access, and clipboard fallback.
 private struct CaptureSettings: View {
     @Bindable var model: AppModel
-    private let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     var body: some View {
         Form {
@@ -159,7 +157,6 @@ private struct CaptureSettings: View {
             }
         }
         .formStyle(.grouped)
-        .onReceive(timer) { _ in model.accessibilityEnabled = AXIsProcessTrusted() }
     }
 }
 
@@ -168,7 +165,7 @@ private struct CaptureSettings: View {
 private struct AISettings: View {
     @Bindable var model: AppModel
     @State private var adding: AgentDefinition?
-    private var agents: FolderAgents { model.agents }
+    private var agents: AgentSettings { model.agents }
 
     var body: some View {
         Form {
@@ -257,12 +254,12 @@ private struct AISettings: View {
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             }
             Section {
-                if agents.available.isEmpty {
+                if model.skills.available.isEmpty {
                     Text("No folder on the Folders index has skills in .claude/skills.")
                         .foregroundStyle(PiperTheme.paperMuted)
                 }
-                ForEach(agents.available) { folder in
-                    FolderAgentRow(agents: agents, folder: folder)
+                ForEach(model.skills.available) { folder in
+                    SkillFolderRow(skills: model.skills, folder: folder)
                 }
             } header: {
                 Text("Folders")
@@ -272,10 +269,7 @@ private struct AISettings: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear {
-            agents.refresh(paths: model.library.wikiPaths)
-            agents.refreshHealth()
-        }
+        .onAppear { agents.refreshHealth() }
         .sheet(item: $adding) { draft in
             AddAgentSheet(draft: draft) { name, command, arguments in
                 agents.addAgent(name: name, command: command, arguments: arguments)
@@ -389,16 +383,16 @@ private struct AddAgentSheet: View {
 }
 
 /// One folder with skills: its switch and the skills that Send runs.
-private struct FolderAgentRow: View {
-    let agents: FolderAgents
-    let folder: FolderAgents.Folder
+private struct SkillFolderRow: View {
+    let skills: SkillFolders
+    let folder: SkillFolders.Folder
 
     var body: some View {
-        Toggle(isOn: Binding(get: { agents.isEnabled(folder) }, set: { agents.setEnabled($0, for: folder) })) {
+        Toggle(isOn: Binding(get: { skills.isEnabled(folder) }, set: { skills.setEnabled($0, for: folder) })) {
             Text(folder.name)
             Text("\(folder.skills.count) skills · " + (folder.path as NSString).abbreviatingWithTildeInPath)
         }
-        if agents.isEnabled(folder) {
+        if skills.isEnabled(folder) {
             skillPicker("Links run", forLink: true)
             skillPicker("Text runs", forLink: false)
         }
@@ -406,10 +400,10 @@ private struct FolderAgentRow: View {
 
     private func skillPicker(_ title: String, forLink: Bool) -> some View {
         Picker(title, selection: Binding(
-            get: { agents.defaultSkill(forLink: forLink, in: folder)?.name ?? FolderAgents.noSkill },
-            set: { agents.setDefaultSkill($0, forLink: forLink, in: folder) }
+            get: { skills.defaultSkill(forLink: forLink, in: folder)?.name ?? SkillFolders.noSkill },
+            set: { skills.setDefaultSkill($0, forLink: forLink, in: folder) }
         )) {
-            Text("Nothing").tag(FolderAgents.noSkill)
+            Text("Nothing").tag(SkillFolders.noSkill)
             ForEach(folder.skills, id: \.name) { skill in
                 Text("/" + skill.name).tag(skill.name)
             }

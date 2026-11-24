@@ -21,7 +21,7 @@ struct AgentMark: View {
 /// change at any time. The lists come from the agent once its process starts.
 /// Before that, Claude Code has its own lists and another agent shows its name only.
 struct AgentControls: View {
-    let agents: FolderAgents
+    let agents: AgentSettings
     let session: AgentSession?
     /// The agent, the model, and the mode of the first message, before the session exists.
     @Binding var choice: AgentConfig

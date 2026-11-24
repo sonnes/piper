@@ -38,7 +38,7 @@ The steps below build Piper from source.
 
 `make run` writes `build/Piper.app` with an ad hoc signature and opens it. The first build downloads the pinned Yams package. After that, capture and browsing work offline.
 
-The Markdown editor is a web page in `Sources/Piper/Resources/editor.html`. The repository holds the built page, so `make run` needs no Node. If you change the code in `web/`, run `make web` to build the page again. `make web` needs Node and pnpm. `make test` runs the tests in `web/` when pnpm is installed.
+The Markdown editor is a web page in `Sources/Piper/Resources/editor.html`. The repository holds the built page, so `make run` needs no Node. If you change the code in `web/`, run `make web` to build the page again. `make web` needs Node and pnpm. When pnpm is installed, `make test` also type-checks and lints `web/`, runs its tests, and fails if `editor.html` does not match a fresh build.
 
 Piper starts with the feed paper and a menu bar icon. A second launch opens the copy that is already running.
 
@@ -51,7 +51,7 @@ Piper reads selected text through the macOS Accessibility API. Without this perm
 3. Select Open System Settings.
 4. Turn on Piper in the Accessibility list.
 
-Piper checks the permission every four seconds. You do not need to restart it. Settings > Capture shows the state of the permission.
+Until Piper has the permission, it checks for it every four seconds. You do not need to restart it. Settings > Capture shows the state of the permission.
 
 To use selection capture, see [Capture notes](capture.md#capture-a-selection).
 

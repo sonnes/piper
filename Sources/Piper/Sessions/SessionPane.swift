@@ -150,7 +150,7 @@ private struct SessionFooter: View {
                 }
                 Spacer(minLength: 4)
                 if session.totalCost > 0 {
-                    Text(String(format: "$%.2f", session.totalCost)).monospacedDigit()
+                    Text(SessionFormat.cost(session.totalCost)).monospacedDigit()
                         .help("The cost of the session so far, from the agent")
                 }
             }
@@ -203,8 +203,7 @@ enum TranscriptRow: Identifiable {
         let work = turn.filter(isWork)
         var summary = "Worked"
         if result.durationMs > 0 {
-            summary += " for " + Duration.milliseconds(result.durationMs)
-                .formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated, fractionalPart: .hide))
+            summary += " for " + SessionFormat.duration(milliseconds: result.durationMs)
         }
         summary += " · " + ToolCall.summary(of: calls)
         var rows: [TranscriptRow] = []

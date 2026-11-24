@@ -26,12 +26,12 @@ struct SessionList: View {
                 ForEach(sessions) { session in
                     PaperRow(item: .session(session.id), selected: current == .session(session.id),
                              time: RowTime.text(session.updatedAt), action: { pick(.session(session.id)) }) {
-                        Circle().fill(Color(nsColor: Self.color(session)))
+                        Circle().fill(Self.color(session))
                             .frame(width: PaperRowMetrics.dotSize, height: PaperRowMetrics.dotSize)
                     } content: {
                         VStack(alignment: .leading, spacing: 0) {
                             PaperRowTitle(text: Text(session.title), bold: session.unread)
-                            PaperRowMeta { Text(SessionStateChip.title(session.state)) }
+                            PaperRowMeta { Text(session.state.label) }
                         }
                     }
                     .contextMenu {
@@ -69,11 +69,8 @@ struct SessionList: View {
         ]
     }
 
-    private static func color(_ session: AgentSession) -> NSColor {
-        switch session.state {
-        case .needsYou: return PiperTheme.claudeNS
-        case .running, .waiting: return PiperTheme.successNS
-        case .idle, .failed: return session.unread ? PiperTheme.brandNS : PiperTheme.paperBarNS
-        }
+    /// The color of the state. A finished session that the reader has read is gray.
+    private static func color(_ session: AgentSession) -> Color {
+        session.isActive || session.unread ? session.state.color : Color(nsColor: PiperTheme.paperBarNS)
     }
 }

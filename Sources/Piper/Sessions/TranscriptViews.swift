@@ -369,10 +369,9 @@ struct ResultRow: View {
     private var summary: String {
         var parts = ["Done"]
         if result.durationMs > 0 {
-            parts.append(Duration.milliseconds(result.durationMs)
-                .formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated, fractionalPart: .hide)))
+            parts.append(SessionFormat.duration(milliseconds: result.durationMs))
         }
-        if result.costUSD > 0 { parts.append(String(format: "$%.2f", result.costUSD)) }
+        if result.costUSD > 0 { parts.append(SessionFormat.cost(result.costUSD)) }
         return parts.joined(separator: " · ")
     }
 

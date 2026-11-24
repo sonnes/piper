@@ -43,8 +43,8 @@ This table describes the source on September 15, 2026. Implemented means that th
 | The JSON stream parser, allow rules, the diff, and `@` mentions | Implemented | `SessionEventTests`, `SessionHelperTests` |
 | Sessions stored across restarts | Implemented | `DatabaseTests`, `SessionRunnerTests` |
 | The session card, its pill and detached panel, the Agents tab, and the session list | Implemented | `SessionCardTests`. The views have no automated UI test. |
-| Send from a row of Today, the selection bar, and Command-Shift-Return | Implemented | `FolderAgentsTests`. The buttons have no automated UI test. |
-| Slash commands in the composer | Implemented | `SlashCommandTests`, `FolderAgentsTests`. The skill list has no automated UI test. |
+| Send from a row of Today, the selection bar, and Command-Shift-Return | Implemented | `AgentSettingsTests`. The buttons have no automated UI test. |
+| Slash commands in the composer | Implemented | `SlashCommandTests`, `AgentSettingsTests`. The skill list has no automated UI test. |
 | Control-Option-W and the toast Send button | Implemented | Manual checks only |
 | A per-session agent, model, and mode | Implemented | `ACPAgentTests`. The composer menus have no automated UI test. |
 | Interrupt a turn and keep the process | Partial | An ACP agent keeps its process after Stop (`ACPAgentTests`). Claude Code ends its process, and the next message resumes the session. |

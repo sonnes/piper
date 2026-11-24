@@ -1,5 +1,4 @@
 import AppKit
-import Agents
 import Observation
 import Vault
 
@@ -23,7 +22,7 @@ final class Library {
     private(set) var wikiPaths: [String] {
         didSet {
             preferences.set(wikiPaths, forKey: AppDefaults.Key.wikiPaths)
-            agents.refresh(paths: wikiPaths)
+            skills.paths = wikiPaths
         }
     }
     var wikiPath: String {
@@ -49,24 +48,33 @@ final class Library {
     @ObservationIgnored private var watcher: VaultWatcher?
     @ObservationIgnored private var reloadPending = false
     @ObservationIgnored private let preferences: UserDefaults
-    @ObservationIgnored private let agents: FolderAgents
+    @ObservationIgnored private let skills: SkillFolders
 
     /// - Parameter wikiPath: The active folder. Nil reads it from the preferences.
-    init(wikiPath: String?, preferences: UserDefaults, agents: FolderAgents) {
+    init(wikiPath: String?, preferences: UserDefaults, skills: SkillFolders) {
         self.preferences = preferences
-        self.agents = agents
+        self.skills = skills
         let activePath = wikiPath ?? preferences.string(forKey: AppDefaults.Key.vaultPath) ?? Vault.defaultPath
         self.wikiPath = activePath
         var savedPaths = wikiPath == nil ? preferences.stringArray(forKey: AppDefaults.Key.wikiPaths) ?? [] : []
         if !savedPaths.contains(activePath) { savedPaths.append(activePath) }
         self.wikiPaths = savedPaths
-        agents.refresh(paths: savedPaths)
+        skills.paths = savedPaths
     }
 
     var vault: Vault { Vault(path: wikiPath) }
 
+    /// The folder that a new agent session works in: the folder of the Send
+    /// buttons, or else the open folder.
+    var agentFolder: String { skills.defaultFolder?.path ?? vault.root.path }
+
+    /// Scans the active folder and starts its watcher. After that, the
+    /// watcher scans when a file changes, and this does nothing.
+    func start() {
+        if watcher == nil { reload() }
+    }
+
     func reload() {
-        agents.refresh(paths: wikiPaths)
         let repo = vault
         if watcher?.vault.root != repo.root {
             watcher?.stop()

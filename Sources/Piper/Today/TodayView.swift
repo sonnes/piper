@@ -58,7 +58,7 @@ struct TodayView: View {
     @State private var composing = false
     @State private var composerTextHeight: CGFloat = 0
     @State private var completionIndex = 0
-    @State private var chosenAction: FolderAgents.Action?
+    @State private var chosenAction: SkillFolders.Action?
     @State private var showsDoneToday = false
     @State private var showsWholeTray = false
     @State private var editing: CaptureEditSession?
@@ -66,7 +66,7 @@ struct TodayView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var store: CaptureStore { model.store }
-    private var agents: FolderAgents { model.agents }
+    private var agents: AgentSettings { model.agents }
     private var scope: PaperScope { paper.state.scope }
     private var section: String? {
         if case .today(let section) = scope { return section }
@@ -78,16 +78,15 @@ struct TodayView: View {
     private var canSave: Bool { !model.composerDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     /// The skills that match the command in the composer.
-    private var completions: [FolderAgents.Action] {
+    private var completions: [SkillFolders.Action] {
         guard composing, let partial = SlashCommand.partialName(model.composerDraft) else { return [] }
-        return Array(agents.completions(for: partial).prefix(FolderAgents.completionLimit))
+        return Array(model.skills.completions(for: partial).prefix(SkillFolders.completionLimit))
     }
 
     /// The folder and skill that Return runs, when the composer holds a command.
-    private var composedAction: FolderAgents.Action? {
+    private var composedAction: SkillFolders.Action? {
         guard let command = SlashCommand(model.composerDraft) else { return nil }
-        if let chosenAction, chosenAction.skill.name == command.name { return chosenAction }
-        return agents.action(for: command)
+        return model.skills.action(for: command, chosen: chosenAction)
     }
 
     /// The list that shows. The model builds it again only when an input changes.
@@ -436,7 +435,7 @@ struct TodayView: View {
 
     // MARK: - Composer Actions
 
-    private func complete(_ action: FolderAgents.Action, run: Bool) {
+    private func complete(_ action: SkillFolders.Action, run: Bool) {
         chosenAction = action
         if run && action.skill.argumentHint == nil {
             model.composerDraft = "/" + action.skill.name
@@ -452,7 +451,7 @@ struct TodayView: View {
         guard canSave else { return }
         if let command = SlashCommand(model.composerDraft), let action = composedAction {
             do {
-                guard let session = try agents.run(command, action: action) else { return }
+                guard let session = try model.send.run(command, action: action) else { return }
                 model.messages.show("Running /\(command.name) in \(session.folderName)")
                 clearComposer()
             } catch {

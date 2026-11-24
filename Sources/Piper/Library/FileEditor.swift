@@ -39,11 +39,11 @@ final class FileEditor {
     @ObservationIgnored private var pendingDocument: String?
     @ObservationIgnored let store: CaptureStore
     @ObservationIgnored private let reader: ReaderAssistant
-    @ObservationIgnored private let agents: FolderAgents
+    @ObservationIgnored private let agents: AgentSettings
     @ObservationIgnored let messages: Messages
     @ObservationIgnored private let preferences: UserDefaults
 
-    init(library: Library, store: CaptureStore, reader: ReaderAssistant, agents: FolderAgents, messages: Messages,
+    init(library: Library, store: CaptureStore, reader: ReaderAssistant, agents: AgentSettings, messages: Messages,
          preferences: UserDefaults) {
         self.library = library
         self.store = store
@@ -220,8 +220,7 @@ final class FileEditor {
     /// A file as the margin agent reads it: its title and its blocks.
     private func fileArticle(_ document: VaultFile) -> ReaderArticle {
         let vault = library.vault
-        let blocks = WikiMarkdown.parse(document.body)
-            .filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+        let blocks = WikiMarkdown.textBlocks(document.body)
             .map { ReaderArticle.Block(kind: $0.kind == .heading ? "heading" : "paragraph", text: $0.text) }
         return ReaderArticle(url: URL(string: fileLink(document.id)) ?? vault.root, site: vault.root.lastPathComponent,
                              title: document.title, author: "", blocks: blocks)
