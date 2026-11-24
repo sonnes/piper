@@ -20,6 +20,7 @@ public final class VaultWatcher {
     private let latency: CFTimeInterval = 0.5
     private let queue = DispatchQueue(label: "com.piper.vault.watcher", qos: .utility)
     private var stream: FSEventStreamRef?
+    private var relay: Relay?
     private var isRunning = false
 
     // MARK: Lifecycle
@@ -40,9 +41,11 @@ public final class VaultWatcher {
     /// Starts the event stream. A second call does nothing.
     public func start() {
         guard stream == nil else { return }
+        let relay = Relay(watcher: self, part: part)
+        self.relay = relay
         var context = FSEventStreamContext(
             version: 0,
-            info: Unmanaged.passUnretained(self).toOpaque(),
+            info: Unmanaged.passUnretained(relay).toOpaque(),
             retain: nil,
             release: nil,
             copyDescription: nil
@@ -68,24 +71,40 @@ public final class VaultWatcher {
         guard let stream else { return }
         FSEventStreamStop(stream)
         FSEventStreamInvalidate(stream)
+        queue.sync {}
         FSEventStreamRelease(stream)
         self.stream = nil
+        relay = nil
     }
 
-    fileprivate func deliver(_ paths: [String]) {
-        if let part, !paths.contains(where: { $0.contains(part) }) { return }
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.isRunning else { return }
-            self.handler()
-        }
+    fileprivate func fire() {
+        guard isRunning else { return }
+        handler()
     }
 }
 
 // MARK: - Callback
 
+/// What the stream calls. The callback runs on the queue of the stream, so it
+/// never holds the watcher: the last release of a watcher must happen on the main thread.
+private final class Relay {
+    weak var watcher: VaultWatcher?
+    let part: String?
+
+    init(watcher: VaultWatcher, part: String?) {
+        self.watcher = watcher
+        self.part = part
+    }
+
+    func deliver(_ paths: [String]) {
+        if let part, !paths.contains(where: { $0.contains(part) }) { return }
+        DispatchQueue.main.async { [self] in watcher?.fire() }
+    }
+}
+
 private let vaultWatcherCallback: FSEventStreamCallback = { _, info, count, eventPaths, _, _ in
     guard let info else { return }
     let list = eventPaths.assumingMemoryBound(to: UnsafePointer<CChar>.self)
     let paths = (0..<count).map { String(cString: list[$0]) }
-    Unmanaged<VaultWatcher>.fromOpaque(info).takeUnretainedValue().deliver(paths)
+    Unmanaged<Relay>.fromOpaque(info).takeUnretainedValue().deliver(paths)
 }
