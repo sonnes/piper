@@ -119,11 +119,6 @@ public final class FeedStore {
         return read([:]) { try $0.unreadCounts() }
     }
 
-    /// Marks as read each article that the filter shows.
-    public func markAllRead(_ filter: FeedFilter) {
-        setRead(true, ids: articles(filter).filter { !$0.read }.map(\.id))
-    }
-
     // MARK: - Suggestions
 
     public func replaceSuggestions(_ suggestions: [Suggestion]) {

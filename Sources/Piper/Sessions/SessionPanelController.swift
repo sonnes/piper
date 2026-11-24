@@ -22,7 +22,7 @@ final class SessionPanelController: NSWindowController {
 
     // MARK: - Initialization
 
-    init(model: AppModel) {
+    init(model: AppModel, desk: PaperDesk) {
         self.model = model
         let panel = SessionPanel(
             contentRect: NSRect(origin: .zero, size: SessionCard.Metrics.panelSize),
@@ -37,7 +37,7 @@ final class SessionPanelController: NSWindowController {
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.minSize = SessionCard.Metrics.panelMinimumSize
-        panel.contentView = NSHostingView(rootView: SessionCard(model: model, detached: true).environment(PaperLayout()))
+        panel.contentView = NSHostingView(rootView: SessionCard(model: model, detached: true).environment(PaperLayout()).environment(\.paperDesk, desk))
         super.init(window: panel)
         panel.delegate = self
         if !panel.setFrameUsingName(NSWindow.FrameAutosaveName(AppDefaults.Key.sessionPanelFrame)) {

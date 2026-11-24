@@ -35,7 +35,7 @@ struct FeedArticleList: View {
                             ForEach(articles) { article in
                                 FeedArticleRow(article: article, feed: feed, favicons: model.favicons,
                                                selected: article.id == selectedID,
-                                               toggleRead: { feeds.setRead(!article.read, ids: [article.id]) }) {
+                                               toggleRead: { actions.setRead(!article.read, ids: [article.id], undoable: true) }) {
                                     openPaper(article)
                                 }
                                 .id(article.id)
@@ -74,7 +74,7 @@ struct FeedArticleList: View {
                 ProgressView().controlSize(.small).frame(width: PaperRowMetrics.rowActionSize)
             }
             RowAction(symbol: "envelope.open", title: Command.markAllAsRead.title + " · " + (Command.markAllAsRead.key?.name ?? ""),
-                      tint: articles.contains { !$0.read } ? PiperTheme.brand : PiperTheme.paperFaint) { feeds.markAllRead(.feed(feedID)) }
+                      tint: articles.contains { !$0.read } ? PiperTheme.brand : PiperTheme.paperFaint) { actions.markAllRead(feed: feedID) }
                 .disabled(!articles.contains { !$0.read })
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
@@ -84,7 +84,7 @@ struct FeedArticleList: View {
 
     @ViewBuilder
     private func menu(for article: Article) -> some View {
-        Button(article.read ? "Mark as Unread" : "Mark as Read") { feeds.setRead(!article.read, ids: [article.id]) }
+        Button(article.read ? "Mark as Unread" : "Mark as Read") { actions.setRead(!article.read, ids: [article.id], undoable: true) }
         Divider()
         Button("Keep") { actions.keep([article]) }.disabled(actions.isKept(article))
         Button("Open in Browser") { actions.openInBrowser(article) }
@@ -126,7 +126,7 @@ struct FeedArticleList: View {
         guard let id = articles.map(\.id).step(from: selectedID, by: delta),
               let next = articles.first(where: { $0.id == id }) else { return }
         select(next)
-        if !next.read { feeds.setRead(true, ids: [next.id]) }
+        if !next.read { actions.setRead(true, ids: [next.id], undoable: false) }
         scrollTarget = next.id
     }
 }

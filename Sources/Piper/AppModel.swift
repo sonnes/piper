@@ -117,8 +117,6 @@ final class AppModel {
 
     // MARK: - Windows
 
-    var openNoteEditor: ((Note) -> Void)?
-    var openSettings: (() -> Void)?
     /// The desk, which opens every paper. `PaperDesk` sets it when the app makes the desk.
     @ObservationIgnored weak var desk: PaperDesk?
 
@@ -148,7 +146,6 @@ final class AppModel {
         store.reportUndoError = { [weak messages] in messages?.report($0) }
         if let error = store.loadError { messages.report(error) }
         clipboard = ClipboardInbox(store: store, database: try? database.get()) { [weak messages] in messages?.report($0) }
-        articleActions = ArticleActions(store: store, feeds: self.feeds, messages: messages)
         let agents = AgentSettings(storage: try? database.get(), messages: messages, preferences: preferences)
         self.agents = agents
         let skills = SkillFolders(preferences: preferences)
@@ -157,6 +154,7 @@ final class AppModel {
         captureShortcut = CaptureShortcut(stored: preferences.string(forKey: AppDefaults.Key.captureShortcut))
         let library = Library(wikiPath: wikiPath, preferences: preferences, skills: skills)
         self.library = library
+        articleActions = ArticleActions(store: store, feeds: self.feeds, messages: messages, library: library)
         let reader = ReaderAssistant(store: store, agents: agents, messages: messages) { [library] in library.agentFolder }
         self.reader = reader
         files = FileEditor(library: library, store: store, reader: reader, agents: agents, messages: messages, preferences: preferences)

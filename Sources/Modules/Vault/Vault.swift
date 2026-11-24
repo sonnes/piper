@@ -166,6 +166,26 @@ public struct Vault {
         try write(Data(text.utf8), to: path)
     }
 
+    /// Adds UTF-8 text to the end of a file inside the vault. One blank line
+    /// goes between the old text and the new text. A missing or empty file
+    /// takes the new text as it is.
+    ///
+    /// Only a missing file counts as empty. Any other read failure, or a file
+    /// that is not UTF-8, throws and leaves the file as it was.
+    public func append(_ text: String, to path: String) throws {
+        var current = ""
+        do {
+            guard let decoded = String(data: try read(path), encoding: .utf8) else {
+                throw PiperError("\(path) is not UTF-8 text.")
+            }
+            current = decoded
+        } catch CocoaError.fileReadNoSuchFile {
+            current = ""
+        }
+        let separator = current.isEmpty || current.hasSuffix("\n\n") ? "" : current.hasSuffix("\n") ? "\n" : "\n\n"
+        try write(current + separator + text.drop(while: \.isNewline), to: path)
+    }
+
     /// Returns a path in `folder` that no file has: `base.ext`, or else
     /// `base-2.ext`, `base-3.ext`, and so on.
     public func freeName(_ base: String, ext: String, in folder: String) -> String {

@@ -58,8 +58,8 @@ struct CommandKey: Equatable {
 
 /// An action of the app, with its title, its key, and its place in the menus.
 ///
-/// The main menu, the menu bar item, and the command palette list these
-/// commands. `AppDelegate.perform(_:)` runs them.
+/// The main menu, the menu bar item, the command palette, and the More menu
+/// of the feed paper list these commands. `CommandRunner.perform(_:)` runs them.
 enum Command: CaseIterable {
     case about, settings, quit
     case undo, redo, cut, copy, paste, selectAll, find

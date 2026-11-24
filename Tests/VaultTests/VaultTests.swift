@@ -249,6 +249,23 @@ final class VaultTests: XCTestCase {
         XCTAssertEqual(vault.freeName("talk", ext: "md", in: ""), "talk.md")
     }
 
+    func testAppendPutsOneBlankLineBeforeTheNewText() throws {
+        try write("# Plan", to: "plan.md")
+        try vault.append("- Lift order\n", to: "plan.md")
+        try vault.append("\n\n- Gate 4\n", to: "plan.md")
+        XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("plan.md"), encoding: .utf8),
+                       "# Plan\n\n- Lift order\n\n- Gate 4\n")
+    }
+
+    func testAppendTreatsOnlyAMissingFileAsEmpty() throws {
+        try vault.append("- Lift order\n", to: "new.md")
+        XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("new.md"), encoding: .utf8), "- Lift order\n")
+        let bytes = Data([0xFF, 0xFE, 0x41])
+        try bytes.write(to: root.appendingPathComponent("binary.md"))
+        XCTAssertThrowsError(try vault.append("- Lift order\n", to: "binary.md"))
+        XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("binary.md")), bytes)
+    }
+
     // MARK: Roots
 
     func testPathsToOneFolderGiveOneRoot() throws {

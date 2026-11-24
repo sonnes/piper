@@ -279,7 +279,7 @@ private func temporaryDatabase() -> URL {
         #expect(feed.home == "https://gardenletters.example/")
         #expect(store.articles(.allUnread).count == 2)
 
-        store.markAllRead(.allUnread)
+        store.setRead(true, ids: store.articles(.allUnread).map(\.id))
         #expect(store.articles(.allUnread).isEmpty)
     }
 

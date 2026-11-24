@@ -31,6 +31,8 @@ final class PaperDesk {
     private var opened = 0
     private var frames: PaperFrames
     private let defaults: UserDefaults
+    /// Runs the commands of the menus. `CommandRunner` sets it when the app makes the runner.
+    weak var commands: CommandRunner?
     private lazy var hints = HintStrip(paper: paper)
 
     // MARK: - Initialization
@@ -189,7 +191,7 @@ final class PaperDesk {
 
     /// Shows the detached session panel and gives it the keyboard.
     func showSessionPanel() {
-        if sessionPanel == nil { sessionPanel = SessionPanelController(model: model) }
+        if sessionPanel == nil { sessionPanel = SessionPanelController(model: model, desk: self) }
         sessionPanel?.present()
     }
 

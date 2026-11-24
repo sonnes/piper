@@ -43,7 +43,7 @@ flowchart LR
 | `Stream` | `UnifiedStream`, `StreamItem`, `FeedRows`, `Relevance`, and `FeedStats` | `PiperCore`, `Captures`, `Feeds` |
 | `Piper` | Windows, views, and app state | All modules and Yams |
 
-`PiperCore` and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the rules that several modules share: the site of a link (`Site.key` is the host in lowercase without `www.`), the web link test, and the data folder. Each text that Piper copies goes through `Clipboard.copy`, which marks the copy so that the clipboard tray ignores it.
+`PiperCore` and `CapturesDatabase` have no dependency on another Piper module. `PiperCore` holds the rules that several modules share: the site of a link (`Site.key` is the host in lowercase without `www.`), the web link test, and the data folder. Each text that Piper copies goes through `Clipboard.copy`, which marks the copy so that the clipboard tray ignores it. In the application target, every copy calls `Messages.copy(_:)`, which calls `Clipboard.copy` and shows "Copied" or reports the failure.
 
 Each module has a test target with the same name and a `Tests` suffix. `PiperTests` tests the application target.
 
@@ -73,20 +73,23 @@ Some errors happen where no caller waits:
 
 ## Windows
 
-`AppDelegate` in `PiperApp.swift` creates each window when it first shows. It owns these windows:
+Each window is created when it first shows. These types own the windows:
 
 | Window | Owner |
 | --- | --- |
 | Feed paper, reader papers, and the detached session panel | `PaperDesk`, with `FeedPaperController`, one `ReaderPaperController` for each reader paper, and `SessionPanelController` |
-| Settings | `SettingsWindowController` |
-| Note editor windows | `AppDelegate`, one for each note |
+| Settings | `SettingsWindowController`, which `CommandRunner` owns |
+| Command palette | `CommandPaletteController`, which `CommandRunner` owns |
+| Note editor windows | `CommandRunner`, one for each note |
 | Toast | `Toast`, which `AppDelegate` owns. `Messages` and `ReadingToast` show their content in it. |
 
-The feed paper is the main window. Piper shows it at launch, and `showLibrary()` shows it with the open reader papers. `newCapture()` shows the feed paper on Today and asks `TodayView` to focus the capture field through `FeedPaperModel.composerRequest`. Window > Today (Command-1), File > New Capture (Command-N), and New Capture in the menu bar item call `newCapture()`. Closing every window leaves the app running in the menu bar.
+The feed paper is the main window. Piper shows it at launch, and `PaperDesk.show()` shows it with the open reader papers. `newCapture()` shows the feed paper on Today and asks `TodayView` to focus the capture field through `FeedPaperModel.composerRequest`. Window > Today (Command-1), File > New Capture (Command-N), and New Capture in the menu bar item call `newCapture()`. Closing every window leaves the app running in the menu bar.
 
 ### Commands
 
-`Command` in `Command.swift` is the table of the app actions. Each case has a title, an optional `CommandKey`, and the menu that holds it. `AppDelegate` builds the main menu and the menu of the menu bar item from `Command.Menu.groups` and `Command.statusMenu`. The command palette lists each command where `isInPalette` is true and `isEnabled(in:)` is true. The menus use the same `isEnabled(in:)` check, so the palette and the menus offer the same commands. `AppDelegate.perform(_:)` runs a command from a menu item or from the palette. A command with a `standardAction`, such as Copy, goes to the responder chain.
+`Command` in `Command.swift` is the table of the app actions. Each case has a title, an optional `CommandKey`, and the menu that holds it. `AppDelegate` builds the main menu and the menu of the menu bar item from `Command.Menu.groups` and `Command.statusMenu`. The command palette lists each command where `isInPalette` is true and `isEnabled(in:)` is true. The menus use the same `isEnabled(in:)` check, so the palette and the menus offer the same commands. The More menu of the feed paper shows New Capture, Add Feed, Refresh, and Settings from the same table.
+
+`CommandRunner` in `CommandRunner.swift` runs each command through `perform(_:)`: from a menu item, from the palette, from the Send Clipboard shortcut, and from the More menu of the feed paper. A command with a `standardAction`, such as Copy, goes to the responder chain. `AppDelegate` makes the runner at launch and gives it to `PaperDesk.commands`, so a view reaches it through the `paperDesk` environment value. `CommandRunner.editNote(_:)` opens a note editor window.
 
 `CommandKey` gives the glyph of a key, such as ⇧⌘K, and its name, such as Shift-Command-K. Views that show a key read it from the table, for example the session pill and the toast. A test makes sure that no two commands share a key.
 
@@ -196,7 +199,7 @@ The app has one undo stack: the `UndoManager` that `AppModel` gives to `CaptureS
 
 An undo is itself a change, so it registers the redo on the same stack. The active section is not part of an undo step. If an undo removes the active section, the section that was active before the change becomes active.
 
-`TodayModel` puts each verb in one undo group. Done, Delete, and File also register the inverse of the read marks through `FeedStore.setRead(_:ids:)`, and the inverse of the clipboard texts that left the tray. The Undo button of `UndoToast` calls `undoManager.undo()`.
+`ArticleActions.setRead(_:ids:undoable:)` is the one way to change the read mark of an article. A mark that the reader chose registers its inverse: Mark as Read, Mark as Unread, the dot of a feed row, Mark All as Read, and Done and File in Today. The mark on open and on an arrow step has no undo step. `TodayModel` puts each verb in one undo group. Done, Delete, and File also register the inverse of the clipboard texts that left the tray. The Undo button of `UndoToast` calls `undoManager.undo()`.
 
 `FeedPaperController` and `ReaderPaperController` return the app stack from `windowWillReturnUndoManager`, so Edit > Undo and Edit > Redo on a paper go to it. `CaptureEditor` and `NoteTextEditor` give their text views their own `UndoManager`, so typing undo stays in the field.
 
@@ -212,7 +215,7 @@ The stream drops an article when a capture holds its link, so a kept article sho
 
 `FeedRows` turns the new articles of each feed and day into rows by the `FeedMode` of the feed. A busy day has more than 3 articles from one feed. On a busy day, Best gives an article row to the 2 best articles at or above `Relevance.bar`. The other articles go into one digest row. `Relevance` scores an article from 0 to 1 with local data only. The score uses the keep rate of the feed from `FeedStats`, and the visits to its site from the history suggestions. It also uses the words that the title shares with the file names of the active folder. It sends no request.
 
-`TodayModel` in the application target holds the list of Today (`TodayList`), the counts, the selection, the search, the Undo offer, and the File list. It builds the stream again only when an input changes: the `revision` of `FeedStore`, `CaptureStore`, and `ClipboardInbox`, `Library.filesRevision`, the read articles that stay in the list, the lens, the scope, the search, or the day. The views and the keys read the list, so a key press runs no SQLite query. `UnifiedStream.Counts` is the one definition of the counts: the lens row, the Today tab, and the Today index read it. An opened article stays in the list, read, until `TodayModel.resetKeeping()` runs when the list shows again or the scope changes. Its verbs act on `StreamItem` values: `keep`, `done`, `file`, `send`, `ask`, `merge`, `copy`, and `delete`. Done and Delete offer Undo for `TodayModel.undoSeconds`. See [Undo](#undo). `TodayView` draws the capture field, the lenses (`SegmentedCapsule`), the groups, the tray, `UndoToast`, and `SelectionBar`. `TodayRow` draws one row through `PaperRow`, with the verb buttons on the selected row and on the row under the pointer. `PaperRow` combines the mark, the text, and the time into one accessibility element, and keeps each action a separate button. `FilePicker` lists `FileTarget` values: sections, folders, and the Markdown files of the active folder. `PiperTheme.listTitle` is the title style of every list row.
+`TodayModel` in the application target holds the list of Today (`TodayList`), the counts, the selection, the search, the Undo offer, and the File list. It builds the stream again only when an input changes: the `revision` of `FeedStore`, `CaptureStore`, and `ClipboardInbox`, `Library.filesRevision`, the read articles that stay in the list, the lens, the scope, the search, or the day. The views and the keys read the list, so a key press runs no SQLite query. `UnifiedStream.Counts` is the one definition of the counts: the lens row, the Today tab, and the Today index read it. An opened article stays in the list, read, until `TodayModel.resetKeeping()` runs when the list shows again or the scope changes. Its verbs act on `StreamItem` values: `keep`, `done`, `file`, `send`, `ask`, `merge`, `copy`, and `delete`. `TodayVerb.all` in `TodayVerb.swift` is the table of the row verbs. Each entry has its titles, keys, symbol, places, and action. The keys of Today, `SelectionBar`, the round buttons of `TodayRow`, the row menu (`TodayVerb.menu`), and the accessibility hint of a row come from the table. To add a verb, add one entry and one method on `TodayModel`. Done and Delete offer Undo for `TodayModel.undoSeconds`. See [Undo](#undo). `TodayView` draws the capture field, the lenses (`SegmentedCapsule`), the groups, the tray, `UndoToast`, and `SelectionBar`. `TodayRow` draws one row through `PaperRow`, with the verb buttons on the selected row and on the row under the pointer. `PaperRow` combines the mark, the text, and the time into one accessibility element, and keeps each action a separate button. `FilePicker` lists `FileTarget` values: sections, folders, and the Markdown files of the active folder. `PiperTheme.listTitle` is the title style of every list row.
 
 `CaptureDraft` sorts the text of the capture field. A web link alone is a link and becomes a kept link capture. A site home page or a feed address is a source and opens Sources, unless the reader presses Option-Return.
 
@@ -402,7 +405,9 @@ The Capture button runs JavaScript in an isolated content world. One call return
 
 `ReadingList` in the `Captures` module groups the link captures that are not done into Continue, Up Next, and Finished This Week. `Note.isArticle` is true for a capture without a parent that has a reading state or holds only a link. `UnifiedStream` reads `ReadingList`. At launch, `AppModel` marks as done each article that the reader finished more than seven days before.
 
-`ArticleNotebook` shows the Notes tab. Its summary is a child note with the tag `summary`. `ArticleMarkdown` builds the file of Save as File, and the text that Update File adds. `Vault.write` writes the file, and `Note.reading` records its path and the save time.
+`ArticleNotebook` shows the Notes tab. Its summary is a child note with the tag `summary`. `ArticleMarkdown` builds the file of Save as File, and the text that Update File adds. `ArticleActions.saveAsFile` writes a new file, and `ArticleActions.append` adds text to the end of a file. Both record the path and the save time in `Note.reading` of each link capture, and both scan the folders again. File in Today uses the same two functions.
+
+`Vault.append(_:to:)` is the one append. It puts one blank line between the old text and the new text. Only a missing file counts as empty. Any other read failure, or a file that is not UTF-8, throws and leaves the file as it was.
 
 `Info.plist` sets `NSAllowsArbitraryLoadsInWebContent`, so WebKit can load HTTP pages. Other network requests keep the default App Transport Security policy.
 
@@ -432,7 +437,7 @@ After each refresh, `FeedStore` prunes the read articles that arrived more than 
 
 `FaviconStore` finds the icon of each host. It reads the icon links of the home page with `HTMLMetadataParser`, then tries `/favicon.ico` and the Apple touch icons. It keeps the first answer that ImageIO reads as an image, as a file in `Favicons/`. It reads and writes the files off the main actor. A view calls `icon(for:)` while it draws, so the store loads the icon in a task and `icons` changes later. A host with no icon waits for the next launch. `SiteIcon` draws the icon.
 
-`SourcesView` lists the feeds with their `FeedStats` and their `FeedMode`, adds a feed with `FeedDiscovery`, imports OPML, and shows the history suggestions. `FeedArticleList` fills the list of one feed. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderTabPage` and `NoteWebReader` under the same `TabIsland` as `ArticleReader`. `ReaderTabPage` is the Reader tab of both, with Show Web Page when the article does not load. `NoteWebReader` saves a Capture of the Web tab to Inbox. The header of the article paper has Keep. `ArticleActions`, at `AppModel.articleActions`, holds the article verbs for Today, the feed list, and the article paper: keep, open in the browser, copy the link, and open as a paper. Both open verbs mark the article as read. `ArticleActions.capture(_:to:)` is the one way that an article becomes a kept link capture: by Keep, by File to a section, and before the first highlight or question on an article. `FeedStore.revision` changes after each write, so the views read again.
+`SourcesView` lists the feeds with their `FeedStats` and their `FeedMode`, adds a feed with `FeedDiscovery`, imports OPML, and shows the history suggestions. `FeedArticleList` fills the list of one feed. A click, Return, or Space opens an article on a reader paper. `FeedArticleDetail` shows the article. If the article is a link capture, it shows `NoteDetail` for that capture. If not, it shows `ReaderTabPage` and `NoteWebReader` under the same `TabIsland` as `ArticleReader`. `ReaderTabPage` is the Reader tab of both, with Show Web Page when the article does not load. `NoteWebReader` saves a Capture of the Web tab to Inbox. The header of the article paper has Keep. `ArticleActions`, at `AppModel.articleActions`, holds the article verbs for Today, the feed list, and the article paper: mark as read, keep, open in the browser, copy the link, and open as a paper. Both open verbs mark the article as read, with no undo step. `FeedArticleList` calls `setRead` and `markAllRead(feed:)` of `ArticleActions`, never `FeedStore.setRead`. `ArticleActions.capture(_:to:)` is the one way that an article becomes a kept link capture: by Keep, by File to a section, and before the first highlight or question on an article. `FeedStore.revision` changes after each write, so the views read again.
 
 ## History Scan
 
@@ -460,7 +465,8 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 
 | Source | Responsibility |
 | --- | --- |
-| [PiperApp.swift](../../Sources/Piper/PiperApp.swift) | `AppDelegate`, menus, the menu bar item, editor windows, the toast, and quit |
+| [PiperApp.swift](../../Sources/Piper/PiperApp.swift) | `AppDelegate`, menus, the menu bar item, the toast, and quit |
+| [CommandRunner.swift](../../Sources/Piper/CommandRunner.swift) | `CommandRunner`, which runs each `Command` and owns Settings, the command palette, and the note editor windows |
 | [Command.swift](../../Sources/Piper/Command.swift) | `Command`, the table of app actions with their titles, keys, and menus, and `CommandKey` |
 | [AppModel.swift](../../Sources/Piper/AppModel.swift) | The container of the stores, `Library`, and `FileEditor`, with the state that the papers share |
 | [Library/](../../Sources/Piper/Library) | `Library` (the folder list, the scan, and the watcher) and `FileEditor` (the open file, its history, its editor sessions, the editor page, its margin notes, and its links) |
@@ -476,7 +482,7 @@ macOS sends keys only to the active app. Thus a test in QA mode inserts text wit
 | [Sessions/](../../Sources/Piper/Sessions) | The agent feature: `AgentSettings`, `SkillFolders`, `Send`, `ReaderAssistant` (the highlights, notes, and questions of the Reader tab), the state labels, the session pane, the transcript views, the message field, the session card, the detached session panel, and the system hotkey of Send Clipboard |
 | [Readers/ReaderArticle.swift](../../Sources/Piper/Readers/ReaderArticle.swift) | `ReaderArticle`, the clean text of a web page |
 | [Modules/Agents/](../../Sources/Modules/Agents) | Skill discovery, command parsing, sessions, the JSON stream, allow rules, and the session runner |
-| [Today/](../../Sources/Piper/Today) | `TodayModel`, `TodayView`, `TodayRow`, `FilePicker`, and `SegmentedCapsule` |
+| [Today/](../../Sources/Piper/Today) | `TodayModel`, `TodayVerb`, `TodayView`, `TodayRow`, `FilePicker`, and `SegmentedCapsule` |
 | [CaptureRows.swift](../../Sources/Piper/CaptureRows.swift) | `RowTime`, and the section and note sheets |
 | [CaptureEditor.swift](../../Sources/Piper/CaptureEditor.swift) | The composer text view |
 | [Papers/PaperDesk.swift](../../Sources/Piper/Papers/PaperDesk.swift) | The one way to open a paper, the feed paper, the reader papers, the session panel, their placement, and the focus |

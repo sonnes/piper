@@ -96,7 +96,7 @@ Select an article row in Today to read it on a reader paper. Select a digest row
 
 ![A fictional feed with its articles, and an article in the Reader tab](../images/feeds.png)
 
-When you open an article on a paper or in the browser, Piper marks it as read. An article stays in Today for 7 days. Piper removes a read article 30 days after it arrives, unless you kept it.
+When you open an article on a paper or in the browser, Piper marks it as read. You cannot undo this mark. An article stays in Today for 7 days. Piper removes a read article 30 days after it arrives, unless you kept it.
 
 The list of one feed has these keys:
 
@@ -108,7 +108,9 @@ The list of one feed has these keys:
 | B | Open the article in the browser |
 | Shift-Command-K | Mark all articles in the list as read. File > Mark All as Read does the same. |
 
-K and B also act on an article paper with the focus. The toolbar of an article paper has Keep. Right-click an article in the list for Mark as Read, Keep, Open in Browser, and Copy Link.
+K and B also act on an article paper with the focus. The toolbar of an article paper has Keep. Right-click an article in the list for Mark as Read, Keep, Open in Browser, and Copy Link. Copy Link shows "Copied" in the toast.
+
+Mark as Read, Mark as Unread, the dot of a row, and Mark All as Read add an undo step. To undo the mark, press Command-Z or choose Edit > Undo.
 
 ## Keep An Article
 

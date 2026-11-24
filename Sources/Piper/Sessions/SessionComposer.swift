@@ -24,6 +24,7 @@ struct SessionComposer: View {
     @Binding var choice: AgentConfig?
 
     @State private var newSessionText = ""
+    @Environment(\.paperDesk) private var desk
     private var text: String {
         get { session?.draft ?? newSessionText }
         nonmutating set {
@@ -121,7 +122,7 @@ struct SessionComposer: View {
             HStack(spacing: 6) {
                 AgentControls(agents: agents, session: session,
                               choice: Binding(get: { currentChoice }, set: { choice = $0 }),
-                              openSettings: { model.openSettings?() })
+                              openSettings: { desk?.commands?.perform(.settings) })
                 Spacer(minLength: 4)
                 Text(completionCount > 0 ? (commands.isEmpty ? "Tab adds · ↑↓ choose" : "Tab completes · ↑↓ choose")
                                          : "/ commands · @ adds")

@@ -2,7 +2,6 @@ import AppKit
 import Captures
 import PiperCore
 import SwiftUI
-import Vault
 
 /// The Notes tab of a link capture: one page with the summary of the reader,
 /// the highlights with their notes, and the questions to the margin agent.
@@ -198,14 +197,7 @@ struct ArticleNotebook: View {
                 try model.store.updateReading(note.id) { $0.savedFile = nil; $0.savedAt = nil }
                 throw PiperError("The saved file is gone. Choose Save as File again.")
             }
-            let vault = Vault(path: (file as NSString).deletingLastPathComponent)
-            let name = (file as NSString).lastPathComponent
-            guard let text = String(data: try vault.read(name), encoding: .utf8) else {
-                throw PiperError("The saved file is not UTF-8 text.")
-            }
-            try vault.write((text.hasSuffix("\n") ? text : text + "\n").appending(addition), to: name)
-            try model.store.updateReading(note.id) { $0.savedAt = Date() }
-            model.library.reload()
+            try model.articleActions.append(addition, toFile: file, for: [note])
         } catch { model.messages.report(error) }
     }
 }
@@ -394,16 +386,10 @@ private struct SaveArticleForm: View {
     /// gets a number.
     private func save() {
         guard let destination else { return }
-        let vault = Vault(path: destination.root)
-        let path = vault.freeName((fileName as NSString).deletingPathExtension, ext: (fileName as NSString).pathExtension,
-                                  in: destination.folder)
         do {
-            try vault.write(text, to: path)
-            let file = vault.root.appendingPathComponent(path).path
-            try model.store.updateReading(note.id) { $0.savedFile = file; $0.savedAt = Date() }
+            try model.articleActions.saveAsFile(text, named: fileName, root: destination.root, folder: destination.folder, for: [note])
             model.messages.show("Saved to " + destination.label)
             lastFolder = destination.label
-            model.library.reload()
             close()
         } catch { model.messages.report(error) }
     }

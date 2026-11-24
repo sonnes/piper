@@ -12,6 +12,7 @@ struct FeedPaperView: View {
     let window: () -> NSWindow?
 
     @State private var namingSection = false
+    @Environment(\.paperDesk) private var desk
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -113,22 +114,27 @@ struct FeedPaperView: View {
 
     private var moreMenu: some View {
         Menu {
-            Button("New Capture") { paper.newCapture() }
+            item(.newCapture)
             Button("New Section…") { namingSection = true }
             Button("Add Folder…") { paper.addFolder() }
-            Button("Add Feed…") { paper.addFeed() }
+            item(.addFeed)
             Divider()
             Button("Show in Finder") { NSWorkspace.shared.open(model.library.vault.root) }
             if case .folder(let path) = paper.state.tab, model.library.canRemoveFolder {
                 Button("Remove Folder") { model.library.removeWikiFolder(path) }
             }
-            Button("Refresh") { model.library.reload() }
-            Button("Settings…") { model.openSettings?() }
+            item(.refresh)
+            item(.settings)
         } label: {
             Image(systemName: "ellipsis.circle").font(.system(size: 16)).foregroundStyle(PiperTheme.paperMuted)
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
         .help("More").accessibilityLabel("More")
+    }
+
+    /// A menu item that runs a command of the `Command` table, as the menu bar does.
+    private func item(_ command: Command) -> some View {
+        Button(command.title) { desk?.commands?.perform(command) }
     }
 
     @ViewBuilder private var list: some View {

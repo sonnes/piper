@@ -51,7 +51,7 @@ These shortcuts work in Today on the feed paper when no sheet is open. The lette
 | Command-C | Copy the selected rows |
 | Command-Shift-C | Copy the selected rows as a numbered list |
 | Command-Shift-Return | Prepare a draft for each selected row in the default folder |
-| Command-Z | Undo the last change, such as Done, Delete, File, or a note change. Press it again to undo the change before it. |
+| Command-Z | Undo the last change, such as Done, Delete, File, Mark All as Read, or a note change. Press it again to undo the change before it. |
 | Shift-Command-Z | Redo the change that Command-Z undid |
 | Delete / Forward Delete | Delete the selected notes and clipboard texts, with Undo. Delete does nothing on an article. |
 | Escape | Clear the selection, then clear the search |
@@ -104,7 +104,7 @@ These shortcuts work in the list of one feed. K and B also work on an article pa
 | Space | Open the next unread article |
 | K | Keep the selected article |
 | B | Open the selected article in the browser |
-| Shift-Command-K | Mark all articles in the list as read. File > Mark All as Read does the same. |
+| Shift-Command-K | Mark all articles in the list as read. File > Mark All as Read does the same. Command-Z undoes it. |
 
 ## Claude Sessions
 

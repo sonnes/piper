@@ -246,8 +246,7 @@ enum ReaderMarks {
                 open(.note(id))
             case .copy(let id):
                 guard let note = store.notes.first(where: { $0.id == id }) else { return }
-                guard Clipboard.copy(note.text) else { throw PiperError("Cannot write to the clipboard.") }
-                messages.show("Copied")
+                messages.copy(note.text)
             }
         } catch {
             messages.report(error)

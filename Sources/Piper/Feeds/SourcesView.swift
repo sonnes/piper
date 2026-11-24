@@ -23,6 +23,7 @@ struct SourcesView: View {
     @State private var message: String?
     @State private var search: Task<Void, Never>?
     @FocusState private var addressFocused: Bool
+    @Environment(\.paperDesk) private var desk
 
     private var feeds: FeedStore { model.feeds }
     private var scan: SiteScan { model.siteScan }
@@ -150,7 +151,7 @@ struct SourcesView: View {
         if case .failed(let reason) = scan.state, shown.isEmpty {
             Text(reason).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Open Settings") { model.openSettings?() }.buttonStyle(.borderless).padding(.top, 4)
+            Button("Open Settings") { desk?.commands?.perform(.settings) }.buttonStyle(.borderless).padding(.top, 4)
         } else if shown.isEmpty {
             Text(scan.state == .scanning ? "Reading the history of this Mac…" : "No other sites of your history have a feed.")
                 .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
@@ -304,7 +305,7 @@ private struct SourceRow: View {
             if let home = feed.home.flatMap(URL.init(string:)) {
                 Button("Open Site in Browser") { NSWorkspace.shared.open(home) }
             }
-            Button("Copy Feed Address") { Clipboard.copy(feed.id) }
+            Button("Copy Feed Address") { model.messages.copy(feed.id) }
             Divider()
             Button("Remove Source", role: .destructive) { model.feeds.unsubscribe(feed.id) }
         }

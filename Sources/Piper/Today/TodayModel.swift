@@ -334,24 +334,17 @@ final class TodayModel {
             }
             return "Filed in \(section)"
         case .folder(let root, let folder):
-            let vault = Vault(path: root)
             let title = items.count == 1 ? Self.fileTitle(items[0]) : "Notes \(CaptureText.day(now))"
             let text = items.count == 1 ? fileText(items[0], now: now) : items.map { appendText($0) }.joined(separator: "\n")
-            let name = ArticleMarkdown.fileName(for: title)
-            let path = vault.freeName((name as NSString).deletingPathExtension, ext: (name as NSString).pathExtension, in: folder)
-            try vault.write(text, to: path)
-            try finishFiling(items, savedFile: vault.root.appendingPathComponent(path).path)
-            model.library.reload()
+            try model.articleActions.saveAsFile(text, named: ArticleMarkdown.fileName(for: title), root: root, folder: folder,
+                                                for: items.compactMap(\.note))
+            try finishFiling(items)
             return "Saved to " + target.title
         case .file(let path):
-            let vault = model.library.vault
-            let current = (try? vault.read(path)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
-            let block = items.map { appendText($0) }.joined(separator: "\n")
-            let joined = current.isEmpty || current.hasSuffix("\n\n") ? current
-                : current.hasSuffix("\n") ? current + "\n" : current + "\n\n"
-            try vault.write(joined + block, to: path)
-            try finishFiling(items, savedFile: vault.root.appendingPathComponent(path).path)
-            model.library.reload()
+            let file = model.library.vault.root.appendingPathComponent(path).path
+            try model.articleActions.append(items.map { appendText($0) }.joined(separator: "\n"), toFile: file,
+                                            for: items.compactMap(\.note))
+            try finishFiling(items)
             return "Added to " + path
         }
     }
@@ -404,11 +397,7 @@ final class TodayModel {
         let text = asList
             ? texts.enumerated().map { "\($0.offset + 1). " + $0.element.replacingOccurrences(of: "\n", with: "\n   ") }.joined(separator: "\n\n")
             : texts.joined(separator: "\n\n")
-        if Clipboard.copy(text, to: pasteboard) {
-            messages.show("Copied")
-        } else {
-            messages.report(PiperError("Cannot write to the clipboard."))
-        }
+        messages.copy(text, to: pasteboard)
     }
 
     /// True for a row that Delete removes: a capture or a clipboard text.
@@ -465,11 +454,8 @@ final class TodayModel {
         return text.isEmpty ? nil : Note(text: text, section: store.activeSection)
     }
 
-    /// Marks the filed items as done, and records the file of a link capture.
-    private func finishFiling(_ items: [StreamItem], savedFile: String) throws {
-        for note in items.compactMap(\.note) where note.isArticle {
-            try store.updateReading(note.id) { $0.savedFile = savedFile; $0.savedAt = Date() }
-        }
+    /// Marks the filed items as done.
+    private func finishFiling(_ items: [StreamItem]) throws {
         try store.setDone(true, Set(items.compactMap(\.note).map(\.id)))
         markRead(items)
         dismissClips(items.compactMap(\.clip).map(\.id))
@@ -477,14 +463,7 @@ final class TodayModel {
 
     /// Marks the unread articles of the items as read, with an undo step.
     private func markRead(_ items: [StreamItem]) {
-        let ids = items.flatMap(\.articles).filter { !$0.read }.map(\.id)
-        setRead(true, ids: ids)
-    }
-
-    private func setRead(_ read: Bool, ids: [String]) {
-        guard !ids.isEmpty else { return }
-        feeds.setRead(read, ids: ids)
-        undoManager.registerUndo(withTarget: self) { today in today.setRead(!read, ids: ids) }
+        model.articleActions.setRead(true, ids: items.flatMap(\.articles).filter { !$0.read }.map(\.id), undoable: true)
     }
 
     /// Takes the texts out of the clipboard tray, with an undo step that puts them back.

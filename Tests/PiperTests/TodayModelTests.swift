@@ -193,6 +193,33 @@ final class TodayModelTests: XCTestCase {
         XCTAssertEqual(text, "# Harbor talk\n\nUse this in the Thursday talk.\n\n- [Post one](https://f.example/one)\n")
     }
 
+    /// A file that Piper cannot read stays as it is. Before the fix, Piper
+    /// read such a file as empty and replaced it with the new text.
+    func testFileIntoAFileThatCannotBeReadLeavesItAndReportsAnError() throws {
+        let unreadable = root.appendingPathComponent("Talks/harbor-talk.md")
+        try FileManager.default.setAttributes([.posixPermissions: 0o200], ofItemAtPath: unreadable.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: unreadable.path) }
+        let latin = root.appendingPathComponent("Talks/latin.md")
+        let bytes = Data([0x43, 0x61, 0x66, 0xE9, 0x0A])
+        try bytes.write(to: latin)
+        let item = try note("Use this in the Thursday talk.")
+
+        XCTAssertFalse(today.file([item], to: .file("Talks/harbor-talk.md")))
+        XCTAssertEqual(model.messages.last?.isError, true)
+        XCTAssertFalse(today.file([item], to: .file("Talks/latin.md")))
+        XCTAssertEqual(model.messages.last?.isError, true)
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: unreadable.path)
+        XCTAssertEqual(try String(contentsOf: unreadable, encoding: .utf8), "# Harbor talk\n")
+        XCTAssertEqual(try Data(contentsOf: latin), bytes)
+        XCTAssertEqual(stored(item)?.isDone, false)
+    }
+
+    func testFileIntoAMissingFileCreatesIt() throws {
+        XCTAssertTrue(today.file([try note("Gate 4 closes at six.")], to: .file("Talks/gates.md")))
+        XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("Talks/gates.md"), encoding: .utf8), "Gate 4 closes at six.\n")
+    }
+
     func testFileTargetsListSectionsThenFoldersThenFiles() {
         let files = ["Harbor/talk.md", "image.png", "Harbor/plan.markdown"]
             .map { VaultFile(relativePath: $0, size: 0, modifiedAt: Date(), text: "") }
@@ -239,10 +266,33 @@ final class TodayModelTests: XCTestCase {
 
     func testAnOpenedArticleStaysUntilTheListShowsAgain() throws {
         today.open(article: "one")
-        model.feeds.setRead(true, ids: ["one"])
+        model.articleActions.setRead(true, ids: ["one"], undoable: false)
         XCTAssertTrue(today.list(lens: .all, scope: .today(section: nil)).order.contains(.article("one")))
         today.resetKeeping()
         XCTAssertFalse(today.list(lens: .all, scope: .today(section: nil)).order.contains(.article("one")))
+    }
+
+    // MARK: - Verbs
+
+    func testTheKeysTheBarAndTheMenuListTheSameVerbs() throws {
+        let item = try note("Crane 3 is down")
+        let context = TodayVerb.Context(today: today, items: [item], first: item, open: { _ in }, edit: { _ in }, editInWindow: { _ in })
+        let keys = TodayVerb.keys(context: { context }, run: { _, _ in })
+        let table = keys.plain + keys.command
+        let keyed = Set(table.map(\.title))
+        let menu = Array(TodayVerb.menu.joined())
+        for verb in TodayVerb.bar {
+            XCTAssertTrue(keyed.contains(verb.id), "The bar shows \(verb.name) with no key.")
+            XCTAssertTrue(menu.contains(verb), "The bar shows \(verb.name), and the menu does not.")
+        }
+        for verb in TodayVerb.row {
+            XCTAssertTrue(TodayVerb.bar.contains(verb), "A row shows \(verb.name), and the bar does not.")
+        }
+        for verb in menu where !verb.keys.isEmpty {
+            XCTAssertTrue(keyed.contains(verb.id), "The menu shows \(verb.name), and the keys do not run it.")
+        }
+        XCTAssertEqual(Set(table.map(\.key.glyph)).count, table.count, "Two verbs share a key.")
+        XCTAssertEqual(TodayVerb.rowHint, "Click to select. Return opens it. K keeps, E marks as done, F files, and S sends it.")
     }
 
     // MARK: - Selection

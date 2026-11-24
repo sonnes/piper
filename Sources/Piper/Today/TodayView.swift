@@ -343,8 +343,7 @@ struct TodayView: View {
             }
             if today.multiple, !today.selection.isEmpty {
                 let selected = shown.rows(today.selection)
-                SelectionBar(count: today.selection.count, canMerge: selected.compactMap(\.note).count > 1,
-                             model: model, verbs: verbs(for: selected),
+                SelectionBar(count: today.selection.count, model: model, verbs: verbs(for: selected),
                              cancel: today.clearSelection)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -359,19 +358,13 @@ struct TodayView: View {
     /// The verbs of one row. A row that is part of a selection of several
     /// acts on the whole selection.
     private func verbs(for item: StreamItem) -> RowVerbs {
-        RowVerbs(
-            open: { open(item) },
-            keep: { withAnimation(motion) { today.keep(targets(item)) } },
-            done: { withAnimation(motion) { today.done(targets(item)) } },
-            file: { today.filing = targets(item) },
+        let context = context(targets(item), first: item)
+        return RowVerbs(
+            context: context,
+            run: { run($0, context) },
             send: { today.send(targets(item), action: $0) },
             ask: { today.ask(item) },
-            copy: { today.copy(targets(item)) },
-            delete: { withAnimation(motion) { today.delete(targets(item)) } },
-            edit: item.note.map { note in { editing = model.editCapture(note) } },
-            editInWindow: item.note.map { note in { model.openNoteEditor?(note) } },
-            merge: today.multiple && today.selection.contains(item.id) && today.selection.count > 1
-                ? { today.merge(targets(item)) } : nil,
+            open: { open(item) },
             openFeed: (item.articles.first?.feedID).map { feed in { paper.pick(.feed(feed)) } },
             stopSession: item.note.flatMap { agents.runner.latestSession(for: $0.id) }.flatMap { session in
                 session.isActive ? { agents.runner.stop(session) } : nil
@@ -380,12 +373,19 @@ struct TodayView: View {
 
     /// The verbs of the selection bar.
     private func verbs(for items: [StreamItem]) -> RowVerbs {
-        RowVerbs(open: {}, keep: { withAnimation(motion) { today.keep(items) } },
-                 done: { withAnimation(motion) { today.done(items) } },
-                 file: { today.filing = items }, send: { today.send(items, action: $0) },
-                 ask: { if let first = items.first { today.ask(first) } },
-                 copy: { today.copy(items) }, delete: { withAnimation(motion) { today.delete(items) } },
-                 merge: { today.merge(items) })
+        let context = context(items, first: items.first)
+        return RowVerbs(context: context, run: { run($0, context) }, send: { today.send(items, action: $0) },
+                        ask: { if let first = items.first { today.ask(first) } })
+    }
+
+    private func context(_ items: [StreamItem], first: StreamItem?) -> TodayVerb.Context {
+        TodayVerb.Context(today: today, items: items, first: first, open: { open($0) },
+                          edit: { editing = model.editCapture($0) },
+                          editInWindow: { desk?.commands?.editNote($0) })
+    }
+
+    private func run(_ verb: TodayVerb, _ context: TodayVerb.Context) {
+        withAnimation(verb.animates ? motion : nil) { verb.run(context) }
     }
 
     /// The rows that a verb of a row acts on: the selection, when the row is
@@ -429,7 +429,7 @@ struct TodayView: View {
             if let article = item.articles.first { model.articleActions.openAsPaper(article, on: desk) }
         case .digest(let feed, _): paper.pick(.feed(feed))
         case .clip:
-            if let text = item.clip?.text, Clipboard.copy(text) { model.messages.show("Copied") }
+            if let text = item.clip?.text { model.messages.copy(text) }
         }
     }
 
@@ -510,22 +510,13 @@ struct TodayView: View {
         let lenses = UnifiedStream.Lens.allCases.enumerated().map { offset, lens in
             PaperKey(key: CommandKey(String(offset + 1), []), title: "lens", isOn: { !isDone }) { setLens(lens) }
         }
+        let verbs = TodayVerb.keys(context: { context(chosen(), first: chosen().first) }, run: run)
         let keys = [
             PaperKey(key: .up, title: "move") { today.move(-1, extending: false, in: shown.order) },
             PaperKey(key: .down, title: "move") { today.move(1, extending: false, in: shown.order) },
             PaperKey(key: CommandKey.up.shifted, title: "add to the selection") { today.move(-1, extending: true, in: shown.order) },
-            PaperKey(key: CommandKey.down.shifted, title: "add to the selection") { today.move(1, extending: true, in: shown.order) },
-            PaperKey(key: .enter, title: "open as a paper", isOn: selected) { if let first = chosen().first { open(first) } },
-            PaperKey(key: CommandKey("k", []), title: "keep", isOn: selected) { withAnimation(motion) { today.keep(chosen()) } },
-            PaperKey(key: CommandKey("e", []), title: "done", isOn: selected) { withAnimation(motion) { today.done(chosen()) } },
-            PaperKey(key: .space, title: "done", isOn: selected) { withAnimation(motion) { today.done(chosen()) } },
-            PaperKey(key: CommandKey("f", []), title: "file", isOn: selected) { today.filing = chosen() },
-            PaperKey(key: CommandKey("s", []), title: "send", isOn: selected) { today.send(chosen(), action: nil) },
-            PaperKey(key: CommandKey("m", []), title: "merge", isOn: { today.selection.count > 1 }) { today.merge(chosen()) },
-            PaperKey(key: .delete, title: "delete", isOn: { today.selection.contains(where: TodayModel.canDelete) }) {
-                withAnimation(motion) { today.delete(chosen()) }
-            }
-        ] + lenses + [
+            PaperKey(key: CommandKey.down.shifted, title: "add to the selection") { today.move(1, extending: true, in: shown.order) }
+        ] + verbs.plain + lenses + [
             PaperKey(key: .escape, title: "clear the selection", isOn: selected) { clearSelection() },
             PaperKey(key: .escape, title: "end the search", isOn: { searchMode }) { endSearch() },
             PaperKey(key: CommandKey("f"), title: "search", inText: true) { beginSearch() },
@@ -533,14 +524,8 @@ struct TodayView: View {
                 let order = shown.order
                 today.selection = Set(order)
                 today.multiple = !order.isEmpty
-            },
-            PaperKey(key: CommandKey("c"), title: "copy", isOn: selected) { today.copy(chosen()) },
-            PaperKey(key: CommandKey("c", [.shift, .command]), title: "copy as a list", isOn: selected) { today.copy(chosen(), asList: true) },
-            PaperKey(key: CommandKey("\r"), title: "edit", isOn: selected) {
-                if let note = chosen().first?.note { model.openNoteEditor?(note) }
-            },
-            PaperKey(key: CommandKey("\r", [.shift, .command]), title: "send", isOn: selected) { today.send(chosen(), action: nil) }
-        ]
+            }
+        ] + verbs.command
         let paper = paper
         return keys.map { $0.only(when: { paper.state.scope.showsCaptures }) }
     }
@@ -637,11 +622,10 @@ struct UndoToast: View {
     }
 }
 
-/// The floating bar of a selection of several rows: Keep, Done, File, Send,
-/// Merge, and Copy.
+/// The floating bar of a selection of several rows, with the verbs of
+/// `TodayVerb.bar`.
 struct SelectionBar: View {
     let count: Int
-    let canMerge: Bool
     let model: AppModel
     let verbs: RowVerbs
     let cancel: () -> Void
@@ -663,15 +647,17 @@ struct SelectionBar: View {
     private func items(keys: Bool) -> some View {
         HStack(spacing: TodayView.Metrics.barSpacing) {
             Text("\(count) selected").foregroundStyle(PiperTheme.paperMuted).padding(.horizontal, 8).fixedSize()
-            bar("Keep", key: "K", keys: keys, action: verbs.keep)
-            bar("Done", key: "E", keys: keys, action: verbs.done)
-            bar("File", key: "F", keys: keys, action: verbs.file)
-            Menu { SendItems(model: model, verbs: verbs) } label: { label("Send", key: "S", keys: keys) }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .help("Send · S")
-                .accessibilityLabel("Send")
-            bar("Merge", key: "M", keys: keys, action: verbs.merge ?? {}).disabled(!canMerge)
-            bar("Copy", key: "⌘C", keys: keys, action: verbs.copy)
+            ForEach(TodayVerb.bar) { verb in
+                if verb.listsSkills {
+                    Menu { SendItems(model: model, verbs: verbs) } label: { label(verb.name, key: verb.glyph, keys: keys) }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .help(verb.help())
+                        .accessibilityLabel(verb.name)
+                } else {
+                    bar(verb.name, key: verb.glyph, keys: keys) { verbs.run(verb) }
+                        .disabled(!verbs.isAvailable(verb))
+                }
+            }
             Button(action: cancel) { Image(systemName: "xmark").foregroundStyle(PiperTheme.paperMuted).frame(width: 24, height: 24) }
                 .buttonStyle(.plain).help("Clear the selection · Escape").accessibilityLabel("Clear the selection")
         }

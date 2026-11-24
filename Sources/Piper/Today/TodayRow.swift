@@ -6,25 +6,23 @@ import PiperCore
 import Stream
 import SwiftUI
 
-/// What a row of Today can do. The list gives each row the same actions,
-/// bound to the row.
+/// The verbs of `TodayVerb` for one row or for the selection bar, bound to
+/// the rows that they act on.
+@MainActor
 struct RowVerbs {
-    let open: () -> Void
-    let keep: () -> Void
-    let done: () -> Void
-    let file: () -> Void
+    let context: TodayVerb.Context
+    let run: (TodayVerb) -> Void
     let send: (SkillFolders.Action?) -> Void
     let ask: () -> Void
-    let copy: () -> Void
-    let delete: () -> Void
-    /// Edits a capture in a sheet. Nil for other kinds.
-    var edit: (() -> Void)?
-    var editInWindow: (() -> Void)?
-    /// Joins the selected captures. Nil unless several captures are selected.
-    var merge: (() -> Void)?
+    /// Opens the row itself, from a note under it or from its session badge.
+    var open: () -> Void = {}
     /// Opens the list of the feed of an article or a digest.
     var openFeed: (() -> Void)?
     var stopSession: (() -> Void)?
+
+    func isAvailable(_ verb: TodayVerb) -> Bool {
+        verb.isAvailable(context)
+    }
 }
 
 /// One row of Today: a note, a link, an article, a digest, or a clipboard text.
@@ -62,7 +60,7 @@ struct TodayRow: View {
         } actions: {
             VerbButtons(item: item, model: model, verbs: verbs)
         }
-        .accessibilityHint("Click to select. Return opens it. K keeps, E marks as done, F files, and S sends it.")
+        .accessibilityHint(TodayVerb.rowHint)
         .contextMenu { TodayMenu(item: item, model: model, verbs: verbs) }
     }
 
@@ -81,7 +79,7 @@ struct TodayRow: View {
     @ViewBuilder private var mark: some View {
         switch item.kind {
         case .note:
-            Button(action: verbs.done) { TickMark(done: item.state == .done) }
+            Button { verbs.run(.done) } label: { TickMark(done: item.state == .done) }
                 .buttonStyle(.plain)
                 .help(item.state == .done ? "Reopen" : "Mark as Done")
                 .accessibilityLabel(item.state == .done ? "Reopen" : "Mark as Done")
@@ -205,27 +203,29 @@ extension TodayRow {
     }
 }
 
-/// The four verbs of a row as round buttons, then the More menu.
+/// The round buttons of the verbs of a row, then the More menu.
 struct VerbButtons: View {
     let item: StreamItem
     let model: AppModel
     let verbs: RowVerbs
 
     var body: some View {
+        let mark = TodayVerb.Mark(item)
         HStack(spacing: TodayRow.Metrics.verbSpacing) {
-            let kept = item.note?.isKept == true
-            VerbButton(symbol: kept ? "star.fill" : "star", title: kept ? "Kept · K removes the mark" : "Keep · K",
-                       tint: kept ? PiperTheme.brand : PiperTheme.paperMuted, action: verbs.keep)
-            VerbButton(symbol: item.state == .done ? "arrow.uturn.backward" : "checkmark",
-                       title: item.state == .done ? "Reopen · E" : "Done · E", action: verbs.done)
-            VerbButton(symbol: "arrow.turn.down.right", title: "File · F", action: verbs.file)
-            Menu {
-                SendItems(model: model, verbs: verbs)
-            } label: {
-                VerbGlyph(symbol: "paperplane", tint: PiperTheme.paperMuted)
+            ForEach(TodayVerb.row) { verb in
+                let tint = verb.highlights(mark) ? PiperTheme.brand : PiperTheme.paperMuted
+                if verb.listsSkills {
+                    Menu {
+                        SendItems(model: model, verbs: verbs)
+                    } label: {
+                        VerbGlyph(symbol: verb.symbol(mark), tint: tint)
+                    }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                    .help(verb.help(mark)).accessibilityLabel(verb.name)
+                } else {
+                    VerbButton(symbol: verb.symbol(mark), title: verb.help(mark), tint: tint) { verbs.run(verb) }
+                }
             }
-            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-            .help("Send · S").accessibilityLabel("Send")
             Menu {
                 TodayMenu(item: item, model: model, verbs: verbs)
             } label: {
@@ -287,29 +287,37 @@ struct SendItems: View {
     }
 }
 
-/// The More menu and the context menu of a row.
+/// The More menu and the context menu of a row: the groups of
+/// `TodayVerb.menu`, with the items of the row before the last group.
 struct TodayMenu: View {
     let item: StreamItem
     let model: AppModel
     let verbs: RowVerbs
 
     var body: some View {
-        Button("Open", action: verbs.open)
-        Divider()
-        Button(item.note?.isKept == true ? "Remove Keep" : "Keep", action: verbs.keep)
-        Button(item.state == .done ? "Reopen" : "Done", action: verbs.done)
-        Button("File…", action: verbs.file)
-        Menu("Send") { SendItems(model: model, verbs: verbs) }
-        Divider()
-        if let edit = verbs.edit { Button("Edit", action: edit) }
-        if let editInWindow = verbs.editInWindow { Button("Edit in New Window", action: editInWindow) }
-        if let merge = verbs.merge { Button("Merge Notes", action: merge) }
-        Button("Copy", action: verbs.copy)
+        let mark = TodayVerb.Mark(item)
+        let groups = TodayVerb.menu
+        ForEach(groups.indices, id: \.self) { index in
+            let shown = groups[index].filter(verbs.isAvailable)
+            if index == groups.count - 1 { rowItems }
+            if index > 0, !shown.isEmpty { Divider() }
+            ForEach(shown) { verb in
+                if verb.listsSkills {
+                    Menu(verb.title(mark)) { SendItems(model: model, verbs: verbs) }
+                } else {
+                    Button(verb.title(mark), role: verb.isDestructive ? .destructive : nil) { verbs.run(verb) }
+                }
+            }
+        }
+    }
+
+    /// The items that only some kinds of row have.
+    @ViewBuilder private var rowItems: some View {
         if item.kind == .article, let article = item.articles.first {
             Button("Copy Link") { model.articleActions.copyLink(article) }
             Button("Open in Browser") { model.articleActions.openInBrowser(article) }
         } else if let url = item.url, url.isWeb {
-            Button("Copy Link") { Clipboard.copy(url.absoluteString) }
+            Button("Copy Link") { model.messages.copy(url.absoluteString) }
             Button("Open in Browser") { NSWorkspace.shared.open(url) }
         }
         if let openFeed = verbs.openFeed {
@@ -320,10 +328,6 @@ struct TodayMenu: View {
             }
         }
         if let stop = verbs.stopSession { Button("Stop Session", action: stop) }
-        if TodayModel.canDelete(item.id) {
-            Divider()
-            Button("Delete", role: .destructive, action: verbs.delete)
-        }
     }
 }
 

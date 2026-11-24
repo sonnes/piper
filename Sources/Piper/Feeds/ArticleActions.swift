@@ -2,11 +2,16 @@ import AppKit
 import Captures
 import Feeds
 import PiperCore
+import Vault
 
-/// The verbs of a feed article: keep, open in the browser, copy the link, and
-/// open as a paper. Today, the feed list, and the reader paper call them.
+/// The verbs of a feed article: mark as read, keep, open in the browser, copy
+/// the link, and open as a paper, and Save as File for a link capture. Today,
+/// the feed list, and the reader paper call them.
 ///
-/// An article becomes a link capture only through `capture(_:to:)`.
+/// An article becomes a link capture only through `capture(_:to:)`. A read
+/// mark changes only through `setRead(_:ids:undoable:)`. A file gets text
+/// only through `saveAsFile` and `append`, which record the file of each
+/// link capture and scan the folders again.
 @MainActor
 final class ArticleActions {
 
@@ -18,11 +23,33 @@ final class ArticleActions {
     private let store: CaptureStore
     private let feeds: FeedStore
     private let messages: Messages
+    private let library: Library
 
-    init(store: CaptureStore, feeds: FeedStore, messages: Messages) {
+    init(store: CaptureStore, feeds: FeedStore, messages: Messages, library: Library) {
         self.store = store
         self.feeds = feeds
         self.messages = messages
+        self.library = library
+    }
+
+    // MARK: - Read
+
+    /// Marks the articles as read or unread. A mark that the reader chose,
+    /// such as Mark as Read or Done, is undoable. The read mark of an article
+    /// that the reader opens is not.
+    func setRead(_ read: Bool, ids: [String], undoable: Bool) {
+        guard !ids.isEmpty else { return }
+        feeds.setRead(read, ids: ids)
+        guard undoable else { return }
+        let undoManager = store.undoManager
+        undoManager.beginUndoGrouping()
+        undoManager.registerUndo(withTarget: self) { actions in actions.setRead(!read, ids: ids, undoable: true) }
+        undoManager.endUndoGrouping()
+    }
+
+    /// Marks every unread article of the feed as read, with an undo step.
+    func markAllRead(feed: String) {
+        setRead(true, ids: feeds.articles(.feed(feed)).filter { !$0.read }.map(\.id), undoable: true)
     }
 
     // MARK: - Keep
@@ -72,10 +99,39 @@ final class ArticleActions {
     }
 
     func copyLink(_ article: Article) {
-        Clipboard.copy(article.url)
+        messages.copy(article.url)
+    }
+
+    // MARK: - Save as File
+
+    /// Writes the text as a new file in a folder of a root. A file with the
+    /// same name stays, and the new file gets a number. Returns the path of
+    /// the new file.
+    @discardableResult
+    func saveAsFile(_ text: String, named name: String, root: String, folder: String, for notes: [Note]) throws -> String {
+        let vault = Vault(path: root)
+        let path = vault.freeName((name as NSString).deletingPathExtension, ext: (name as NSString).pathExtension, in: folder)
+        try vault.write(text, to: path)
+        let file = vault.root.appendingPathComponent(path).path
+        try recordFile(file, for: notes)
+        return file
+    }
+
+    /// Adds the text to the end of the file at a full path. See `Vault.append(_:to:)`.
+    func append(_ text: String, toFile file: String, for notes: [Note]) throws {
+        try Vault(path: (file as NSString).deletingLastPathComponent).append(text, to: (file as NSString).lastPathComponent)
+        try recordFile(file, for: notes)
+    }
+
+    private func recordFile(_ file: String, for notes: [Note]) throws {
+        let now = Date()
+        for note in notes where note.isArticle {
+            try store.updateReading(note.id) { $0.savedFile = file; $0.savedAt = now }
+        }
+        library.reload()
     }
 
     private func markRead(_ articles: [Article]) {
-        feeds.setRead(true, ids: articles.filter { !$0.read }.map(\.id))
+        setRead(true, ids: articles.filter { !$0.read }.map(\.id), undoable: false)
     }
 }

@@ -79,7 +79,7 @@ A hairline parts two rows of a list. The selected row has an indigo fill while t
 
 In Today, the selected row and the row under the pointer show Keep, Done, File, Send, and a More menu in place of the time. See [Act on a row](capture.md#act-on-a-row). In the list of one feed, the row under the pointer shows Mark as Read or Mark as Unread.
 
-The title of the list names the tab and the scope, for example "Today › Sources". The More menu at the top right has New Capture, New Section, Add Folder, Sources, Show in Finder, Refresh, and Settings. While the tab of a folder is active, the menu also has Remove Folder.
+The title of the list names the tab and the scope, for example "Today › Sources". The More menu at the top right has New Capture, New Section, Add Folder, Add Feed, Show in Finder, Refresh, and Settings. While the tab of a folder is active, the menu also has Remove Folder.
 
 ### Open An Item On A Paper
 
@@ -164,7 +164,7 @@ Wiki links use `[[Note]]`, `[[folder/Note|Label]]`, and `[[Note#Heading]]`. Rela
 
 To ask an agent about the open file, press Option-Command-C while its paper has the focus. See [Talk to an agent in a session](claude.md#talk-to-an-agent-in-a-session).
 
-Use Command-[ and Command-] to go back and forward. To scan the folder again, press Command-R, or select Refresh in the More menu. Command-R also reads the Claude skills of each folder again.
+Use Command-[ and Command-] to go back and forward. To scan the folder again, press Command-R, or select Refresh in the More menu. Both also read the Claude skills of each folder again.
 
 ## Change Reading Preferences
 

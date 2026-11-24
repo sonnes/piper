@@ -1,5 +1,7 @@
-import Foundation
+import AppKit
+import Captures
 import Observation
+import PiperCore
 
 /// One line for the reader, with an optional button.
 struct Message {
@@ -32,6 +34,15 @@ final class Messages {
 
     func show(_ text: String, action: Message.Action?) {
         post(Message(text: text, action: action, isError: false))
+    }
+
+    /// Puts the text on the clipboard and shows "Copied", or reports that the clipboard did not take it.
+    func copy(_ text: String, to pasteboard: NSPasteboard = .general) {
+        if Clipboard.copy(text, to: pasteboard) {
+            show("Copied")
+        } else {
+            report(PiperError("Cannot write to the clipboard."))
+        }
     }
 
     func report(_ error: Error) {
