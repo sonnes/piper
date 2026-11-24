@@ -11,7 +11,6 @@ import XCTest
 final class EditorPageTests: XCTestCase {
     private var root: URL!
     private var window: NSWindow!
-    private var pageForErrors: EditorPage?
 
     override func setUp() async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("piper-editor-page-" + UUID().uuidString)
@@ -28,7 +27,7 @@ final class EditorPageTests: XCTestCase {
         for (path, raw) in files {
             try Data(raw.utf8).write(to: root.appendingPathComponent(path))
         }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
         model.library.files = try files.map { try model.library.vault.file($0.0) }
         return model
     }
@@ -36,13 +35,12 @@ final class EditorPageTests: XCTestCase {
     /// Puts the page in an offscreen window and waits until it reports that it is ready.
     private func load(_ model: AppModel) async throws -> EditorPage {
         let page = model.files.editorPage
-        pageForErrors = page
         window = NSWindow(contentRect: NSRect(x: -10_000, y: -10_000, width: 900, height: 700),
                           styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         page.webView.frame = window.contentView?.bounds ?? .zero
         window.contentView?.addSubview(page.webView)
-        try await wait("The page loads.") { try await self.evaluate(page, "typeof window.piper") as? String == "object" }
+        try await waitFor("The page loads.") { try await self.evaluate(page, "typeof window.piper") as? String == "object" }
         return page
     }
 
@@ -59,15 +57,46 @@ final class EditorPageTests: XCTestCase {
         try await page.webView.evaluateJavaScript(script)
     }
 
-    private func wait(_ message: String, timeout: TimeInterval = 10, _ condition: @escaping () async throws -> Bool) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if (try? await condition()) == true { return }
-            try await Task.sleep(for: .milliseconds(50))
-        }
-        var errors: Any?
-        if let page = pageForErrors { errors = try? await evaluate(page, "JSON.stringify(window.piperErrors)") }
-        XCTFail("\(message) \(String(describing: errors))")
+    private func editorText(_ page: EditorPage) async throws -> String? {
+        try await evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String
+    }
+
+    /// Puts the caret after the last text inside `selector` and types `text`, the way the keyboard does.
+    private func type(_ text: String, atEndOf selector: String, in page: EditorPage) async throws {
+        let typed = try await evaluate(page, """
+        (() => {
+          const walker = document.createTreeWalker(document.querySelector('\(selector)'), NodeFilter.SHOW_TEXT);
+          let last = null;
+          while (walker.nextNode()) last = walker.currentNode;
+          document.querySelector('.ProseMirror').focus();
+          getSelection().collapse(last, last.length);
+          return document.execCommand('insertText', false, '\(text)');
+        })()
+        """) as? Bool
+        XCTAssertEqual(typed, true, "The page takes the typed text.")
+    }
+
+    /// Selects the first copy of `quote` in the editor the way a drag does: a selection, then a mouse up
+    /// in a later call, after the page has seen the selection change.
+    private func select(_ quote: String, in page: EditorPage) async throws {
+        _ = try await evaluate(page, """
+        (() => {
+          const editor = document.querySelector('.ProseMirror');
+          const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+          while (walker.nextNode()) {
+            const at = walker.currentNode.data.indexOf('\(quote)');
+            if (at < 0) continue;
+            editor.focus();
+            const range = document.createRange();
+            range.setStart(walker.currentNode, at);
+            range.setEnd(walker.currentNode, at + '\(quote)'.length);
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+            return;
+          }
+        })()
+        """)
+        _ = try await evaluate(page, "document.querySelector('.ProseMirror').dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))")
     }
 
     func testThePageShowsAFileAndSavesAnEdit() async throws {
@@ -77,16 +106,16 @@ final class EditorPageTests: XCTestCase {
         let page = try await load(model)
         try show(page, model)
 
-        try await wait("The editor shows the file.") {
-            (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?
+        try await waitFor("The editor shows the file.") {
+            try await self.editorText(page)?
                 .contains("Original text.") == true
         }
         let flushed = try await page.flush()
         XCTAssertEqual(flushed?.path, "Tea.md")
         XCTAssertEqual(flushed?.text, raw)
 
-        _ = try await evaluate(page, "document.querySelector('.ProseMirror').editor.commands.insertContentAt(document.querySelector('.ProseMirror').editor.state.doc.content.size - 1, ' Added.')")
-        try await wait("The edit reaches the disk.") {
+        try await type(" Added.", atEndOf: ".ProseMirror", in: page)
+        try await waitFor("The edit reaches the disk.") {
             (try String(contentsOf: self.root.appendingPathComponent("Tea.md"), encoding: .utf8)).contains("Original text. Added.")
         }
         let saved = try String(contentsOf: root.appendingPathComponent("Tea.md"), encoding: .utf8)
@@ -99,15 +128,15 @@ final class EditorPageTests: XCTestCase {
         model.files.openDocument("Green tea.md")
         let page = try await load(model)
         try show(page, model)
-        try await wait("The editor shows the first file.") {
-            (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?
+        try await waitFor("The editor shows the first file.") {
+            try await self.editorText(page)?
                 .contains("Less caffeine.") == true
         }
 
         model.files.openDocument("Matcha.md")
         try show(page, model)
-        try await wait("The editor shows the second file.") {
-            (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?
+        try await waitFor("The editor shows the second file.") {
+            try await self.editorText(page)?
                 .contains("Shade-grown leaves.") == true
         }
         let errors = try await evaluate(page, "JSON.stringify(window.piperErrors)") as? String
@@ -129,7 +158,7 @@ final class EditorPageTests: XCTestCase {
         model.files.openDocument("Notes.md")
         let page = try await load(model)
         try show(page, model)
-        try await wait("The page reports the link titles.") { model.files.editor?.lossy == ["link titles"] }
+        try await waitFor("The page reports the link titles.") { model.files.editor?.lossy == ["link titles"] }
         let editable = try await evaluate(page, "document.querySelector('.ProseMirror').getAttribute('contenteditable')") as? String
         XCTAssertEqual(editable, "false")
     }
@@ -140,27 +169,17 @@ final class EditorPageTests: XCTestCase {
         model.files.openDocument("Notes.md")
         let page = try await load(model)
         try show(page, model)
-        try await wait("The editor shows the footnote.") {
+        try await waitFor("The editor shows the footnote.") {
             (try await self.evaluate(page, "document.querySelector('.piper-footnote')?.textContent") as? String) == "The source."
         }
         let editable = try await evaluate(page, "document.querySelector('.ProseMirror').getAttribute('contenteditable')") as? String
         XCTAssertEqual(editable, "true")
         XCTAssertEqual(model.files.editor?.lossy, [])
-        try await Task.sleep(for: .milliseconds(500))
-        XCTAssertEqual(try String(contentsOf: root.appendingPathComponent("Notes.md"), encoding: .utf8), raw, "Opening the file does not change it.")
+        let flushed = try await page.flush()
+        XCTAssertEqual(flushed?.text, raw, "Opening the file does not change it.")
 
-        let append = """
-        (() => {
-            const editor = document.querySelector('.ProseMirror').editor;
-            let end = 0;
-            editor.state.doc.descendants((node, pos) => {
-                if (node.type.name === 'footnoteDefinition') end = pos + node.nodeSize - 2;
-            });
-            editor.commands.insertContentAt(end, ' More.');
-        })()
-        """
-        _ = try await evaluate(page, append)
-        try await wait("The edit reaches the disk.") {
+        try await type(" More.", atEndOf: ".piper-footnote", in: page)
+        try await waitFor("The edit reaches the disk.") {
             (try String(contentsOf: self.root.appendingPathComponent("Notes.md"), encoding: .utf8)).contains("More.")
         }
         let saved = try String(contentsOf: root.appendingPathComponent("Notes.md"), encoding: .utf8)
@@ -172,14 +191,14 @@ final class EditorPageTests: XCTestCase {
         model.files.openDocument("Note.md")
         let page = try await load(model)
         try show(page, model)
-        try await wait("The editor shows the file.") {
-            (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?.contains("First.") == true
+        try await waitFor("The editor shows the file.") {
+            try await self.editorText(page)?.contains("First.") == true
         }
         try Data("# Note\n\nSecond.\n".utf8).write(to: root.appendingPathComponent("Note.md"))
         model.files.editors["Note.md"]?.diskChanged(in: model.library.vault)
         try show(page, model)
-        try await wait("The editor shows the new text.") {
-            (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?.contains("Second.") == true
+        try await waitFor("The editor shows the new text.") {
+            try await self.editorText(page)?.contains("Second.") == true
         }
         let flushed = try await page.flush()
         XCTAssertEqual(flushed?.text, "# Note\n\nSecond.\n")
@@ -191,11 +210,11 @@ final class EditorPageTests: XCTestCase {
         model.files.openDocument("Notes.md")
         let page = try await load(model)
         try show(page, model, source: true)
-        try await wait("The source editor shows the raw text.") {
-            (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?.contains("[^1]: The source.") == true
+        try await waitFor("The source editor shows the raw text.") {
+            try await self.editorText(page)?.contains("[^1]: The source.") == true
         }
-        _ = try await evaluate(page, "document.querySelector('.ProseMirror').editor.commands.insertContentAt(document.querySelector('.ProseMirror').editor.state.doc.content.size - 1, 'More.')")
-        try await wait("The raw edit reaches the disk.") {
+        try await type("More.", atEndOf: ".ProseMirror", in: page)
+        try await waitFor("The raw edit reaches the disk.") {
             (try String(contentsOf: self.root.appendingPathComponent("Notes.md"), encoding: .utf8)).hasSuffix("More.")
         }
         let saved = try String(contentsOf: root.appendingPathComponent("Notes.md"), encoding: .utf8)
@@ -207,41 +226,26 @@ final class EditorPageTests: XCTestCase {
         model.files.openDocument("Tea.md")
         let page = try await load(model)
         try show(page, model)
-        try await wait("The editor shows the file.") {
-            (try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String)?.contains("caffeine") == true
+        try await waitFor("The editor shows the file.") {
+            try await self.editorText(page)?.contains("caffeine") == true
         }
-        let select = """
-        (() => {
-          const editor = document.querySelector('.ProseMirror').editor;
-          let from = 0;
-          editor.state.doc.descendants((node, pos) => {
-            if (node.isText && node.text.includes('less caffeine')) from = pos + node.text.indexOf('less caffeine');
-          });
-          editor.commands.focus();
-          editor.commands.setTextSelection({ from, to: from + 'less caffeine'.length });
-          editor.view.dom.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-        })()
-        """
         // The selection bar listens only after the page reports its editor, so select until it shows.
-        try await wait("The selection bar shows.") {
-            _ = try await self.evaluate(page, select)
-            try await Task.sleep(for: .milliseconds(100))
+        try await waitFor("The selection bar shows.") {
+            try await self.select("less caffeine", in: page)
             return try await self.evaluate(page, "!!document.querySelector('.piper-selbar')") as? Bool == true
         }
         _ = try await evaluate(page, "[...document.querySelectorAll('.piper-selbar button')].find(b => b.textContent === 'Highlight').click()")
-        try await wait("The highlight reaches the file.") {
+        try await waitFor("The highlight reaches the file.") {
             (try String(contentsOf: self.root.appendingPathComponent("Tea.md"), encoding: .utf8))
                 .contains("==less caffeine==")
         }
 
-        // The selection bar listens only after the page reports its editor, so select until it shows.
-        try await wait("The selection bar shows again.") {
-            _ = try await self.evaluate(page, select)
-            try await Task.sleep(for: .milliseconds(100))
+        try await waitFor("The selection bar shows again.") {
+            try await self.select("less caffeine", in: page)
             return try await self.evaluate(page, "!!document.querySelector('.piper-selbar')") as? Bool == true
         }
         _ = try await evaluate(page, "[...document.querySelectorAll('.piper-selbar button')].find(b => b.textContent === 'Note').click()")
-        try await wait("The note line shows.") {
+        try await waitFor("The note line shows.") {
             try await self.evaluate(page, "!!document.querySelector('.piper-askline input')") as? Bool == true
         }
         _ = try await evaluate(page, """
@@ -252,7 +256,7 @@ final class EditorPageTests: XCTestCase {
           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         })()
         """)
-        try await wait("Piper saves the note.") {
+        try await waitFor("Piper saves the note.") {
             model.store.notes.contains { $0.text.contains("Check the source.") }
         }
         let note = try XCTUnwrap(model.store.notes.first { $0.text.contains("Check the source.") })
@@ -261,7 +265,7 @@ final class EditorPageTests: XCTestCase {
         XCTAssertEqual(note.anchor?.quote, "less caffeine")
 
         try show(page, model)
-        try await wait("The page shows the card.") {
+        try await waitFor("The page shows the card.") {
             (try await self.evaluate(page, "document.querySelector('.piper-card.mine')?.textContent") as? String)?
                 .contains("Check the source.") == true
         }
@@ -276,13 +280,13 @@ final class EditorPageTests: XCTestCase {
         let page = try await load(model)
         try show(page, model)
         let card = "document.querySelector('.piper-card.mine')?.textContent"
-        try await wait("The page shows the card.") {
+        try await waitFor("The page shows the card.") {
             (try await self.evaluate(page, card) as? String)?.contains("Check the source.") == true
         }
 
         page.webView.navigationDelegate?.webViewWebContentProcessDidTerminate?(page.webView)
-        try await wait("The page loads again with the file and the card.") {
-            let text = try await self.evaluate(page, "document.querySelector('.ProseMirror')?.textContent") as? String
+        try await waitFor("The page loads again with the file and the card.") {
+            let text = try await self.editorText(page)
             let shown = try await self.evaluate(page, card) as? String
             return text?.contains("less caffeine") == true && shown?.contains("Check the source.") == true
         }
@@ -293,9 +297,9 @@ final class EditorPageTests: XCTestCase {
         model.files.openDocument("Note.md")
         let page = try await load(model)
         try show(page, model)
-        try await wait("The page is ready.") { model.files.editor?.lossy == [] }
+        try await waitFor("The page is ready.") { model.files.editor?.lossy == [] }
         _ = try await evaluate(page, "void (window.piper.assetChanged = () => { throw new Error('Broken embed') })")
         page.assetChanged("Note.md")
-        try await wait("The error reaches the messages.") { model.messages.last?.isError == true }
+        try await waitFor("The error reaches the messages.") { model.messages.last?.isError == true }
     }
 }

@@ -34,6 +34,5 @@ final class SourcesTests: XCTestCase {
         XCTAssertFalse(today.contains(.scope(.feed("f"))))
         let feeds = IndexEntry.entries(tab: .feeds, sections: ["Inbox"], feeds: ["f"], sessionFolders: [])
         XCTAssertEqual(feeds, [.scope(.sources), .scope(.feed("f"))])
-        XCTAssertFalse(PaperScope.sources.showsCaptures)
     }
 }

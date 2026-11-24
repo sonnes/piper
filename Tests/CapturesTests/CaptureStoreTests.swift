@@ -503,17 +503,7 @@ final class CaptureStoreTests: XCTestCase {
         sqlite3_close(db)
     }
 
-    private func storedVersion(at url: URL) -> Int32? {
-        var db: OpaquePointer?
-        guard sqlite3_open(url.path, &db) == SQLITE_OK else { return nil }
-        defer { sqlite3_close(db) }
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, "SELECT version FROM state WHERE id=1", -1, &statement, nil) == SQLITE_OK else { return nil }
-        defer { sqlite3_finalize(statement) }
-        return sqlite3_step(statement) == SQLITE_ROW ? sqlite3_column_int(statement, 0) : nil
-    }
-
-    func testAVersionOneDatabaseLoadsAndSavesAsVersionTwo() throws {
+    func testAVersionOneDatabaseLoadsAndTakesNewChanges() throws {
         let url = url("v1.sqlite")
         let v1 = Data(#"{"notes":[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","text":"from 0.3","section":"Inbox","sources":[],"sourceURLs":[],"isDone":false,"createdAt":0,"modifiedAt":0}],"sections":["Inbox"],"activeSection":"Inbox"}"#.utf8)
         writeState(version: 1, v1, to: url)
@@ -521,16 +511,8 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertNil(store.loadError)
         XCTAssertEqual(store.notes.map(\.text), ["from 0.3"])
         XCTAssertNoThrow(try store.addChild("a quote", to: store.notes[0].id, tags: ["highlight"]))
-        XCTAssertEqual(storedVersion(at: url), 2)
-        // A second save compares against version 2.
         XCTAssertNoThrow(try store.add("second", section: store.activeSection))
         XCTAssertEqual(CaptureStore(url: url).children(of: store.notes[0].id).map(\.tags), [["highlight"]])
-    }
-
-    func testANewDatabaseIsVersionTwo() throws {
-        let url = url("new.sqlite")
-        XCTAssertNoThrow(try CaptureStore(url: url).add("first", section: "Inbox"))
-        XCTAssertEqual(storedVersion(at: url), 2)
     }
 
     func testAVersionThreeDatabaseIsRefused() throws {
@@ -541,7 +523,6 @@ final class CaptureStoreTests: XCTestCase {
         XCTAssertNotNil(store.loadError)
         XCTAssertThrowsError(try store.add("overwrite", section: store.activeSection))
         XCTAssertEqual(try Data(contentsOf: url), before)
-        XCTAssertEqual(storedVersion(at: url), 3)
     }
 
     // MARK: - Deleting

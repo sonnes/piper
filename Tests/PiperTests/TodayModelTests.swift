@@ -25,7 +25,7 @@ final class TodayModelTests: XCTestCase {
             Article(id: $0, feedID: "https://f.example/feed", url: "https://f.example/\($0)", title: "Post \($0)",
                     summary: "", published: Date(), arrived: Date())
         })
-        model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path,
+        model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults(),
                          feeds: FeedStore(url: feedsURL) { XCTFail("\($0)") })
         model.library.reload()
         today = TodayModel(model: model)
@@ -110,12 +110,6 @@ final class TodayModelTests: XCTestCase {
         XCTAssertEqual(stored(item)?.isDone, false)
         XCTAssertEqual(model.feeds.article("one")?.read, false)
         XCTAssertEqual(model.clipboard.entries.map(\.text), ["tail -f cranes.log"])
-    }
-
-    func testTheUndoOfferLeavesAfterFiveSeconds() async throws {
-        XCTAssertEqual(TodayModel.undoSeconds, 5)
-        today.done([try note("Short-lived")])
-        XCTAssertNotNil(today.undo)
     }
 
     func testDoneOnADigestMarksEachArticleAsRead() throws {

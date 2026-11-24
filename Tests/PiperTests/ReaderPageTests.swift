@@ -29,7 +29,7 @@ final class ReaderPageTests: XCTestCase {
         window.contentView?.addSubview(view)
         let page = try XCTUnwrap(PiperTheme.resources.url(forResource: "reader", withExtension: "html"))
         view.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
-        try await wait("The page is ready.") { self.messages.received.contains { $0["action"] as? String == "ready" } }
+        try await waitFor("The page is ready.") { self.messages.received.contains { $0["action"] as? String == "ready" } }
         _ = try await view.evaluateJavaScript("""
         window.piper.render({ site: "harbor.example", title: "Tide Tables", byline: ["Mara Vale"],
           blocks: [{ kind: "paragraph", text: "The tide turns twice a day at the harbor mouth." }] })
@@ -38,15 +38,6 @@ final class ReaderPageTests: XCTestCase {
 
     override func tearDown() async throws {
         window.close()
-    }
-
-    private func wait(_ message: String, _ condition: @escaping () -> Bool) async throws {
-        let deadline = Date().addingTimeInterval(10)
-        while Date() < deadline {
-            if condition() { return }
-            try await Task.sleep(for: .milliseconds(50))
-        }
-        XCTFail(message)
     }
 
     /// Selects "twice a day" in the first block.
@@ -71,7 +62,7 @@ final class ReaderPageTests: XCTestCase {
         try await select()
         let used = try await view.evaluateJavaScript("window.piper.key('h')") as? Bool
         XCTAssertEqual(used, true)
-        try await wait("The page sends the highlight.") { !self.highlights().isEmpty }
+        try await waitFor("The page sends the highlight.") { !self.highlights().isEmpty }
         let message: ReaderPageMessage = try WebPageBridge.decode(try XCTUnwrap(highlights().first))
         XCTAssertEqual(message, .mark(.highlight(NoteAnchor(quote: "twice a day", block: 0, offset: 15), color: "yellow")))
     }
@@ -88,7 +79,7 @@ final class ReaderPageTests: XCTestCase {
         _ = try await view.evaluateJavaScript("""
         document.querySelector('#noteinput').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
         """)
-        try await wait("Escape keeps the highlight.") { !self.highlights().isEmpty }
+        try await waitFor("Escape keeps the highlight.") { !self.highlights().isEmpty }
         XCTAssertFalse(messages.received.contains { $0["action"] as? String == "note" })
     }
 
@@ -102,7 +93,7 @@ final class ReaderPageTests: XCTestCase {
           input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         })()
         """)
-        try await wait("Return saves the note.") { self.messages.received.contains { $0["action"] as? String == "note" } }
+        try await waitFor("Return saves the note.") { self.messages.received.contains { $0["action"] as? String == "note" } }
         let note = try XCTUnwrap(messages.received.first { $0["action"] as? String == "note" })
         XCTAssertEqual(note["text"] as? String, "Check the almanac.")
     }
@@ -111,7 +102,7 @@ final class ReaderPageTests: XCTestCase {
         _ = try await view.evaluateJavaScript("""
         document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 't', bubbles: true }))
         """)
-        try await wait("The page sends T to the paper.") {
+        try await waitFor("The page sends T to the paper.") {
             self.messages.received.contains { $0["action"] as? String == "key" && $0["key"] as? String == "t" }
         }
     }

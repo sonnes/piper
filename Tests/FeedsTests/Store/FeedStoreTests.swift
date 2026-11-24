@@ -59,6 +59,25 @@ final class StubProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
+/// Fails each request, as a computer with no network does.
+final class OfflineProtocol: URLProtocol {
+
+    static func session() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [OfflineProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+    }
+
+    override func stopLoading() {}
+}
+
 private let rss = """
 <?xml version="1.0"?>
 <rss version="2.0"><channel><title>Garden Letters</title><link>https://gardenletters.example/</link>
@@ -251,9 +270,9 @@ private func temporaryDatabase() -> URL {
     @Test func subscribeFetchesAndCountsUnread() async throws {
         StubProtocol.serve(["https://store.example/feed.xml": .init(status: 200, body: rss, headers: ["ETag": "\"v1\""])])
         let store = FeedStore(url: temporaryDatabase(), session: StubProtocol.session()) { Issue.record("\($0)") }
-        #expect(store.subscribe(url: "https://store.example/feed.xml", title: nil))
-        #expect(!store.subscribe(url: "https://store.example/feed.xml", title: nil))
-        while !store.fetching.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        let fetch = try #require(store.subscribe(url: "https://store.example/feed.xml", title: nil))
+        #expect(store.subscribe(url: "https://store.example/feed.xml", title: nil) == nil)
+        await fetch.value
         let feed = try #require(store.feeds.first)
         #expect(feed.title == "Garden Letters")
         #expect(feed.etag == "\"v1\"")
@@ -266,8 +285,7 @@ private func temporaryDatabase() -> URL {
 
     @Test func failedFetchRecordsTheReason() async throws {
         let store = FeedStore(url: temporaryDatabase(), session: StubProtocol.session()) { Issue.record("\($0)") }
-        store.subscribe(url: "https://gone.example/feed", title: "Gone")
-        while !store.fetching.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+        await store.subscribe(url: "https://gone.example/feed", title: "Gone")?.value
         let feed = try #require(store.feeds.first)
         #expect(feed.failures == 1)
         #expect(feed.error == "The server answered 404.")
@@ -330,18 +348,15 @@ private let pixel = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAA
         #expect(data == nil)
     }
 
-    @Test @MainActor func storeKeepsTheIconOnDisk() async throws {
+    @Test @MainActor func storeKeepsTheIconOnDisk() async {
         StubProtocol.serve(["https://kept-icon.example/favicon.ico": .init(status: 200, data: pixel)])
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("FaviconTests-\(UUID().uuidString)")
         let store = FaviconStore(folder: folder, session: StubProtocol.session())
         #expect(store.icon(for: "www.Kept-Icon.example") == nil)
-        for _ in 0..<50 where store.icons["kept-icon.example"] == nil { try await Task.sleep(for: .milliseconds(20)) }
-        #expect(store.icons["kept-icon.example"] == pixel)
-        #expect(try Data(contentsOf: folder.appendingPathComponent("kept-icon.example")) == pixel)
+        #expect(await store.load("www.Kept-Icon.example").value == pixel)
+        #expect(store.icon(for: "kept-icon.example") == pixel)
 
-        let restarted = FaviconStore(folder: folder, session: StubProtocol.session())
-        _ = restarted.icon(for: "kept-icon.example")
-        for _ in 0..<50 where restarted.icons["kept-icon.example"] == nil { try await Task.sleep(for: .milliseconds(20)) }
-        #expect(restarted.icons["kept-icon.example"] == pixel)
+        let restarted = FaviconStore(folder: folder, session: OfflineProtocol.session())
+        #expect(await restarted.load("kept-icon.example").value == pixel)
     }
 }

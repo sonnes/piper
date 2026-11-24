@@ -64,15 +64,6 @@ final class ReaderAssistantTests: XCTestCase {
 
     private func anchor(_ quote: String) -> NoteAnchor { NoteAnchor(quote: quote, block: 0, offset: 0) }
 
-    private func wait(until condition: () -> Bool) async throws {
-        for _ in 0..<500 {
-            if condition() { return }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        XCTFail("The condition did not hold in time")
-        throw XCTSkip("The condition did not hold in time")
-    }
-
     private func text(of id: UUID) -> String { store.notes.first { $0.id == id }?.text ?? "" }
 
     private func inputs() -> [String] {
@@ -91,7 +82,7 @@ final class ReaderAssistantTests: XCTestCase {
         XCTAssertEqual(assistant.waitingNotes, [first.id, second.id])
         XCTAssertEqual(agents.runner.sessions.count, 1)
 
-        try await wait { assistant.waitingNotes.isEmpty }
+        try await waitFor("The answers arrive.") { assistant.waitingNotes.isEmpty }
         XCTAssertTrue(text(of: first.id).hasSuffix("Answer 1"), text(of: first.id))
         XCTAssertTrue(text(of: second.id).hasSuffix("Answer 2"), text(of: second.id))
         XCTAssertTrue(assistant.failures.isEmpty)
@@ -117,7 +108,7 @@ final class ReaderAssistantTests: XCTestCase {
         let (assistant, _) = makeAssistant(executable: nil)
         let parent = try capture()
         let note = try XCTUnwrap(assistant.ask(.explain, about: anchor("passage"), in: parent, article: article))
-        try await wait { assistant.waitingNotes.isEmpty }
+        try await waitFor("The failed turn ends.") { assistant.waitingNotes.isEmpty }
         XCTAssertTrue(assistant.failures[note.id]?.contains("Settings > AI") == true, assistant.failures[note.id] ?? "")
         XCTAssertEqual(text(of: note.id), "Explain: passage")
     }

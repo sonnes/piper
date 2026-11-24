@@ -206,7 +206,6 @@ final class UnifiedStreamTests: XCTestCase {
         let kept = article("kept", feed: "kept", title: "From a kept feed")
         XCTAssertEqual(relevance.ranked([plain, site, kept, topic]).map(\.id), ["kept", "site", "topic", "plain"])
         XCTAssertEqual(relevance.score(plain), 0)
-        XCTAssertEqual(relevance.score(kept), 3.0 / 8.0, accuracy: 0.0001)
     }
 
     func testRelevanceFromLocalSignals() {

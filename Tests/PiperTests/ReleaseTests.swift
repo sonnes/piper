@@ -21,7 +21,7 @@ final class ReleaseTests: XCTestCase {
 
     func testFreshAppHasOnlyInboxAndNoSeededContent() {
         let store = CaptureStore(url: databaseURL)
-        let model = AppModel(store: store, wikiPath: folder.appendingPathComponent("Wiki").path)
+        let model = AppModel(store: store, wikiPath: folder.appendingPathComponent("Wiki").path, preferences: temporaryDefaults())
         XCTAssertEqual(store.sections, ["Inbox"])
         XCTAssertEqual(store.activeSection, "Inbox")
         XCTAssertTrue(store.notes.isEmpty)
@@ -34,7 +34,7 @@ final class ReleaseTests: XCTestCase {
         let pasteboard = NSPasteboard(name: .init("com.piper.release-test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
         let store = CaptureStore(url: databaseURL)
-        let model = AppModel(store: store, wikiPath: folder.path)
+        let model = AppModel(store: store, wikiPath: folder.path, preferences: temporaryDefaults())
         let text = "# Literal heading\n  你好 👋🏽\n\tlet x = 1\n"
         pasteboard.setString(text, forType: .string)
         let version = pasteboard.changeCount
@@ -54,7 +54,7 @@ final class ReleaseTests: XCTestCase {
         let pasteboard = NSPasteboard(name: .init("com.piper.model-test." + UUID().uuidString))
         defer { pasteboard.releaseGlobally() }
         let store = CaptureStore(url: databaseURL)
-        let model = AppModel(store: store, wikiPath: folder.path)
+        let model = AppModel(store: store, wikiPath: folder.path, preferences: temporaryDefaults())
         pasteboard.setString("A fictional field note", forType: .string)
         let version = pasteboard.changeCount
 
@@ -158,7 +158,7 @@ final class ReleaseTests: XCTestCase {
     func testInvalidStoredSectionsBlockWrites() throws {
         let database = try Database(url: databaseURL)
         _ = try database.load()
-        // `Database` now stores an opaque blob, so the test encodes the invalid
+        // `Database` stores an opaque blob, so the test encodes the invalid
         // state the way `CaptureStore` does.
         try database.save(JSONEncoder().encode(SavedState(notes: [Note(text: "preserve", section: "Missing")])))
         let before = try Data(contentsOf: databaseURL)
@@ -171,7 +171,7 @@ final class ReleaseTests: XCTestCase {
     func testCaptureEditorConflictPreservesDraft() throws {
         let store = CaptureStore(url: databaseURL)
         XCTAssertNoThrow(try store.add("original", section: store.activeSection))
-        let model = AppModel(store: store, wikiPath: folder.path)
+        let model = AppModel(store: store, wikiPath: folder.path, preferences: temporaryDefaults())
         let first = model.editCapture(store.notes[0])
         let second = model.editCapture(store.notes[0])
         first.text = "saved edit"

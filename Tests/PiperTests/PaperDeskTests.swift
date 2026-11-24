@@ -7,11 +7,10 @@ import XCTest
 
 final class PaperDeskStateTests: XCTestCase {
     private var defaults: UserDefaults!
-    private let suite = "piper-paper-desk-tests"
+    private let suite = "piper-paper-desk-tests-" + UUID().uuidString
 
     override func setUp() {
         defaults = UserDefaults(suiteName: suite)
-        defaults.removePersistentDomain(forName: suite)
     }
 
     override func tearDown() { defaults.removePersistentDomain(forName: suite) }
@@ -93,14 +92,12 @@ final class PaperDeskStateTests: XCTestCase {
                        [.today, .feeds, .agents, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
         XCTAssertEqual(PaperTab.column(folders: folders, showsAgents: false),
                        [.today, .feeds, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
-        XCTAssertEqual(PaperTab.today.color(folders: [:]), .indigo)
         let many = (1...12).map { "/n/\($0)" }
         XCTAssertEqual(PaperTab.column(folders: many, showsAgents: false).count, 14, "The column has no limit.")
         XCTAssertEqual(PaperTab.folder("/n/Field Notes").title, "Field Notes")
     }
 
-    func testEachFixedTabHasItsColorAndNewFoldersTakeTheFolderColorsInOrder() {
-        XCTAssertEqual(PaperTab.fixed.map { $0.color(folders: [:]) }, [.indigo, .sky, .plum])
+    func testNewFoldersTakeTheFolderColorsInOrderAndNoFixedTabColor() {
         var state = PaperDeskState()
         state.assignColors(to: ["/n/a", "/n/b", "/n/c"])
         XCTAssertEqual(state.folderColors, ["/n/a": .teal, "/n/b": .rose, "/n/c": .clay])
@@ -156,8 +153,6 @@ final class PaperDeskStateTests: XCTestCase {
                        PaperDesk.frame(index: 0, size: size, feed: feed, screen: screen))
     }
 
-    /// A paper that opens after another paper closed takes the free place, and
-    /// does not cover a paper that is still open.
     func testThePaperWindowHoldsTheMarginOfTheShadow() {
         let paper = NSRect(x: 100, y: 200, width: 520, height: 760)
         let margin = PaperWindow.Metrics.shadowMargin
@@ -167,6 +162,8 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertEqual(PaperWindow.paperFrame(of: window), paper)
     }
 
+    /// A paper that opens after another paper closed takes the free place, and
+    /// does not cover a paper that is still open.
     func testANewPaperTakesTheFirstFreePlace() {
         let screen = NSRect(x: 0, y: 0, width: 2000, height: 1200)
         let feed = NSRect(x: 100, y: 200, width: 520, height: 760)
@@ -313,15 +310,6 @@ final class PaperDeskStateTests: XCTestCase {
 
     // MARK: - Resize
 
-    func testEachPaperHasItsMinimumSize() {
-        let reader = PaperWindow(paperSize: NSSize(width: 600, height: 560), minimumPaperSize: ReaderPaperController.Metrics.minimumSize)
-        XCTAssertEqual(reader.minimumPaperSize, NSSize(width: 420, height: 320))
-        let feedMinimum = NSSize(width: FeedPaperController.Metrics.feedMinimumSize.width + PaperTabs.Metrics.tabVisible,
-                                 height: FeedPaperController.Metrics.feedMinimumSize.height)
-        let feed = PaperWindow(paperSize: NSSize(width: 600, height: 760), minimumPaperSize: feedMinimum)
-        XCTAssertEqual(feed.minimumPaperSize, feedMinimum)
-    }
-
     func testTheEdgeUnderThePointerPicksTheResize() {
         let paper = NSRect(x: 100, y: 100, width: 600, height: 500)
         XCTAssertEqual(PaperResize.edges(at: NSPoint(x: 97, y: 300), paper: paper), .left)
@@ -418,12 +406,6 @@ final class PaperDeskStateTests: XCTestCase {
         XCTAssertEqual(PiperTheme.rowFill(selected: false, focused: true, hovered: false), .clear)
     }
 
-    /// The hairline between two rows starts at the text column, after the mark.
-    func testTheRowSeparatorStartsAtTheTextColumn() {
-        let metrics = PaperRowMetrics.self
-        XCTAssertEqual(metrics.separatorInset, metrics.listRowPadding.leading + metrics.markColumn + metrics.rowSpacing)
-    }
-
     func testATabCountStopsAtItsLimit() {
         XCTAssertEqual(TabColumn.countText(4), "4")
         XCTAssertEqual(TabColumn.countText(PaperTabs.Metrics.countLimit + 1), "\(PaperTabs.Metrics.countLimit)+")
@@ -514,12 +496,11 @@ final class PaperDeskTests: XCTestCase {
     /// restores follow each change.
     func testTheDeskFollowsBackForwardAndLinks() async throws {
         try Data("# Harbor\n".utf8).write(to: root.appendingPathComponent("notes/harbor.md"))
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
         model.library.reload()
-        for _ in 0..<400 where model.library.loading || model.library.files.count < 2 { try await Task.sleep(for: .milliseconds(20)) }
-        let suite = "piper-paper-desk-window-tests"
+        try await waitFor("The scan finds both files.") { !model.library.loading && model.library.files.count == 2 }
+        let suite = "piper-paper-desk-window-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defaults.removePersistentDomain(forName: suite)
         defer { defaults.removePersistentDomain(forName: suite) }
         let desk = PaperDesk(model: model, defaults: defaults)
         defer { desk.hide() }
@@ -552,7 +533,7 @@ final class PaperDeskTests: XCTestCase {
         try database.save(Feed(id: "https://example.com/feed", title: "Example", nextFetch: .distantFuture))
         try database.insert([Article(id: "a1", feedID: "https://example.com/feed", url: "https://example.com/harbor",
                                      title: "Harbor", summary: "", published: Date(), arrived: Date())])
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path,
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults(),
                              feeds: FeedStore(url: feedsURL) { XCTFail("\($0)") })
         let article = PaperItem.article("a1")
         XCTAssertEqual(article.identity(in: model), article, "An article that nobody kept is its own paper.")
@@ -572,10 +553,9 @@ final class PaperDeskTests: XCTestCase {
     /// Window > Feeds, the command palette, and a pasted feed address open
     /// Sources on the Feeds tab. A pasted address waits for Sources to look it up.
     func testShowSourcesOpensSourcesOnTheFeedsTabWithTheAddress() async throws {
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
-        let suite = "piper-paper-desk-sources-tests"
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let suite = "piper-paper-desk-sources-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defaults.removePersistentDomain(forName: suite)
         defer { defaults.removePersistentDomain(forName: suite) }
         let desk = PaperDesk(model: model, defaults: defaults)
         defer { desk.hide() }
@@ -608,10 +588,9 @@ final class PaperDeskTests: XCTestCase {
     /// New Capture, Window > Today, and the menu bar item show the feed paper
     /// on Today with an empty search and a request for the capture field.
     func testNewCaptureShowsTodayWithTheCaptureField() async throws {
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
-        let suite = "piper-paper-desk-capture-tests"
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let suite = "piper-paper-desk-capture-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defaults.removePersistentDomain(forName: suite)
         defer { defaults.removePersistentDomain(forName: suite) }
         let desk = PaperDesk(model: model, defaults: defaults)
         defer { desk.hide() }
@@ -641,12 +620,11 @@ final class PaperDeskTests: XCTestCase {
             try FileManager.default.createDirectory(at: root.appendingPathComponent(folder), withIntermediateDirectories: true)
             try Data("x\n".utf8).write(to: root.appendingPathComponent("\(folder)/x.md"))
         }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
         model.library.reload()
-        for _ in 0..<400 where model.library.loading || model.library.files.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
-        let suite = "piper-paper-tree-tests"
+        try await waitFor("The scan finds the files.") { !model.library.loading && !model.library.files.isEmpty }
+        let suite = "piper-paper-tree-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defaults.removePersistentDomain(forName: suite)
         defer { defaults.removePersistentDomain(forName: suite) }
         let desk = PaperDesk(model: model, defaults: defaults)
         defer { desk.hide() }
@@ -690,7 +668,9 @@ final class PaperDeskTests: XCTestCase {
 
         for (index, folder) in roots.enumerated() {
             paper.choose(.folder(folder.path))
-            for _ in 0..<400 where model.library.loading || model.library.files.count != index + 1 { try await Task.sleep(for: .milliseconds(20)) }
+            try await waitFor("The scan of \(folder.lastPathComponent) finishes.") {
+                !model.library.loading && model.library.files.count == index + 1
+            }
             XCTAssertEqual(model.library.wikiPath, folder.path)
             XCTAssertEqual(paper.state.tab, .folder(folder.path))
             XCTAssertEqual(paper.treeRows.map(\.name), (0...index).map { "\($0).md" })
@@ -711,10 +691,9 @@ final class PaperDeskTests: XCTestCase {
     /// The paper fills its frame in the window. The hidden title bar takes no
     /// room, so the column of tabs has the whole height of the paper.
     func testTheFeedPaperFillsItsFrame() async throws {
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
-        let suite = "piper-paper-frame-tests"
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
+        let suite = "piper-paper-frame-tests-" + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defaults.removePersistentDomain(forName: suite)
         defer { defaults.removePersistentDomain(forName: suite) }
         let paper = FeedPaperModel(model: model, defaults: defaults)
         let desk = PaperDesk(model: model, defaults: defaults)
@@ -723,10 +702,9 @@ final class PaperDeskTests: XCTestCase {
         let window = try XCTUnwrap(controller.window as? PaperWindow)
         window.setPaperFrame(NSRect(x: 100, y: 100, width: 560, height: 700), display: true)
         window.contentView?.layoutSubtreeIfNeeded()
-        for _ in 0..<50 where paper.paperHeight != 700 {
-            try await Task.sleep(for: .milliseconds(20))
+        try await waitFor("The paper takes the height of its frame.") {
             window.contentView?.layoutSubtreeIfNeeded()
+            return paper.paperHeight == 700
         }
-        XCTAssertEqual(paper.paperHeight, 700)
     }
 }

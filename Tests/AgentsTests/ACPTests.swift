@@ -84,11 +84,6 @@ final class ACPMessageTests: XCTestCase {
         XCTAssertNil(ACP.Mode.readOnly(in: [ACP.Mode(id: "build", name: "Build"), ACP.Mode(id: "planner-x", name: "Planner")]))
     }
 
-    func testClaudeCodeModesComeFromThePermissionModes() {
-        XCTAssertEqual(ClaudeCodeConnection.modes.map(\.id), ["auto", "acceptEdits", "manual", "plan", "bypassPermissions"])
-        XCTAssertEqual(PermissionMode(rawValue: "plan"), .plan)
-    }
-
     func testOldSnapshotDecodesAsAClaudeCodeSession() throws {
         let json = """
         {"id":"8D8B7E6F-5C4B-4A39-8271-6F5E4D3C2B1A","folder":"/w","claudeSessionID":"s-9","state":"idle",
@@ -186,15 +181,6 @@ final class ACPAgentTests: XCTestCase {
         runner.agents = [agent]
         runner.usesLoginShell = false
         return runner
-    }
-
-    private func wait(_ message: String = "The condition did not hold in time", until condition: () -> Bool) async throws {
-        for _ in 0..<500 {
-            if condition() { return }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        XCTFail(message)
-        throw XCTSkip(message)
     }
 
     private func received() -> [String] {

@@ -59,14 +59,13 @@ public final class FeedStore {
 
     public func feed(_ id: String) -> Feed? { feeds.first { $0.id == id } }
 
-    /// Adds the feed and fetches it now. Returns false if the feed exists.
+    /// Adds the feed and fetches it now. Returns the fetch, or nil if the feed exists.
     @discardableResult
-    public func subscribe(url: String, title: String?, home: String? = nil) -> Bool {
-        guard feed(url) == nil else { return false }
+    public func subscribe(url: String, title: String?, home: String? = nil) -> Task<Void, Never>? {
+        guard feed(url) == nil else { return nil }
         let feed = Feed(id: url, title: title?.nilIfEmptyOrWhitespace ?? URL(string: url)?.host ?? url, home: home)
         write { try $0.save(feed) }
-        refresh([feed])
-        return true
+        return refresh([feed])
     }
 
     /// Adds each feed that Piper does not have. Returns the count of new feeds.
@@ -137,22 +136,28 @@ public final class FeedStore {
 
     // MARK: - Refresh
 
-    /// Fetches each feed whose next fetch time has come.
-    public func refreshDue(now: Date = Date()) {
+    /// Fetches each feed whose next fetch time has come. The task ends when
+    /// each fetch has saved its result.
+    @discardableResult
+    public func refreshDue(now: Date = Date()) -> Task<Void, Never> {
         refresh(feeds.filter { $0.nextFetch <= now })
     }
 
-    /// Fetches each feed now, whatever its next fetch time.
-    public func refreshAll() {
+    /// Fetches each feed now, whatever its next fetch time. The task ends
+    /// when each fetch has saved its result.
+    @discardableResult
+    public func refreshAll() -> Task<Void, Never> {
         refresh(feeds)
     }
 
-    private func refresh(_ due: [Feed]) {
+    /// A feed that a fetch holds now is skipped, and its fetch is not part of the task.
+    @discardableResult
+    private func refresh(_ due: [Feed]) -> Task<Void, Never> {
         let waiting = due.filter { !fetching.contains($0.id) }
-        guard !waiting.isEmpty else { return }
+        guard !waiting.isEmpty else { return Task {} }
         fetching.formUnion(waiting.map(\.id))
         let session = session
-        Task {
+        return Task {
             await withTaskGroup(of: (Feed, Swift.Result<FeedFetch.Result, Error>).self) { group in
                 var queue = waiting[...]
                 func next() {

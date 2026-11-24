@@ -67,7 +67,7 @@ final class PiperTests: XCTestCase {
         XCTAssertEqual(doc.title, "Test")
         XCTAssertEqual(doc.body, "Body\n")
 
-        // The headline change: a plain file is a file, not a problem.
+        // A plain file is a file, not a problem.
         let plain = makeFile("Just text, no block.\n", path: "notes.md")
         XCTAssertNil(plain.frontmatterProblem)
         XCTAssertEqual(plain.body, "Just text, no block.\n")

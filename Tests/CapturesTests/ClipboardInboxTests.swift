@@ -163,6 +163,17 @@ final class ClipboardInboxTests: XCTestCase {
         XCTAssertNotNil(failed.loadError)
     }
 
+    func testCopyWritesTheExactTextAndStaysOutOfTheTray() {
+        let text = "  line one\n\tline two\n"
+        pasteboard.clearContents()
+        pasteboard.setString("earlier", forType: .string)
+        inbox.poll()
+        XCTAssertTrue(Clipboard.copy(text, to: pasteboard))
+        inbox.poll()
+        XCTAssertEqual(pasteboard.string(forType: .string), text)
+        XCTAssertEqual(inbox.entries.map(\.text), ["earlier"])
+    }
+
     func testMultiplePasteboardItemsKeepTheirOrderAndRejectOversizedText() {
         let first = NSPasteboardItem()
         first.setString("one", forType: .string)

@@ -49,15 +49,6 @@ final class SessionRunnerTests: XCTestCase {
         return runner
     }
 
-    private func wait(_ message: String = "The condition did not hold in time", until condition: () -> Bool) async throws {
-        for _ in 0..<500 {
-            if condition() { return }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        XCTFail(message)
-        throw XCTSkip(message)
-    }
-
     private func lines(_ name: String) -> [String] {
         let text = (try? String(contentsOf: folder.appendingPathComponent(name), encoding: .utf8)) ?? ""
         return text.split(separator: "\n").map(String.init)

@@ -51,7 +51,7 @@ final class SessionCardTests: XCTestCase {
     }
 
     func testTheCardFollowsTheOpenNote() {
-        let model = AppModel(store: CaptureStore(url: folder.appendingPathComponent("notes.sqlite")), wikiPath: folder.path)
+        let model = AppModel(store: CaptureStore(url: folder.appendingPathComponent("notes.sqlite")), wikiPath: folder.path, preferences: temporaryDefaults())
         let runner = model.agents.runner
         let first = UUID(), second = UUID()
         let older = runner.newSession(in: folder.path, noteID: first)

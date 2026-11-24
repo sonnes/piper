@@ -26,11 +26,7 @@ final class WikiFoldersTests: XCTestCase {
     }
 
     private func waitForScan(_ model: AppModel) async throws {
-        for _ in 0..<400 {
-            if !model.library.loading { return }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        XCTFail("The folder scan did not finish.")
+        try await waitFor("The folder scan finishes.") { !model.library.loading }
     }
 
     func testAddsFoldersAndRestoresTheListAndActiveFolder() async throws {
@@ -104,9 +100,7 @@ final class WikiFoldersTests: XCTestCase {
         defer { desk.hide() }
 
         model.files.openRunFile("run.md", in: folder.path)
-        for _ in 0..<400 where model.files.selectedDocument != "run.md" {
-            try await Task.sleep(for: .milliseconds(20))
-        }
+        try await waitFor("The scan finds the file.") { model.files.selectedDocument == "run.md" }
         XCTAssertEqual(model.library.wikiPath, folder.path)
         XCTAssertEqual(model.files.selectedDocument, "run.md")
         XCTAssertTrue(desk.paper.marks.isOpenFile("run.md"))

@@ -16,16 +16,7 @@ final class WikiRefreshTests: XCTestCase {
     override func tearDown() async throws { try FileManager.default.removeItem(at: root) }
 
     private func makeModel() -> AppModel {
-        AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path)
-    }
-
-    private func waitFor(_ description: String, file: StaticString = #filePath, line: UInt = #line,
-                         until condition: () -> Bool) async throws {
-        for _ in 0..<400 {
-            if condition() { return }
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        XCTFail(description, file: file, line: line)
+        AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
     }
 
     func testChangesInNestedFoldersRefreshWithoutManualReload() async throws {
@@ -106,15 +97,13 @@ final class WikiRefreshTests: XCTestCase {
     }
 
     func testChangingRootsDuringAScanStartsWatchingTheNewRoot() async throws {
-        let previous = UserDefaults.standard.object(forKey: "wikiPath")
-        defer { UserDefaults.standard.set(previous, forKey: "wikiPath") }
         let first = root.appendingPathComponent("first")
         let second = root.appendingPathComponent("second")
         for folder in [first, second] {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try Data(folder.lastPathComponent.utf8).write(to: folder.appendingPathComponent("value.txt"))
         }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: first.path)
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: first.path, preferences: temporaryDefaults())
         model.library.reload()
         XCTAssertTrue(model.library.loading)
         model.library.wikiPath = second.path
@@ -126,7 +115,7 @@ final class WikiRefreshTests: XCTestCase {
 
     func testFailedScanKeepsItsMessageForTheFolderTree() async throws {
         let missing = root.appendingPathComponent("missing")
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: missing.path)
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent(".captures.sqlite")), wikiPath: missing.path, preferences: temporaryDefaults())
         model.library.reload()
         try await waitFor("The scan finishes.") { !model.library.loading }
         XCTAssertEqual(model.library.scanError, "The folder is unavailable. Make sure that it exists, or remove its tab and add the folder again.")
@@ -136,8 +125,6 @@ final class WikiRefreshTests: XCTestCase {
     }
 
     func testChangingWikiResetsTheOldDocumentAndSearch() async throws {
-        let previous = UserDefaults.standard.object(forKey: "wikiPath")
-        defer { UserDefaults.standard.set(previous, forKey: "wikiPath") }
         try Data("# Old\n".utf8).write(to: root.appendingPathComponent("old.md"))
         let folder = root.appendingPathComponent("next")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

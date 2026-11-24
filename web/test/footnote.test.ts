@@ -7,6 +7,20 @@ import { lossyFeatures } from "../src/lossGuard";
 
 const roundTrip = (markdown: string) => tiptapDocToMarkdown(markdownToTiptapDoc(markdown));
 
+/**
+ * Types each character the way a key press does. A key press goes through
+ * `handleTextInput`, which runs the input rules, so the test calls it too.
+ */
+function type(editor: Editor, text: string) {
+	for (const character of text) {
+		const { from, to } = editor.state.selection;
+		const handled = editor.view.someProp("handleTextInput", (handler) =>
+			handler(editor.view, from, to, character, () => editor.state.tr.insertText(character, from, to)),
+		);
+		if (!handled) editor.view.dispatch(editor.state.tr.insertText(character, from, to));
+	}
+}
+
 describe("footnotes", () => {
 	it("keeps a reference and its definition", () => {
 		const markdown = "A claim.[^1]\n\n[^1]: The source.";
@@ -58,18 +72,9 @@ describe("footnotes", () => {
 			extensions: [StarterKit, FootnoteReference, FootnoteDefinition],
 			content: "<p></p>",
 		});
-		const type = (text: string) => {
-			for (const character of text) {
-				const { from, to } = editor.state.selection;
-				const handled = editor.view.someProp("handleTextInput", (handler) =>
-					handler(editor.view, from, to, character, () => editor.state.tr.insertText(character, from, to)),
-				);
-				if (!handled) editor.view.dispatch(editor.state.tr.insertText(character, from, to));
-			}
-		};
-		type("A claim.[^1]");
+		type(editor, "A claim.[^1]");
 		editor.commands.splitBlock();
-		type("[^1]: The source.");
+		type(editor, "[^1]: The source.");
 		expect(tiptapDocToMarkdown(editor.getJSON())).toBe("A claim.[^1]\n\n[^1]: The source.");
 		expect(editor.getJSON().content?.map((node) => node.type)).toEqual(["paragraph", "footnoteDefinition", "paragraph"]);
 		editor.destroy();
@@ -82,13 +87,7 @@ describe("footnotes", () => {
 			content: markdownToTiptapDoc("A claim.[^1]\n\n[^1]: The source."),
 		});
 		editor.commands.setTextSelection(editor.state.doc.child(0).nodeSize - 1);
-		for (const character of " More.[^2][^3]") {
-			const { from, to } = editor.state.selection;
-			const handled = editor.view.someProp("handleTextInput", (handler) =>
-				handler(editor.view, from, to, character, () => editor.state.tr.insertText(character, from, to)),
-			);
-			if (!handled) editor.view.dispatch(editor.state.tr.insertText(character, from, to));
-		}
+		type(editor, " More.[^2][^3]");
 		expect(tiptapDocToMarkdown(editor.getJSON())).toBe("A claim.[^1] More.[^2][^3]\n\n[^1]: The source.");
 		editor.destroy();
 	});
@@ -101,13 +100,7 @@ describe("footnotes", () => {
 		});
 		editor.view.dispatch(editor.state.tr);
 		editor.commands.setTextSelection(editor.state.doc.content.size - 1);
-		for (const character of "[^2]: The second source.") {
-			const { from, to } = editor.state.selection;
-			const handled = editor.view.someProp("handleTextInput", (handler) =>
-				handler(editor.view, from, to, character, () => editor.state.tr.insertText(character, from, to)),
-			);
-			if (!handled) editor.view.dispatch(editor.state.tr.insertText(character, from, to));
-		}
+		type(editor, "[^2]: The second source.");
 		expect(tiptapDocToMarkdown(editor.getJSON())).toBe(
 			"A claim.[^1] More.[^2]\n\n[^1]: The source.\n\n[^2]: The second source.",
 		);

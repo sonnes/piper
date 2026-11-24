@@ -14,13 +14,11 @@ final class CommandTests: XCTestCase {
         XCTAssertFalse(keyed.contains { $0.1 == CaptureShortcut.spaceKey }, "The capture hotkey shares a key with a command.")
     }
 
-    func testTheGlyphAndTheNameComeFromTheKey() {
-        XCTAssertEqual(Command.newCapture.key?.glyph, "⌘N")
-        XCTAssertEqual(Command.addFeed.key?.glyph, "⇧⌘N")
-        XCTAssertEqual(Command.sessionCard.key?.glyph, "⌥⌘C")
-        XCTAssertEqual(Command.sessionCard.key?.name, "Option-Command-C")
-        XCTAssertEqual(Command.sendClipboard.key?.glyph, "⌃⌥W")
-        XCTAssertEqual(Command.markAllAsRead.key?.name, "Shift-Command-K")
+    func testTheGlyphAndTheNameListTheModifiersInMenuOrder() {
+        XCTAssertEqual(CommandKey("n").glyph, "⌘N")
+        XCTAssertEqual(CommandKey("n", [.command, .shift]).glyph, "⇧⌘N")
+        XCTAssertEqual(CommandKey("c", [.command, .option]).name, "Option-Command-C")
+        XCTAssertEqual(CommandKey("w", [.option, .control]).glyph, "⌃⌥W")
         XCTAssertEqual(CaptureShortcut.controlOptionSpace.glyph, "⌃⌥Space")
     }
 
@@ -53,7 +51,6 @@ final class CommandTests: XCTestCase {
         }
         XCTAssertTrue(Command.find.isInPalette)
         XCTAssertFalse(Command.copy.isInPalette)
-        XCTAssertEqual(Command.markAllAsRead.menu, .file)
     }
 
     private func command(for event: NSEvent) -> Command? {

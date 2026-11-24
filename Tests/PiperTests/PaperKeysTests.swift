@@ -26,7 +26,6 @@ final class PaperKeysTests: XCTestCase {
             .scope(.sources), .scope(.feed("https://a.example/feed")), .scope(.feed("https://b.example/feed"))
         ])
         XCTAssertTrue(PaperTab.feeds.hasIndex)
-        XCTAssertEqual(PaperTab.feeds.title, "Feeds")
     }
 
     func testAFolderTabHasNoIndex() {

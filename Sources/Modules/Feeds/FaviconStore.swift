@@ -17,8 +17,8 @@ public final class FaviconStore {
 
     @ObservationIgnored private let folder: URL
     @ObservationIgnored private let session: URLSession
-    /// The hosts that this launch asked for. A host with no icon waits for the next launch.
-    @ObservationIgnored private var asked: Set<String> = []
+    /// The search of each host that this launch asked for. A host with no icon waits for the next launch.
+    @ObservationIgnored private var loads: [String: Task<Data?, Never>] = [:]
 
     public init(folder: URL? = nil, session: URLSession = .shared) {
         self.folder = folder ?? DataFolder.url.appendingPathComponent("Favicons")
@@ -26,27 +26,38 @@ public final class FaviconStore {
     }
 
     /// The icon of the host. If the store has no icon, it starts to look for one,
-    /// and `icons` changes when it finds one.
+    /// and `icons` changes when it finds one. A view asks while it draws, so the
+    /// answer arrives in a later update.
     public func icon(for host: String) -> Data? {
         let host = Site(host: host).key
         if let data = icons[host] { return data }
-        guard !host.isEmpty, !asked.contains(host) else { return nil }
-        asked.insert(host)
+        load(host)
+        return nil
+    }
+
+    /// Reads the kept icon of the host, or looks for one on the site. One
+    /// launch looks once for each host. The task gives nil if the site has no icon.
+    @discardableResult
+    public func load(_ host: String) -> Task<Data?, Never> {
+        let host = Site(host: host).key
+        if let task = loads[host] { return task }
+        guard !host.isEmpty else { return Task { nil } }
         let file = folder.appendingPathComponent(host)
         let session = session
         let folder = folder
-        // A view asks while it draws, so the answer arrives in a later update.
-        Task {
+        let task = Task { () -> Data? in
             if let data = try? Data(contentsOf: file), Self.isImage(data) {
                 icons[host] = data
-                return
+                return data
             }
-            guard let data = await Self.find(host, session: session) else { return }
+            guard let data = await Self.find(host, session: session) else { return nil }
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try? data.write(to: file, options: .atomic)
             icons[host] = data
+            return data
         }
-        return nil
+        loads[host] = task
+        return task
     }
 
     /// The first icon of the site that loads as an image.

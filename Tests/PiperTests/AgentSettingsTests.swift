@@ -85,11 +85,7 @@ final class AgentSettingsTests: XCTestCase {
     }
 
     private func waitForRuns(_ agents: AgentSettings) async throws {
-        for _ in 0..<500 {
-            if agents.runner.activeCount == 0 { return }
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        XCTFail("The runs did not finish")
+        try await waitFor("The runs finish.") { agents.runner.activeCount == 0 }
     }
 
     private func prompts() throws -> [String] {
@@ -124,9 +120,7 @@ final class AgentSettingsTests: XCTestCase {
         let directory = plain.appendingPathComponent(".claude/skills/later")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try "---\nname: later\n---\nRun".write(to: directory.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
-        for _ in 0..<500 where skills.available.isEmpty {
-            try await Task.sleep(for: .milliseconds(20))
-        }
+        try await waitFor("The new skill appears.") { !skills.available.isEmpty }
         XCTAssertEqual(skills.available.first?.skills.map(\.name), ["later"])
     }
 
@@ -410,9 +404,7 @@ final class AgentSettingsTests: XCTestCase {
         try "# New".write(to: wiki.appendingPathComponent("sources/new.md"), atomically: true, encoding: .utf8)
         model.files.openRunFile("sources/new.md", in: wiki.path)
 
-        for _ in 0..<400 where model.files.selectedDocument != "sources/new.md" {
-            try await Task.sleep(for: .milliseconds(20))
-        }
+        try await waitFor("The scan finds the file.") { model.files.selectedDocument == "sources/new.md" }
         XCTAssertEqual(model.library.vault.root, Vault(path: wiki.path).root)
         XCTAssertEqual(model.files.selectedDocument, "sources/new.md")
         XCTAssertTrue(desk.paper.marks.isOpenFile("sources/new.md"))

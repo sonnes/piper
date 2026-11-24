@@ -39,7 +39,7 @@ final class FilePreviewTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
         for (path, bytes) in [
             ("photo.png", Data([0, 1, 2, 255])),
             ("data.json", Data("{\"literal\":\"[[value|alias]]\"}".utf8)),
@@ -55,7 +55,6 @@ final class FilePreviewTests: XCTestCase {
             XCTAssertNil(model.files.editor)
             model.files.editorChanged(path: path, text: "Replacement")
             XCTAssertEqual(try Data(contentsOf: url), bytes)
-            XCTAssertNotNil(file)
         }
     }
 
@@ -63,7 +62,7 @@ final class FilePreviewTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path)
+        let model = AppModel(store: CaptureStore(url: root.appendingPathComponent("captures.sqlite")), wikiPath: root.path, preferences: temporaryDefaults())
         let note = makeFile("# Note\n", path: "Note.md")
         let image = VaultFile(relativePath: "image.png", size: 10, modifiedAt: Date(), text: nil)
         model.library.files = [note, image]

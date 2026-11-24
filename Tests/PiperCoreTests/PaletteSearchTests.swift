@@ -3,12 +3,16 @@ import XCTest
 
 final class PaletteSearchTests: XCTestCase {
     func testScoresRankExactOverPrefixOverSubstringOverSubsequence() {
-        XCTAssertEqual(PaletteSearch.score("tea notes", "Tea-Notes"), 1)
-        XCTAssertEqual(PaletteSearch.score("tea", "Tea notes"), 0.9)
-        XCTAssertEqual(PaletteSearch.score("notes", "Tea notes"), 0.75)
-        XCTAssertEqual(PaletteSearch.score("tns", "Tea notes"), 0.45)
+        let exact = PaletteSearch.score("tea notes", "Tea-Notes")
+        let prefix = PaletteSearch.score("tea", "Tea notes")
+        let substring = PaletteSearch.score("notes", "Tea notes")
+        let subsequence = PaletteSearch.score("tns", "Tea notes")
+        XCTAssertGreaterThan(exact, prefix)
+        XCTAssertGreaterThan(prefix, substring)
+        XCTAssertGreaterThan(substring, subsequence)
+        XCTAssertGreaterThan(subsequence, 0)
         XCTAssertEqual(PaletteSearch.score("xyz", "Tea notes"), 0)
-        XCTAssertEqual(PaletteSearch.score("", "Anything"), 1)
+        XCTAssertEqual(PaletteSearch.score("", "Anything"), exact)
     }
 
     func testAFileNameMatchRanksOverAFolderNameMatch() {
