@@ -23,7 +23,7 @@ struct SiteIcon: View {
                 .accessibilityHidden(true)
         } else {
             Text(Self.monogram(title))
-                .font(.system(size: side * 0.6, weight: .bold))
+                .font(.system(size: side * Metrics.monogramFraction, weight: .bold))
                 .foregroundStyle(PiperTheme.onAccent)
                 .frame(width: side, height: side)
                 .background(Color(nsColor: Self.tagColor(for: host)), in: RoundedRectangle(cornerRadius: radius))
@@ -37,6 +37,8 @@ extension SiteIcon {
         static let size: CGFloat = 18
         /// The corner radius of a tile, as a fraction of its side.
         static let tileCornerFraction: CGFloat = 0.28
+        /// The size of the letter on a tile, as a fraction of its side.
+        static let monogramFraction: CGFloat = 0.6
         /// The colors of the letter tiles of sites, in the order of the rows:
         /// violet, emerald, orange, sky, rose, lime, fuchsia, and amber. Rows
         /// next to each other get hues that are far apart. Each color is the

@@ -82,13 +82,13 @@ private extension ReadingToast {
             return AnyView(ToastCard {
                 ToastHeader(title: "Highlighted", detail: "\(count) on this page")
                 ToastArticle(article: article, detail: "in Reading")
-                HStack(spacing: 8) {
-                    HStack(spacing: 5) {
+                HStack(spacing: Metrics.lineSpacing) {
+                    HStack(spacing: Metrics.keyHintSpacing) {
                         KeyChip(text: noteKeys)
                         Text("again to add a note")
                     }
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
-                    Spacer(minLength: 8)
+                    Spacer(minLength: Metrics.lineSpacing)
                     Button("Continue in Piper") { [weak self] in self?.continueReading(articleID) }
                         .buttonStyle(ToastButtonStyle())
                 }
@@ -146,7 +146,7 @@ private struct ToastHeader: View {
     let detail: String?
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: ReadingToast.Metrics.lineSpacing) {
             Image(systemName: "checkmark")
                 .font(.system(size: ReadingToast.Metrics.checkFontSize, weight: .bold))
                 .foregroundStyle(PiperTheme.onAccent)
@@ -154,7 +154,7 @@ private struct ToastHeader: View {
                 .background(PiperTheme.brand, in: Circle())
                 .accessibilityHidden(true)
             Text(title).font(PiperTheme.paperUI(.body, weight: .semibold))
-            Spacer(minLength: 8)
+            Spacer(minLength: ReadingToast.Metrics.lineSpacing)
             if let detail { Text(detail).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint).lineLimit(1) }
         }
     }
@@ -168,8 +168,8 @@ private struct KeyChip: View {
         Text(text)
             .font(PiperTheme.paperUI(.body))
             .foregroundStyle(PiperTheme.paperInk)
-            .padding(.horizontal, 5).padding(.vertical, 1)
-            .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: 4))
+            .padding(.horizontal, ReadingToast.Metrics.keyPadding.width).padding(.vertical, ReadingToast.Metrics.keyPadding.height)
+            .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: ReadingToast.Metrics.keyRadius))
     }
 }
 
@@ -179,17 +179,17 @@ private struct ToastArticle: View {
 
     var body: some View {
         let host = article.articleURL.flatMap(Site.init)?.key ?? ""
-        HStack(spacing: 10) {
+        HStack(spacing: ReadingToast.Metrics.articleSpacing) {
             ArticleBadge(host: host, size: ReadingToast.Metrics.badgeSize)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: ReadingToast.Metrics.articleLineSpacing) {
                 Text(article.reading?.title ?? host).font(PiperTheme.paperUI(.body, weight: .semibold)).lineLimit(2)
                 Text([host, detail].compactMap { $0 }.joined(separator: " · "))
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted).lineLimit(1)
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(PiperTheme.rowHover, in: RoundedRectangle(cornerRadius: 8))
+        .padding(ReadingToast.Metrics.articlePadding)
+        .background(PiperTheme.rowHover, in: RoundedRectangle(cornerRadius: ReadingToast.Metrics.articleRadius))
     }
 }
 
@@ -201,22 +201,22 @@ private struct CommentField: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: ReadingToast.Metrics.commentSpacing) {
             Text(quote)
-                .font(.system(size: 13, design: .serif).italic())
+                .font(.system(size: ReadingToast.Metrics.quoteFontSize, design: .serif).italic())
                 .foregroundStyle(PiperTheme.paperMuted)
                 .lineLimit(3)
-                .padding(.leading, 9)
-                .overlay(alignment: .leading) { Rectangle().fill(PiperTheme.markYellow).frame(width: 2) }
+                .padding(.leading, ReadingToast.Metrics.quoteIndent)
+                .overlay(alignment: .leading) { Rectangle().fill(PiperTheme.markYellow).frame(width: ReadingToast.Metrics.quoteBarWidth) }
             TextField("Add a note", text: $draft.text, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(PiperTheme.paperUI(.body))
                 .lineLimit(3...6)
                 .focused($focused)
                 .onSubmit(save)
-                .padding(8)
-                .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(PiperTheme.focusRing, lineWidth: 1.5))
+                .padding(ReadingToast.Metrics.fieldPadding)
+                .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: ReadingToast.Metrics.fieldRadius))
+                .overlay(RoundedRectangle(cornerRadius: ReadingToast.Metrics.fieldRadius).strokeBorder(PiperTheme.focusRing, lineWidth: ReadingToast.Metrics.fieldRingWidth))
             HStack {
                 Text("Return saves · Esc skips").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                 Spacer()
@@ -249,6 +249,25 @@ extension ReadingToast {
         static let checkSize: CGFloat = 16
         static let checkFontSize: CGFloat = 9
         static let badgeSize: CGFloat = 22
+        /// The space between the parts of a line of a card.
+        static let lineSpacing: CGFloat = 8
+        /// The space between the key and the text of the key hint.
+        static let keyHintSpacing: CGFloat = 5
+        static let keyPadding = CGSize(width: 5, height: 1)
+        static let keyRadius: CGFloat = 4
+        /// The article row: the badge, the title, and the site.
+        static let articleSpacing: CGFloat = 10
+        static let articleLineSpacing: CGFloat = 1
+        static let articlePadding = EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10)
+        static let articleRadius: CGFloat = 8
+        /// The note field under a highlight.
+        static let commentSpacing: CGFloat = 9
+        static let quoteFontSize: CGFloat = 13
+        static let quoteIndent: CGFloat = 9
+        static let quoteBarWidth: CGFloat = 2
+        static let fieldPadding: CGFloat = 8
+        static let fieldRadius: CGFloat = 8
+        static let fieldRingWidth: CGFloat = 1.5
     }
 }
 

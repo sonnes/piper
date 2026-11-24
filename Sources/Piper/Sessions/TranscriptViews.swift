@@ -55,6 +55,39 @@ extension TranscriptBlockView {
         static let diffRemoved = Color(nsColor: PiperTheme.hex(0xEF4444)).opacity(0.12)
         /// The mark of a finished tool call. Green 600.
         static let toolDone = Color(nsColor: PiperTheme.color(light: 0x16A34A, dark: 0x4ADE80))
+        /// The space between a bubble and the context items under it.
+        static let contextSpacing: CGFloat = 4
+        static let bubbleLineSpacing: CGFloat = 3
+        static let assistantLineSpacing: CGFloat = 3.5
+        /// The space between a tool row and the start of its result.
+        static let toolSpacing: CGFloat = 4
+        /// The space between the icon and the text of a tool row and of the fold.
+        static let chipSpacing: CGFloat = 7
+        /// The width of the icon of a tool row and of the fold.
+        static let chipIconWidth: CGFloat = 12
+        static let toolLineFontSize: CGFloat = 12
+        static let toolPreviewFontSize: CGFloat = 11
+        static let toolStatusGlyph: CGFloat = 10
+        /// The least space before the Open button of a tool row.
+        static let toolOpenGap: CGFloat = 4
+        /// The line around a tool result and a diff.
+        static let edgeWidth: CGFloat = 1
+        static let diffFontSize: CGFloat = 11.5
+        static let diffLineInset: CGFloat = 9
+        static let diffLineVerticalPadding: CGFloat = 1
+        static let diffMoreVerticalPadding: CGFloat = 3
+        /// The space between the icon and the text of a one-line block, such as a permission.
+        static let lineIconSpacing: CGFloat = 6
+        /// The open fold: the space between its tool calls, their indent, and the rule beside them.
+        static let foldSpacing: CGFloat = 6
+        static let foldIndent: CGFloat = 12
+        static let foldRuleWidth: CGFloat = 1
+        static let foldRuleInset: CGFloat = 6
+        static let foldChevronGlyph: CGFloat = 9
+        /// The turn of the chevron of an open fold, in degrees.
+        static let foldOpenRotation: Double = 90
+        /// The height of the empty view at the end of a transcript, which the transcript scrolls to.
+        static let endMarkerHeight: CGFloat = 1
     }
 }
 
@@ -67,10 +100,10 @@ struct UserTurnView: View {
     private typealias Metrics = TranscriptBlockView.Metrics
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
+        VStack(alignment: .trailing, spacing: Metrics.contextSpacing) {
             Text(text)
                 .font(PiperTheme.paperUI(.row))
-                .lineSpacing(3)
+                .lineSpacing(Metrics.bubbleLineSpacing)
                 .foregroundStyle(PiperTheme.onAccent)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
@@ -102,7 +135,7 @@ struct AssistantTextView: View {
     var body: some View {
         Text(formatted)
             .font(PiperTheme.paperUI(.row))
-            .lineSpacing(3.5)
+            .lineSpacing(TranscriptBlockView.Metrics.assistantLineSpacing)
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -121,7 +154,7 @@ struct ToolCallRow: View {
     private typealias Metrics = TranscriptBlockView.Metrics
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Metrics.toolSpacing) {
             if let diff = call.diff {
                 DiffView(diff: diff) { header }
             } else {
@@ -131,12 +164,12 @@ struct ToolCallRow: View {
             }
             if expanded, let preview = call.resultPreview {
                 Text(preview)
-                    .font(Font(PiperTheme.manuscript(size: 11)))
+                    .font(Font(PiperTheme.manuscript(size: Metrics.toolPreviewFontSize)))
                     .foregroundStyle(call.isError ? PiperTheme.danger : PiperTheme.paperMuted)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(Metrics.chipPadding)
-                    .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.paperRule, lineWidth: Metrics.edgeWidth))
             }
         }
         .accessibilityElement(children: .combine)
@@ -144,13 +177,13 @@ struct ToolCallRow: View {
     }
 
     private var header: some View {
-        HStack(spacing: 7) {
-            status.frame(width: 12)
+        HStack(spacing: Metrics.chipSpacing) {
+            status.frame(width: Metrics.chipIconWidth)
             Text(call.line)
-                .font(Font(PiperTheme.manuscript(size: 12)))
+                .font(Font(PiperTheme.manuscript(size: Metrics.toolLineFontSize)))
                 .foregroundStyle(PiperTheme.paperMuted)
                 .lineLimit(1).truncationMode(.middle)
-            Spacer(minLength: 4)
+            Spacer(minLength: Metrics.toolOpenGap)
             if let path = call.path, VaultFile.isMarkdown(path), !call.isError {
                 Button("Open") { open(path) }.buttonStyle(.link).font(PiperTheme.paperUI(.body))
             }
@@ -161,9 +194,9 @@ struct ToolCallRow: View {
 
     @ViewBuilder private var status: some View {
         if call.isError {
-            Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundStyle(PiperTheme.danger)
+            Image(systemName: "xmark").font(.system(size: Metrics.toolStatusGlyph, weight: .bold)).foregroundStyle(PiperTheme.danger)
         } else if call.isFinished {
-            Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(TranscriptBlockView.Metrics.toolDone)
+            Image(systemName: "checkmark").font(.system(size: Metrics.toolStatusGlyph, weight: .bold)).foregroundStyle(Metrics.toolDone)
         } else if isLive {
             ProgressView().controlSize(.mini)
         } else {
@@ -194,11 +227,11 @@ struct DiffView<Header: View>: View {
             if changes > shown.count {
                 Text("\(changes - shown.count) more lines")
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
-                    .padding(.horizontal, 9).padding(.vertical, 3)
+                    .padding(.horizontal, Metrics.diffLineInset).padding(.vertical, Metrics.diffMoreVerticalPadding)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: Metrics.chipRadius))
-        .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius).strokeBorder(PiperTheme.paperRule, lineWidth: Metrics.edgeWidth))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Changes")
     }
@@ -212,16 +245,16 @@ struct DiffView<Header: View>: View {
         let (mark, text, fill): (String, String, Color) = {
             switch line {
             case .context(let text): return (" ", text, .clear)
-            case .removed(let text): return ("-", text, TranscriptBlockView.Metrics.diffRemoved)
-            case .added(let text): return ("+", text, TranscriptBlockView.Metrics.diffAdded)
+            case .removed(let text): return ("-", text, Metrics.diffRemoved)
+            case .added(let text): return ("+", text, Metrics.diffAdded)
             }
         }()
         return Text(mark + " " + text)
-            .font(Font(PiperTheme.manuscript(size: 11.5)))
+            .font(Font(PiperTheme.manuscript(size: Metrics.diffFontSize)))
             .foregroundStyle(PiperTheme.paperInk)
             .lineLimit(1).truncationMode(.tail)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 9).padding(.vertical, 1)
+            .padding(.horizontal, Metrics.diffLineInset).padding(.vertical, Metrics.diffLineVerticalPadding)
             .background(fill)
     }
 }
@@ -244,7 +277,7 @@ struct PermissionCard: View {
         if decision == .pending {
             WaitingLine(text: ApprovalDrawer.title(request))
         } else {
-            HStack(spacing: 6) {
+            HStack(spacing: TranscriptBlockView.Metrics.lineIconSpacing) {
                 Image(systemName: decision == .denied ? "hand.raised" : "lock.open")
                     .foregroundStyle(decision == .denied ? PiperTheme.danger : PiperTheme.paperFaint)
                 Text(summary).foregroundStyle(PiperTheme.paperFaint)
@@ -270,7 +303,7 @@ struct WaitingLine: View {
     let text: String
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: TranscriptBlockView.Metrics.lineIconSpacing) {
             Image(systemName: "lock.shield").foregroundStyle(PiperTheme.warning)
             Text(text).foregroundStyle(PiperTheme.paperMuted).lineLimit(1)
         }
@@ -290,7 +323,7 @@ struct QuestionCard: View {
 
     var body: some View {
         if let answers {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Metrics.answerSpacing) {
                 ForEach(questions, id: \.question) { question in
                     Text(question.question + " " + (answers[question.question] ?? "Not answered"))
                         .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
@@ -302,12 +335,12 @@ struct QuestionCard: View {
     }
 
     private var card: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Metrics.cardSpacing) {
             ForEach(questions, id: \.question) { question in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Metrics.questionSpacing) {
                     if !question.header.isEmpty {
                         Text(question.header.uppercased())
-                            .font(PiperTheme.paperUI(.body, weight: .semibold)).tracking(0.4).foregroundStyle(PiperTheme.paperFaint)
+                            .font(PiperTheme.paperUI(.body, weight: .semibold)).tracking(Metrics.headerTracking).foregroundStyle(PiperTheme.paperFaint)
                     }
                     Text(question.question).font(PiperTheme.paperUI(.body, weight: .semibold))
                         .fixedSize(horizontal: false, vertical: true)
@@ -326,9 +359,9 @@ struct QuestionCard: View {
             }
             .controlSize(.small)
         }
-        .padding(10)
+        .padding(Metrics.cardPadding)
         .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.brand.opacity(0.5), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(Metrics.ring, lineWidth: Metrics.ringWidth))
     }
 
     private func optionRow(_ option: PermissionRequest.Question.Option, in question: PermissionRequest.Question) -> some View {
@@ -342,12 +375,12 @@ struct QuestionCard: View {
             }
             chosen[question.question] = labels
         } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.optionSpacing) {
                 Image(systemName: question.multiSelect
                       ? (selected ? "checkmark.square.fill" : "square")
                       : (selected ? "largecircle.fill.circle" : "circle"))
                     .foregroundStyle(selected ? PiperTheme.brand : PiperTheme.paperFaint)
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: Metrics.optionTextSpacing) {
                     Text(option.label).font(PiperTheme.paperUI(.body))
                     if !option.description.isEmpty {
                         Text(option.description).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
@@ -359,6 +392,23 @@ struct QuestionCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}
+
+extension QuestionCard {
+    enum Metrics {
+        /// The space between the answers of an answered question call.
+        static let answerSpacing: CGFloat = 2
+        /// The space between the questions of the card.
+        static let cardSpacing: CGFloat = 10
+        static let questionSpacing: CGFloat = 4
+        static let headerTracking: CGFloat = 0.4
+        static let cardPadding: CGFloat = 10
+        static let ring = PiperTheme.brand.opacity(0.5)
+        static let ringWidth: CGFloat = 1
+        static let optionSpacing: CGFloat = 6
+        /// The space between the label and the description of an option.
+        static let optionTextSpacing: CGFloat = 1
     }
 }
 

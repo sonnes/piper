@@ -41,17 +41,17 @@ struct ReaderPaper: View {
 
     /// The foot of a note paper: the save state, and Mark as Done.
     private func noteFoot(_ note: Note) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Metrics.footSpacing) {
             Label("Saved as you type", systemImage: "checkmark.icloud")
                 .labelStyle(.titleAndIcon)
                 .foregroundStyle(PiperTheme.paperFaint)
-            Spacer(minLength: 8)
+            Spacer(minLength: Metrics.footSpacing)
             Button { toggleDone(note) } label: {
                 Label(note.isDone ? "Open Again" : "Mark as Done",
                       systemImage: note.isDone ? "arrow.uturn.backward" : "checkmark")
                     .font(PiperTheme.paperUI(.body, weight: .semibold))
                     .foregroundStyle(PiperTheme.onAccent)
-                    .padding(.horizontal, 14).frame(height: Metrics.toolbarHeight)
+                    .padding(.horizontal, Metrics.doneButtonPadding).frame(height: Metrics.toolbarHeight)
                     .background(PiperTheme.indigo, in: Capsule())
                     .contentShape(Capsule())
             }
@@ -72,7 +72,7 @@ struct ReaderPaper: View {
     /// The header: what the paper shows at the left, and a floating toolbar
     /// of symbols at the right, as in the Apple apps.
     @ViewBuilder private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Metrics.headerSpacing) {
             switch item {
             case .note(let id, _): noteHeader(model.store.notes.first { $0.id == id })
             case .article(let id): articleHeader(model.feeds.article(id))
@@ -210,9 +210,9 @@ struct PaperToolbar<Content: View>: View {
             .padding(Metrics.toolbarInset)
             .frame(height: Metrics.toolbarHeight + 2 * Metrics.toolbarInset)
             .background(.regularMaterial, in: Capsule())
-            .overlay(Capsule().strokeBorder(PiperTheme.barEdge, lineWidth: 0.5))
-            .shadow(color: PiperTheme.barContactShadow, radius: 1, y: 0.5)
-            .shadow(color: PiperTheme.barSoftShadow, radius: 8, y: 3)
+            .overlay(Capsule().strokeBorder(PiperTheme.barEdge, lineWidth: Metrics.barEdgeLine))
+            .shadow(color: PiperTheme.barContactShadow, radius: Metrics.barContactShadow.radius, y: Metrics.barContactShadow.y)
+            .shadow(color: PiperTheme.barSoftShadow, radius: Metrics.barSoftShadow.radius, y: Metrics.barSoftShadow.y)
             .fixedSize()
     }
 }
@@ -220,7 +220,9 @@ struct PaperToolbar<Content: View>: View {
 /// The thin line between two groups of a toolbar.
 struct PaperToolbarDivider: View {
     var body: some View {
-        PiperTheme.paperRule.frame(width: 1, height: 16).padding(.horizontal, 3).accessibilityHidden(true)
+        let metrics = ReaderPaper.Metrics.self
+        PiperTheme.paperRule.frame(width: metrics.dividerSize.width, height: metrics.dividerSize.height)
+            .padding(.horizontal, metrics.dividerPadding).accessibilityHidden(true)
     }
 }
 
@@ -249,10 +251,10 @@ struct PaperButton: View {
                         .frame(width: Metrics.toolbarButton, height: Metrics.toolbarButton)
                 } else {
                     Text(title).lineLimit(1).fixedSize()
-                        .padding(.horizontal, 12).frame(height: Metrics.toolbarButton)
+                        .padding(.horizontal, Metrics.titleButtonPadding).frame(height: Metrics.toolbarButton)
                 }
             }
-            .foregroundStyle(!enabled ? PiperTheme.paperFaint.opacity(0.6)
+            .foregroundStyle(!enabled ? Metrics.disabledInk
                              : active ? tint : PiperTheme.paperInk)
             .background(hovered && enabled ? PiperTheme.rowHover : .clear, in: Capsule())
             .contentShape(Capsule())
@@ -270,8 +272,8 @@ struct PressStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .opacity(configuration.isPressed ? 0.7 : 1)
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .opacity(configuration.isPressed ? ReaderPaper.Metrics.pressedOpacity : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? ReaderPaper.Metrics.pressedScale : 1)
             .animation(reduceMotion ? nil : .spring(duration: ReaderPaper.Metrics.spring), value: configuration.isPressed)
     }
 }
@@ -334,16 +336,35 @@ extension ReaderPaper {
         static let restOpacity = 0.72
         /// The spring of a pressed button and of the tabs.
         static let spring: Double = 0.25
+        /// A pressed button dims and shrinks a little.
+        static let pressedOpacity = 0.7
+        static let pressedScale: CGFloat = 0.96
         static let readerHeaderHeight: CGFloat = 48
         /// The grip of a reader paper. Its text starts at the side margin of the article.
         static let readerHeaderPadding = EdgeInsets(top: 14, leading: 56, bottom: 0, trailing: 16)
         /// The grip of a note paper, which has narrower margins.
         static let noteHeaderPadding = EdgeInsets(top: 14, leading: 28, bottom: 0, trailing: 16)
         static let noteFootPadding = EdgeInsets(top: 10, leading: 28, bottom: 14, trailing: 20)
+        static let footSpacing: CGFloat = 8
+        /// The side padding of Mark as Done.
+        static let doneButtonPadding: CGFloat = 14
+        static let headerSpacing: CGFloat = 8
         /// The floating toolbar of a reader paper.
         static let toolbarHeight: CGFloat = 34
         static let toolbarButton: CGFloat = 30
         static let toolbarGlyph: CGFloat = 14
         static let toolbarInset: CGFloat = 2
+        /// The side padding of a toolbar button that shows its title.
+        static let titleButtonPadding: CGFloat = 12
+        /// The symbol of a disabled toolbar button.
+        static let disabledInk = PiperTheme.paperFaint.opacity(0.6)
+        /// The thin line between two groups of a toolbar.
+        static let dividerSize = CGSize(width: 1, height: 16)
+        static let dividerPadding: CGFloat = 3
+        /// A bar that floats over a paper, such as the toolbar and the tabs: a thin
+        /// edge, a tight contact shadow, and a soft shadow.
+        static let barEdgeLine: CGFloat = 0.5
+        static let barContactShadow = (radius: CGFloat(1), y: CGFloat(0.5))
+        static let barSoftShadow = (radius: CGFloat(8), y: CGFloat(3))
     }
 }

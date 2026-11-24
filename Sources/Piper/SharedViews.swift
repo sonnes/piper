@@ -70,3 +70,40 @@ extension EmptyPane {
         static let padding: CGFloat = 24
     }
 }
+
+/// A row of a pick list, such as the command palette, the file picker, and the
+/// `/` and `@` lists of the composer. The chosen row has an accent fill.
+struct PickRow: ViewModifier {
+    let chosen: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(chosen ? PiperTheme.onAccent : PiperTheme.paperInk)
+            .padding(.horizontal, Metrics.horizontalPadding)
+            .padding(.vertical, Metrics.verticalPadding)
+            .frame(minHeight: Metrics.height)
+            .background(chosen ? PiperTheme.brand : .clear, in: RoundedRectangle(cornerRadius: Metrics.cornerRadius))
+            .contentShape(Rectangle())
+    }
+
+    /// The color of a second text on a row, such as a folder or a shortcut.
+    static func secondary(_ chosen: Bool, otherwise color: Color) -> Color {
+        chosen ? PiperTheme.onAccentSecondary : color
+    }
+}
+
+extension PickRow {
+    enum Metrics {
+        static let height: CGFloat = 28
+        static let horizontalPadding: CGFloat = 8
+        /// The space over and under a row of two lines.
+        static let verticalPadding: CGFloat = 4
+        static let cornerRadius: CGFloat = 6
+    }
+}
+
+extension View {
+    func pickRow(chosen: Bool) -> some View {
+        modifier(PickRow(chosen: chosen))
+    }
+}

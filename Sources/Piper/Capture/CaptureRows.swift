@@ -23,7 +23,7 @@ struct NewSectionSheet: View {
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: Metrics.spacing) {
             Text("New Section").font(PiperTheme.paperUI(.body, weight: .semibold))
             TextField("Name", text: $name)
                 .textFieldStyle(.roundedBorder)
@@ -35,13 +35,21 @@ struct NewSectionSheet: View {
                 Button("Create", action: submit).keyboardShortcut(.defaultAction).disabled(trimmed.isEmpty)
             }
         }
-        .padding(16).frame(width: 280)
+        .padding(Metrics.padding).frame(width: Metrics.width)
         .onAppear { focused = true }
     }
 
     private func submit() {
         guard !trimmed.isEmpty else { return }
         create(sections.first { $0.caseInsensitiveCompare(trimmed) == .orderedSame } ?? trimmed)
+    }
+}
+
+extension NewSectionSheet {
+    enum Metrics {
+        static let spacing: CGFloat = 10
+        static let padding: CGFloat = 16
+        static let width: CGFloat = 280
     }
 }
 
@@ -60,13 +68,13 @@ struct NoteEditor: View {
     }
     var body: some View {
         VStack(spacing: 0) {
-            TextEditor(text: $session.text).font(PiperTheme.paperUI(.row)).lineSpacing(3)
+            TextEditor(text: $session.text).font(PiperTheme.paperUI(.row)).lineSpacing(Metrics.lineSpacing)
                 .scrollContentBackground(.hidden)
-                .padding(.horizontal, 14).padding(.vertical, 12)
+                .padding(Metrics.textPadding)
                 .accessibilityLabel("Edit note text")
-                .frame(minHeight: 180)
+                .frame(minHeight: Metrics.textMinimumHeight)
             Rule()
-            HStack(spacing: 8) {
+            HStack(spacing: Metrics.barSpacing) {
                 if session.hasChanges {
                     Text("Edited").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                 }
@@ -78,13 +86,29 @@ struct NoteEditor: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(session.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
+            .padding(Metrics.barPadding)
         }
-        .frame(width: 480, height: cancel == nil ? 300 : nil)
+        .frame(width: Metrics.width, height: cancel == nil ? Metrics.sheetHeight : nil)
         .background(PiperTheme.paper)
         .foregroundStyle(PiperTheme.paperInk)
         .tint(PiperTheme.brand)
         .interactiveDismissDisabled(session.hasChanges)
         .onDisappear { model.captureEdits.removeValue(forKey: session.id) }
+    }
+}
+
+extension NoteEditor {
+    enum Metrics {
+        static let width: CGFloat = 480
+        /// The height of the editor in a sheet. In a window, the editor fills the window.
+        static let sheetHeight: CGFloat = 300
+        /// The first size of the Edit Note window.
+        static let windowSize = NSSize(width: width, height: 360)
+        static let lineSpacing: CGFloat = 3
+        static let textPadding = EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14)
+        static let textMinimumHeight: CGFloat = 180
+        /// The bar of the Save and the Cancel buttons.
+        static let barSpacing: CGFloat = 8
+        static let barPadding = EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14)
     }
 }

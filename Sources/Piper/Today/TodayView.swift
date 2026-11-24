@@ -74,7 +74,7 @@ struct TodayView: View {
     }
     private var isDone: Bool { scope == .done }
     private var searchMode: Bool { showingSearch || !today.query.isEmpty }
-    private var motion: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.2) }
+    private var motion: Animation? { reduceMotion ? nil : .easeInOut(duration: Metrics.motionDuration) }
     private var canSave: Bool { !model.composerDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     /// The skills that match the command in the composer.
@@ -134,8 +134,8 @@ struct TodayView: View {
     // MARK: - Search
 
     private func searchField(matches: Int) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(PiperTheme.paperFaint)
+        HStack(spacing: Metrics.searchSpacing) {
+            Image(systemName: "magnifyingglass").font(.system(size: Metrics.searchIconSize)).foregroundStyle(PiperTheme.paperFaint)
             TextField("Search", text: $today.query)
                 .textFieldStyle(.plain).focused($searching)
                 .font(PiperTheme.paperUI(.row))
@@ -149,7 +149,7 @@ struct TodayView: View {
                     .buttonStyle(.plain).accessibilityLabel("Clear search")
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Metrics.fieldInset)
         .frame(height: Metrics.composerHeight)
         .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: PaperRowMetrics.rowRadius))
         .padding(.horizontal, Metrics.composerPadding.leading)
@@ -182,7 +182,7 @@ struct TodayView: View {
                 Text(hint)
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                     .lineLimit(1).help(hint)
-                    .padding(.trailing, 14)
+                    .padding(.trailing, field.fieldInset)
                     .frame(height: field.composerHeight)
                     .allowsHitTesting(false)
             }
@@ -214,7 +214,7 @@ struct TodayView: View {
                 complete($0, run: false)
             }
             .padding(.horizontal, Metrics.completionMargin)
-            .padding(.bottom, 4)
+            .padding(.bottom, Metrics.completionBottom)
         }
     }
 
@@ -319,24 +319,24 @@ struct TodayView: View {
             }
             .font(PiperTheme.paperUI(.body))
             .padding(.horizontal, PaperRowMetrics.listRowPadding.leading)
-            .padding(.top, 8)
+            .padding(.top, Metrics.trayTop)
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(tray.prefix(limit)) { item in row(item, order: order) }
                 }
             }
-            .frame(maxHeight: showsWholeTray ? FeedPaperController.Metrics.feedSize.height / 3 : nil)
+            .frame(maxHeight: showsWholeTray ? Metrics.wholeTrayHeight : nil)
             .fixedSize(horizontal: false, vertical: !showsWholeTray)
         }
         .padding(.horizontal, PaperRowMetrics.listPadding.leading)
-        .padding(.bottom, 6)
-        .overlay(alignment: .top) { Rectangle().fill(PiperTheme.paperRule).frame(height: 1).padding(.horizontal, HintStrip.Metrics.footMargin) }
+        .padding(.bottom, Metrics.trayBottom)
+        .overlay(alignment: .top) { Rectangle().fill(PiperTheme.paperRule).frame(height: Metrics.ruleWidth).padding(.horizontal, HintStrip.Metrics.footMargin) }
     }
 
     // MARK: - Floating Bar And Undo
 
     @ViewBuilder private func floating(_ shown: TodayList) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Metrics.floatingSpacing) {
             if let undo = today.undo {
                 UndoToast(offer: undo, run: today.runUndo)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -597,6 +597,37 @@ extension TodayView {
         static let barHeight: CGFloat = 44
         static let barBottom: CGFloat = 16
         static let barSpacing: CGFloat = 4
+        static let barPadding: CGFloat = 8
+        static let barShadowRadius: CGFloat = 8
+        static let barShadowY: CGFloat = 2
+        /// The space between the Undo button and the selection bar.
+        static let floatingSpacing: CGFloat = 8
+        /// The "3 selected" label at the start of the selection bar.
+        static let barCountPadding: CGFloat = 8
+        static let barCloseSize: CGFloat = 24
+        /// The space between the name of a verb and its key on the selection bar.
+        static let barKeySpacing: CGFloat = 5
+        static let barLabelPadding: CGFloat = 8
+        /// The side padding of a verb on the selection bar when its key does not show.
+        static let barLabelCompactPadding: CGFloat = 6
+        /// The Undo button after Done or Delete.
+        static let toastSpacing: CGFloat = 12
+        static let toastPadding: CGFloat = 16
+        /// The width of the outline of the floating bars and of the rule over the tray.
+        static let ruleWidth: CGFloat = 1
+        /// The side padding of the text in the search field and of the hint in the capture field.
+        static let fieldInset: CGFloat = 14
+        static let searchSpacing: CGFloat = 6
+        static let searchIconSize: CGFloat = 12
+        /// The space under the skill list.
+        static let completionBottom: CGFloat = 4
+        /// The space over the header of the clipboard tray and under its rows.
+        static let trayTop: CGFloat = 8
+        static let trayBottom: CGFloat = 6
+        /// The most height of the tray after Show All: a third of the feed paper.
+        static let wholeTrayHeight = FeedPaperController.Metrics.feedSize.height / 3
+        /// The time of the animations of the list, the tray, and the floating bars.
+        static let motionDuration: Double = 0.2
     }
 }
 
@@ -606,18 +637,18 @@ struct UndoToast: View {
     let run: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: TodayView.Metrics.toastSpacing) {
             Text(offer.message).foregroundStyle(PiperTheme.paperInk)
             Button("Undo", action: run)
                 .buttonStyle(.plain).fontWeight(.semibold).foregroundStyle(PiperTheme.brand)
                 .help("Undo · ⌘Z")
         }
         .font(PiperTheme.paperUI(.body))
-        .padding(.horizontal, 16)
+        .padding(.horizontal, TodayView.Metrics.toastPadding)
         .frame(height: TodayView.Metrics.barHeight)
         .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 1))
-        .shadow(color: PiperTheme.lensShadow, radius: 8, y: 2)
+        .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: TodayView.Metrics.ruleWidth))
+        .shadow(color: PiperTheme.lensShadow, radius: TodayView.Metrics.barShadowRadius, y: TodayView.Metrics.barShadowY)
         .accessibilityElement(children: .combine)
     }
 }
@@ -637,16 +668,16 @@ struct SelectionBar: View {
             items(keys: false)
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
-        .padding(.horizontal, 8)
+        .padding(.horizontal, TodayView.Metrics.barPadding)
         .frame(height: TodayView.Metrics.barHeight)
         .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 1))
-        .shadow(color: PiperTheme.lensShadow, radius: 8, y: 2)
+        .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: TodayView.Metrics.ruleWidth))
+        .shadow(color: PiperTheme.lensShadow, radius: TodayView.Metrics.barShadowRadius, y: TodayView.Metrics.barShadowY)
     }
 
     private func items(keys: Bool) -> some View {
         HStack(spacing: TodayView.Metrics.barSpacing) {
-            Text("\(count) selected").foregroundStyle(PiperTheme.paperMuted).padding(.horizontal, 8).fixedSize()
+            Text("\(count) selected").foregroundStyle(PiperTheme.paperMuted).padding(.horizontal, TodayView.Metrics.barCountPadding).fixedSize()
             ForEach(TodayVerb.bar) { verb in
                 if verb.listsSkills {
                     Menu { SendItems(model: model, verbs: verbs) } label: { label(verb.name, key: verb.glyph, keys: keys) }
@@ -658,7 +689,7 @@ struct SelectionBar: View {
                         .disabled(!verbs.isAvailable(verb))
                 }
             }
-            Button(action: cancel) { Image(systemName: "xmark").foregroundStyle(PiperTheme.paperMuted).frame(width: 24, height: 24) }
+            Button(action: cancel) { Image(systemName: "xmark").foregroundStyle(PiperTheme.paperMuted).frame(width: TodayView.Metrics.barCloseSize, height: TodayView.Metrics.barCloseSize) }
                 .buttonStyle(.plain).help("Clear the selection · Escape").accessibilityLabel("Clear the selection")
         }
     }
@@ -671,12 +702,12 @@ struct SelectionBar: View {
     }
 
     private func label(_ title: String, key: String, keys: Bool) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: TodayView.Metrics.barKeySpacing) {
             Text(title).foregroundStyle(PiperTheme.paperInk)
             if keys { Text(key).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint) }
         }
         .fixedSize()
-        .padding(.horizontal, keys ? 8 : 6)
+        .padding(.horizontal, keys ? TodayView.Metrics.barLabelPadding : TodayView.Metrics.barLabelCompactPadding)
         .frame(height: TodayRow.Metrics.verbButton)
         .contentShape(Capsule())
     }

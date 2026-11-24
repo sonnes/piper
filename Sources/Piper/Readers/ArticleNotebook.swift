@@ -92,7 +92,7 @@ struct ArticleNotebook: View {
     // MARK: - Parts
 
     private func header(_ children: [Note]) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Metrics.headerSpacing) {
             HStack(alignment: .firstTextBaseline) {
                 Text(([host] + [kicker].compactMap { $0 }).joined(separator: " · "))
                     .font(PiperTheme.paperUI(.body))
@@ -120,14 +120,14 @@ struct ArticleNotebook: View {
             Text(title)
                 .font(PiperTheme.paperTitle(.title))
                 .textSelection(.enabled)
-            HStack(spacing: 12) {
+            HStack(spacing: Metrics.headerLinkSpacing) {
                 Button("Open in Reader") { model.articleTabs.choose(.reader, for: note) }
                     .buttonStyle(.plain).fontWeight(.medium).foregroundStyle(PiperTheme.brand)
                 Text(ReadingList.counts(of: children)).foregroundStyle(PiperTheme.paperMuted)
             }
             .font(PiperTheme.paperUI(.row))
         }
-        .padding(.bottom, 4)
+        .padding(.bottom, Metrics.headerSpacing)
     }
 
     private var kicker: String? {
@@ -224,6 +224,23 @@ extension ArticleNotebook {
         static let formPadding: CGFloat = 14
         static let previewHeight: CGFloat = 140
         static let previewFontSize: CGFloat = 11
+        /// The space between the lines of the header, and under it.
+        static let headerSpacing: CGFloat = 4
+        static let headerLinkSpacing: CGFloat = 12
+        /// A highlight: the color bar, then the quote, the note, and the source.
+        static let entrySpacing: CGFloat = 16
+        static let entryLineSpacing: CGFloat = 6
+        static let entryVerticalPadding: CGFloat = 10
+        static let commentLineSpacing: CGFloat = 3
+        /// A question: its title and its state, on a tinted field.
+        static let questionSpacing: CGFloat = 4
+        static let questionTitleSpacing: CGFloat = 8
+        static let questionPadding = EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14)
+        /// The rows of Save as File, and the space between a label and its control.
+        static let formSpacing: CGFloat = 10
+        static let formToggleSpacing: CGFloat = 5
+        static let formLabelSpacing: CGFloat = 4
+        static let fieldBorder: CGFloat = 1
     }
 }
 
@@ -234,15 +251,15 @@ private struct HighlightEntry: View {
     var body: some View {
         let comment = HighlightText.comment(of: highlight.text, quote: highlight.anchor?.quote)
         Button(action: open) {
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .top, spacing: ArticleNotebook.Metrics.entrySpacing) {
                 Rectangle().fill(PiperTheme.quoteBar).frame(width: ArticleNotebook.Metrics.colorBarWidth)
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: ArticleNotebook.Metrics.entryLineSpacing) {
                     Text(highlight.anchor?.quote ?? highlight.text.components(separatedBy: "\n\n")[0])
                         .font(PiperTheme.paperSerif(ArticleNotebook.Metrics.quoteFontSize))
                         .foregroundStyle(PiperTheme.paperMuted)
                         .lineSpacing(ArticleNotebook.Metrics.quoteLineSpacing)
                     if !comment.isEmpty {
-                        Text(comment).font(PiperTheme.paperUI(.row)).foregroundStyle(PiperTheme.paperInk).lineSpacing(3)
+                        Text(comment).font(PiperTheme.paperUI(.row)).foregroundStyle(PiperTheme.paperInk).lineSpacing(ArticleNotebook.Metrics.commentLineSpacing)
                     }
                     Text(([highlight.sources.first] + [highlight.createdAt.formatted(date: .omitted, time: .shortened)])
                         .compactMap { $0 }.joined(separator: " · "))
@@ -250,7 +267,7 @@ private struct HighlightEntry: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, ArticleNotebook.Metrics.entryVerticalPadding)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -269,12 +286,12 @@ private struct QuestionEntry: View {
         let parts = thread.title.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
         let answers = thread.turns.filter { !$0.answer.isEmpty }.count
         Button(action: open) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: ArticleNotebook.Metrics.questionSpacing) {
+                HStack(spacing: ArticleNotebook.Metrics.questionTitleSpacing) {
                     Text("✳ " + (parts.first ?? "Ask")).font(PiperTheme.paperUI(.row, weight: .semibold))
                         .foregroundStyle(PiperTheme.claude)
                     Text(parts.count > 1 ? parts[1] : "").font(PiperTheme.paperUI(.row)).lineLimit(1)
-                    Spacer(minLength: 8)
+                    Spacer(minLength: ArticleNotebook.Metrics.questionTitleSpacing)
                     if waiting {
                         ProgressView().controlSize(.mini)
                     } else if answers > 0 {
@@ -284,7 +301,7 @@ private struct QuestionEntry: View {
                 }
                 if let failure { Text(failure).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted) }
             }
-            .padding(.horizontal, 14).padding(.vertical, 12)
+            .padding(ArticleNotebook.Metrics.questionPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(PiperTheme.paperTint, in: RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius, style: .continuous))
             .contentShape(Rectangle())
@@ -333,7 +350,7 @@ private struct SaveArticleForm: View {
     private var fileName: String { ArticleMarkdown.fileName(for: title) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: ArticleNotebook.Metrics.formSpacing) {
             Text("Save as File").font(PiperTheme.paperUI(.body, weight: .semibold))
             field("Folder") {
                 Picker("Folder", selection: $destination) {
@@ -342,7 +359,7 @@ private struct SaveArticleForm: View {
                 .labelsHidden()
             }
             field("Include") {
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: ArticleNotebook.Metrics.formToggleSpacing) {
                     Toggle("Highlights and your notes", isOn: $parts.highlights)
                     Toggle("Summary", isOn: $parts.summary)
                     Toggle("Agent answers", isOn: $parts.answers)
@@ -359,7 +376,7 @@ private struct SaveArticleForm: View {
             .frame(height: ArticleNotebook.Metrics.previewHeight)
             .padding(ArticleNotebook.Metrics.fieldPadding)
             .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius))
-            .overlay(RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: ArticleNotebook.Metrics.fieldRadius).strokeBorder(PiperTheme.paperRule, lineWidth: ArticleNotebook.Metrics.fieldBorder))
             HStack {
                 Spacer()
                 Button("Cancel", action: close).keyboardShortcut(.cancelAction)
@@ -376,7 +393,7 @@ private struct SaveArticleForm: View {
     }
 
     private func field(_ label: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: ArticleNotebook.Metrics.formLabelSpacing) {
             Text(label).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
             content()
         }

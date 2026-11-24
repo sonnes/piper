@@ -30,5 +30,9 @@ extension CompletionListChrome {
         static let edge: CGFloat = 0.5
         static let shadowRadius: CGFloat = 12
         static let shadowOffset: CGFloat = 4
+        /// The space over the first group name of a list, and over each group name after it.
+        static let firstHeaderTop: CGFloat = 4
+        static let headerTop: CGFloat = 8
+        static let headerBottom: CGFloat = 3
     }
 }

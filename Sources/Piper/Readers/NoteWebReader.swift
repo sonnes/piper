@@ -15,7 +15,7 @@ struct NoteWebReader: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 6) {
+            HStack(spacing: Metrics.barSpacing) {
                 Group {
                     Button { page.webView?.goBack() } label: { Image(systemName: "chevron.left") }
                         .disabled(!page.canGoBack)
@@ -25,22 +25,22 @@ struct NoteWebReader: View {
                         .help("Forward").accessibilityLabel("Forward")
                 }
                 .buttonStyle(.borderless)
-                HStack(spacing: 6) {
+                HStack(spacing: Metrics.addressSpacing) {
                     Image(systemName: page.isLoading ? "hourglass" : "globe")
-                        .font(.system(size: 14)).foregroundStyle(PiperTheme.paperFaint)
+                        .font(.system(size: Metrics.addressGlyph)).foregroundStyle(PiperTheme.paperFaint)
                     Text(address)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(PiperTheme.paperMuted)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .help((page.url ?? url).absoluteString)
-                    Button { page.reload() } label: { Image(systemName: "arrow.clockwise").font(.system(size: 10, weight: .semibold)) }
+                    Button { page.reload() } label: { Image(systemName: "arrow.clockwise").font(.system(size: Metrics.reloadGlyph, weight: .semibold)) }
                         .buttonStyle(.borderless)
                         .help("Reload").accessibilityLabel("Reload")
                 }
-                .padding(.horizontal, 8)
-                .frame(height: 22)
-                .background(PiperTheme.paperInk.opacity(0.05), in: RoundedRectangle(cornerRadius: Metrics.addressRadius))
+                .padding(.horizontal, Metrics.addressPadding)
+                .frame(height: Metrics.addressHeight)
+                .background(Metrics.addressFill, in: RoundedRectangle(cornerRadius: Metrics.addressRadius))
                 Button(isCapturing ? "Capturing…" : "Capture") {
                     Task { await capturePage() }
                 }
@@ -53,20 +53,20 @@ struct NoteWebReader: View {
             }
             .controlSize(.small)
             .font(PiperTheme.paperUI(.body))
-            .padding(.horizontal, 12)
-            .frame(height: 38)
+            .padding(.horizontal, Metrics.barPadding)
+            .frame(height: Metrics.barHeight)
             .background(PiperTheme.paperTint)
             Rule()
             NoteWebView(url: url, page: page)
                 .overlay {
                     if let error = page.errorMessage {
-                        VStack(spacing: 10) {
+                        VStack(spacing: Metrics.errorSpacing) {
                             Text("Cannot Open Page").font(PiperTheme.paperUI(.row, weight: .semibold))
                             Text(error).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                                 .multilineTextAlignment(.center)
                             Button("Try Again") { page.reload() }
                         }
-                        .padding(24)
+                        .padding(Metrics.errorPadding)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(PiperTheme.paper)
                     }
@@ -76,9 +76,9 @@ struct NoteWebReader: View {
                         Text(captureMessage)
                             .font(PiperTheme.paperUI(.body))
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 12).padding(.vertical, 6)
+                            .padding(Metrics.messagePadding)
                             .background(.regularMaterial, in: Capsule())
-                            .padding(16)
+                            .padding(Metrics.messageMargin)
                             .transition(.opacity)
                     }
                 }
@@ -133,7 +133,24 @@ struct NoteWebReader: View {
 
 extension NoteWebReader {
     enum Metrics {
+        /// The bar over the page: Back, Forward, the address, Capture, and Open in Browser.
+        static let barHeight: CGFloat = 38
+        static let barPadding: CGFloat = 12
+        static let barSpacing: CGFloat = 6
+        /// The address field in the bar.
         static let addressRadius: CGFloat = 6
+        static let addressHeight: CGFloat = 22
+        static let addressPadding: CGFloat = 8
+        static let addressSpacing: CGFloat = 6
+        static let addressGlyph: CGFloat = 14
+        static let reloadGlyph: CGFloat = 10
+        static let addressFill = PiperTheme.paperInk.opacity(0.05)
+        /// The message when a page does not open.
+        static let errorSpacing: CGFloat = 10
+        static let errorPadding: CGFloat = 24
+        /// The message after Capture, over the bottom of the page.
+        static let messagePadding = EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12)
+        static let messageMargin: CGFloat = 16
     }
 }
 

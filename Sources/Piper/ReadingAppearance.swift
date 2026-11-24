@@ -38,6 +38,8 @@ enum WikiReadingAppearance: String, CaseIterable, Encodable {
 /// and the file paper read the same four preferences through this type.
 struct ReadingSettings: DynamicProperty {
     static let defaultSize = 18.0
+    /// The type sizes that Settings offers.
+    static let sizes = 13.0...24.0
     static let defaultTheme = WikiReadingTheme.paper
     static let defaultFont = WikiReadingFont.serif
     static let defaultAppearance = WikiReadingAppearance.system

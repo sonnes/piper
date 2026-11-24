@@ -85,10 +85,10 @@ struct SessionComposer: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Metrics.spacing) {
             completions
             if screen != nil || !mentions.isEmpty { contextChips }
-            HStack(alignment: .bottom, spacing: 6) {
+            HStack(alignment: .bottom, spacing: Metrics.spacing) {
                 CaptureEditor(text: Binding(get: { text }, set: { text = $0 }), focused: $focused,
                               placeholder: agentName.map { "Ask \($0) in \(folderName)" }
                                   ?? "The agent was removed. Add it again in Settings > AI.",
@@ -101,29 +101,29 @@ struct SessionComposer: View {
                     Button(action: stop) { Image(systemName: "stop.fill") }
                         .help("Stop the turn")
                         .accessibilityLabel("Stop")
-                        .padding(.bottom, 8)
+                        .padding(.bottom, Metrics.buttonBottom)
                 } else {
                     Button(action: submit) { Image(systemName: "arrow.up") }
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .help("Send · Return")
                         .accessibilityLabel("Send")
-                        .padding(.bottom, 8)
+                        .padding(.bottom, Metrics.buttonBottom)
                 }
             }
             .padding(.leading, Metrics.textInset)
-            .padding(.trailing, 8)
+            .padding(.trailing, Metrics.trailingInset)
             .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: PiperTheme.cardRadius))
-            .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: PiperTheme.cardRadius).strokeBorder(PiperTheme.paperRule, lineWidth: Metrics.edgeWidth))
             .background {
-                RoundedRectangle(cornerRadius: PiperTheme.cardRadius + 3.5)
+                RoundedRectangle(cornerRadius: PiperTheme.cardRadius + Metrics.focusRingWidth)
                     .fill(focused ? PiperTheme.focusRing : .clear)
-                    .padding(-3.5)
+                    .padding(-Metrics.focusRingWidth)
             }
-            HStack(spacing: 6) {
+            HStack(spacing: Metrics.spacing) {
                 AgentControls(agents: agents, session: session,
                               choice: Binding(get: { currentChoice }, set: { choice = $0 }),
                               openSettings: { desk?.commands?.perform(.settings) })
-                Spacer(minLength: 4)
+                Spacer(minLength: Metrics.hintGap)
                 Text(completionCount > 0 ? (commands.isEmpty ? "Tab adds · ↑↓ choose" : "Tab completes · ↑↓ choose")
                                          : "/ commands · @ adds")
                     .font(PiperTheme.paperUI(.body))
@@ -132,7 +132,7 @@ struct SessionComposer: View {
             }
             .lineLimit(1)
         }
-        .padding(12)
+        .padding(Metrics.padding)
         .onChange(of: session?.id, initial: true) { _, _ in
             focused = !text.isEmpty
             mentions = []
@@ -158,7 +158,7 @@ struct SessionComposer: View {
     }
 
     private var contextChips: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Metrics.spacing) {
             if let screen {
                 ContextChip(item: screen.item, pending: screen.pending, remove: removeScreen, resend: resendScreen)
             }
@@ -242,5 +242,16 @@ extension SessionComposer {
         static let composerLines = 3
         /// The space between the edge of the card and the text.
         static let textInset: CGFloat = 10
+        static let trailingInset: CGFloat = 8
+        /// The space between the parts of the composer, and between the chips.
+        static let spacing: CGFloat = 6
+        static let padding: CGFloat = 12
+        /// The space under the send and the stop buttons.
+        static let buttonBottom: CGFloat = 8
+        static let edgeWidth: CGFloat = 0.5
+        /// The ring around the field while it has the focus.
+        static let focusRingWidth: CGFloat = 3.5
+        /// The least space before the key hint of the footer.
+        static let hintGap: CGFloat = 4
     }
 }

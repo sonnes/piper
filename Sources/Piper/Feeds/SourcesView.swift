@@ -38,11 +38,11 @@ struct SourcesView: View {
                 if let message {
                     Text(message).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.vertical, 6)
+                        .padding(.vertical, Metrics.messagePadding)
                 }
                 Text("Each source has one setting: how its posts reach Today.")
                     .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
-                    .padding(.top, 12).padding(.bottom, 4)
+                    .padding(.top, Metrics.noteTop).padding(.bottom, Metrics.headingBottom)
                 if feeds.feeds.isEmpty {
                     Text("No sources yet. Paste a site or feed address above, or import an OPML file.")
                         .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
@@ -56,7 +56,7 @@ struct SourcesView: View {
                 sites
             }
             .padding(.horizontal, PaperRowMetrics.rowPadding)
-            .padding(.bottom, 16)
+            .padding(.bottom, Metrics.listBottom)
         }
         .onAppear {
             paper.listKeys = []
@@ -84,11 +84,11 @@ struct SourcesView: View {
             .menuStyle(.borderlessButton).fixedSize()
             .help("Import the feeds of an OPML file")
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, Metrics.headerPadding)
     }
 
     private var addField: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Metrics.fieldSpacing) {
             Image(systemName: "plus").foregroundStyle(PiperTheme.paperFaint).accessibilityHidden(true)
             TextField("Paste a site or feed address", text: $address)
                 .textFieldStyle(.plain)
@@ -106,7 +106,7 @@ struct SourcesView: View {
                 Button("Find Feeds", action: find).buttonStyle(.borderless)
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, Metrics.fieldInset)
         .frame(height: Metrics.fieldHeight)
         .background(PiperTheme.paperTint, in: Capsule())
     }
@@ -115,23 +115,23 @@ struct SourcesView: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(found) { result in
                 let subscribed = feeds.feed(result.url) != nil
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: Metrics.rowSpacing) {
+                    VStack(alignment: .leading, spacing: Metrics.lineSpacing) {
                         Text(result.title ?? result.url).font(PiperTheme.paperUI(.body, weight: .semibold)).lineLimit(1)
                         Text(Self.detail(result)).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                             .lineLimit(1).truncationMode(.middle)
                     }
-                    Spacer(minLength: 8)
+                    Spacer(minLength: Metrics.rowSpacerMin)
                     if subscribed {
                         Text("Added").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                     } else {
                         Button("Add") { add(result) }.buttonStyle(.borderedProminent).controlSize(.small)
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, Metrics.foundRowPadding)
             }
         }
-        .padding(.top, 4)
+        .padding(.top, Metrics.foundTop)
     }
 
     /// The sites of recent history that have a feed and no subscription.
@@ -147,25 +147,25 @@ struct SourcesView: View {
                 Button("Scan Again") { scan.scan() }.buttonStyle(.borderless).font(PiperTheme.paperUI(.body))
             }
         }
-        .padding(.top, 20).padding(.bottom, 4)
+        .padding(.top, Metrics.sitesTop).padding(.bottom, Metrics.headingBottom)
         if case .failed(let reason) = scan.state, shown.isEmpty {
             Text(reason).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Open Settings") { desk?.commands?.perform(.settings) }.buttonStyle(.borderless).padding(.top, 4)
+            Button("Open Settings") { desk?.commands?.perform(.settings) }.buttonStyle(.borderless).padding(.top, Metrics.settingsButtonTop)
         } else if shown.isEmpty {
             Text(scan.state == .scanning ? "Reading the history of this Mac…" : "No other sites of your history have a feed.")
                 .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
         }
         ForEach(shown) { site in
-            HStack(spacing: 10) {
+            HStack(spacing: Metrics.rowSpacing) {
                 SiteIcon(favicons: model.favicons, host: site.host, title: site.title ?? site.host,
                          side: Metrics.sourceIcon)
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: Metrics.lineSpacing) {
                     Text(site.title ?? site.host).font(PiperTheme.paperUI(.body, weight: .semibold)).lineLimit(1)
                     Text("\(site.host) · \(site.visits) \(site.visits == 1 ? "visit" : "visits") · has a feed")
                         .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted).lineLimit(1)
                 }
-                Spacer(minLength: 8)
+                Spacer(minLength: Metrics.rowSpacerMin)
                 Button("Add") { subscribe(site) }.buttonStyle(.borderedProminent).controlSize(.small)
                     .accessibilityLabel("Add \(site.title ?? site.host)")
                 Button("Ignore") { feeds.ignore(site) }.buttonStyle(.borderless)
@@ -272,6 +272,31 @@ extension SourcesView {
         static let siteLimit = 8
         static let sourceIcon: CGFloat = 22
         static let sourceRowPadding: CGFloat = 10
+        /// The space between the icon, the text, and the buttons of a row.
+        static let rowSpacing: CGFloat = 10
+        /// The space between the title and the detail line of a row.
+        static let lineSpacing: CGFloat = 1
+        /// The least space between the text of a row and its buttons.
+        static let rowSpacerMin: CGFloat = 8
+        /// The space between the title and the mode of a row when the mode goes under the title.
+        static let stackedModeSpacing: CGFloat = 6
+        /// The row of the Import menu at the top.
+        static let headerPadding: CGFloat = 8
+        /// The address field.
+        static let fieldSpacing: CGFloat = 8
+        static let fieldInset: CGFloat = 10
+        /// The feeds that Find Feeds found at an address.
+        static let foundTop: CGFloat = 4
+        static let foundRowPadding: CGFloat = 8
+        static let messagePadding: CGFloat = 6
+        /// The space over the note about the setting of each source.
+        static let noteTop: CGFloat = 12
+        /// The space over the header of Sites You Read Often.
+        static let sitesTop: CGFloat = 20
+        /// The space under the note and under the header of Sites You Read Often.
+        static let headingBottom: CGFloat = 4
+        static let settingsButtonTop: CGFloat = 4
+        static let listBottom: CGFloat = 16
     }
 }
 
@@ -285,14 +310,14 @@ private struct SourceRow: View {
     var body: some View {
         // The mode goes under the title when the paper is too narrow for both.
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
+            HStack(spacing: SourcesView.Metrics.rowSpacing) {
                 icon
                 title
                 mode
             }
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: SourcesView.Metrics.rowSpacing) {
                 icon
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: SourcesView.Metrics.stackedModeSpacing) {
                     title
                     mode
                 }
@@ -317,7 +342,7 @@ private struct SourceRow: View {
 
     private var title: some View {
         Button(action: open) {
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: SourcesView.Metrics.lineSpacing) {
                 Text(feed.title).font(PiperTheme.paperUI(.row, weight: .semibold)).foregroundStyle(PiperTheme.paperInk)
                     .lineLimit(1)
                 Text(SourcesView.rate(stats)).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)

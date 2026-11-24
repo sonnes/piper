@@ -62,12 +62,12 @@ struct FeedArticleList: View {
     }
 
     private var header: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: Metrics.headerSpacing) {
             if let error = feed?.error {
                 Image(systemName: "exclamationmark.triangle").foregroundStyle(PiperTheme.warning)
                     .help(error)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: Metrics.headerSpacerMin)
             if feeds.fetching.isEmpty {
                 RowAction(symbol: "arrow.clockwise", title: "Refresh All Feeds") { feeds.refreshAll() }
             } else {
@@ -79,7 +79,7 @@ struct FeedArticleList: View {
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
         .padding(.horizontal, HintStrip.Metrics.footMargin)
-        .padding(.top, 8)
+        .padding(.top, Metrics.headerTop)
     }
 
     @ViewBuilder
@@ -131,6 +131,15 @@ struct FeedArticleList: View {
     }
 }
 
+extension FeedArticleList {
+    enum Metrics {
+        /// The space between the buttons of the header of the list.
+        static let headerSpacing: CGFloat = 14
+        static let headerSpacerMin: CGFloat = 8
+        static let headerTop: CGFloat = 8
+    }
+}
+
 /// One article in the list: the icon of the site with the unread dot, the title, and the host.
 private struct FeedArticleRow: View {
     let article: Article
@@ -144,7 +153,7 @@ private struct FeedArticleRow: View {
         PaperRow(item: .article(article.id), selected: selected, time: RowTime.text(article.date), action: action) {
             ZStack(alignment: .topTrailing) {
                 SiteIcon(favicons: favicons, host: feed?.host ?? "", title: feed?.title ?? "")
-                if !article.read { UnreadDot().offset(x: 3, y: -3) }
+                if !article.read { UnreadDot().offset(TodayRow.Metrics.unreadDotOffset) }
             }
         } content: {
             VStack(alignment: .leading, spacing: 0) {

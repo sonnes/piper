@@ -43,7 +43,7 @@ struct FeedsSettings: View {
             Section {
                 TextEditor(text: $blockedText)
                     .font(PiperTheme.paperUI(.body))
-                    .frame(height: 130)
+                    .frame(height: Metrics.blockedSitesHeight)
                     .onChange(of: blockedText) { _, text in
                         scan.blockedSites = BlockedSites.normalized(text.components(separatedBy: .newlines))
                     }
@@ -63,5 +63,12 @@ struct FeedsSettings: View {
 
     private func title(of source: HistorySource) -> String {
         source.profile.map { "\(source.name) · \($0)" } ?? source.name
+    }
+}
+
+extension FeedsSettings {
+    enum Metrics {
+        /// The field of the blocked sites.
+        static let blockedSitesHeight: CGFloat = 130
     }
 }

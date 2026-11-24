@@ -50,7 +50,7 @@ struct SessionPane: View {
                 EmptyPane(title: "New Session",
                           detail: "\(agentName ?? "The agent") works in \(URL(fileURLWithPath: folder).lastPathComponent). It can read and change the files there.")
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, Metrics.emptyPadding)
                     .frame(maxHeight: .infinity)
             }
             if let session { ApprovalDrawer(session: session, runner: runner) }
@@ -103,13 +103,13 @@ private struct SessionTranscript: View {
                         }
                     }
                     if session.state == .running || session.state == .waiting {
-                        HStack(spacing: 6) {
+                        HStack(spacing: TranscriptBlockView.Metrics.lineIconSpacing) {
                             ProgressView().controlSize(.mini)
                             Text(session.state == .waiting ? "Waiting for another session" : "Working")
                         }
                         .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperFaint)
                     }
-                    Color.clear.frame(height: 1).id(Self.end)
+                    Color.clear.frame(height: TranscriptBlockView.Metrics.endMarkerHeight).id(Self.end)
                 }
                 .padding(TranscriptBlockView.Metrics.transcriptInset)
             }
@@ -127,6 +127,17 @@ private struct SessionTranscript: View {
     private static let end = "transcript-end"
 }
 
+extension SessionPane {
+    enum Metrics {
+        /// The space beside the text of a session that has no message yet.
+        static let emptyPadding: CGFloat = 24
+        static let footerSpacing: CGFloat = 6
+        /// The least space before the cost in the footer.
+        static let footerCostGap: CGFloat = 4
+        static let footerPadding = EdgeInsets(top: 6, leading: 14, bottom: 6, trailing: 14)
+    }
+}
+
 /// The files that the session wrote, and what the session cost.
 private struct SessionFooter: View {
     let model: AppModel
@@ -135,7 +146,7 @@ private struct SessionFooter: View {
     var body: some View {
         let files = session.files
         if !files.isEmpty || session.totalCost > 0 {
-            HStack(spacing: 6) {
+            HStack(spacing: SessionPane.Metrics.footerSpacing) {
                 if !files.isEmpty {
                     Menu {
                         ForEach(files, id: \.self) { file in
@@ -148,7 +159,7 @@ private struct SessionFooter: View {
                     .fixedSize()
                     .help("Open a file that the session changed")
                 }
-                Spacer(minLength: 4)
+                Spacer(minLength: SessionPane.Metrics.footerCostGap)
                 if session.totalCost > 0 {
                     Text(SessionFormat.cost(session.totalCost)).monospacedDigit()
                         .help("The cost of the session so far, from the agent")
@@ -156,7 +167,7 @@ private struct SessionFooter: View {
             }
             .font(PiperTheme.paperUI(.body))
             .foregroundStyle(PiperTheme.paperMuted)
-            .padding(.horizontal, 14).padding(.vertical, 6)
+            .padding(SessionPane.Metrics.footerPadding)
             .overlay(alignment: .top) { Rule() }
         }
     }
@@ -232,11 +243,11 @@ private struct TurnFold<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.blockSpacing) {
             Button { isOpen.toggle() } label: {
-                HStack(spacing: 7) {
+                HStack(spacing: Metrics.chipSpacing) {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                        .rotationEffect(.degrees(isOpen ? 90 : 0))
-                        .frame(width: 12)
+                        .font(.system(size: Metrics.foldChevronGlyph, weight: .bold))
+                        .rotationEffect(.degrees(isOpen ? Metrics.foldOpenRotation : 0))
+                        .frame(width: Metrics.chipIconWidth)
                     Text(summary).lineLimit(1).truncationMode(.tail)
                     Spacer(minLength: 0)
                 }
@@ -250,9 +261,11 @@ private struct TurnFold<Content: View>: View {
             .accessibilityLabel(summary)
             .accessibilityHint(isOpen ? "Hides the tool calls" : "Shows the tool calls")
             if isOpen {
-                VStack(alignment: .leading, spacing: 6) { content }
-                    .padding(.leading, 12)
-                    .overlay(alignment: .leading) { Rectangle().fill(PiperTheme.paperRule).frame(width: 1).padding(.leading, 6) }
+                VStack(alignment: .leading, spacing: Metrics.foldSpacing) { content }
+                    .padding(.leading, Metrics.foldIndent)
+                    .overlay(alignment: .leading) {
+                        Rectangle().fill(PiperTheme.paperRule).frame(width: Metrics.foldRuleWidth).padding(.leading, Metrics.foldRuleInset)
+                    }
             }
         }
     }

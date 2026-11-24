@@ -77,6 +77,17 @@ extension CommandPaletteController {
         static let contentFileLimit = 50
         static let commandLimit = 4
         static let recentLimit = 8
+        /// The space from the edge of the palette to its text.
+        static let textInset: CGFloat = 14
+        /// The space from the edge of the palette to the fill of a row. The row
+        /// pads its text by the rest of `textInset`.
+        static let rowInset = textInset - PickRow.Metrics.horizontalPadding
+        static let queryVerticalPadding: CGFloat = 12
+        static let listVerticalPadding: CGFloat = 4
+        static let sectionTop: CGFloat = 8
+        static let sectionBottom: CGFloat = 3
+        /// The pause after a keystroke before the palette searches the lines of the files.
+        static let lineSearchDelay = Duration.milliseconds(150)
     }
 }
 
@@ -212,8 +223,8 @@ private struct CommandPaletteView: View {
             TextField("Go to file, or type / for commands", text: $query)
                 .textFieldStyle(.plain)
                 .font(PiperTheme.paperUI(CommandPaletteController.Metrics.queryFontSize))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
+                .padding(.horizontal, CommandPaletteController.Metrics.textInset)
+                .padding(.vertical, CommandPaletteController.Metrics.queryVerticalPadding)
                 .focused($focused)
                 .onKeyPress(.downArrow) { move(1, in: rows); return .handled }
                 .onKeyPress(.upArrow) { move(-1, in: rows); return .handled }
@@ -229,10 +240,10 @@ private struct CommandPaletteView: View {
                         if rows.isEmpty {
                             Text(query.isEmpty ? "Type to find a file." : "No results")
                                 .foregroundStyle(PiperTheme.paperMuted)
-                                .padding(14)
+                                .padding(CommandPaletteController.Metrics.textInset)
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, CommandPaletteController.Metrics.listVerticalPadding)
                 }
                 .onChange(of: selection) { _, value in
                     if rows.indices.contains(value) { proxy.scrollTo(rows[value].id) }
@@ -248,7 +259,7 @@ private struct CommandPaletteView: View {
             lines = []
             let text = query.trimmingCharacters(in: .whitespaces)
             guard text.count >= PaletteSearch.minimumQueryLength, !text.hasPrefix("/") else { return }
-            try? await Task.sleep(for: .milliseconds(150))
+            try? await Task.sleep(for: CommandPaletteController.Metrics.lineSearchDelay)
             guard !Task.isCancelled else { return }
             let files = library.files
             let found = await Task.detached { PaletteResults.lines(text, in: files) }.value
@@ -262,11 +273,12 @@ private struct CommandPaletteView: View {
             Text(title)
                 .font(PiperTheme.paperUI(.body, weight: .semibold))
                 .foregroundStyle(PiperTheme.paperMuted)
-                .padding(.horizontal, 14)
-                .padding(.top, 8)
-                .padding(.bottom, 3)
+                .padding(.horizontal, CommandPaletteController.Metrics.textInset)
+                .padding(.top, CommandPaletteController.Metrics.sectionTop)
+                .padding(.bottom, CommandPaletteController.Metrics.sectionBottom)
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                 PaletteRow(row: row, selected: offset + index == selection)
+                    .padding(.horizontal, CommandPaletteController.Metrics.rowInset)
                     .id(row.id)
                     .contentShape(Rectangle())
                     .onTapGesture { choose(row) }
@@ -294,30 +306,27 @@ private struct PaletteRow: View {
     let selected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: Metrics.lineSpacing) {
+            HStack(spacing: Metrics.spacing) {
                 Image(systemName: icon)
-                    .frame(width: 16)
-                    .foregroundStyle(selected ? Color.white : PiperTheme.paperMuted)
+                    .frame(width: Metrics.iconWidth)
+                    .foregroundStyle(selected ? PiperTheme.onAccent : PiperTheme.paperMuted)
                 Text(title).lineLimit(1)
-                Spacer(minLength: 8)
+                Spacer(minLength: Metrics.spacing)
                 Text(detail)
                     .lineLimit(1)
-                    .foregroundStyle(selected ? Color.white.opacity(0.8) : PiperTheme.paperMuted)
+                    .foregroundStyle(PickRow.secondary(selected, otherwise: PiperTheme.paperMuted))
             }
             if case .line(_, let excerpt) = row {
                 Text(highlighted(excerpt))
                     .lineLimit(1)
                     .font(PiperTheme.paperUI(.body))
-                    .foregroundStyle(selected ? Color.white.opacity(0.85) : PiperTheme.paperMuted)
-                    .padding(.leading, 24)
+                    .foregroundStyle(PickRow.secondary(selected, otherwise: PiperTheme.paperMuted))
+                    .padding(.leading, Metrics.iconWidth + Metrics.spacing)
             }
         }
         .font(PiperTheme.paperUI(.body))
-        .foregroundStyle(selected ? Color.white : PiperTheme.paperInk)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 5)
-        .background(selected ? PiperTheme.brand : Color.clear)
+        .pickRow(chosen: selected)
     }
 
     private var icon: String {
@@ -351,5 +360,14 @@ private struct PaletteRow: View {
             text[lower..<upper].inlinePresentationIntent = .stronglyEmphasized
         }
         return text
+    }
+}
+
+extension PaletteRow {
+    enum Metrics {
+        static let iconWidth: CGFloat = 16
+        static let spacing: CGFloat = 8
+        /// The space between the name of a file and a line of it.
+        static let lineSpacing: CGFloat = 2
     }
 }

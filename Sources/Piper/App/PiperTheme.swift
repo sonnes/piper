@@ -75,7 +75,7 @@ enum PiperTheme {
     /// Indigo 100 and 900. The current row of an index.
     private static let currentRowNS = color(light: 0xE0E7FF, dark: 0x312E81)
     /// Indigo 500 at 26 percent. Selected text on a paper.
-    static let paperSelectionNS = NSColor(srgbRed: 0x63 / 255, green: 0x66 / 255, blue: 0xF1 / 255, alpha: 0.26)
+    static let paperSelectionNS = hex(0x6366F1, alpha: 0.26)
     /// Indigo 600 in both appearances. The check of a done capture, and the fill of a pill.
     private static let indigoNS = hex(0x4F46E5)
 
@@ -119,15 +119,14 @@ enum PiperTheme {
     /// The fill of a row under the pointer: zinc 900 at 4 percent, and white at 6 percent.
     private static let rowHoverNS = NSColor(name: nil) { appearance in
         isDark(appearance)
-            ? NSColor.white.withAlphaComponent(0.06) : NSColor(srgbRed: 0x18 / 255, green: 0x18 / 255, blue: 0x1B / 255, alpha: 0.04)
+            ? NSColor.white.withAlphaComponent(0.06) : hex(0x18181B, alpha: 0.04)
     }
     static let rowHover = Color(nsColor: rowHoverNS)
-    /// The fill of the selected row while its paper has the focus: indigo at
-    /// 14 percent, and indigo 400 at 24 percent in the dark.
+    /// The fill of the selected row while its paper has the focus: indigo 600 at
+    /// 12 percent, and indigo 400 at 24 percent in the dark.
     private static let rowSelectionNS = NSColor(name: nil) { appearance in
         isDark(appearance)
-            ? NSColor(srgbRed: 0x81 / 255, green: 0x8C / 255, blue: 0xF8 / 255, alpha: 0.24)
-            : NSColor(srgbRed: 0x4F / 255, green: 0x46 / 255, blue: 0xE5 / 255, alpha: 0.12)
+            ? hex(0x818CF8, alpha: 0.24) : hex(0x4F46E5, alpha: 0.12)
     }
     static let rowSelection = Color(nsColor: rowSelectionNS)
 
@@ -260,9 +259,9 @@ enum PiperTheme {
         }
     }
 
-    static func hex(_ value: UInt32) -> NSColor {
+    static func hex(_ value: UInt32, alpha: CGFloat = 1) -> NSColor {
         NSColor(srgbRed: CGFloat((value >> 16) & 255) / 255,
                 green: CGFloat((value >> 8) & 255) / 255,
-                blue: CGFloat(value & 255) / 255, alpha: 1)
+                blue: CGFloat(value & 255) / 255, alpha: alpha)
     }
 }

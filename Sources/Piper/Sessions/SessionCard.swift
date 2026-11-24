@@ -132,12 +132,12 @@ struct SessionCard: View {
     // MARK: - Parts
 
     private func header(_ session: AgentSession?, folder: String) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Metrics.headerSpacing) {
             AgentMark(kind: model.agents.kind(of: session?.agentID ?? model.agents.sessionAgentID))
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: Metrics.agentMarkSize, weight: .semibold))
                 .accessibilityHidden(true)
             sessionMenu(session, folder: folder)
-            Spacer(minLength: 4)
+            Spacer(minLength: Metrics.headerTitleGap)
             if let session { SessionStateChip(session: session) }
             IconButton(title: "New Session", icon: "square.and.pencil") { newSession() }
             if detached {
@@ -185,7 +185,7 @@ struct SessionCard: View {
             .contentShape(Rectangle())
             .onHover { setResizeCursor($0) }
             .onDisappear { setResizeCursor(false) }
-            .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .global)
+            .gesture(DragGesture(minimumDistance: Metrics.resizeDragDistance, coordinateSpace: .global)
                 .onChanged { value in
                     let start = dragStart ?? height
                     dragStart = start
@@ -221,6 +221,18 @@ extension SessionCard {
         static let panelSize = NSSize(width: 420, height: 640)
         static let panelMinimumSize = NSSize(width: 340, height: 360)
         static let tabsMinimumWidth: CGFloat = 220
+        static let headerSpacing: CGFloat = 6
+        /// The least space after the session menu of the header.
+        static let headerTitleGap: CGFloat = 4
+        static let agentMarkSize: CGFloat = 14
+        /// The line around the card and around the pill.
+        static let edgeWidth: CGFloat = 0.5
+        static let pillSpacing: CGFloat = 7
+        /// The dot of a finished or failed session in the pill.
+        static let pillDot: CGFloat = 7
+        static let pillGlyph: CGFloat = 12
+        /// The distance that the pointer moves before the top edge resizes the card.
+        static let resizeDragDistance: CGFloat = 1
         static let headerPadding = EdgeInsets(top: 0, leading: 14, bottom: 0, trailing: 8)
         static let pillPadding = EdgeInsets(top: 0, leading: 11, bottom: 0, trailing: 14)
         /// The number of sessions that the session menu of the header shows.
@@ -254,7 +266,7 @@ private struct CardShape: ViewModifier {
                 .frame(width: layout.cardWidth)
                 .frame(minHeight: SessionCard.Metrics.minimumHeight, idealHeight: height, maxHeight: height)
                 .clipShape(RoundedRectangle(cornerRadius: SessionCard.Metrics.cornerRadius))
-                .overlay(RoundedRectangle(cornerRadius: SessionCard.Metrics.cornerRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: SessionCard.Metrics.cornerRadius).strokeBorder(PiperTheme.paperRule, lineWidth: SessionCard.Metrics.edgeWidth))
                 .shadow(color: SessionCard.Metrics.cardShadow, radius: SessionCard.Metrics.cardShadowRadius,
                         y: SessionCard.Metrics.cardShadowOffset)
                 .padding(SessionCard.Metrics.margin)
@@ -272,7 +284,7 @@ struct SessionPill: View {
         let session = SessionTarget(model: model).session
         let needsYou = session?.state == .needsYou
         Button { model.sessionPresentation = .card } label: {
-            HStack(spacing: 7) {
+            HStack(spacing: SessionCard.Metrics.pillSpacing) {
                 icon(session)
                 Text(text(session)).lineLimit(1)
                 if session?.isActive != true {
@@ -287,7 +299,7 @@ struct SessionPill: View {
             .background {
                 if needsYou { Capsule().fill(PiperTheme.warning) } else { Capsule().fill(.regularMaterial) }
             }
-            .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
+            .overlay(Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: SessionCard.Metrics.edgeWidth))
             .shadow(color: SessionCard.Metrics.pillShadow, radius: SessionCard.Metrics.pillShadowRadius,
                     y: SessionCard.Metrics.pillShadowOffset)
             .contentShape(Capsule())
@@ -304,11 +316,11 @@ struct SessionPill: View {
         case .running?, .waiting?:
             ProgressView().controlSize(.mini)
         case .idle? where session?.primaryFile != nil, .failed?:
-            Circle().fill(session?.state.color ?? PiperTheme.paperMuted).frame(width: 7, height: 7)
+            Circle().fill(session?.state.color ?? PiperTheme.paperMuted).frame(width: SessionCard.Metrics.pillDot, height: SessionCard.Metrics.pillDot)
         case .needsYou?:
-            Image(systemName: AgentSession.State.needsYou.symbol ?? "").font(.system(size: 12)).foregroundStyle(PiperTheme.onAccent)
+            Image(systemName: AgentSession.State.needsYou.symbol ?? "").font(.system(size: SessionCard.Metrics.pillGlyph)).foregroundStyle(PiperTheme.onAccent)
         default:
-            AgentMark(kind: model.agents.kind(of: session?.agentID ?? model.agents.sessionAgentID)).font(.system(size: 14, weight: .semibold))
+            AgentMark(kind: model.agents.kind(of: session?.agentID ?? model.agents.sessionAgentID)).font(.system(size: SessionCard.Metrics.agentMarkSize, weight: .semibold))
         }
     }
 

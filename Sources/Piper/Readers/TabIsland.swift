@@ -18,6 +18,8 @@ struct TabIsland<Tab: Hashable>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var thumb
     private typealias Metrics = TabIslandMetrics
+    /// The edge and the shadows of a floating bar.
+    private typealias Bar = ReaderPaper.Metrics
 
     /// A segmented control in a capsule on a material, as on macOS. The
     /// selected segment is a raised capsule that slides to the new segment.
@@ -37,8 +39,8 @@ struct TabIsland<Tab: Hashable>: View {
                             if active {
                                 Capsule()
                                     .fill(PiperTheme.paper)
-                                    .shadow(color: PiperTheme.barContactShadow, radius: 1, y: 0.5)
-                                    .shadow(color: PiperTheme.barSoftShadow, radius: 3, y: 1)
+                                    .shadow(color: PiperTheme.barContactShadow, radius: Bar.barContactShadow.radius, y: Bar.barContactShadow.y)
+                                    .shadow(color: PiperTheme.barSoftShadow, radius: Metrics.thumbShadow.radius, y: Metrics.thumbShadow.y)
                                     .matchedGeometryEffect(id: "thumb", in: thumb)
                             }
                         }
@@ -51,9 +53,9 @@ struct TabIsland<Tab: Hashable>: View {
         }
         .padding(Metrics.inset)
         .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(PiperTheme.barEdge, lineWidth: 0.5))
-        .shadow(color: PiperTheme.barContactShadow, radius: 1, y: 0.5)
-        .shadow(color: PiperTheme.barSoftShadow, radius: Metrics.shadowRadius * 1.6, y: Metrics.shadowOffset + 1)
+        .overlay(Capsule().strokeBorder(PiperTheme.barEdge, lineWidth: Bar.barEdgeLine))
+        .shadow(color: PiperTheme.barContactShadow, radius: Bar.barContactShadow.radius, y: Bar.barContactShadow.y)
+        .shadow(color: PiperTheme.barSoftShadow, radius: Bar.barSoftShadow.radius, y: Bar.barSoftShadow.y)
         .padding(.bottom, Metrics.bottomMargin)
         .padding(.trailing, cardPresented ? layout.tabsTrailingInset : 0)
         .accessibilityElement(children: .contain)
@@ -90,8 +92,8 @@ enum TabIslandMetrics {
     static let segmentPadding: CGFloat = 16
     /// The space between the capsule and the segments.
     static let inset: CGFloat = 3
-    static let shadowRadius: CGFloat = 5
-    static let shadowOffset: CGFloat = 2
+    /// The soft shadow of the selected segment.
+    static let thumbShadow = (radius: CGFloat(3), y: CGFloat(1))
     static let bottomMargin: CGFloat = 14
     /// The space that content leaves free under its last line for the tabs.
     static let clearance: CGFloat = 64

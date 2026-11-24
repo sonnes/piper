@@ -19,6 +19,15 @@ final class Toast: NSObject {
         static let buttonHeight: CGFloat = 24
         static let buttonPadding: CGFloat = 10
         static let buttonRadius: CGFloat = 6
+        static let pressedButtonFill = PiperTheme.brand.opacity(0.75)
+        /// The height of the panel before the toast sizes it to its card.
+        static let initialHeight: CGFloat = 100
+        /// The space between the parts of a card.
+        static let spacing: CGFloat = 9
+        static let edgeWidth: CGFloat = 0.5
+        /// The space between the icon and the text of a message.
+        static let messageSpacing: CGFloat = 10
+        static let messageGlyph: CGFloat = 14
         /// How long a toast with no button stays.
         static let duration: TimeInterval = 3
         /// How long a toast with a button stays.
@@ -108,7 +117,7 @@ extension Toast: NSWindowDelegate {
 private extension Toast {
 
     func makePanel() -> ToastPanel {
-        let panel = ToastPanel(contentRect: NSRect(x: 0, y: 0, width: Metrics.width, height: 100),
+        let panel = ToastPanel(contentRect: NSRect(x: 0, y: 0, width: Metrics.width, height: Metrics.initialHeight),
                                styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isReleasedWhenClosed = false
         panel.level = .floating
@@ -140,12 +149,12 @@ struct ToastCard<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) { content }
+        VStack(alignment: .leading, spacing: Toast.Metrics.spacing) { content }
             .padding(Toast.Metrics.padding)
             .frame(width: Toast.Metrics.width, alignment: .leading)
             .foregroundStyle(PiperTheme.paperInk)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Toast.Metrics.cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: Toast.Metrics.cornerRadius).strokeBorder(PiperTheme.paperRule, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: Toast.Metrics.cornerRadius).strokeBorder(PiperTheme.paperRule, lineWidth: Toast.Metrics.edgeWidth))
     }
 }
 
@@ -158,7 +167,7 @@ struct ToastButtonStyle: ButtonStyle {
             .foregroundStyle(PiperTheme.onAccent)
             .padding(.horizontal, Toast.Metrics.buttonPadding)
             .frame(height: Toast.Metrics.buttonHeight)
-            .background(PiperTheme.brand.opacity(configuration.isPressed ? 0.75 : 1), in: RoundedRectangle(cornerRadius: Toast.Metrics.buttonRadius))
+            .background(configuration.isPressed ? Toast.Metrics.pressedButtonFill : PiperTheme.brand, in: RoundedRectangle(cornerRadius: Toast.Metrics.buttonRadius))
             .contentShape(Rectangle())
     }
 }
@@ -169,9 +178,9 @@ private struct MessageCard: View {
 
     var body: some View {
         ToastCard {
-            HStack(spacing: 10) {
+            HStack(spacing: Toast.Metrics.messageSpacing) {
                 Image(systemName: message.isError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                    .font(.system(size: 14))
+                    .font(.system(size: Toast.Metrics.messageGlyph))
                     .foregroundStyle(message.isError ? PiperTheme.warning : PiperTheme.brand)
                     .accessibilityHidden(true)
                 Text(message.text).font(PiperTheme.paperUI(.body)).lineLimit(3).help(message.text)

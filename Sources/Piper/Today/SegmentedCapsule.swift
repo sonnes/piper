@@ -25,7 +25,7 @@ struct SegmentedCapsule<Value: Hashable>: View {
             ForEach(values, id: \.self) { value in
                 let on = selection == value
                 Button { pick(value) } label: {
-                    HStack(spacing: 5) {
+                    HStack(spacing: metrics.countSpacing) {
                         Text(title(value))
                         if let count = count(value), count > 0 {
                             Text("\(count)").monospacedDigit().foregroundStyle(on ? PiperTheme.paperMuted : PiperTheme.paperFaint)
@@ -36,7 +36,7 @@ struct SegmentedCapsule<Value: Hashable>: View {
                     .padding(.horizontal, fills ? 0 : metrics.segmentPadding)
                     .frame(maxWidth: fills ? .infinity : nil, minHeight: metrics.lensHeight - metrics.lensInset * 2)
                     .background(on ? PiperTheme.paper : .clear, in: Capsule())
-                    .shadow(color: on ? PiperTheme.lensShadow : .clear, radius: 1, y: 0.5)
+                    .shadow(color: on ? PiperTheme.lensShadow : .clear, radius: metrics.shadowRadius, y: metrics.shadowY)
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -48,7 +48,7 @@ struct SegmentedCapsule<Value: Hashable>: View {
         .padding(metrics.lensInset)
         .background(PiperTheme.paperTint, in: Capsule())
         .fixedSize(horizontal: !fills, vertical: false)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: selection)
+        .animation(reduceMotion ? nil : .easeOut(duration: metrics.motionDuration), value: selection)
     }
 }
 
@@ -57,4 +57,11 @@ private enum CapsuleMetrics {
     static let lensInset: CGFloat = 3
     /// The side padding of a segment that fits its title.
     static let segmentPadding: CGFloat = 10
+    /// The space between a title and its count.
+    static let countSpacing: CGFloat = 5
+    /// The shadow under the chosen segment.
+    static let shadowRadius: CGFloat = 1
+    static let shadowY: CGFloat = 0.5
+    /// The time of the move of the chosen segment.
+    static let motionDuration: Double = 0.15
 }

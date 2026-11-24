@@ -126,8 +126,8 @@ private struct TabEdgeLine: Shape {
         let metrics = PaperTabs.Metrics.self
         let x = rect.minX + metrics.tabEdgeInset
         var path = Path()
-        path.move(to: CGPoint(x: x, y: rect.minY + metrics.tabShoulder + 2))
-        path.addLine(to: CGPoint(x: x, y: rect.maxY - metrics.tabShoulder - 2))
+        path.move(to: CGPoint(x: x, y: rect.minY + metrics.tabShoulder + metrics.tabEdgeGap))
+        path.addLine(to: CGPoint(x: x, y: rect.maxY - metrics.tabShoulder - metrics.tabEdgeGap))
         return path
     }
 }
@@ -357,6 +357,8 @@ extension PaperTabs {
         /// The line on the outer edge of the active tab.
         static let tabEdgeLine: CGFloat = 3
         static let tabEdgeInset: CGFloat = 3.5
+        /// The edge line stops this far from the curve at each end of the tab.
+        static let tabEdgeGap: CGFloat = 2
         static let tabFocusLine: CGFloat = 3
         /// The active tab covers the paper by 1 point, so no seam shows. Its
         /// shadow stops 9 points from the inner edge of the tab.
@@ -393,12 +395,12 @@ extension PaperTabs {
         /// The line on the outer edge of the active tab: the 600 or 700 shade in
         /// the light, and the 400 shade in the dark.
         static func edge(_ color: TabColor) -> Color {
-            let (light, dark) = edges[color] ?? (0x52525B, 0xD4D4D8)
+            guard let (light, dark) = edges[color] else { return PiperTheme.paperMuted }
             return Color(nsColor: PiperTheme.color(light: light, dark: dark))
         }
 
         /// Zinc 900, and white. The label of a tab that is not active.
-        static let ink = Color(nsColor: PiperTheme.color(light: 0x18181B, dark: 0xFFFFFF))
+        static let ink = PiperTheme.paperInk
         /// Zinc 600, and white at 78 percent. The count of a tab that is not active.
         static let countColor = Color(nsColor: NSColor(name: nil) { appearance in
             PiperTheme.isDark(appearance) ? NSColor.white.withAlphaComponent(0.78) : PiperTheme.hex(0x52525B)
@@ -409,7 +411,7 @@ extension PaperTabs {
         })
         /// The focus ring of a tab: indigo 600 at 70 percent, and indigo 400 at 80 percent in the dark.
         static let focus = Color(nsColor: NSColor(name: nil) { appearance in
-            PiperTheme.isDark(appearance) ? PiperTheme.hex(0x818CF8).withAlphaComponent(0.8) : PiperTheme.hex(0x4F46E5).withAlphaComponent(0.7)
+            PiperTheme.brandNS.withAlphaComponent(PiperTheme.isDark(appearance) ? 0.8 : 0.7)
         })
         /// The darker fill of a pressed tab: black at 6 percent, and 10 percent in the dark.
         static let pressed = Color(nsColor: PiperTheme.shade(light: 0.06, dark: 0.10))

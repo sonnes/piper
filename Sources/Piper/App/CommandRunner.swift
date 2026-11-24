@@ -83,7 +83,7 @@ final class CommandRunner: NSObject {
     /// Edits a capture in a window of its own.
     func editNote(_ note: Note) {
         if let existing = editors[note.id], existing.isVisible { existing.makeKeyAndOrderFront(nil); return }
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: Metrics.editorSize),
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: NoteEditor.Metrics.windowSize),
                               styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "Edit Note"
         window.isReleasedWhenClosed = false
@@ -141,10 +141,6 @@ extension CommandRunner: NSWindowDelegate {
 // MARK: - Private
 
 private extension CommandRunner {
-    enum Metrics {
-        static let editorSize = NSSize(width: 480, height: 360)
-    }
-
     /// Opens the command palette over the paper with the keyboard focus, or over the feed paper.
     func showPalette() {
         if !(NSApp.keyWindow is PaperWindow) { desk.show() }

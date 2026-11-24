@@ -157,7 +157,7 @@ struct ApprovalDrawer: View {
     var body: some View {
         let waiting = session.pendingRequests
         if let request = waiting.first {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Metrics.requestCardSpacing) {
                 if request.isQuestion {
                     QuestionCard(request: request, answers: nil) { runner.answer(request, answers: $0, in: session) }
                 } else {
@@ -167,7 +167,7 @@ struct ApprovalDrawer: View {
             .padding(Metrics.requestPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Metrics.requestFill, in: RoundedRectangle(cornerRadius: Metrics.requestRadius))
-            .overlay(RoundedRectangle(cornerRadius: Metrics.requestRadius).strokeBorder(Metrics.requestRing, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: Metrics.requestRadius).strokeBorder(Metrics.requestRing, lineWidth: Metrics.requestRingWidth))
             .padding(Metrics.requestMargin)
         }
     }
@@ -181,7 +181,7 @@ struct ApprovalDrawer: View {
                 if count > 1 {
                     Text("1 of \(count)").font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperMuted)
                 }
-                Spacer(minLength: 4)
+                Spacer(minLength: Metrics.requestTitleGap)
             }
             if !detail.isEmpty {
                 Text(detail)
@@ -252,6 +252,11 @@ extension ApprovalDrawer {
     /// The card of a request that waits.
     enum Metrics {
         static let requestRadius: CGFloat = 10
+        /// The space between the requests in the card.
+        static let requestCardSpacing: CGFloat = 8
+        static let requestRingWidth: CGFloat = 1
+        /// The least space after the title of a request.
+        static let requestTitleGap: CGFloat = 4
         static let requestPadding = EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12)
         /// The space around the card of a request, inside the session pane.
         static let requestMargin = EdgeInsets(top: 6, leading: 12, bottom: 0, trailing: 12)
@@ -262,7 +267,7 @@ extension ApprovalDrawer {
         static let requestDetailFontSize: CGFloat = 11.5
         static let requestDetailLineLimit = 6
         /// The fill and the ring of a request that waits.
-        static let requestFill = Color(nsColor: PiperTheme.color(light: 0xF97316, dark: 0xFB923C)).opacity(0.12)
+        static let requestFill = PiperTheme.claude.opacity(0.12)
         static let requestRing = Color(nsColor: PiperTheme.hex(0xF97316)).opacity(0.35)
     }
 }

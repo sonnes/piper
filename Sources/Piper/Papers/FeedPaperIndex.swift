@@ -22,7 +22,7 @@ struct FeedPaperIndex: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2) {
+            LazyVStack(alignment: .leading, spacing: Metrics.rowGap) {
                 switch paper.state.tab {
                 case .today: todayRows
                 case .feeds: feedRows
@@ -147,11 +147,11 @@ struct IndexAction: View {
     var body: some View {
         Button(action: action) {
             Text(title).font(PiperTheme.paperUI(.body, weight: .medium)).foregroundStyle(PiperTheme.brand)
-                .padding(.horizontal, PaperRowMetrics.rowPadding).padding(.vertical, 10)
+                .padding(.horizontal, PaperRowMetrics.rowPadding).padding(.vertical, FeedPaperIndex.Metrics.actionVerticalPadding)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.top, 8)
+        .padding(.top, FeedPaperIndex.Metrics.actionTopMargin)
     }
 }
 
@@ -171,10 +171,10 @@ struct IndexRow: View {
     private typealias Metrics = FeedPaperIndex.Metrics
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: PaperRowMetrics.rowSpacing) {
             if let leading { leading }
             Text(title).lineLimit(1).truncationMode(.middle)
-            Spacer(minLength: 8)
+            Spacer(minLength: PaperRowMetrics.trailingGap)
             if count > 0 {
                 Text("\(count)").monospacedDigit().fontWeight(.regular)
                     .foregroundStyle(PiperTheme.paperMuted)
@@ -221,16 +221,16 @@ struct FolderMark: View {
 
     var body: some View {
         let metrics = FeedPaperIndex.Metrics.self
-        RoundedRectangle(cornerRadius: 2)
+        RoundedRectangle(cornerRadius: metrics.folderMarkRadius)
             .strokeBorder(color, lineWidth: PaperRowMetrics.markLine)
             .frame(width: metrics.folderMark.width, height: metrics.folderMark.height)
             .overlay(alignment: .topLeading) {
-                UnevenRoundedRectangle(topLeadingRadius: 2, topTrailingRadius: 2)
+                UnevenRoundedRectangle(topLeadingRadius: metrics.folderMarkRadius, topTrailingRadius: metrics.folderMarkRadius)
                     .stroke(color, lineWidth: PaperRowMetrics.markLine)
-                    .frame(width: 7, height: 3)
-                    .offset(x: 0, y: -3)
+                    .frame(width: metrics.folderMarkTab.width, height: metrics.folderMarkTab.height)
+                    .offset(x: 0, y: -metrics.folderMarkTab.height)
             }
-            .padding(.top, 3)
+            .padding(.top, metrics.folderMarkTab.height)
             .accessibilityHidden(true)
     }
 }
@@ -244,6 +244,14 @@ extension FeedPaperIndex {
         static let indexHeaderPadding = EdgeInsets(top: 12, leading: 12, bottom: 4, trailing: 12)
         /// The folder outline of a row of an index and of the folder tree.
         static let folderMark = CGSize(width: 16, height: 12)
+        static let folderMarkRadius: CGFloat = 2
+        /// The tab on top of the folder outline. The mark keeps room for it above the outline.
+        static let folderMarkTab = CGSize(width: 7, height: 3)
+        /// The space between two rows of an index.
+        static let rowGap: CGFloat = 2
+        /// An action at the end of an index, such as New Section.
+        static let actionVerticalPadding: CGFloat = 10
+        static let actionTopMargin: CGFloat = 8
         static let rowHeight: CGFloat = 48
         /// The ring of the keyboard cursor on a row of an index.
         static let cursorRing: CGFloat = 2

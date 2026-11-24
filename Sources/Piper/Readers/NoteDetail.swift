@@ -79,7 +79,7 @@ struct NoteDetail: View {
                 }), font: CaptureText.looksLikeCode(note.text)
                     ? PiperTheme.manuscript(size: Metrics.codeFontSize)
                     : PiperTheme.paperUINS(.reading))
-                .padding(.horizontal, -5)
+                .padding(.horizontal, Metrics.editorInsetOffset)
                 .accessibilityLabel("Note text")
             }
         }
@@ -115,6 +115,8 @@ extension NoteDetail {
         /// The extra space between the lines of a note, for a line height of 1.6 at 18 points.
         static let lineSpacing: CGFloat = 4.5
         static let codeFontSize: CGFloat = 13
+        /// Cancels the inset of the text view, so that the text lines up with the margin.
+        static let editorInsetOffset: CGFloat = -5
     }
 }
 

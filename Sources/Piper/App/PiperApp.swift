@@ -99,7 +99,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let mark = PiperTheme.mark?.copy() as? NSImage {
             mark.isTemplate = true
-            mark.size = NSSize(width: 20, height: 20 * mark.size.height / mark.size.width)
+            mark.size = NSSize(width: Metrics.menuBarIconWidth,
+                               height: Metrics.menuBarIconWidth * mark.size.height / mark.size.width)
             status.button?.image = mark
             status.button?.setAccessibilityLabel("Piper")
         }
@@ -243,5 +244,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         sendShortcut?.unregister()
         model.agents.runner.stopAll()
         model.clipboard.stop()
+    }
+}
+
+extension AppDelegate {
+    enum Metrics {
+        /// The width of the Piper mark in the menu bar. The height keeps the shape of the mark.
+        static let menuBarIconWidth: CGFloat = 20
     }
 }

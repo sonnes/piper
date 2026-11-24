@@ -45,9 +45,9 @@ struct SessionStateChip: View {
 
     var body: some View {
         let color = session.state.color
-        HStack(spacing: 4) {
+        HStack(spacing: Metrics.spacing) {
             if let symbol = session.state.symbol {
-                Image(systemName: symbol).font(.system(size: 9, weight: .bold))
+                Image(systemName: symbol).font(.system(size: Metrics.glyph, weight: .bold))
             } else {
                 ProgressView().controlSize(.mini)
             }
@@ -55,10 +55,21 @@ struct SessionStateChip: View {
         }
         .font(PiperTheme.paperUI(.body, weight: .medium))
         .foregroundStyle(color)
-        .padding(.horizontal, 7)
-        .frame(height: 18)
-        .background(color.opacity(0.13), in: Capsule())
+        .padding(.horizontal, Metrics.horizontalPadding)
+        .frame(height: Metrics.height)
+        .background(color.opacity(Metrics.fillOpacity), in: Capsule())
         .fixedSize()
+    }
+}
+
+extension SessionStateChip {
+    enum Metrics {
+        static let spacing: CGFloat = 4
+        static let glyph: CGFloat = 9
+        static let horizontalPadding: CGFloat = 7
+        static let height: CGFloat = 18
+        /// The fill of the capsule, in the color of the state.
+        static let fillOpacity = 0.13
     }
 }
 
@@ -133,9 +144,11 @@ struct SkillCompletions: View {
             ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
                 if index == 0 || actions[index - 1].folder != action.folder {
                     Text(action.folder.name.uppercased())
-                        .font(PiperTheme.paperUI(.body, weight: .semibold)).tracking(0.4)
+                        .font(PiperTheme.paperUI(.body, weight: .semibold)).tracking(Metrics.headerTracking)
                         .foregroundStyle(PiperTheme.paperFaint)
-                        .padding(.horizontal, 8).padding(.top, index == 0 ? 4 : 8).padding(.bottom, 3)
+                        .padding(.horizontal, PickRow.Metrics.horizontalPadding)
+                        .padding(.top, index == 0 ? CompletionListChrome.Metrics.firstHeaderTop : CompletionListChrome.Metrics.headerTop)
+                        .padding(.bottom, CompletionListChrome.Metrics.headerBottom)
                 }
                 row(action, active: index == selected)
             }
@@ -147,27 +160,23 @@ struct SkillCompletions: View {
 
     private func row(_ action: SkillFolders.Action, active: Bool) -> some View {
         Button { choose(action) } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: Metrics.spacing) {
                 Text("/" + action.skill.name)
-                    .font(Font(PiperTheme.manuscript(size: 12.5)))
+                    .font(Font(PiperTheme.manuscript(size: Metrics.commandFontSize)))
                     .fixedSize()
                 Text(action.skill.summary)
                     .font(PiperTheme.paperUI(.body))
-                    .foregroundStyle(active ? Color.white.opacity(0.85) : PiperTheme.paperMuted)
+                    .foregroundStyle(PickRow.secondary(active, otherwise: PiperTheme.paperMuted))
                     .lineLimit(1)
-                Spacer(minLength: 4)
+                Spacer(minLength: Metrics.hintGap)
                 if let hint = action.skill.argumentHint {
                     Text(hint)
-                        .font(Font(PiperTheme.manuscript(size: 11)))
-                        .foregroundStyle(active ? Color.white.opacity(0.85) : PiperTheme.paperFaint)
+                        .font(Font(PiperTheme.manuscript(size: Metrics.hintFontSize)))
+                        .foregroundStyle(PickRow.secondary(active, otherwise: PiperTheme.paperFaint))
                         .lineLimit(1).fixedSize()
                 }
             }
-            .foregroundStyle(active ? Color.white : PiperTheme.paperInk)
-            .padding(.horizontal, 8)
-            .frame(height: 26)
-            .background(active ? PiperTheme.brand : .clear, in: RoundedRectangle(cornerRadius: Metrics.rowRadius))
-            .contentShape(Rectangle())
+            .pickRow(chosen: active)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(active ? .isSelected : [])
@@ -176,6 +185,11 @@ struct SkillCompletions: View {
 
 extension SkillCompletions {
     enum Metrics {
-        static let rowRadius: CGFloat = 6
+        static let headerTracking: CGFloat = 0.4
+        static let spacing: CGFloat = 8
+        static let commandFontSize: CGFloat = 12.5
+        static let hintFontSize: CGFloat = 11
+        /// The least space before the argument hint.
+        static let hintGap: CGFloat = 4
     }
 }

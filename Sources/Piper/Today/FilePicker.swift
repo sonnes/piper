@@ -21,7 +21,7 @@ struct FilePicker: View {
             Text(items.count == 1 ? "File “\(String(items[0].title.prefix(40)))”" : "File \(items.count) Items")
                 .font(PiperTheme.paperUI(.body, weight: .semibold))
                 .lineLimit(1)
-                .padding(.bottom, 8)
+                .padding(.bottom, Metrics.titleBottom)
             TextField("Search sections and folders", text: $query)
                 .textFieldStyle(.roundedBorder)
                 .focused($focused)
@@ -37,7 +37,7 @@ struct FilePicker: View {
                                 Text(header(of: target))
                                     .font(PiperTheme.paperUI(.body, weight: .semibold))
                                     .foregroundStyle(PiperTheme.paperMuted)
-                                    .padding(.top, 10).padding(.bottom, 2)
+                                    .padding(.top, Metrics.headerTop).padding(.bottom, Metrics.headerBottom)
                                     .accessibilityAddTraits(.isHeader)
                             }
                             row(target, on: index == cursor) {
@@ -59,9 +59,9 @@ struct FilePicker: View {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("File") { pick(targets) }.keyboardShortcut(.defaultAction).disabled(targets.isEmpty)
             }
-            .padding(.top, 10)
+            .padding(.top, Metrics.footTop)
         }
-        .padding(16)
+        .padding(Metrics.pickerPadding)
         .frame(width: FilePicker.Metrics.pickerSize.width, height: FilePicker.Metrics.pickerSize.height)
         .onAppear { focused = true }
         .onChange(of: query) { _, _ in cursor = 0 }
@@ -80,14 +80,10 @@ struct FilePicker: View {
             HStack {
                 Text(target.title).lineLimit(1).truncationMode(.middle)
                 Spacer()
-                Text(target.detail).foregroundStyle(on ? PiperTheme.onAccent.opacity(0.8) : PiperTheme.paperFaint)
+                Text(target.detail).foregroundStyle(PickRow.secondary(on, otherwise: PiperTheme.paperFaint))
             }
             .font(PiperTheme.paperUI(.body))
-            .foregroundStyle(on ? PiperTheme.onAccent : PiperTheme.paperInk)
-            .padding(.horizontal, 8)
-            .frame(height: FilePicker.Metrics.pickerRowHeight)
-            .background(on ? PiperTheme.brand : .clear, in: RoundedRectangle(cornerRadius: 6))
-            .contentShape(Rectangle())
+            .pickRow(chosen: on)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(target.title), \(target.detail)")
@@ -103,6 +99,13 @@ struct FilePicker: View {
 extension FilePicker {
     enum Metrics {
         static let pickerSize = NSSize(width: 360, height: 380)
-        static let pickerRowHeight: CGFloat = 30
+        static let pickerPadding: CGFloat = 16
+        /// The space under the title of the sheet.
+        static let titleBottom: CGFloat = 8
+        /// The space over and under the header of a group of places.
+        static let headerTop: CGFloat = 10
+        static let headerBottom: CGFloat = 2
+        /// The space over the row of the key hint and the buttons.
+        static let footTop: CGFloat = 10
     }
 }

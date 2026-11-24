@@ -50,7 +50,7 @@ struct FolderTreeView: View {
     /// The swatches for the color of the tab of the folder.
     private var swatches: some View {
         let current = paper.color(of: paper.state.tab)
-        return HStack(spacing: 10) {
+        return HStack(spacing: Metrics.swatchSpacing) {
             Text("Tab color").foregroundStyle(PiperTheme.paperFaint)
             ForEach(TabColor.allCases) { color in
                 Swatch(color: color, selected: color == current) { paper.setTabColor(color) }
@@ -63,10 +63,10 @@ struct FolderTreeView: View {
         if !library.problems.isEmpty {
             DisclosureGroup("\(library.problems.count) file warnings") {
                 Text(library.problems.joined(separator: "\n"))
-                    .textSelection(.enabled).padding(.top, 5)
+                    .textSelection(.enabled).padding(.top, Metrics.warningsTextGap)
             }
             .font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.warning)
-            .padding(.horizontal, PaperRowMetrics.rowPadding).padding(.top, 12)
+            .padding(.horizontal, PaperRowMetrics.rowPadding).padding(.top, Metrics.warningsTopPadding)
         }
     }
 }
@@ -94,10 +94,10 @@ private struct TreeRow: View {
             if row.isFolder {
                 FolderMark()
             } else {
-                SheetMark().padding(.horizontal, 2)
+                SheetMark().padding(.horizontal, Metrics.sheetMarkInset)
             }
             name
-            Spacer(minLength: 8)
+            Spacer(minLength: PaperRowMetrics.trailingGap)
             meta
         }
         .padding(.leading, Metrics.treeRowPadding.leading + CGFloat(row.depth) * Metrics.treeIndent)
@@ -130,7 +130,7 @@ private struct TreeRow: View {
             .font(.system(size: Metrics.treeChevronGlyph, weight: .semibold))
             .foregroundStyle(PiperTheme.paperFaint)
             .rotationEffect(.degrees(row.expanded ? 90 : 0))
-            .animation(.easeOut(duration: 0.15), value: row.expanded)
+            .animation(.easeOut(duration: Metrics.chevronTurn), value: row.expanded)
             .frame(width: Metrics.treeChevron, height: Metrics.treeChevron)
             .opacity(row.isFolder ? 1 : 0)
             .accessibilityHidden(true)
@@ -166,7 +166,7 @@ private struct TreeRow: View {
     /// The line that joins the rows of one folder.
     @ViewBuilder private var guide: some View {
         if row.depth > 0 {
-            Rectangle().fill(PiperTheme.paperRule).frame(width: 1)
+            Rectangle().fill(PiperTheme.paperRule).frame(width: Metrics.treeGuideWidth)
                 .padding(.leading, Metrics.treeGuide + CGFloat(row.depth - 1) * Metrics.treeIndent)
         }
     }
@@ -204,7 +204,7 @@ private struct Swatch: View {
                 .fill(PaperTabs.Metrics.fill(color))
                 .overlay(Circle().strokeBorder(PiperTheme.paper, lineWidth: Metrics.swatchBorder))
                 .overlay {
-                    let line: CGFloat = selected ? 2 : 1
+                    let line = selected ? Metrics.selectedSwatchRing : Metrics.swatchRing
                     Circle().inset(by: -line / 2).stroke(selected ? PiperTheme.paperInk : PiperTheme.paperRule, lineWidth: line)
                 }
                 .frame(width: Metrics.swatchSize, height: Metrics.swatchSize)
@@ -229,11 +229,23 @@ extension FolderTreeView {
         static let treeSpacing: CGFloat = 8
         /// The guide line of a nested row lies at this distance from the left of its row, at level 1.
         static let treeGuide: CGFloat = 23
+        static let treeGuideWidth: CGFloat = 1
         static let treeChevron: CGFloat = 16
         static let treeChevronGlyph: CGFloat = 10
+        /// The turn of the chevron when a folder opens or closes.
+        static let chevronTurn: Double = 0.15
+        /// The sheet of a file is narrower than a folder. This inset centers it in the same column.
+        static let sheetMarkInset: CGFloat = 2
+        /// The list of file warnings under the tree.
+        static let warningsTopPadding: CGFloat = 12
+        static let warningsTextGap: CGFloat = 5
         /// The row of swatches under the title of a folder tab.
         static let subPadding = EdgeInsets(top: 8, leading: 32, bottom: 0, trailing: 32)
         static let swatchSize: CGFloat = 22
         static let swatchBorder: CGFloat = 2
+        static let swatchSpacing: CGFloat = 10
+        /// The ring around a swatch, and around the swatch of the current color.
+        static let swatchRing: CGFloat = 1
+        static let selectedSwatchRing: CGFloat = 2
     }
 }

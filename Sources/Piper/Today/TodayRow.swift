@@ -86,12 +86,12 @@ struct TodayRow: View {
             ZStack(alignment: .topTrailing) {
                 SiteIcon(favicons: model.favicons, host: host, title: item.source ?? host)
                 if item.state == .new {
-                    UnreadDot().offset(x: 3, y: -3)
+                    UnreadDot().offset(Metrics.unreadDotOffset)
                 }
             }
         case .clip:
             Image(systemName: "doc.on.clipboard")
-                .font(.system(size: 14))
+                .font(.system(size: Metrics.clipGlyph))
                 .foregroundStyle(PiperTheme.paperFaint)
                 .accessibilityHidden(true)
         }
@@ -117,7 +117,7 @@ struct TodayRow: View {
         case .clip:
             PaperRowTitle(text: Text(item.title.replacingOccurrences(of: "\n", with: " ")))
         case .digest:
-            HStack(spacing: 6) {
+            HStack(spacing: Metrics.digestCountSpacing) {
                 PaperRowTitle(text: Text(item.title), bold: bold, lines: 1)
                 Text("\(item.articles.filter { !$0.read }.count) new")
                     .font(PiperTheme.paperUI(.body, weight: .medium))
@@ -179,7 +179,7 @@ struct TodayRow: View {
             .font(PiperTheme.paperUI(.body))
             .foregroundStyle(PiperTheme.paperMuted)
             .lineLimit(2)
-            .padding(.top, 2)
+            .padding(.top, Metrics.digestTitlesTop)
     }
 
     /// The highlights and notes under a link, or the notes under a note.
@@ -199,6 +199,13 @@ extension TodayRow {
         static let codeFontSize: CGFloat = 14
         /// The titles of a digest row: the first titles, then a count of the others.
         static let digestTitles = 2
+        /// The space between the title of a digest and its count of new posts.
+        static let digestCountSpacing: CGFloat = 6
+        static let digestTitlesTop: CGFloat = 2
+        /// The clipboard symbol in place of the site icon of a clipboard text.
+        static let clipGlyph: CGFloat = 14
+        /// The place of the unread dot on the top trailing corner of a site icon.
+        static let unreadDotOffset = CGSize(width: 3, height: -3)
     }
 }
 

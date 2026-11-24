@@ -76,7 +76,7 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
             .accessibilityValue(lifted ? "On the desk" : "")
             .accessibilityAction(.default, action)
             if actionsShown {
-                HStack(spacing: 2) { actions() }
+                HStack(spacing: Metrics.rowActionSpacing) { actions() }
                     .frame(minHeight: Metrics.rowLineHeight)
                     .transition(.opacity)
             }
@@ -135,7 +135,7 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     private func flash() {
         guard !reduceMotion else { return }
         flashing = true
-        let hold = Metrics.flash * 0.3
+        let hold = Metrics.flash * Metrics.flashHold
         DispatchQueue.main.asyncAfter(deadline: .now() + hold) {
             withAnimation(.easeOut(duration: Metrics.flash - hold)) { flashing = false }
         }
@@ -204,11 +204,11 @@ struct PaperRowMeta<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        HStack(spacing: 5) { content() }
+        HStack(spacing: PaperRowMetrics.metaSpacing) { content() }
             .font(PiperTheme.paperUI(.body))
             .foregroundStyle(PiperTheme.paperMuted)
             .lineLimit(1)
-            .padding(.top, 1)
+            .padding(.top, PaperRowMetrics.metaTopPadding)
     }
 }
 
@@ -226,7 +226,7 @@ struct TickMark: View {
         ZStack {
             if done {
                 Circle().fill(PiperTheme.indigo)
-                Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(PiperTheme.onAccent)
+                Image(systemName: "checkmark").font(.system(size: metrics.tickGlyph, weight: .bold)).foregroundStyle(PiperTheme.onAccent)
             } else {
                 Circle().strokeBorder(hovered ? PiperTheme.brand : PiperTheme.paperFaint, lineWidth: metrics.markLine)
             }
@@ -251,7 +251,8 @@ struct UnreadDot: View {
 struct SheetMark: View {
     var body: some View {
         let metrics = PaperRowMetrics.self
-        UnevenRoundedRectangle(topLeadingRadius: 2, bottomLeadingRadius: 2, bottomTrailingRadius: 2, topTrailingRadius: 5)
+        UnevenRoundedRectangle(topLeadingRadius: metrics.sheetMarkRadius, bottomLeadingRadius: metrics.sheetMarkRadius,
+                               bottomTrailingRadius: metrics.sheetMarkRadius, topTrailingRadius: metrics.sheetMarkFoldRadius)
             .strokeBorder(PiperTheme.paperFaint, lineWidth: metrics.markLine)
             .frame(width: metrics.sheetMark.width, height: metrics.sheetMark.height)
             .accessibilityHidden(true)
@@ -270,14 +271,14 @@ struct RowNotes: View {
 
     var body: some View {
         let shown = notes.suffix(Metrics.rowNoteLimit)
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Metrics.rowNotesSpacing) {
             ForEach(Array(shown)) { note in
                 Button { open(note) } label: {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: Metrics.rowNoteSpacing) {
                         Text(Self.quote(of: note))
                             .font(PiperTheme.paperSerif(Metrics.quoteSize))
                             .foregroundStyle(PiperTheme.paperMuted)
-                            .lineSpacing(4).lineLimit(2)
+                            .lineSpacing(Metrics.quoteLineSpacing).lineLimit(2)
                         let comment = Self.comment(of: note)
                         if !comment.isEmpty {
                             Text(comment).font(PiperTheme.paperUI(.body)).foregroundStyle(PiperTheme.paperInk).lineLimit(2)
@@ -320,7 +321,7 @@ struct PaperGroupHeader: View {
     var body: some View {
         HStack {
             Text(title).foregroundStyle(PiperTheme.paperMuted)
-            Spacer(minLength: 8)
+            Spacer(minLength: PaperRowMetrics.trailingGap)
             if let action {
                 Button(action.title, action: action.run).buttonStyle(.plain).foregroundStyle(PiperTheme.brand)
             }
@@ -328,7 +329,7 @@ struct PaperGroupHeader: View {
         .font(PiperTheme.paperUI(.body, weight: .semibold))
         .padding(PaperRowMetrics.groupHeaderPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PiperTheme.paper.opacity(0.94))
+        .background(PaperRowMetrics.groupHeaderFill)
         .accessibilityAddTraits(.isHeader)
     }
 }
@@ -346,7 +347,7 @@ struct PaperDoneToday: View {
 
     var body: some View {
         Button(action: toggle) {
-            HStack(spacing: 6) {
+            HStack(spacing: PaperRowMetrics.doneTodaySpacing) {
                 Text(shown ? "Hide \(count) done today" : "\(count) done today")
                 Spacer(minLength: 0)
             }
@@ -367,11 +368,11 @@ struct PaperEmpty: View {
     var detail: String?
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: PaperRowMetrics.emptySpacing) {
             Image(systemName: symbol)
                 .font(.system(size: PaperRowMetrics.emptySymbol, weight: .light))
                 .foregroundStyle(PiperTheme.paperFaint)
-                .padding(.bottom, 6)
+                .padding(.bottom, PaperRowMetrics.emptySymbolGap)
                 .accessibilityHidden(true)
             Text(title).font(PiperTheme.paperUI(.row, weight: .semibold)).foregroundStyle(PiperTheme.paperMuted)
             if let detail {
@@ -379,7 +380,7 @@ struct PaperEmpty: View {
             }
         }
         .multilineTextAlignment(.center)
-        .padding(24)
+        .padding(PaperRowMetrics.emptyPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
     }
@@ -400,15 +401,27 @@ enum PaperRowMetrics {
     /// The space between the lines of a title, for a line height of 26.
     static let rowLineSpacing: CGFloat = 4
     static let rowSpacing: CGFloat = 10
+    /// The least space between the text of a row and its count, time, or action.
+    static let trailingGap: CGFloat = 8
+    /// The meta line under the title of a row.
+    static let metaSpacing: CGFloat = 5
+    static let metaTopPadding: CGFloat = 1
     /// The quote of a note under a row.
     static let quoteSize: CGFloat = 15.5
     static let tickSize: CGFloat = 18
+    static let tickGlyph: CGFloat = 9
     static let dotSize: CGFloat = 9
     static let markLine: CGFloat = 1.5
     static let sheetMark = NSSize(width: 12, height: 15)
+    /// The corners of the sheet, and its folded corner at the top right.
+    static let sheetMarkRadius: CGFloat = 2
+    static let sheetMarkFoldRadius: CGFloat = 5
     static let slotDash: [CGFloat] = [4, 3]
     /// A group header, such as Today. It sticks to the top of the list while the list scrolls.
     static let groupHeaderPadding = EdgeInsets(top: 16, leading: 14, bottom: 6, trailing: 20)
+    static let groupHeaderFill = PiperTheme.paper.opacity(0.94)
+    /// The fold over the captures done today.
+    static let doneTodaySpacing: CGFloat = 6
     /// The hairline between two rows starts at the text column, as in Mail.
     static let separatorInset = listRowPadding.leading + markColumn + rowSpacing
     static let separatorHeight: CGFloat = 0.5
@@ -416,13 +429,25 @@ enum PaperRowMetrics {
     static let hoverFade: Double = 0.12
     /// The time of the flash of a row when its paper goes back.
     static let flash: Double = 1.4
+    /// The part of the flash that holds the indigo before it fades.
+    static let flashHold: Double = 0.3
     /// The trailing actions of a row under the pointer, in place of its time.
     static let rowActionSize: CGFloat = 28
     static let rowActionGlyph: CGFloat = 14
+    static let rowActionSpacing: CGFloat = 2
     /// An empty list: a symbol over one line.
     static let emptySymbol: CGFloat = 34
+    static let emptySpacing: CGFloat = 6
+    /// The extra space under the symbol.
+    static let emptySymbolGap: CGFloat = 6
+    static let emptyPadding: CGFloat = 24
     /// The notes under a row: the last two, then a count of the others.
     static let rowNoteLimit = 2
     static let rowNotesPadding = EdgeInsets(top: 8, leading: 12, bottom: 2, trailing: 0)
     static let quoteBarWidth: CGFloat = 2
+    /// The space between two notes, and between the quote and the words of the reader.
+    static let rowNotesSpacing: CGFloat = 6
+    static let rowNoteSpacing: CGFloat = 2
+    /// The space between the lines of a quote.
+    static let quoteLineSpacing: CGFloat = 4
 }

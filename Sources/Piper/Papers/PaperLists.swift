@@ -18,7 +18,7 @@ struct SessionList: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 PaperRow(item: .newSession(folder), selected: current == .newSession(folder), time: "",
                          action: { pick(.newSession(folder)) }) {
-                    Image(systemName: "square.and.pencil").font(.system(size: 15, weight: .medium)).foregroundStyle(PiperTheme.brand)
+                    Image(systemName: "square.and.pencil").font(.system(size: Metrics.newSessionGlyph, weight: .medium)).foregroundStyle(PiperTheme.brand)
                 } content: {
                     PaperRowTitle(text: Text("New Session"))
                 }
@@ -72,5 +72,11 @@ struct SessionList: View {
     /// The color of the state. A finished session that the reader has read is gray.
     private static func color(_ session: AgentSession) -> Color {
         session.isActive || session.unread ? session.state.color : Color(nsColor: PiperTheme.paperBarNS)
+    }
+}
+
+extension SessionList {
+    enum Metrics {
+        static let newSessionGlyph: CGFloat = 15
     }
 }

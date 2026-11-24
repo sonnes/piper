@@ -46,13 +46,31 @@ final class SettingsWindowController: NSWindowController {
 }
 
 extension SettingsWindowController {
-    /// The size of each tab of the window.
+    /// The size of each tab of the window, and the sizes in the tabs.
     enum Metrics {
         static let generalSize = NSSize(width: 560, height: 330)
         static let captureSize = NSSize(width: 560, height: 380)
         static let readingSize = NSSize(width: 560, height: 300)
         static let aiSize = NSSize(width: 600, height: 640)
         static let feedsSize = NSSize(width: 600, height: 560)
+        static let folderRowSpacing: CGFloat = 8
+        static let folderListHeight: CGFloat = 96
+        /// The add and the remove buttons under the folder list.
+        static let listButtonSize = CGSize(width: 20, height: 16)
+        /// The space between the parts of a line of the AI and the Reading tabs.
+        static let agentSpacing: CGFloat = 6
+        /// The space between the lines of an agent row.
+        static let agentLineSpacing: CGFloat = 4
+        /// The least space before the buttons and the version of an agent row.
+        static let agentControlGap: CGFloat = 4
+        /// The command and the version of an agent.
+        static let commandFontSize: CGFloat = 11
+        static let healthDot: CGFloat = 8
+        /// The Add ACP Agent sheet.
+        static let sheetSpacing: CGFloat = 12
+        static let sheetPadding: CGFloat = 20
+        static let sheetWidth: CGFloat = 420
+        static let skillPickerIndent: CGFloat = 16
     }
 }
 
@@ -86,7 +104,7 @@ private struct GeneralSettings: View {
         Form {
             Section("Folders") {
                 List(model.library.wikiPaths, id: \.self, selection: $selection) { path in
-                    HStack(spacing: 8) {
+                    HStack(spacing: SettingsWindowController.Metrics.folderRowSpacing) {
                         Image(systemName: "folder").foregroundStyle(PiperTheme.brand)
                         Text(URL(fileURLWithPath: path).lastPathComponent)
                         Spacer()
@@ -95,15 +113,15 @@ private struct GeneralSettings: View {
                     }
                     .font(PiperTheme.paperUI(.body))
                 }
-                .frame(height: 96)
+                .frame(height: SettingsWindowController.Metrics.folderListHeight)
                 .listStyle(.bordered(alternatesRowBackgrounds: false))
                 HStack(spacing: 0) {
-                    Button { model.library.chooseWiki() } label: { Image(systemName: "plus").frame(width: 20, height: 16) }
+                    Button { model.library.chooseWiki() } label: { Image(systemName: "plus").frame(width: SettingsWindowController.Metrics.listButtonSize.width, height: SettingsWindowController.Metrics.listButtonSize.height) }
                         .help("Add Folder").accessibilityLabel("Add Folder")
                     Button {
                         if let selection { model.library.removeWikiFolder(selection) }
                         selection = nil
-                    } label: { Image(systemName: "minus").frame(width: 20, height: 16) }
+                    } label: { Image(systemName: "minus").frame(width: SettingsWindowController.Metrics.listButtonSize.width, height: SettingsWindowController.Metrics.listButtonSize.height) }
                         .disabled(selection == nil || model.library.wikiPaths.count < 2)
                         .help("Remove Folder. The folder stays on disk.").accessibilityLabel("Remove Folder")
                     Spacer()
@@ -171,12 +189,12 @@ private struct AISettings: View {
         Form {
             Section {
                 AgentRow(agent: agents.claudeCode, status: agents.health[agents.claudeCode.id]) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: SettingsWindowController.Metrics.agentSpacing) {
                         Text(agents.executable.map { ($0.path as NSString).abbreviatingWithTildeInPath }
                              ?? "No claude command")
                             .foregroundStyle(agents.executable == nil ? PiperTheme.danger : PiperTheme.paperMuted)
                             .lineLimit(1).truncationMode(.middle)
-                        Spacer(minLength: 4)
+                        Spacer(minLength: SettingsWindowController.Metrics.agentControlGap)
                         if agents.claudePath != nil {
                             Button("Find Automatically") { agents.claudePath = nil }
                         }
@@ -185,12 +203,12 @@ private struct AISettings: View {
                 }
                 ForEach(agents.acpAgents) { agent in
                     AgentRow(agent: agent, status: agents.health[agent.id]) {
-                        HStack(spacing: 6) {
+                        HStack(spacing: SettingsWindowController.Metrics.agentSpacing) {
                             Text(([agent.command] + agent.arguments).joined(separator: " "))
-                                .font(Font(PiperTheme.manuscript(size: 11)))
+                                .font(Font(PiperTheme.manuscript(size: SettingsWindowController.Metrics.commandFontSize)))
                                 .foregroundStyle(PiperTheme.paperMuted)
                                 .lineLimit(1).truncationMode(.middle)
-                            Spacer(minLength: 4)
+                            Spacer(minLength: SettingsWindowController.Metrics.agentControlGap)
                             Button("Remove") { agents.removeAgent(agent) }
                         }
                     }
@@ -316,18 +334,18 @@ private struct AgentRow<Controls: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Circle().fill(color).frame(width: 8, height: 8)
+        VStack(alignment: .leading, spacing: SettingsWindowController.Metrics.agentLineSpacing) {
+            HStack(spacing: SettingsWindowController.Metrics.agentSpacing) {
+                Circle().fill(color).frame(width: SettingsWindowController.Metrics.healthDot, height: SettingsWindowController.Metrics.healthDot)
                     .accessibilityLabel(status?.headline ?? "Not checked")
                 AgentMark(kind: agent.kind)
                 Text(agent.name).font(PiperTheme.paperUI(.body, weight: .semibold))
                 Text(status?.headline ?? "Not checked")
                     .foregroundStyle(PiperTheme.paperMuted)
                     .lineLimit(1).truncationMode(.tail)
-                Spacer(minLength: 4)
+                Spacer(minLength: SettingsWindowController.Metrics.agentControlGap)
                 if let version = status?.version {
-                    Text(version).font(Font(PiperTheme.manuscript(size: 11))).foregroundStyle(PiperTheme.paperMuted)
+                    Text(version).font(Font(PiperTheme.manuscript(size: SettingsWindowController.Metrics.commandFontSize))).foregroundStyle(PiperTheme.paperMuted)
                 }
             }
             controls.font(PiperTheme.paperUI(.body))
@@ -356,7 +374,7 @@ private struct AddAgentSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SettingsWindowController.Metrics.sheetSpacing) {
             Text("Add ACP Agent").font(PiperTheme.paperUI(.row, weight: .semibold))
             Form {
                 TextField("Name", text: $name)
@@ -376,8 +394,8 @@ private struct AddAgentSheet: View {
                 .disabled(!isComplete)
             }
         }
-        .padding(20)
-        .frame(width: 420)
+        .padding(SettingsWindowController.Metrics.sheetPadding)
+        .frame(width: SettingsWindowController.Metrics.sheetWidth)
     }
 }
 
@@ -407,7 +425,7 @@ private struct SkillFolderRow: View {
                 Text("/" + skill.name).tag(skill.name)
             }
         }
-        .padding(.leading, 16)
+        .padding(.leading, SettingsWindowController.Metrics.skillPickerIndent)
     }
 }
 
@@ -425,9 +443,9 @@ private struct ReadingPane: View {
                 }
                 .pickerStyle(.segmented)
                 LabeledContent("Size") {
-                    HStack(spacing: 6) {
+                    HStack(spacing: SettingsWindowController.Metrics.agentSpacing) {
                         Text("\(Int(reading.size)) pt").monospacedDigit()
-                        Stepper("Size", value: reading.$size, in: 13...24, step: 1).labelsHidden()
+                        Stepper("Size", value: reading.$size, in: ReadingSettings.sizes, step: 1).labelsHidden()
                     }
                 }
                 Picker("Paper", selection: reading.$theme) {

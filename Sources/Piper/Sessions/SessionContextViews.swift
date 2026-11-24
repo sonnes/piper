@@ -170,7 +170,9 @@ struct MentionCompletions: View {
                     Text(option.group.title)
                         .font(PiperTheme.paperUI(.body, weight: .semibold))
                         .foregroundStyle(PiperTheme.paperFaint)
-                        .padding(.horizontal, 8).padding(.top, index == 0 ? 4 : 8).padding(.bottom, 3)
+                        .padding(.horizontal, PickRow.Metrics.horizontalPadding)
+                        .padding(.top, index == 0 ? CompletionListChrome.Metrics.firstHeaderTop : CompletionListChrome.Metrics.headerTop)
+                        .padding(.bottom, CompletionListChrome.Metrics.headerBottom)
                 }
                 row(option, active: index == selected)
             }
@@ -182,21 +184,17 @@ struct MentionCompletions: View {
 
     private func row(_ option: MentionOption, active: Bool) -> some View {
         Button { choose(option) } label: {
-            HStack(spacing: 6) {
-                Image(systemName: option.item.icon).frame(width: 14)
+            HStack(spacing: ContextMetrics.rowSpacing) {
+                Image(systemName: option.item.icon).frame(width: ContextMetrics.iconWidth)
                 Text(option.title).lineLimit(1).truncationMode(.tail)
-                Spacer(minLength: 4)
+                Spacer(minLength: ContextMetrics.detailGap)
                 Text(option.detail)
                     .font(PiperTheme.paperUI(.body))
-                    .foregroundStyle(active ? Color.white.opacity(0.8) : PiperTheme.paperFaint)
+                    .foregroundStyle(PickRow.secondary(active, otherwise: PiperTheme.paperFaint))
                     .lineLimit(1).truncationMode(.head)
             }
             .font(PiperTheme.paperUI(.body))
-            .foregroundStyle(active ? Color.white : PiperTheme.paperInk)
-            .padding(.horizontal, 8)
-            .frame(height: 24)
-            .background(active ? PiperTheme.brand : .clear, in: RoundedRectangle(cornerRadius: ContextMetrics.rowRadius))
-            .contentShape(Rectangle())
+            .pickRow(chosen: active)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(active ? .isSelected : [])
@@ -214,24 +212,24 @@ struct ContextChip: View {
     var resend: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: ContextMetrics.chipSpacing) {
             Image(systemName: item.icon)
             Text(item.label).lineLimit(1).truncationMode(.middle)
             if !pending { Text("· in session").foregroundStyle(PiperTheme.paperFaint) }
             if pending, let remove {
-                Button(action: remove) { Image(systemName: "xmark").font(.system(size: 8, weight: .bold)) }
+                Button(action: remove) { Image(systemName: "xmark").font(.system(size: ContextMetrics.chipRemoveGlyph, weight: .bold)) }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Remove \(item.label)")
             }
         }
         .font(PiperTheme.paperUI(.body))
         .foregroundStyle(pending ? PiperTheme.brand : PiperTheme.paperFaint)
-        .padding(.horizontal, 7).frame(height: 20)
+        .padding(.horizontal, ContextMetrics.chipPadding).frame(height: ContextMetrics.chipHeight)
         .background {
             if pending {
-                Capsule().fill(PiperTheme.brand.opacity(0.1))
+                Capsule().fill(ContextMetrics.pendingChipFill)
             } else {
-                Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: 0.5)
+                Capsule().strokeBorder(PiperTheme.paperRule, lineWidth: ContextMetrics.chipRing)
             }
         }
         .contentShape(Capsule())
@@ -251,5 +249,15 @@ private enum ContextMetrics {
     static let folderFileLimit = 5000
     /// The characters of a note or a title in a context chip or a mention.
     static let contextLabelLimit = 40
-    static let rowRadius: CGFloat = 6
+    static let rowSpacing: CGFloat = 6
+    static let iconWidth: CGFloat = 14
+    /// The least space before the folder or the site of a row.
+    static let detailGap: CGFloat = 4
+    static let chipSpacing: CGFloat = 4
+    static let chipRemoveGlyph: CGFloat = 8
+    static let chipPadding: CGFloat = 7
+    static let chipHeight: CGFloat = 20
+    /// The ring of a chip that the session has.
+    static let chipRing: CGFloat = 0.5
+    static let pendingChipFill = PiperTheme.brand.opacity(0.1)
 }

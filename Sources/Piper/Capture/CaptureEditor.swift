@@ -141,7 +141,7 @@ struct CaptureEditor: NSViewRepresentable {
                     let found = text.range(of: token, range: search)
                     guard found.location != NSNotFound else { break }
                     manager.addTemporaryAttributes([.foregroundColor: PiperTheme.brandNS,
-                                                    .backgroundColor: PiperTheme.brandNS.withAlphaComponent(0.1)],
+                                                    .backgroundColor: CaptureEditor.Metrics.highlightFill],
                                                    forCharacterRange: found)
                     let next = found.location + found.length
                     search = NSRange(location: next, length: text.length - next)
@@ -184,6 +184,8 @@ extension CaptureEditor {
         /// The width of the card before its first layout.
         static let width: CGFloat = 572
         static let textWidth = width - textInset.width * 2
+        /// The fill behind a highlight text, such as an `@` mention.
+        static let highlightFill = PiperTheme.brandNS.withAlphaComponent(0.1)
     }
 }
 

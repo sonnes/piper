@@ -77,17 +77,17 @@ struct FeedPaperView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.headerSpacing) {
             // The title takes the room first. It shrinks before it truncates.
             Text(paper.showsIndex ? paper.state.tab.title : title)
                 .font(PiperTheme.paperTitle(.title))
                 .lineLimit(1).minimumScaleFactor(Metrics.titleMinimumScale).truncationMode(.tail)
                 .layoutPriority(1)
                 .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 8)
+            Spacer(minLength: Metrics.headerGap)
             if paper.showsIndex {
                 Button(action: paper.showList) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: Metrics.backSpacing) {
                         Text("Back to the list")
                         KeyCap(text: "esc")
                     }
@@ -126,7 +126,7 @@ struct FeedPaperView: View {
             item(.refresh)
             item(.settings)
         } label: {
-            Image(systemName: "ellipsis.circle").font(.system(size: 16)).foregroundStyle(PiperTheme.paperMuted)
+            Image(systemName: "ellipsis.circle").font(.system(size: Metrics.moreGlyph)).foregroundStyle(PiperTheme.paperMuted)
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
         .help("More").accessibilityLabel("More")
@@ -177,6 +177,12 @@ extension FeedPaperView {
         /// The smallest scale of the title of the feed paper before it truncates.
         static let titleMinimumScale: CGFloat = 0.7
         static let headerPadding = EdgeInsets(top: 28, leading: 32, bottom: 0, trailing: 24)
+        static let headerSpacing: CGFloat = 12
+        /// The least space between the title and the items at the end of the header.
+        static let headerGap: CGFloat = 8
+        /// The space between Back to the List and its key.
+        static let backSpacing: CGFloat = 8
+        static let moreGlyph: CGFloat = 16
     }
 }
 
@@ -188,8 +194,16 @@ struct KeyCap: View {
         Text(text)
             .font(PiperTheme.paperUI(.body, weight: .medium))
             .foregroundStyle(PiperTheme.paperMuted)
-            .padding(.horizontal, 7).padding(.vertical, 2)
-            .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(PiperTheme.paperRule, lineWidth: 1))
+            .padding(Metrics.padding)
+            .background(PiperTheme.paper, in: RoundedRectangle(cornerRadius: Metrics.radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Metrics.radius, style: .continuous).strokeBorder(PiperTheme.paperRule, lineWidth: Metrics.border))
+    }
+}
+
+extension KeyCap {
+    enum Metrics {
+        static let padding = EdgeInsets(top: 2, leading: 7, bottom: 2, trailing: 7)
+        static let radius: CGFloat = 7
+        static let border: CGFloat = 1
     }
 }

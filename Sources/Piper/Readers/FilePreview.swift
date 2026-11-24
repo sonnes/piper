@@ -40,14 +40,14 @@ struct FilePreview: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: Metrics.headerSpacing) {
+                VStack(alignment: .leading, spacing: Metrics.titleSpacing) {
                     Text(document.name).font(PiperTheme.paperUI(.heading, weight: .semibold)).lineLimit(1)
                     Text(FilePresentation.typeName(for: document) + " · " +
                          ByteCountFormatter.string(fromByteCount: Int64(document.size), countStyle: .file))
                         .font(PiperTheme.paperUI(.body)).foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 12)
+                Spacer(minLength: Metrics.headerSpacing)
                 if let url {
                     Button("Open in Default App") { NSWorkspace.shared.open(url) }
                     Button { NSWorkspace.shared.activateFileViewerSelecting([url]) } label: {
@@ -55,7 +55,7 @@ struct FilePreview: View {
                     }.help("Reveal in Finder").accessibilityLabel("Reveal in Finder")
                 }
             }
-            .padding(20)
+            .padding(Metrics.headerPadding)
             Rule()
             if let url {
                 if FilePresentation(document) == .text, let text = document.text {
@@ -96,13 +96,13 @@ struct PlainTextPreview: NSViewRepresentable {
         editor.usesFindBar = true
         editor.isHorizontallyResizable = false
         editor.textContainer?.widthTracksTextView = true
-        editor.textContainerInset = NSSize(width: 32, height: 20)
-        editor.font = PiperTheme.manuscript(size: 12.5)
+        editor.textContainerInset = Metrics.textInset
+        editor.font = PiperTheme.manuscript(size: Metrics.fontSize)
         editor.textColor = PiperTheme.paperInkNS
         editor.backgroundColor = PiperTheme.paperNS
         editor.defaultParagraphStyle = {
             let style = NSMutableParagraphStyle()
-            style.lineSpacing = 3
+            style.lineSpacing = Metrics.lineSpacing
             return style
         }()
         editor.setAccessibilityLabel("File text")
@@ -112,6 +112,23 @@ struct PlainTextPreview: NSViewRepresentable {
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         guard let editor = scroll.documentView as? NSTextView, editor.string != text else { return }
         editor.string = text
+    }
+}
+
+extension FilePreview {
+    enum Metrics {
+        /// The header of a file: the name and the type, then the buttons.
+        static let headerSpacing: CGFloat = 12
+        static let titleSpacing: CGFloat = 4
+        static let headerPadding: CGFloat = 20
+    }
+}
+
+extension PlainTextPreview {
+    enum Metrics {
+        static let textInset = NSSize(width: 32, height: 20)
+        static let fontSize: CGFloat = 12.5
+        static let lineSpacing: CGFloat = 3
     }
 }
 

@@ -383,19 +383,27 @@ struct EditorBanner: View {
     }
 
     private func bar(_ text: String, @ViewBuilder actions: () -> some View) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Metrics.spacing) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(PiperTheme.warning)
             Text(text)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 12)
+            Spacer(minLength: Metrics.actionsGap)
             actions()
         }
         .font(PiperTheme.paperUI(.body))
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(Metrics.padding)
         .background(PiperTheme.warningFill)
         .overlay(alignment: .bottom) { Divider() }
+    }
+}
+
+extension EditorBanner {
+    enum Metrics {
+        static let spacing: CGFloat = 10
+        /// The least space between the text of the bar and its buttons.
+        static let actionsGap: CGFloat = 12
+        static let padding = EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
     }
 }

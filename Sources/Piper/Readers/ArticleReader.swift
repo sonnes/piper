@@ -32,9 +32,9 @@ struct ArticleReader: View {
     var body: some View {
         VStack(spacing: 0) {
             if let resume {
-                HStack(spacing: 12) {
+                HStack(spacing: Metrics.resumeSpacing) {
                     Text(resume).foregroundStyle(PiperTheme.paperMuted)
-                    Spacer(minLength: 8)
+                    Spacer(minLength: Metrics.resumeGap)
                     Button("Start from the top") {
                         model.articleTabs.scroll = ReaderScroll(block: 0, in: note.id)
                         self.resume = nil
@@ -167,6 +167,9 @@ extension ArticleReader {
         /// The line over the article that says where it opened.
         static let resumeVerticalPadding: CGFloat = 10
         static let resumeMargin: CGFloat = 40
+        static let resumeSpacing: CGFloat = 12
+        /// The least space between the text of the line and its buttons.
+        static let resumeGap: CGFloat = 8
         /// The wait after the last scroll before Piper saves the position.
         static let positionSaveDelay = Duration.milliseconds(800)
         /// The part of the article above the screen that counts as finished.

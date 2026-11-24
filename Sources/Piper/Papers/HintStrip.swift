@@ -49,6 +49,12 @@ extension HintStrip {
         static let hintHeight: CGFloat = 40
         /// The side margin of the foot of a list over the strip.
         static let footMargin: CGFloat = 20
+        /// The space between two hints, and between the keys and the label of one hint.
+        static let hintSpacing: CGFloat = 20
+        static let keySpacing: CGFloat = 7
+        static let stripPadding = EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
+        /// The plate of paper under the strip.
+        static let plate = PiperTheme.paper.opacity(0.92)
     }
 }
 
@@ -90,15 +96,16 @@ struct Hint: Equatable {
 
 private struct HintStripView: View {
     let marks: DeskMarks
+    private typealias Metrics = HintStrip.Metrics
 
     var body: some View {
         let feed = marks.feedFocused && marks.focusedPaper == nil
         let table = (PaperWindow.focusedWindow as? PaperWindow)?.keys() ?? []
         let commands: [Command] = (feed ? [.newCapture] : []) + (marks.open.isEmpty ? [] : [.nextPaper])
         let hints = Hint.hints(table) + commands.map(Hint.hint)
-        HStack(spacing: 20) {
+        HStack(spacing: Metrics.hintSpacing) {
             ForEach(hints, id: \.label) { hint in
-                HStack(spacing: 7) {
+                HStack(spacing: Metrics.keySpacing) {
                     ForEach(Array(hint.keys.enumerated()), id: \.offset) { index, key in
                         if index > 0 { Text("or").foregroundStyle(PiperTheme.paperFaint) }
                         KeyCap(text: key)
@@ -109,9 +116,9 @@ private struct HintStripView: View {
         }
         .font(PiperTheme.paperUI(.body))
         .foregroundStyle(PiperTheme.paperMuted)
-        .padding(.horizontal, 16).padding(.vertical, 6)
+        .padding(Metrics.stripPadding)
         // The strip lies on the desktop of the user, so it has a plate of paper under it.
-        .background(PiperTheme.paper.opacity(0.92), in: Capsule())
+        .background(Metrics.plate, in: Capsule())
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Keyboard shortcuts")
