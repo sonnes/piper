@@ -123,7 +123,9 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
 
     // MARK: - Keyboard
 
-    /// The keys of the paper. The arrows scroll the Reader tab. H highlights
+    /// The keys of the paper. The arrows and Page Up and Page Down scroll the
+    /// Reader tab, or the scroll view of a paper without a reader page, such
+    /// as the comments of a Hacker News story. H highlights
     /// the selected text and N adds a note to it. An article of a feed takes
     /// K and B as its row on the list does. While the reader page has the
     /// focus, the page reads its own keys and sends back the letters that it
@@ -132,20 +134,47 @@ final class ReaderPaperController: NSWindowController, NSWindowDelegate {
         let reader = { [weak self] in self?.readerPage }
         let page = { reader() != nil }
         let step = ArticleReader.Metrics.arrowScrollStep
+        let scrollView = { [weak self] in self?.window?.contentView.flatMap(PaperScroll.scrollView(in:)) }
+        let native = { reader() == nil && scrollView() != nil }
+        let reduceMotion = reduceMotion
         return [
             PaperKey(key: .up, title: "scroll", isOn: page) { reader()?.call("scroll", -step) },
             PaperKey(key: .down, title: "scroll", isOn: page) { reader()?.call("scroll", step) },
+            PaperKey(key: .pageUp, title: "page up", isOn: page) { reader()?.call("page", -1) },
+            PaperKey(key: .pageDown, title: "page down", isOn: page) { reader()?.call("page", 1) },
+            PaperKey(key: .up, title: "scroll", isOn: native) { scrollView().map { PaperScroll.scroll($0, by: -step, animate: !reduceMotion) } },
+            PaperKey(key: .down, title: "scroll", isOn: native) { scrollView().map { PaperScroll.scroll($0, by: step, animate: !reduceMotion) } },
+            PaperKey(key: .pageUp, title: "page up", isOn: native) { scrollView().map { PaperScroll.page($0, by: -1, animate: !reduceMotion) } },
+            PaperKey(key: .pageDown, title: "page down", isOn: native) { scrollView().map { PaperScroll.page($0, by: 1, animate: !reduceMotion) } },
             PaperKey(key: CommandKey("h", []), title: "highlight", isOn: page) { reader()?.call("key", "h") },
             PaperKey(key: CommandKey("n", []), title: "note", isOn: page) { reader()?.call("key", "n") }
-        ] + PaperKey.articleKeys(actions: model.articleActions) { [weak self] in self?.article } + [
+        ] + PaperKey.articleKeys(actions: model.articleActions) { [weak self] in self?.article } + storyKeys + [
             PaperKey(key: .escape, title: "put back") { [weak self] in self?.window?.performClose(nil) },
             .tidy { [weak self] in self?.tidy() }
         ]
     }
 
+    /// C on a story of the Hacker News tab shows its comments. B on the comments opens
+    /// the page of the story in the browser.
+    private var storyKeys: [PaperKey] {
+        switch item {
+        case .story(let story):
+            return [PaperKey(key: CommandKey("c", []), title: "comments") { [weak self] in self?.desk?.open(.comments(story)) }]
+        case .comments(let story):
+            return [PaperKey(key: CommandKey("b", []), title: "open in browser") { [weak self] in
+                self?.model.articleActions.openOnHackerNews(story)
+            }]
+        default:
+            return []
+        }
+    }
+
     private var article: Article? {
-        guard case .article(let id) = item else { return nil }
-        return model.feeds.article(id)
+        switch item {
+        case .article(let id): return model.feeds.article(id)
+        case .story(let story): return story.article
+        default: return nil
+        }
     }
 
     // MARK: - NSWindowDelegate

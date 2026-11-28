@@ -47,7 +47,7 @@ struct CommandKey: Equatable {
 
     private static let names = [
         " ": "Space", "\u{F700}": "↑", "\u{F701}": "↓", "\u{F702}": "←", "\u{F703}": "→",
-        "\r": "↵", "\u{1B}": "esc", "\u{7F}": "⌫"
+        "\r": "↵", "\u{1B}": "esc", "\u{7F}": "⌫", "\u{F72C}": "⇞", "\u{F72D}": "⇟"
     ]
 
     /// The order of the modifiers in the macOS menus.
@@ -65,7 +65,7 @@ enum Command: CaseIterable {
     case undo, redo, cut, copy, paste, selectAll, find
     case newCapture, addFeed, save, refresh, closeWindow
     case back, forward, goToFile
-    case today, feeds, feedPaper, nextPaper, sessionCard
+    case today, feeds, hackerNews, feedPaper, nextPaper, sessionCard
     case captureClipboard, sendClipboard, toggleFileSource
     case markAllAsRead
 
@@ -90,7 +90,7 @@ enum Command: CaseIterable {
             case .edit: return [[.undo, .redo, .cut, .copy, .paste, .selectAll], [.find]]
             case .file: return [[.newCapture, .addFeed, .markAllAsRead, .save, .refresh], [.closeWindow]]
             case .go: return [[.back, .forward], [.goToFile]]
-            case .window: return [[.today, .feeds, .feedPaper, .nextPaper, .sessionCard]]
+            case .window: return [[.today, .feeds, .hackerNews, .feedPaper, .nextPaper, .sessionCard]]
             }
         }
     }
@@ -120,6 +120,7 @@ enum Command: CaseIterable {
         case .goToFile: return "Go to File…"
         case .today: return "Today"
         case .feeds: return "Feeds"
+        case .hackerNews: return "Hacker News"
         case .feedPaper: return "Feed Paper"
         case .nextPaper: return "Next Paper"
         case .sessionCard: return "Session Card"
@@ -152,6 +153,7 @@ enum Command: CaseIterable {
         case .goToFile: return CommandKey("k")
         case .today: return Self.tabKey(.today)
         case .feeds: return Self.tabKey(.feeds)
+        case .hackerNews: return Self.tabKey(.hackerNews)
         case .feedPaper: return CommandKey("0")
         case .nextPaper: return CommandKey("`")
         case .sessionCard: return CommandKey("c", [.option, .command])
@@ -210,7 +212,7 @@ enum Command: CaseIterable {
         allCases.filter { $0.isInPalette && $0.isEnabled(in: context) }
     }
 
-    /// Today and Feeds always lead the column of tabs, so their numbers do not change.
+    /// Today, Feeds, and Hacker News always lead the column of tabs, so their numbers do not change.
     private static func tabKey(_ tab: PaperTab) -> CommandKey? {
         PaperTab.number(of: tab, in: PaperTab.column(folders: [], showsAgents: false)).map { CommandKey(String($0)) }
     }

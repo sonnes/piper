@@ -16,7 +16,7 @@ Piper shows your captures, your feeds, and your folders on papers. A paper is a 
 
 Piper keeps one or more folders. The folder that you work in is the active folder. Any folder works: Piper needs no index, no frontmatter, and no folder names. See [Wiki files](../concepts/files.md) for the scan rules.
 
-To open the feed paper, press Command-0, or select Feed Paper in the menu bar icon. Command-1 opens it on Today. Command-2 opens it on Feeds.
+To open the feed paper, press Command-0, or select Feed Paper in the menu bar icon. Command-1 opens it on Today. Command-2 opens it on Feeds. Command-3 opens it on Hacker News.
 
 ## Add A Folder
 

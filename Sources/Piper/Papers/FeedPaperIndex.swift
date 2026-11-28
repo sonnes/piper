@@ -27,7 +27,7 @@ struct FeedPaperIndex: View {
                 case .today: todayRows
                 case .feeds: feedRows
                 case .agents: agentRows
-                case .folder: EmptyView()
+                case .folder, .hackerNews: EmptyView()
                 }
             }
             .padding(FeedPaperIndex.Metrics.indexPadding)

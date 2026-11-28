@@ -51,6 +51,8 @@ extension CommandKey {
     static let escape = CommandKey("\u{1B}", [])
     static let delete = CommandKey("\u{7F}", [])
     static let space = CommandKey(" ", [])
+    static let pageUp = CommandKey("\u{F72C}", [])
+    static let pageDown = CommandKey("\u{F72D}", [])
 
     var shifted: CommandKey { CommandKey(character, modifiers.union(.shift)) }
 }

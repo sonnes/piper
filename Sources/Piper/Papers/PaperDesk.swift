@@ -172,6 +172,12 @@ final class PaperDesk {
         paper.showSources()
     }
 
+    /// Shows the Hacker News tab.
+    func showHackerNews() {
+        show()
+        paper.showHackerNews()
+    }
+
     /// Shows Sources with the cursor in its address field.
     func addFeed() {
         show()
@@ -274,7 +280,8 @@ final class PaperDesk {
     /// a file take the size of the Write paper. A short note and a session take less.
     static func kind(of item: PaperItem, model: AppModel) -> PaperKind {
         switch item {
-        case .note, .article: return item.isArticle(in: model) ? .reader : .note
+        case .note, .article, .story: return item.isArticle(in: model) ? .reader : .note
+        case .comments: return .reader
         case .file: return .reader
         case .session, .newSession: return .session
         }
@@ -317,13 +324,13 @@ final class PaperDesk {
     /// What the session card takes as context for an item.
     private func actionTarget(for item: PaperItem) -> SkillTarget {
         switch item {
-        case .note, .article:
+        case .note, .article, .story:
             guard let note = item.note(in: model) else { return .folder }
             return .note(note.id)
         case .file:
             guard let document = model.files.currentDocument else { return .folder }
             return .page(model.library.vault.root.appendingPathComponent(document.relativePath).path)
-        case .session, .newSession:
+        case .comments, .session, .newSession:
             return .folder
         }
     }

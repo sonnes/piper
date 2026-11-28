@@ -1,9 +1,10 @@
 ---
 title: "Read Feeds"
-summary: "Browse your feeds on the Feeds tab, subscribe to RSS, Atom, and JSON feeds on Sources, choose how each feed reaches Today, import NetNewsWire subscriptions, and keep articles"
+summary: "Browse your feeds on the Feeds tab, read Hacker News and its comments on the Hacker News tab, subscribe to RSS, Atom, and JSON feeds on Sources, choose how each feed reaches Today, import NetNewsWire subscriptions, and keep articles"
 read_when:
   - Adding a feed or importing an OPML file
   - Browsing the articles of one feed
+  - Reading Hacker News or the comments of a story
   - Moving from NetNewsWire
   - Choosing how often a feed shows in Today
   - Reading or keeping an article
@@ -23,6 +24,41 @@ The Feeds tab comes after Today on the feed paper. Its index shows Sources first
 To show the Feeds index, click the Feeds tab. Select a feed to show its articles, or select Sources to add and manage feeds.
 
 When the Feeds tab shows a list, the title of the paper is "Feeds › Sources" or "Feeds › " with the title of the feed. To show the index again, press Left Arrow or click the Feeds tab.
+
+## Read Hacker News
+
+The Hacker News tab shows the top 30 stories of the front page of Hacker News, in the order of the front page. Piper keeps the stories in memory until it quits. It saves no story, no comment, and no read mark.
+
+To show the tab, click Hacker News, press Command-3, or choose Window > Hacker News. Piper loads the stories the first time that the tab shows. To load them again, select the refresh button (a circular arrow).
+
+Each row shows the title, the points, the author, and the site of the link. The comment button at the end of the row shows the count of comments.
+
+| Key | Action |
+| --- | --- |
+| Up Arrow, Down Arrow | Move the selection |
+| Return | Open the selected story on a paper |
+| C | Show the comments of the story on a paper |
+| K | Keep the story |
+| B | Open the story in the browser |
+
+Right-click a story for Open as Paper, Show Comments, Keep, Open in Browser, Open on Hacker News, and Copy Link. An Ask HN post has no link, so Return shows its comments.
+
+### Read The Comments
+
+The comments paper shows the story title, the text of an Ask HN post, and the comments as a tree. A reply shows under its parent. A thread line runs down from each comment, past all of its replies. The comments of the author of the story have an OP mark. The top comments have the order of the story page. The replies have the order that hn.algolia.com gives.
+
+- To collapse a comment and its replies, click its thread line, or select the minus button at the top of the line. A collapsed comment shows its count of replies.
+- To expand the comment again, select the plus button.
+- To show the comments from a story paper, select the Comments button, or press C.
+- To open the page of the story on Hacker News, select the Safari button, or press B.
+
+To scroll the comments, press Up Arrow or Down Arrow. To scroll one screen, press Page Up or Page Down.
+
+Piper reads the comments again each time that the comments paper opens.
+
+### Keep A Story
+
+Keep saves the story as a kept link capture. The source of the capture is "Hacker News". Keep is the only way to save a story. Piper also saves the site icons of the rows, as it does for each feed.
 
 ## Open Sources
 

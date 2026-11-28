@@ -72,6 +72,8 @@ final class PaperDeskStateTests: XCTestCase {
             (.folder("/n/a"), .feed("a"), .feeds, .feed("a")),
             (.feeds, .done, .feeds, .sources),
             (.feeds, .feed("a"), .feeds, .feed("a")),
+            (.today, .hackerNews, .hackerNews, .hackerNews),
+            (.hackerNews, .done, .hackerNews, .hackerNews),
         ]
         for (tab, scope, restoredTab, restoredScope) in saved {
             var state = PaperDeskState()
@@ -89,11 +91,11 @@ final class PaperDeskStateTests: XCTestCase {
     func testTheColumnHasTheFixedTabsThenOneTabForEachFolder() {
         let folders = ["/n/a", "/n/b", "/n/c"]
         XCTAssertEqual(PaperTab.column(folders: folders, showsAgents: true),
-                       [.today, .feeds, .agents, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
+                       [.today, .feeds, .hackerNews, .agents, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
         XCTAssertEqual(PaperTab.column(folders: folders, showsAgents: false),
-                       [.today, .feeds, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
+                       [.today, .feeds, .hackerNews, .folder("/n/a"), .folder("/n/b"), .folder("/n/c")])
         let many = (1...12).map { "/n/\($0)" }
-        XCTAssertEqual(PaperTab.column(folders: many, showsAgents: false).count, 14, "The column has no limit.")
+        XCTAssertEqual(PaperTab.column(folders: many, showsAgents: false).count, 15, "The column has no limit.")
         XCTAssertEqual(PaperTab.folder("/n/Field Notes").title, "Field Notes")
     }
 

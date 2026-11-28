@@ -28,6 +28,7 @@ final class CommandTests: XCTestCase {
         let column = PaperTab.column(folders: ["/notes"], showsAgents: true)
         XCTAssertEqual(Command.today.key, CommandKey(String(PaperTab.number(of: .today, in: column) ?? 0)))
         XCTAssertEqual(Command.feeds.key, CommandKey(String(PaperTab.number(of: .feeds, in: column) ?? 0)))
+        XCTAssertEqual(Command.hackerNews.key, CommandKey(String(PaperTab.number(of: .hackerNews, in: column) ?? 0)))
     }
 
     /// The feed paper leaves Command-1 to the menu, so Command-1 shows Today from every paper.
@@ -35,7 +36,8 @@ final class CommandTests: XCTestCase {
         XCTAssertEqual(command(for: try event("1", [.command])), .today)
         XCTAssertEqual(command(for: try event("k", [.command])), .goToFile)
         XCTAssertEqual(command(for: try event("K", [.shift, .command])), .markAllAsRead)
-        XCTAssertNil(command(for: try event("3", [.command])))
+        XCTAssertEqual(command(for: try event("3", [.command])), .hackerNews)
+        XCTAssertNil(command(for: try event("4", [.command])))
     }
 
     func testKeypadEnterIsReturnAndForwardDeleteIsDelete() throws {

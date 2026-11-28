@@ -16,6 +16,7 @@ read_when:
 | Control-Option-W | Save the clipboard to Inbox and open a draft for the default folder, while a folder has Claude skills |
 | Command-1 | Show the feed paper on Today, with the cursor in the capture field. This works from every paper. |
 | Command-2 | Show the feed paper on Feeds, with Sources |
+| Command-3 | Show the feed paper on Hacker News, with the top stories of Hacker News |
 | Shift-Command-N | Add a feed: show Sources with the cursor in its address field |
 | Command-0 | Show the feed paper and the open reader papers |
 | Command-comma | Open Settings |
@@ -79,7 +80,7 @@ In the File list, Up Arrow and Down Arrow choose a place, Return files the rows,
 | Escape | Close the reader paper with the focus. On the feed paper, go from the index back to the list. |
 | Command-` | Move the focus to the next paper |
 | T | Put each reader paper back in its place of the cascade |
-| Command-3 to Command-9 | On the feed paper, show the tab with that number at its first scope, in the order of the column |
+| Command-4 to Command-9 | On the feed paper, show the tab with that number at its first scope, in the order of the column |
 | Left Arrow | On the feed paper, open the index of Today, Feeds, or Agents |
 | Up Arrow / Down Arrow | On the index, move the cursor. In the folder tree, move the cursor through the rows that show. In a list of sessions, select the previous or next row. |
 | Return / Right Arrow | On the index, show the scope at the cursor. Return in a list of sessions opens the row on a paper. |
@@ -91,7 +92,8 @@ In the File list, Up Arrow and Down Arrow choose a place, Return files the rows,
 | Command-K | In the Reader tab, with text selected, ask about the selected text |
 | H | In the Reader tab, highlight the selected text |
 | N | In the Reader tab, write a note on the selected text. Return saves the note. Escape keeps the highlight with no note. |
-| Up Arrow / Down Arrow | In the Reader tab, scroll the article |
+| Up Arrow / Down Arrow | In the Reader tab, scroll the article. On the comments of a Hacker News story, scroll the comments. |
+| Page Up / Page Down | In the Reader tab, or on the comments of a Hacker News story, scroll one screen up or down |
 | Option-Down Arrow / Option-Up Arrow | In the Reader tab, move to the next or the previous mark |
 | Escape | In the Reader tab, close the selection bar |
 

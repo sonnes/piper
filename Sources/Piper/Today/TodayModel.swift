@@ -146,7 +146,7 @@ final class TodayModel {
         case .today(let section):
             let stream = build(lens: lens, section: section, query: query, now: now)
             value = TodayList(stream: stream, groups: stream.groups)
-        case .feed, .sources, .folder, .sessions:
+        case .feed, .sources, .folder, .sessions, .hackerNews:
             value = TodayList(stream: nil, groups: [])
         }
         listCache = (key, value)

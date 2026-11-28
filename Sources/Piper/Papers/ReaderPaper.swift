@@ -16,6 +16,7 @@ struct ReaderPaper: View {
     let close: () -> Void
 
     @Environment(PaperLayout.self) private var layout
+    @Environment(\.paperDesk) private var desk
 
     var body: some View {
         VStack(spacing: 0) {
@@ -76,6 +77,8 @@ struct ReaderPaper: View {
             switch item {
             case .note(let id, _): noteHeader(model.store.notes.first { $0.id == id })
             case .article(let id): articleHeader(model.feeds.article(id))
+            case .story(let story): articleHeader(story.article, story: story)
+            case .comments(let story): commentsHeader(story)
             case .file: fileHeader
             case .session(let id): sessionHeader(model.agents.runner.session(id))
             case .newSession(let folder):
@@ -113,15 +116,35 @@ struct ReaderPaper: View {
         }
     }
 
-    @ViewBuilder private func articleHeader(_ article: Article?) -> some View {
+    /// The header of a comments paper: the count, and buttons that open the story.
+    @ViewBuilder private func commentsHeader(_ story: HackerNews.Story) -> some View {
+        label([HackerNews.title, "\(story.comments) comments"].joined(separator: " · "))
+        PaperToolbar {
+            if story.url != nil {
+                PaperButton(title: "Open Story", symbol: "doc.text", help: "Open the story on a paper") { desk?.open(.story(story)) }
+            }
+            PaperButton(title: "Open on Hacker News", symbol: "safari", help: "Open the page of the story in the browser · B") {
+                model.articleActions.openOnHackerNews(story)
+            }
+            PaperToolbarDivider()
+            closeButton
+        }
+    }
+
+    /// The header of a feed article. A story of the Hacker News tab also has a Comments button.
+    @ViewBuilder private func articleHeader(_ article: Article?, story: HackerNews.Story? = nil) -> some View {
         if let article {
             let feed = model.feeds.feed(article.feedID)
             let kept = model.articleActions.isKept(article)
             if let feed {
                 SiteIcon(favicons: model.favicons, host: feed.host, title: feed.title)
             }
-            label([feed?.title, RowTime.text(article.date)].compactMap { $0 }.joined(separator: " · "))
+            label([model.articleActions.source(of: article), RowTime.text(article.date)].compactMap { $0 }.joined(separator: " · "))
             PaperToolbar {
+                if let story {
+                    PaperButton(title: "Comments", symbol: "bubble.left.and.bubble.right",
+                                help: "Show the \(story.comments) comments · C") { desk?.open(.comments(story)) }
+                }
                 PaperButton(title: kept ? "Kept" : "Keep", symbol: kept ? "star.fill" : "star", tint: PiperTheme.star,
                             help: kept ? "Kept" : "Keep · K") {
                     model.articleActions.keep([article])
@@ -184,6 +207,10 @@ struct ReaderPaper: View {
             } else {
                 EmptyPane(title: "Article Removed", detail: "This article is no longer in its feed.")
             }
+        case .story(let story):
+            FeedArticleDetail(model: model, article: story.article).id(story.id)
+        case .comments(let story):
+            HackerNewsComments(story: story).id(story.id)
         case .file:
             FilePaperContent(files: model.files, cardPresented: model.sessionPresentation == .card)
         case .session(let id):

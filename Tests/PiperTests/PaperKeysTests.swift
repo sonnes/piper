@@ -61,18 +61,39 @@ final class PaperKeysTests: XCTestCase {
 
     // MARK: - Number Keys
 
-    /// Today is Command-1 and Feeds is Command-2, so each folder tab comes after them.
+    /// Today is Command-1, Feeds is Command-2, and Hacker News is Command-3, so each folder tab comes after them.
     func testFeedsIsTheSecondTabAndTheFolderNumbersFollowIt() {
         let tabs = PaperTab.column(folders: ["/notes", "/talks"], showsAgents: false)
-        XCTAssertEqual(tabs, [.today, .feeds, .folder("/notes"), .folder("/talks")])
+        XCTAssertEqual(tabs, [.today, .feeds, .hackerNews, .folder("/notes"), .folder("/talks")])
         XCTAssertEqual(PaperTab.number(of: .today, in: tabs), 1)
         XCTAssertEqual(PaperTab.number(of: .feeds, in: tabs), 2)
-        XCTAssertEqual(PaperTab.number(of: .folder("/notes"), in: tabs), 3)
+        XCTAssertEqual(PaperTab.number(of: .hackerNews, in: tabs), 3)
+        XCTAssertEqual(PaperTab.number(of: .folder("/notes"), in: tabs), 4)
         XCTAssertNil(PaperTab.number(of: .agents, in: tabs))
         let withAgents = PaperTab.column(folders: ["/notes"], showsAgents: true)
-        XCTAssertEqual(withAgents, [.today, .feeds, .agents, .folder("/notes")])
+        XCTAssertEqual(withAgents, [.today, .feeds, .hackerNews, .agents, .folder("/notes")])
         XCTAssertEqual(PaperTab.number(of: .feeds, in: withAgents), 2)
-        XCTAssertEqual(PaperTab.number(of: .folder("/notes"), in: withAgents), 4)
+        XCTAssertEqual(PaperTab.number(of: .folder("/notes"), in: withAgents), 5)
+    }
+
+    // MARK: - Scroll
+
+    func testAScrollStopsAtTheTopAndTheBottomOfTheContent() {
+        XCTAssertEqual(PaperScroll.offset(100, by: 40, content: 1000, visible: 400), 140)
+        XCTAssertEqual(PaperScroll.offset(20, by: -40, content: 1000, visible: 400), 0)
+        XCTAssertEqual(PaperScroll.offset(580, by: 40, content: 1000, visible: 400), 600)
+        XCTAssertEqual(PaperScroll.offset(0, by: 40, content: 300, visible: 400), 0, "Short content does not scroll.")
+    }
+
+    func testAPageMovesMostOfTheVisibleHeight() {
+        XCTAssertEqual(PaperScroll.pageHeight(visible: 800), 680)
+    }
+
+    func testPageUpAndPageDownMatchTheirKeys() throws {
+        XCTAssertTrue(CommandKey.pageDown.matches(try event("\u{F72D}", [])))
+        XCTAssertTrue(CommandKey.pageUp.matches(try event("\u{F72C}", [])))
+        XCTAssertFalse(CommandKey.pageDown.matches(try event("\u{F72C}", [])))
+        XCTAssertEqual(CommandKey.pageDown.glyph, "⇟")
     }
 
     // MARK: - Key Table

@@ -62,22 +62,32 @@ struct PaperRow<Mark: View, Content: View, Actions: View>: View {
     /// The mark, the text, and the time are one element for VoiceOver. The
     /// actions stay separate buttons, so that VoiceOver and Full Keyboard
     /// Access reach each one.
+    /// The actions float over the end of the row, above the text, so the
+    /// text keeps its width and does not move when the pointer comes.
     private var line: some View {
         HStack(alignment: .top, spacing: Metrics.rowSpacing) {
-            HStack(alignment: .top, spacing: Metrics.rowSpacing) {
-                mark().frame(width: Metrics.markColumn, height: Metrics.rowLineHeight)
-                content()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .environment(\.rowLifted, lifted)
-                if !actionsShown { timeLabel }
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
-            .accessibilityValue(lifted ? "On the desk" : "")
-            .accessibilityAction(.default, action)
+            mark().frame(width: Metrics.markColumn, height: Metrics.rowLineHeight)
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .environment(\.rowLifted, lifted)
+            timeLabel.opacity(actionsShown ? 0 : 1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityValue(lifted ? "On the desk" : "")
+        .accessibilityAction(.default, action)
+        .overlay(alignment: .topTrailing) {
             if actionsShown {
                 HStack(spacing: Metrics.rowActionSpacing) { actions() }
                     .frame(minHeight: Metrics.rowLineHeight)
+                    .padding(.horizontal, Metrics.actionsInset)
+                    // The paper under the fill keeps the text under the actions out of sight.
+                    .background {
+                        Capsule().fill(PiperTheme.paper)
+                            .overlay(Capsule().fill(PiperTheme.rowFill(selected: selected, focused: marks?.feedFocused == true,
+                                                                       hovered: hovered)))
+                    }
+                    .shadow(color: PiperTheme.barSoftShadow, radius: Metrics.actionsShadow)
                     .transition(.opacity)
             }
         }
@@ -396,6 +406,9 @@ enum PaperRowMetrics {
     static let listRowPadding = EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 20)
     static let listPadding = EdgeInsets(top: 4, leading: 12, bottom: 8, trailing: 12)
     static let markColumn: CGFloat = 24
+    /// The room at each end of the floating actions of a row.
+    static let actionsInset: CGFloat = 6
+    static let actionsShadow: CGFloat = 6
     static let rowLineHeight: CGFloat = 26
     /// The space between the lines of a title, for a line height of 26.
     static let rowLineSpacing: CGFloat = 4

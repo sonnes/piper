@@ -10,6 +10,10 @@ enum PaperItem: Hashable {
     case note(UUID, show: ReaderTarget? = nil)
     /// A feed article, by its id.
     case article(String)
+    /// A story of the Hacker News tab. Piper saves no copy of it, so the item holds the story.
+    case story(HackerNews.Story)
+    /// The comments of a story of the Hacker News tab.
+    case comments(HackerNews.Story)
     /// The open file of `FileEditor`. Only one file paper exists, because the editor page is shared.
     case file
     case session(UUID)
@@ -33,16 +37,23 @@ extension PaperItem {
             return model.store.notes.first { $0.id == id }
         case .article(let id):
             return model.feeds.article(id).flatMap { Self.keptNote(of: $0, in: model.store) }
-        case .file, .session, .newSession:
+        case .story(let story):
+            return Self.keptNote(of: story.article, in: model.store)
+        case .comments, .file, .session, .newSession:
             return nil
         }
     }
 
-    /// The paper that the item opens. A kept feed article and its link
-    /// capture are one paper.
+    /// The paper that the item opens. A kept feed article or Hacker News story and
+    /// its link capture are one paper.
     func identity(in model: AppModel) -> PaperItem {
-        guard case .article = self, let note = note(in: model) else { return withoutTarget }
-        return .note(note.id)
+        switch self {
+        case .article, .story:
+            guard let note = note(in: model) else { return self }
+            return .note(note.id)
+        default:
+            return withoutTarget
+        }
     }
 
     /// The place where the paper of a link capture opens.
@@ -60,9 +71,9 @@ extension PaperItem {
     /// True when the paper of the item shows an article, which takes H and N.
     func isArticle(in model: AppModel) -> Bool {
         switch self {
-        case .article: return true
+        case .article, .story: return true
         case .note: return note(in: model)?.isArticle == true
-        case .file, .session, .newSession: return false
+        case .comments, .file, .session, .newSession: return false
         }
     }
 }
@@ -140,6 +151,8 @@ final class FeedPaperModel {
     var composerRequest: UUID?
     /// The selection, the search, and the verbs of Today.
     let today: TodayModel
+    /// The stories of the Hacker News tab. They stay while Piper runs, and Piper saves none of them.
+    let hackerNews: HackerNewsModel
     /// The address that Sources looks up when it opens, after a paste of a feed or site address.
     var sourcesAddress: String?
     /// A new value puts the cursor in the address field of Sources.
@@ -161,6 +174,7 @@ final class FeedPaperModel {
         self.model = model
         self.defaults = defaults
         today = TodayModel(model: model)
+        hackerNews = HackerNewsModel()
         savedState = PaperDeskState.restore(from: defaults)
         assignColors()
     }
@@ -182,6 +196,7 @@ final class FeedPaperModel {
         switch tab {
         case .today: return today.counts().open
         case .feeds: return model.feeds.unreadCounts().values.reduce(0, +)
+        case .hackerNews: return 0
         case .agents: return model.agents.runner.folders().reduce(0) { $0 + waitingSessions(in: $1) }
         case .folder(let path): return fileCount(of: path)
         }
@@ -241,6 +256,7 @@ final class FeedPaperModel {
         switch scope {
         case .today, .done: state.tab = .today
         case .feed, .sources: state.tab = .feeds
+        case .hackerNews: state.tab = .hackerNews
         case .folder, .sessions: break
         }
         setScope(scope)
@@ -260,6 +276,11 @@ final class FeedPaperModel {
     func showSources(address: String? = nil) {
         sourcesAddress = address
         pick(.sources)
+    }
+
+    /// Shows the Hacker News tab.
+    func showHackerNews() {
+        pick(.hackerNews)
     }
 
     /// Shows Sources with the cursor in its address field, for Add Feed.

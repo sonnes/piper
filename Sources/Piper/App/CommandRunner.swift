@@ -60,6 +60,7 @@ final class CommandRunner: NSObject {
         case .forward: model.files.navigate(1)
         case .goToFile: showPalette()
         case .feeds: desk.showSources()
+        case .hackerNews: desk.showHackerNews()
         case .feedPaper: desk.show()
         case .nextPaper: desk.cycle()
         case .sessionCard: desk.toggleSessionCard()

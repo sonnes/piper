@@ -818,6 +818,11 @@ mark.q { text-decoration: underline; text-decoration-color: var(--claude); text-
     loading,
     key,
     scroll(by) { scrollBy(0, by); },
+    // One screen down for 1, or up for -1, less a few lines that stay in view.
+    page(direction) {
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      scrollBy({ top: direction * Math.round(innerHeight * 0.85), behavior: reduce ? 'auto' : 'smooth' });
+    },
     render(data) {
       current = data;
       blocks = data.blocks;

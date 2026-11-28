@@ -18,34 +18,37 @@ enum TabColor: String, Codable, CaseIterable, Identifiable {
 
 /// One tab on the left edge of the feed paper.
 ///
-/// Today comes first, then Feeds and Agents. Each folder of the folder list follows
+/// Today comes first, then Feeds, Hacker News, and Agents. Each folder of the folder list follows
 /// them, in the order that the reader added the folders. Each tab has its own color.
 enum PaperTab: Codable, Hashable {
     /// The stream of notes, links, and feed articles.
     case today
     /// The feeds: Sources, where the reader adds a feed, and the articles of each feed.
     case feeds
+    /// The front page of Hacker News. Piper saves none of its stories.
+    case hackerNews
     /// The folders that have agent sessions. The tab shows only while a session exists.
     case agents
     /// A folder of the folder list, by its path in the list.
     case folder(String)
 
     /// The fixed tabs, in the order of the column.
-    static let fixed: [PaperTab] = [.today, .feeds, .agents]
+    static let fixed: [PaperTab] = [.today, .feeds, .hackerNews, .agents]
 
     var title: String {
         switch self {
         case .today: return "Today"
         case .feeds: return "Feeds"
+        case .hackerNews: return "Hacker News"
         case .agents: return "Agents"
         case .folder(let path): return URL(fileURLWithPath: path).lastPathComponent
         }
     }
 
-    /// True for a tab that has an index. A folder shows its tree.
+    /// True for a tab that has an index. A folder shows its tree, and Hacker News shows its stories.
     var hasIndex: Bool {
         switch self {
-        case .folder: return false
+        case .folder, .hackerNews: return false
         case .today, .feeds, .agents: return true
         }
     }
@@ -61,6 +64,7 @@ enum PaperTab: Codable, Hashable {
         switch self {
         case .today: return .indigo
         case .feeds: return .sky
+        case .hackerNews: return .zinc
         case .agents: return .plum
         case .folder(let path): return folders[path] ?? .teal
         }
@@ -92,12 +96,14 @@ enum PaperScope: Codable, Equatable {
     case folder
     /// The sessions of one folder, by its absolute path.
     case sessions(String)
+    /// The front page of Hacker News.
+    case hackerNews
 
     /// True for the scopes that show captures.
     var showsCaptures: Bool {
         switch self {
         case .today, .done: return true
-        case .feed, .sources, .folder, .sessions: return false
+        case .feed, .sources, .folder, .sessions, .hackerNews: return false
         }
     }
 }
@@ -136,6 +142,7 @@ struct PaperDeskState: Codable, Equatable {
         case .feeds: return .sources
         case .agents: return .sessions(sessionFolders.first ?? root)
         case .folder: return .folder
+        case .hackerNews: return .hackerNews
         }
     }
 
@@ -181,13 +188,17 @@ extension PaperDeskState {
     /// Reads a saved state. A key that is missing or that this version cannot
     /// read takes its default, so the rest of the state stays. A feed scope
     /// shows on the Feeds tab, and the Feeds tab shows only a feed scope.
+    /// The Hacker News scope and tab go together in the same way.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         tab = (try? container.decodeIfPresent(PaperTab.self, forKey: .tab)) ?? .today
         scope = (try? container.decodeIfPresent(PaperScope.self, forKey: .scope)) ?? .today(section: nil)
         switch scope {
         case .feed, .sources: tab = .feeds
-        default: if tab == .feeds { scope = .sources }
+        case .hackerNews: tab = .hackerNews
+        default:
+            if tab == .feeds { scope = .sources }
+            if tab == .hackerNews { scope = .hackerNews }
         }
         lens = (try? container.decodeIfPresent(UnifiedStream.Lens.self, forKey: .lens)) ?? .all
         expandedFolders = (try? container.decodeIfPresent([String].self, forKey: .expandedFolders)) ?? []

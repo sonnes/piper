@@ -65,6 +65,8 @@ struct PaperFrames: Codable, Equatable {
         switch item {
         case .note(let id, _): return "note:" + id.uuidString
         case .article(let id): return "article:" + id
+        case .story(let story): return "story:\(story.id)"
+        case .comments(let story): return "comments:\(story.id)"
         case .file: return "file"
         case .session(let id): return "session:" + id.uuidString
         case .newSession(let folder): return "newSession:" + folder

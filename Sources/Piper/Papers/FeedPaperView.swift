@@ -151,6 +151,8 @@ struct FeedPaperView: View {
             FolderTreeView(paper: paper, library: model.library)
         case .sessions(let folder):
             SessionList(model: model, folder: folder, setKeys: { paper.listKeys = $0 })
+        case .hackerNews:
+            HackerNewsList(hackerNews: paper.hackerNews, model: model, setKeys: { paper.listKeys = $0 })
         }
     }
 
@@ -168,6 +170,7 @@ struct FeedPaperView: View {
         case .folder:
             return tab.title
         case .sessions(let folder): return "Agents › " + URL(fileURLWithPath: folder).lastPathComponent
+        case .hackerNews: return HackerNews.title
         }
     }
 }

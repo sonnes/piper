@@ -61,12 +61,17 @@ final class ArticleActions {
         PaperItem.keptNote(of: article, in: store)?.isKept == true
     }
 
+    /// The title of the feed of the article: a saved feed, or Hacker News for a story of the Hacker News tab.
+    func source(of article: Article) -> String? {
+        article.feedID == HackerNews.feedID ? HackerNews.title : feeds.feed(article.feedID)?.title
+    }
+
     /// Adds a kept link capture for each article, with the title of its feed
     /// as the source. Returns the captures, in the order of the articles.
     @discardableResult
     func capture(_ articles: [Article], to section: String? = nil) throws -> [Note] {
         let links = articles.compactMap { article in
-            URL(string: article.url).map { KeptLink(url: $0, title: article.title, source: feeds.feed(article.feedID)?.title) }
+            URL(string: article.url).map { KeptLink(url: $0, title: article.title, source: source(of: article)) }
         }
         return try store.keep(links: links, to: section)
     }
@@ -98,6 +103,12 @@ final class ArticleActions {
     func openAsPaper(_ article: Article) {
         open(.article(article.id))
         markRead([article])
+    }
+
+    /// Opens the page of a story and its comments on Hacker News in the browser.
+    func openOnHackerNews(_ story: HackerNews.Story) {
+        guard let url = URL(string: story.itemURL) else { return }
+        openURL(url)
     }
 
     func copyLink(_ article: Article) {

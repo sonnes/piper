@@ -24,7 +24,7 @@ enum IndexEntry: Equatable {
             return [.scope(.sources)] + feeds.map { .scope(.feed($0)) }
         case .agents:
             return sessionFolders.map { .scope(.sessions($0)) }
-        case .folder:
+        case .folder, .hackerNews:
             return []
         }
     }
