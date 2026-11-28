@@ -290,6 +290,32 @@ private func temporaryDatabase() -> URL {
         #expect(feed.failures == 1)
         #expect(feed.error == "The server answered 404.")
     }
+
+    @Test func refreshAllShowsARoundOfTheFeedsThatReachToday() async throws {
+        let empty = """
+        <?xml version="1.0"?><rss version="2.0"><channel><title>Round A</title></channel></rss>
+        """
+        StubProtocol.serve(["https://round-a.example/feed": .init(status: 200, body: empty),
+                            "https://round-off.example/feed": .init(status: 200, body: rss)])
+        let store = FeedStore(url: temporaryDatabase(), session: StubProtocol.session()) { Issue.record("\($0)") }
+        await store.subscribe(url: "https://round-a.example/feed", title: "A")?.value
+        await store.subscribe(url: "https://round-gone.example/feed", title: "Gone")?.value
+        await store.subscribe(url: "https://round-off.example/feed", title: "Off")?.value
+        store.setMode(.off, of: "https://round-off.example/feed")
+        #expect(store.round == nil)
+
+        StubProtocol.serve(["https://round-a.example/feed": .init(status: 200, body: rss)])
+        let fetch = store.refreshAll()
+        let started = try #require(store.round)
+        #expect(Set(started.feeds) == ["https://round-a.example/feed", "https://round-gone.example/feed"])
+        #expect(!started.isFinished)
+        await fetch.value
+
+        let round = try #require(store.round)
+        #expect(round.isFinished)
+        #expect(round.failed == ["https://round-gone.example/feed"])
+        #expect(round.newPosts == 2)
+    }
 }
 
 @Suite struct OPMLImportTests {

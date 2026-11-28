@@ -126,6 +126,10 @@ A kept article shows in the Kept lens and the Reading lens. Today shows one row 
 
 Piper refreshes each feed every 30 minutes, while Piper is open. Piper refreshes up to 4 feeds at the same time. To refresh all feeds now, show the list of a feed, then select the refresh button (a circular arrow) at the top right.
 
+When Piper opens, it refreshes each feed whose next refresh time is past. While these feeds refresh, Today shows a strip under the lenses, with one icon for each feed. An icon shows in color when the refresh of its feed ends. If a refresh fails, the icon is gray with a red ring. Move the pointer over the icon to read the error.
+
+After the last refresh, the strip shows the count of new posts for about 1 second. If a refresh failed, the strip also shows the name of the feed, or the count of failed feeds. Then the strip closes. The refresh button shows the same strip. A feed in the Off mode is not in the strip.
+
 If a feed fails, its list shows a warning icon. Move the pointer over the icon to read the error. Piper tries again after 30 minutes, and again after 30 more minutes. Then the waits are 2 hours, 8 hours, and 24 hours.
 
 ## Sites You Read Often

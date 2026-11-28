@@ -98,6 +98,7 @@ struct TodayView: View {
             if searchMode { searchField(matches: shown.groups.flatMap(\.items).count) }
             if !isDone { composer }
             if let stream = shown.stream { lenses(stream.counts.lenses) }
+            if !isDone { FetchStrip(feeds: model.feeds, favicons: model.favicons) }
             list(shown)
                 .overlay(alignment: .bottom) { skillList }
                 .overlay(alignment: .bottom) { floating(shown) }
@@ -264,6 +265,8 @@ struct TodayView: View {
                 .padding(.bottom, today.multiple ? Metrics.barHeight + Metrics.barBottom : 0)
             }
             .overlay { if groups.isEmpty && doneToday.isEmpty { empty } }
+            // New posts from a fetch slide in, and posts marked as read slide out.
+            .animation(motion, value: model.feeds.revision)
             .onChange(of: today.anchor) { _, ref in
                 if let ref { withAnimation(motion) { proxy.scrollTo(ref) } }
             }

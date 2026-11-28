@@ -22,6 +22,8 @@ public final class FeedStore {
     public private(set) var suggestions: [Suggestion] = []
     /// The IDs of the feeds that a fetch holds now.
     public private(set) var fetching: Set<String> = []
+    /// The last fetch that started when Piper opened, or after Refresh All.
+    public private(set) var round: FetchRound?
     /// Changes on each write, so a list of articles can read the database again.
     public private(set) var revision = 0
 
@@ -52,7 +54,7 @@ public final class FeedStore {
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshDue() }
         }
-        refreshDue()
+        refresh(feeds.filter { $0.nextFetch <= Date() }, showsRound: true)
     }
 
     // MARK: - Subscriptions
@@ -142,15 +144,20 @@ public final class FeedStore {
     /// when each fetch has saved its result.
     @discardableResult
     public func refreshAll() -> Task<Void, Never> {
-        refresh(feeds)
+        refresh(feeds, showsRound: true)
     }
 
     /// A feed that a fetch holds now is skipped, and its fetch is not part of the task.
+    /// - Parameter showsRound: Starts a new `round` for the feeds whose posts reach Today.
     @discardableResult
-    private func refresh(_ due: [Feed]) -> Task<Void, Never> {
+    private func refresh(_ due: [Feed], showsRound: Bool = false) -> Task<Void, Never> {
         let waiting = due.filter { !fetching.contains($0.id) }
         guard !waiting.isEmpty else { return Task {} }
         fetching.formUnion(waiting.map(\.id))
+        if showsRound {
+            let shown = waiting.filter { $0.mode != .off }.map(\.id)
+            if !shown.isEmpty { round = FetchRound(feeds: shown) }
+        }
         let session = session
         return Task {
             await withTaskGroup(of: (Feed, Swift.Result<FeedFetch.Result, Error>).self) { group in
@@ -175,7 +182,10 @@ public final class FeedStore {
     private func finish(_ old: Feed, _ result: Swift.Result<FeedFetch.Result, Error>) {
         fetching.remove(old.id)
         // The user can remove the feed during the fetch.
-        guard var feed = feed(old.id) else { return }
+        guard var feed = feed(old.id) else {
+            round?.drop(old.id)
+            return
+        }
         let now = Date()
         switch result {
         case .success(.notModified):
@@ -183,6 +193,7 @@ public final class FeedStore {
             feed.error = nil
             feed.nextFetch = FeedFetch.nextFetch(after: 0, now: now)
             write { try $0.save(feed) }
+            round?.end(feed.id, newPosts: 0, failed: false)
         case .success(.fetched(let parsed, let etag, let lastModified)):
             feed.failures = 0
             feed.error = nil
@@ -194,15 +205,18 @@ public final class FeedStore {
                 feed.title = title
             }
             let articles = FeedFetch.articles(of: parsed, feedID: feed.id, now: now)
+            var added = 0
             write { database in
                 try database.save(feed)
-                try database.insert(articles)
+                added = try database.insert(articles)
             }
+            round?.end(feed.id, newPosts: added, failed: false)
         case .failure(let error):
             feed.failures += 1
             feed.error = error.localizedDescription
             feed.nextFetch = FeedFetch.nextFetch(after: feed.failures, now: now)
             write { try $0.save(feed) }
+            round?.end(feed.id, newPosts: 0, failed: true)
         }
     }
 
